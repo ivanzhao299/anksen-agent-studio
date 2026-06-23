@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "imported_at": "2026-06-23T07:30:32.176Z",
+  "imported_at": "2026-06-23T09:38:06.901Z",
   "source": "project_adapter_import_memory",
   "project_id": "jinhu-smart-park",
   "project_name": "Jinhu Smart Park",
@@ -8,7 +8,7 @@
   "project_exists": true,
   "repo_status": {
     "branch": "main",
-    "head": "9e2c5bf chore(orchestrator): refresh runtime memory after external task injection",
+    "head": "c080b9e chore(orchestrator): refresh runtime memory after remote execute",
     "clean": "yes",
     "dirty_files": [],
     "ahead_behind": "0\t0"
@@ -106,28 +106,27 @@
   "queue_summary": {
     "available": "yes",
     "queue_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/queue/task-queue.json",
-    "updated_at": "2026-06-23T07:22:04.307Z",
+    "updated_at": "2026-06-23T09:34:45.498Z",
     "read_model_only": "yes",
     "task_count": 39,
     "status_counts": {
-      "AUDITED": 34,
-      "BLOCKED": 4,
-      "READY": 1
+      "AUDITED": 35,
+      "BLOCKED": 4
     },
     "active_locks": 0,
-    "result_count": 34
+    "result_count": 35
   },
   "event_summary": {
     "available": "yes",
     "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/events",
-    "event_file_count": 175,
+    "event_file_count": 180,
     "event_types": {
       "task.created": 39,
-      "task.claimed": 17,
-      "task.completed": 39,
-      "task.reconciled": 24,
-      "task.integrated": 18,
-      "task.audited": 34,
+      "task.claimed": 18,
+      "task.completed": 40,
+      "task.reconciled": 25,
+      "task.integrated": 19,
+      "task.audited": 35,
       "task.failed": 4
     }
   },
@@ -136,9 +135,9 @@
     "exists": "yes",
     "summary": "present",
     "platform_state": "present",
-    "generated_at": "2026-06-23T07:29:03.437Z",
-    "head_summary": "38275f5 chore(orchestrator): accept external task proposal",
-    "event_count": "175"
+    "generated_at": "2026-06-23T09:35:45.828Z",
+    "head_summary": "002bb91 chore(orchestrator): finalize external task event projection",
+    "event_count": "180"
   },
   "guarded_paths": [
     "apps/**",

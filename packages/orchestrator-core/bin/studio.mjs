@@ -26,6 +26,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs project task-plan --config <file> --text "..." [--dry-run|--apply-proposal]
   node packages/orchestrator-core/bin/studio.mjs project proposals --config <file>
   node packages/orchestrator-core/bin/studio.mjs project approve-proposal --config <file> --task-id <task_id> [--dry-run|--apply --approve-high-risk]
+  node packages/orchestrator-core/bin/studio.mjs project execute --config <file> --task-id <task_id> [--dry-run|--apply --parallel 1]
   node packages/orchestrator-core/bin/studio.mjs skill-route --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
@@ -34,7 +35,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs discovery --target <file> [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs lint-check
 
-Project writes, Agent execution, deploy, and production operations are intentionally disabled in the extraction-stage CLI.`);
+Project execution is available only through explicit project execute --apply. Deploy and production operations remain disabled.`);
 }
 
 function parseArgs(argv) {
@@ -52,7 +53,8 @@ function parseArgs(argv) {
     taskId: "",
     project: DEFAULT_PROJECT,
     config: "",
-    target: ""
+    target: "",
+    parallel: 1
   };
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -71,6 +73,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--task-id") {
       args.taskId = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--parallel") {
+      args.parallel = Number(rest[index + 1] ?? "1");
       index += 1;
     }
   }
@@ -112,6 +117,29 @@ async function execReadOnly(cwd, command, args, timeout = 120000) {
       cwd,
       timeout,
       maxBuffer: 1024 * 1024 * 20
+    });
+    return {
+      ok: true,
+      status: 0,
+      stdout: stdout.trim(),
+      stderr: stderr.trim()
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: typeof error?.code === "number" ? error.code : 1,
+      stdout: String(error?.stdout ?? "").trim(),
+      stderr: String(error?.stderr ?? error?.message ?? "").trim()
+    };
+  }
+}
+
+async function execProjectCommand(cwd, command, args, timeout = 30 * 60 * 1000) {
+  try {
+    const { stdout, stderr } = await execFileAsync(command, args, {
+      cwd,
+      timeout,
+      maxBuffer: 1024 * 1024 * 80
     });
     return {
       ok: true,
@@ -300,6 +328,18 @@ function countTaskStatuses(tasks) {
     statuses[status] = (statuses[status] ?? 0) + 1;
   }
   return statuses;
+}
+
+function queueTasksFromJson(queue) {
+  return Array.isArray(queue) ? queue : (queue.tasks ?? []);
+}
+
+function queueLocksFromJson(locksJson) {
+  return Array.isArray(locksJson) ? locksJson : (locksJson.locks ?? []);
+}
+
+function queueResultsFromJson(resultsJson) {
+  return Array.isArray(resultsJson) ? resultsJson : (resultsJson.results ?? []);
 }
 
 function parseAheadBehind(value) {
@@ -1567,6 +1607,450 @@ async function projectApproveProposal(args) {
   }
 }
 
+function projectExecutionReportsDir(configPath) {
+  return join(dirname(configPath), "execution-reports");
+}
+
+function projectExecutionReportPath(configPath, taskId) {
+  return join(projectExecutionReportsDir(configPath), `${taskId}.md`);
+}
+
+function taskPathMatches(path, pattern) {
+  const normalizedPath = String(path ?? "").replace(/^\/+/, "");
+  const normalizedPattern = String(pattern ?? "").replace(/^\/+/, "").replace(/\/$/, "");
+  if (!normalizedPattern) return false;
+  if (normalizedPattern.endsWith("/**")) {
+    const prefix = normalizedPattern.slice(0, -3);
+    return normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`);
+  }
+  if (normalizedPattern.includes("*")) {
+    const regex = new RegExp(`^${normalizedPattern
+      .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+      .replaceAll("\\*", ".*")}$`);
+    return regex.test(normalizedPath);
+  }
+  return normalizedPath === normalizedPattern || normalizedPath.startsWith(`${normalizedPattern}/`);
+}
+
+function isSystemArtifactPath(path) {
+  return [
+    "ops/agent-orchestrator/events",
+    "ops/agent-orchestrator/queue",
+    "ops/agent-orchestrator/runs",
+    "ops/agent-orchestrator/reports",
+    "ops/agent-orchestrator/results",
+    "ops/agent-orchestrator/runtime"
+  ].some((prefix) => taskPathMatches(path, prefix));
+}
+
+function pathBoundaryViolations(task, changedFiles) {
+  const allowed = task?.allowed_paths ?? [];
+  const forbidden = task?.forbidden_paths ?? [];
+  const outsideAllowed = [];
+  const forbiddenHits = [];
+  for (const file of changedFiles ?? []) {
+    const allowedByTask = allowed.some((pattern) => taskPathMatches(file, pattern));
+    const allowedAsSystemArtifact = isSystemArtifactPath(file);
+    if (!allowedByTask && !allowedAsSystemArtifact) {
+      outsideAllowed.push(file);
+    }
+    if (!allowedByTask && forbidden.some((pattern) => taskPathMatches(file, pattern))) {
+      forbiddenHits.push(file);
+    }
+  }
+  return { outsideAllowed, forbiddenHits };
+}
+
+async function readProjectQueueState(projectPath, config, taskId) {
+  const queuePath = statePath(projectPath, config, "queue", "task-queue.json");
+  const locksPath = statePath(projectPath, config, "queue", "task-locks.json");
+  const resultsPath = statePath(projectPath, config, "queue", "task-results.json");
+  const queue = existsSync(queuePath) ? await readJson(queuePath) : { tasks: [] };
+  const locksJson = existsSync(locksPath) ? await readJson(locksPath) : { locks: [] };
+  const resultsJson = existsSync(resultsPath) ? await readJson(resultsPath) : { results: [] };
+  const tasks = queueTasksFromJson(queue);
+  const locks = queueLocksFromJson(locksJson);
+  const results = queueResultsFromJson(resultsJson);
+  const task = tasks.find((item) => item.task_id === taskId) ?? null;
+  const result = results.find((item) => item.task_id === taskId) ?? null;
+  const activeLocks = locks.filter((lock) => lock.active !== false);
+  const readyTasks = tasks.filter((item) => item.status === "READY");
+  return {
+    queue,
+    locks: locksJson,
+    results: resultsJson,
+    task,
+    result,
+    activeLocks,
+    readyTasks,
+    queuePath,
+    locksPath,
+    resultsPath
+  };
+}
+
+async function taskEventSummary(projectPath, config, taskId) {
+  const files = await listTaskEventFiles(projectPath, config, taskId);
+  const eventTypes = {};
+  let auditStatus = "";
+  for (const file of files) {
+    try {
+      const event = await readJson(file);
+      const type = event.event_type ?? "unknown";
+      eventTypes[type] = (eventTypes[type] ?? 0) + 1;
+      if (type === "task.audited") {
+        auditStatus = event.metadata?.audit_status ?? event.metadata?.status ?? event.status_after ?? auditStatus;
+      }
+    } catch {
+      eventTypes.invalid = (eventTypes.invalid ?? 0) + 1;
+    }
+  }
+  return {
+    files,
+    event_types: eventTypes,
+    audit_status: auditStatus || ""
+  };
+}
+
+async function runLogSummary(projectPath, taskId, owner) {
+  const runLogPath = statePath(projectPath, { state_dir: "ops/agent-orchestrator" }, "runs", `${taskId}-${owner}.run.log`);
+  if (!existsSync(runLogPath)) {
+    return {
+      path: runLogPath,
+      exists: false,
+      exit_code: "missing",
+      started_at: "",
+      finished_at: ""
+    };
+  }
+  const content = await readFile(runLogPath, "utf8");
+  return {
+    path: runLogPath,
+    exists: true,
+    exit_code: content.match(/^exit_code:\s*(.+)$/m)?.[1]?.trim() ?? "unknown",
+    started_at: content.match(/^started_at:\s*(.+)$/m)?.[1]?.trim() ?? "",
+    finished_at: content.match(/^finished_at:\s*(.+)$/m)?.[1]?.trim() ?? ""
+  };
+}
+
+function parseFinalizeResult(output) {
+  const marker = output.lastIndexOf("# FINALIZE RESULT");
+  const block = marker >= 0 ? output.slice(marker) : output;
+  const fields = {};
+  for (const line of block.split("\n")) {
+    const match = line.match(/^([a-zA-Z_ ]+):\s*(.+)$/);
+    if (!match) continue;
+    fields[match[1].trim().replaceAll(" ", "_")] = match[2].trim();
+  }
+  return {
+    found: marker >= 0 || Object.prototype.hasOwnProperty.call(fields, "finalize"),
+    fields
+  };
+}
+
+function assertProjectExecutePrecheck(snapshot, queueState, taskId) {
+  const failures = assertProjectInjectionPrecheck(snapshot);
+  const aheadBehind = parseAheadBehindStrict(snapshot.repo.ahead_behind);
+  const completed = isTaskExecutionComplete(queueState);
+  if (!aheadBehind.clean) {
+    failures.push(`project ahead/behind must be 0/0 before remote execution, got ${snapshot.repo.ahead_behind}`);
+  }
+  if (snapshot.localOrchestrator.doctor_status !== "GO") {
+    failures.push(`project doctor must be GO, got ${snapshot.localOrchestrator.doctor_status}`);
+  }
+  if (!queueState.task) {
+    failures.push(`task not found in project queue: ${taskId}`);
+  } else if (queueState.task.status !== "READY" && !completed) {
+    failures.push(`task must be READY before execution or already DONE/AUDITED, got ${queueState.task.status}`);
+  }
+  const otherReadyTasks = queueState.readyTasks.filter((task) => task.task_id !== taskId);
+  if (otherReadyTasks.length > 0) {
+    failures.push(`refusing to execute because other READY tasks exist: ${otherReadyTasks.map((task) => task.task_id).join(", ")}`);
+  }
+  if (queueState.activeLocks.length > 0 && !completed) {
+    failures.push(`active locks must be 0 before execution, got ${queueState.activeLocks.length}`);
+  }
+  return failures;
+}
+
+function isTaskExecutionComplete(queueState) {
+  const taskStatus = queueState.task?.status;
+  const resultStatus = queueState.result?.status;
+  return ["AUDITED", "DONE"].includes(taskStatus) && resultStatus === "DONE";
+}
+
+function agentCycleCommand(parallel) {
+  return [
+    "ops/agent-orchestrator/scripts/orchestratorctl.mjs",
+    "agent-cycle",
+    "--apply",
+    "--execute",
+    "--push",
+    "--parallel",
+    String(parallel)
+  ];
+}
+
+function finalizeCommand() {
+  return [
+    "ops/agent-orchestrator/scripts/orchestratorctl.mjs",
+    "finalize",
+    "--apply"
+  ];
+}
+
+function stdoutTail(output, lineCount = 80) {
+  const lines = String(output ?? "").split("\n");
+  return lines.slice(Math.max(0, lines.length - lineCount)).join("\n").trim();
+}
+
+async function collectExecutionState(configPath, projectPath, config, taskId, commandResult = null) {
+  const queueState = await readProjectQueueState(projectPath, config, taskId);
+  const owner = queueState.task?.owner ?? "";
+  const events = await taskEventSummary(projectPath, config, taskId);
+  const runLog = owner ? await runLogSummary(projectPath, taskId, owner) : null;
+  const snapshot = await collectProjectSnapshot(configPath);
+  const changedFiles = queueState.result?.changed_files ?? [];
+  const boundary = pathBoundaryViolations(queueState.task, changedFiles);
+  const finalizeResult = commandResult ? parseFinalizeResult(`${commandResult.stdout}\n${commandResult.stderr}`) : { found: false, fields: {} };
+  return {
+    task: queueState.task,
+    result: queueState.result,
+    events,
+    run_log: runLog,
+    doctor_status: snapshot.localOrchestrator.doctor_status,
+    repo_status: snapshot.repo,
+    queue_status_counts: snapshot.queue?.status_counts ?? {},
+    active_locks: snapshot.queue?.active_locks ?? 0,
+    boundary,
+    command: commandResult ? {
+      exit_code: commandResult.status,
+      ok: commandResult.ok,
+      stdout_tail: stdoutTail(commandResult.stdout),
+      stderr_tail: stdoutTail(commandResult.stderr, 40),
+      finalize_result: finalizeResult
+    } : null
+  };
+}
+
+function executionReportContent({ config, configPath, projectPath, taskId, mode, parallel, precheckFailures, commandArgs, state }) {
+  const task = state.task;
+  const result = state.result;
+  const changedFiles = result?.changed_files ?? [];
+  const finalizeFields = state.command?.finalize_result?.fields ?? {};
+  return `# Remote Project Execute Smoke Report
+
+Generated at: ${new Date().toISOString()}
+
+## Summary
+
+- project_id: ${config.project_id}
+- project_path: ${projectPath}
+- config: ${configPath}
+- task_id: ${taskId}
+- mode: ${mode}
+- parallel: ${parallel}
+- orchestrator_command: node ${commandArgs.join(" ")}
+- doctor_status: ${state.doctor_status}
+- repo_branch: ${state.repo_status.branch}
+- repo_head: ${state.repo_status.head}
+- repo_clean: ${state.repo_status.clean}
+- ahead_behind: ${state.repo_status.ahead_behind}
+- active_locks: ${state.active_locks}
+
+## Precheck
+
+${precheckFailures.length === 0 ? "- PASS" : precheckFailures.map((failure) => `- FAIL: ${failure}`).join("\n")}
+
+## Task State
+
+- task_status: ${task?.status ?? "missing"}
+- owner: ${task?.owner ?? "missing"}
+- result_status: ${result?.status ?? "missing"}
+- audit_status: ${state.events.audit_status || (task?.status === "AUDITED" ? "PASS" : "missing")}
+- run_log: ${state.run_log?.path ?? "missing"}
+- run_log_exit_code: ${state.run_log?.exit_code ?? "missing"}
+- event_types: ${JSON.stringify(state.events.event_types)}
+
+## Changed Files
+
+${changedFiles.length === 0 ? "- none" : changedFiles.map((file) => `- ${file}`).join("\n")}
+
+## Boundary Check
+
+- outside_allowed_paths: ${state.boundary.outsideAllowed.length === 0 ? "none" : state.boundary.outsideAllowed.join(", ")}
+- forbidden_path_hits: ${state.boundary.forbiddenHits.length === 0 ? "none" : state.boundary.forbiddenHits.join(", ")}
+- orchestrator_system_artifacts_allowed: ops/agent-orchestrator/events, queue, runs, reports, results, runtime
+
+## Finalize Result
+
+- found: ${state.command?.finalize_result?.found ? "yes" : "no"}
+- finalize: ${finalizeFields.finalize ?? "unknown"}
+- pushed: ${finalizeFields.pushed ?? "unknown"}
+- synced_agents: ${finalizeFields.synced_agents ?? "unknown"}
+- doctor: ${finalizeFields.doctor ?? "unknown"}
+- main_head: ${finalizeFields.main_head ?? "unknown"}
+- main_clean: ${finalizeFields.main_clean ?? "unknown"}
+- agents_clean: ${finalizeFields.agents_clean ?? "unknown"}
+- READY count: ${finalizeFields.READY_count ?? state.queue_status_counts.READY ?? 0}
+- CLAIMED count: ${finalizeFields.CLAIMED_count ?? state.queue_status_counts.CLAIMED ?? 0}
+- active_locks: ${finalizeFields.active_locks ?? state.active_locks}
+
+## Command Output Tail
+
+\`\`\`text
+${state.command?.stdout_tail || "not captured"}
+\`\`\`
+
+## Command Error Tail
+
+\`\`\`text
+${state.command?.stderr_tail || "none"}
+\`\`\`
+
+## Safety
+
+- deploy: not executed by ANKSEN Agent Studio
+- production_operation: not executed by ANKSEN Agent Studio
+- project writes: delegated only to local Jinhu orchestrator agent-cycle
+- report write location: ANKSEN Agent Studio examples project space
+`;
+}
+
+async function writeExecutionReport(configPath, report) {
+  const reportDir = projectExecutionReportsDir(configPath);
+  await mkdir(reportDir, { recursive: true });
+  const reportPath = projectExecutionReportPath(configPath, report.taskId);
+  await writeFile(reportPath, report.content, "utf8");
+  return reportPath;
+}
+
+async function refreshProjectMemoryFromSnapshot(configPath) {
+  const snapshot = await collectProjectSnapshot(configPath);
+  const memory = buildProjectMemory(snapshot);
+  const memoryDir = projectRuntimeMemoryDir(configPath);
+  await writeProjectMemory(memoryDir, memory);
+  return {
+    memoryDir,
+    snapshot,
+    memory
+  };
+}
+
+async function projectExecute(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("project execute requires --dry-run or --apply.");
+  }
+  if (!args.taskId.trim()) {
+    throw new Error("Missing --task-id for project execute.");
+  }
+  const parallel = Number.isInteger(args.parallel) && args.parallel > 0 ? args.parallel : 1;
+  const configPath = resolveMaybeFromRoot(args.config || args.project || DEFAULT_PROJECT);
+  if (!existsSync(configPath)) {
+    throw new Error(`Project config not found: ${configPath}`);
+  }
+  const snapshot = await collectProjectSnapshot(configPath);
+  const queueState = await readProjectQueueState(snapshot.projectPath, snapshot.config, args.taskId);
+  const precheckFailures = assertProjectExecutePrecheck(snapshot, queueState, args.taskId);
+  const commandArgs = agentCycleCommand(parallel);
+  const dryRunCommandArgs = isTaskExecutionComplete(queueState) ? finalizeCommand() : commandArgs;
+
+  if (args.dryRun) {
+    console.log("# Project Remote Execute dry-run");
+    console.log("");
+    console.log(`project_id: ${snapshot.config.project_id}`);
+    console.log(`project_path: ${snapshot.projectPath}`);
+    console.log(`task_id: ${args.taskId}`);
+    console.log(`task_status: ${queueState.task?.status ?? "missing"}`);
+    console.log(`execution_needed: ${isTaskExecutionComplete(queueState) ? "no (already complete)" : "yes"}`);
+    console.log(`owner: ${queueState.task?.owner ?? "missing"}`);
+    console.log(`risk: ${queueState.task?.risk ?? "unknown"}`);
+    console.log(`ready_task_count: ${queueState.readyTasks.length}`);
+    console.log(`active_locks: ${queueState.activeLocks.length}`);
+    console.log(`doctor_status: ${snapshot.localOrchestrator.doctor_status}`);
+    console.log(`repo_branch: ${snapshot.repo.branch}`);
+    console.log(`repo_clean: ${snapshot.repo.clean}`);
+    console.log(`ahead_behind: ${snapshot.repo.ahead_behind}`);
+    console.log(`would_run: node ${dryRunCommandArgs.join(" ")}`);
+    console.log(`parallel: ${parallel}`);
+    console.log(`precheck: ${precheckFailures.length === 0 ? "PASS" : "FAIL"}`);
+    for (const failure of precheckFailures) console.log(`- precheck_failure: ${failure}`);
+    console.log("agent_execution: disabled in dry-run");
+    console.log("deploy: disabled");
+    console.log("production_operations: disabled");
+    return;
+  }
+
+  if (precheckFailures.length > 0) {
+    throw new Error(`Project remote execute precheck failed: ${precheckFailures.join("; ")}`);
+  }
+
+  const alreadyComplete = isTaskExecutionComplete(queueState);
+  const effectiveCommandArgs = alreadyComplete ? finalizeCommand() : commandArgs;
+
+  console.log("# Project Remote Execute apply");
+  console.log("");
+  console.log(`project_id: ${snapshot.config.project_id}`);
+  console.log(`project_path: ${snapshot.projectPath}`);
+  console.log(`task_id: ${args.taskId}`);
+  console.log(`owner: ${queueState.task?.owner ?? "unknown"}`);
+  console.log(`parallel: ${parallel}`);
+  console.log(`command: node ${effectiveCommandArgs.join(" ")}`);
+  console.log(`execution_needed: ${alreadyComplete ? "no (already complete)" : "yes"}`);
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("");
+
+  const commandResult = await execProjectCommand(snapshot.projectPath, process.execPath, effectiveCommandArgs);
+  const state = await collectExecutionState(configPath, snapshot.projectPath, snapshot.config, args.taskId, commandResult);
+  const reportContent = executionReportContent({
+    config: snapshot.config,
+    configPath,
+    projectPath: snapshot.projectPath,
+    taskId: args.taskId,
+    mode: "apply",
+    parallel,
+    precheckFailures,
+    commandArgs: effectiveCommandArgs,
+    state
+  });
+  const reportPath = await writeExecutionReport(configPath, { taskId: args.taskId, content: reportContent });
+  const memoryRefresh = await refreshProjectMemoryFromSnapshot(configPath);
+
+  console.log(`command_exit_code: ${commandResult.status}`);
+  console.log(`command_success: ${commandResult.ok ? "yes" : "no"}`);
+  console.log(`report_file: ${reportPath}`);
+  console.log(`memory_refreshed: ${memoryRefresh.memoryDir}`);
+  console.log(`doctor_status: ${state.doctor_status}`);
+  console.log(`task_status: ${state.task?.status ?? "missing"}`);
+  console.log(`result_status: ${state.result?.status ?? "missing"}`);
+  console.log(`audit_status: ${state.events.audit_status || (state.task?.status === "AUDITED" ? "PASS" : "missing")}`);
+  console.log(`run_log: ${state.run_log?.path ?? "missing"}`);
+  console.log(`run_log_exit_code: ${state.run_log?.exit_code ?? "missing"}`);
+  console.log(`boundary_outside_allowed: ${state.boundary.outsideAllowed.length === 0 ? "none" : state.boundary.outsideAllowed.join(", ")}`);
+  console.log(`boundary_forbidden_hits: ${state.boundary.forbiddenHits.length === 0 ? "none" : state.boundary.forbiddenHits.join(", ")}`);
+  console.log(`finalize_result: ${state.command?.finalize_result?.fields?.finalize ?? "unknown"}`);
+
+  if (!commandResult.ok) {
+    throw new Error(`Project agent-cycle failed with exit code ${commandResult.status}. See ${reportPath}`);
+  }
+  if (state.doctor_status !== "GO") {
+    throw new Error(`Project doctor is ${state.doctor_status}; remote execute is not complete. See ${reportPath}`);
+  }
+  if (state.task?.status !== "AUDITED" && state.task?.status !== "DONE") {
+    throw new Error(`Task status is ${state.task?.status ?? "missing"}; expected DONE/AUDITED. See ${reportPath}`);
+  }
+  if (state.result?.status !== "DONE") {
+    throw new Error(`Task result status is ${state.result?.status ?? "missing"}; expected DONE. See ${reportPath}`);
+  }
+  if (state.events.audit_status && state.events.audit_status !== "PASS") {
+    throw new Error(`Task audit status is ${state.events.audit_status}; expected PASS. See ${reportPath}`);
+  }
+  if (state.boundary.outsideAllowed.length > 0 || state.boundary.forbiddenHits.length > 0) {
+    throw new Error(`Task boundary check failed. See ${reportPath}`);
+  }
+}
+
 async function runtimeMemory() {
   const docs = await countFiles(resolveFromRoot("docs/release"));
   const schemas = await countFiles(resolveFromRoot("packages"));
@@ -1642,6 +2126,7 @@ async function main() {
   if (args.command === "project" && args.subcommand === "task-plan") return projectTaskPlan(args);
   if (args.command === "project" && args.subcommand === "proposals") return projectProposals(args);
   if (args.command === "project" && args.subcommand === "approve-proposal") return projectApproveProposal(args);
+  if (args.command === "project" && args.subcommand === "execute") return projectExecute(args);
   if (args.command === "skill-route") {
     if (!args.text.trim()) throw new Error("Missing --text for skill-route.");
     console.log(JSON.stringify(await loadSkillRoute(args.text), null, 2));
