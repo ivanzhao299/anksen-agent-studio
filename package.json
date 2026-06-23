@@ -5,10 +5,11 @@
   "description": "Standalone ANKSEN Agent Studio platform workspace.",
   "type": "module",
   "scripts": {
-    "typecheck": "pnpm -r --if-present typecheck"
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint:check": "node packages/orchestrator-core/bin/studio.mjs lint-check",
+    "studio:doctor": "node packages/orchestrator-core/bin/studio.mjs doctor --project examples/jinhu-smart-park/project.config.example.json --dry-run"
   },
   "devDependencies": {
     "typescript": "^5.5.4"
   }
 }
-

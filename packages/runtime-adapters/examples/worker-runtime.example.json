@@ -1,0 +1,13 @@
+{
+  "runtime_id": "codex-cli-local",
+  "runtime_type": "codex-cli",
+  "execution_mode": "guarded-apply",
+  "supports_parallel": true,
+  "max_parallel": 2,
+  "safety": {
+    "deploy": "forbidden",
+    "production_operations": "forbidden",
+    "approval_policy": "external_runtime"
+  }
+}
+

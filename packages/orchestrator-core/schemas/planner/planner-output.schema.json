@@ -1,0 +1,388 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jinhu-smart-park.local/ops/agent-orchestrator/planner/planner-output.schema.json",
+  "title": "Agent Orchestrator Planner Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "planner_output_id",
+    "source_goal_id",
+    "req_summary",
+    "tech_summary",
+    "tasks",
+    "agent_assignments",
+    "risk_assessment",
+    "validation_commands",
+    "expected_outputs",
+    "created_at"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "planner_output_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_goal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "req_summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "tech_summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/taskCandidate"
+      }
+    },
+    "agent_assignments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/agentAssignment"
+      }
+    },
+    "risk_assessment": {
+      "$ref": "#/$defs/riskAssessment"
+    },
+    "validation_commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "expected_outputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/expectedOutput"
+      }
+    },
+    "dispatch_plan": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/dispatchPlanItem"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "agent": {
+      "type": "string",
+      "enum": [
+        "agent-1",
+        "agent-2",
+        "agent-3",
+        "agent-4",
+        "agent-5"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "P0",
+        "P1",
+        "P2",
+        "P3"
+      ]
+    },
+    "taskStatus": {
+      "type": "string",
+      "enum": [
+        "READY"
+      ]
+    },
+    "riskLevel": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "body",
+        "non_goals"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1
+        },
+        "non_goals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "taskCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "batch_id",
+        "source_goal_id",
+        "title",
+        "owner",
+        "owner_assignment_reason",
+        "domain",
+        "priority",
+        "status",
+        "risk",
+        "skill_type",
+        "skill_id",
+        "runtime",
+        "expected_output_type",
+        "skill_route_reason",
+        "allowed_paths",
+        "forbidden_paths",
+        "acceptance",
+        "validation_commands",
+        "requires_human_approval",
+        "expected_output_files",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "batch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_goal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "$ref": "#/$defs/agent"
+        },
+        "owner_assignment_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "priority": {
+          "$ref": "#/$defs/priority"
+        },
+        "status": {
+          "$ref": "#/$defs/taskStatus"
+        },
+        "risk": {
+          "$ref": "#/$defs/riskLevel"
+        },
+        "skill_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "skill_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_output_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "skill_route_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allowed_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "forbidden_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "acceptance": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "validation_commands": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "requires_human_approval": {
+          "type": "boolean"
+        },
+        "expected_output_files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "agentAssignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent",
+        "task_ids",
+        "reason"
+      ],
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/agent"
+        },
+        "task_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "riskAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overall_risk",
+        "requires_human_approval",
+        "blocked_paths",
+        "notes"
+      ],
+      "properties": {
+        "overall_risk": {
+          "$ref": "#/$defs/riskLevel"
+        },
+        "requires_human_approval": {
+          "type": "boolean"
+        },
+        "blocked_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "notes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "expectedOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "path"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "dispatchPlanItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "owner",
+        "mode"
+      ],
+      "properties": {
+        "owner": {
+          "$ref": "#/$defs/agent"
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

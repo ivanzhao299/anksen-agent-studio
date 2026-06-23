@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/worker-runtime.schema.json",
+  "title": "ANKSEN Agent Studio Worker Runtime",
+  "type": "object",
+  "required": ["runtime_id", "runtime_type", "execution_mode", "supports_parallel"],
+  "properties": {
+    "runtime_id": {
+      "type": "string"
+    },
+    "runtime_type": {
+      "type": "string",
+      "enum": ["codex-cli", "claude-code", "browser", "hosted-runner", "manual"]
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": ["dry-run", "guarded-apply", "manual"]
+    },
+    "supports_parallel": {
+      "type": "boolean"
+    },
+    "max_parallel": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": true
+}
+

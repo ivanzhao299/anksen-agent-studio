@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/runtime-memory.schema.json",
+  "title": "ANKSEN Agent Studio Runtime Memory",
+  "type": "object",
+  "required": ["schema_version", "memory_kind", "generated_at", "source_fingerprint"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "memory_kind": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "source_fingerprint": {
+      "type": "object",
+      "required": ["aggregate_sha256"],
+      "properties": {
+        "aggregate_sha256": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
+

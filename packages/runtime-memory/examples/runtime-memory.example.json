@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "memory_kind": "platform_state",
+  "generated_at": "2026-06-23T00:00:00.000Z",
+  "source_fingerprint": {
+    "aggregate_sha256": "example"
+  },
+  "project": "example-project",
+  "status": "EXAMPLE_ONLY"
+}
+

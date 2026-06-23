@@ -1,0 +1,32 @@
+{
+  "source_goal_id": "GOAL-EXAMPLE",
+  "req_summary": "Example goal converted into a reviewable platform task plan.",
+  "tech_summary": "Use project connector, skill router, and event-first queue contracts.",
+  "tasks": [
+    {
+      "task_id": "EXAMPLE-TASK-001",
+      "title": "Validate extracted orchestrator core contracts",
+      "owner": "agent-2",
+      "priority": "P1",
+      "risk": "LOW",
+      "allowed_paths": ["docs/**", "packages/**"],
+      "forbidden_paths": ["apps/**", "database/**", "infra/**"],
+      "acceptance": ["Dry-run CLI returns a valid plan."],
+      "validation_commands": ["pnpm typecheck", "pnpm studio:doctor"]
+    }
+  ],
+  "agent_assignments": [
+    {
+      "task_id": "EXAMPLE-TASK-001",
+      "owner": "agent-2",
+      "reason": "Validation and compatibility lane."
+    }
+  ],
+  "risk_assessment": {
+    "overall": "LOW",
+    "notes": ["Example only; no project write operations."]
+  },
+  "validation_commands": ["pnpm typecheck", "pnpm studio:doctor"],
+  "expected_outputs": ["CLI dry-run summary"]
+}
+

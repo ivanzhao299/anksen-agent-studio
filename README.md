@@ -2,7 +2,7 @@
 
 ANKSEN Agent Studio is the standalone platform workspace for goal-driven agent orchestration, project runtime memory, skill routing, resident observation, discovery, and future console operations.
 
-This repository starts as a platform skeleton. It does not contain Jinhu Smart Park business code and does not migrate logic from `jinhu-smart-park` yet.
+This repository starts as a platform skeleton plus reusable core contracts. It does not contain Jinhu Smart Park business code, project task evidence, queue state, events, run logs, reports, or runtime evidence.
 
 ## Workspace Layout
 
@@ -42,11 +42,23 @@ anksen-agent-studio/
 ```bash
 pnpm install
 pnpm typecheck
+pnpm lint:check
+pnpm studio:doctor
+```
+
+Useful dry-run CLI examples:
+
+```bash
+node packages/orchestrator-core/bin/studio.mjs skill-route --text "生成一份推进方案 Word 文件" --dry-run
+node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "继续把 Agent Studio 提升到 99%" --dry-run
+node packages/orchestrator-core/bin/studio.mjs discovery --target packages/discovery-engine/examples/discovery-target.example.json --dry-run
+node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
 ```
 
 ## Safety Rules
 
-- Do not import or copy business code from `jinhu-smart-park` in this bootstrap phase.
+- Do not import or copy business code from `jinhu-smart-park`.
+- Do not copy project evidence such as `events/**`, `queue/*.json`, `runs/**`, `reports/**`, `results/**`, or runtime memory snapshots.
 - Do not deploy.
 - Do not run production migration, seed, reset, cleanup, or production operations.
 - Treat project repositories as external adapters accessed through explicit `project.config` files.
@@ -54,4 +66,3 @@ pnpm typecheck
 ## Bootstrap Status
 
 This first commit establishes the workspace skeleton, package boundaries, and one example project connector for `jinhu-smart-park`.
-
