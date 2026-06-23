@@ -3,7 +3,7 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
@@ -33,6 +33,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs observe [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs evolution-plan [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs discovery --target <file> [--dry-run]
+  node packages/orchestrator-core/bin/studio.mjs autopilot --goal "..." [--dry-run|--apply --max-steps 1]
   node packages/orchestrator-core/bin/studio.mjs lint-check
 
 Project execution is available only through explicit project execute --apply. Deploy and production operations remain disabled.`);
@@ -50,17 +51,22 @@ function parseArgs(argv) {
     approveHighRisk: rest.includes("--approve-high-risk"),
     summary: rest.includes("--summary"),
     text: "",
+    goal: "",
     taskId: "",
     project: DEFAULT_PROJECT,
     config: "",
     target: "",
-    parallel: 1
+    parallel: 1,
+    maxSteps: 1
   };
 
   for (let index = 0; index < rest.length; index += 1) {
     const arg = rest[index];
     if (arg === "--text") {
       args.text = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--goal") {
+      args.goal = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--project") {
       args.project = rest[index + 1] ?? "";
@@ -76,6 +82,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--parallel") {
       args.parallel = Number(rest[index + 1] ?? "1");
+      index += 1;
+    } else if (arg === "--max-steps") {
+      args.maxSteps = Number(rest[index + 1] ?? "1");
       index += 1;
     }
   }
@@ -2111,6 +2120,335 @@ async function discovery(args) {
   console.log("real_crawling: disabled");
 }
 
+function relativePath(path) {
+  return relative(repoRoot, path).replaceAll("\\", "/");
+}
+
+async function readTextIfExists(path) {
+  if (!existsSync(path)) return "";
+  return readFile(path, "utf8");
+}
+
+async function readJsonIfExists(path) {
+  if (!existsSync(path)) return null;
+  try {
+    return await readJson(path);
+  } catch {
+    return null;
+  }
+}
+
+async function listFilesSafe(path) {
+  if (!existsSync(path)) return [];
+  return listFiles(path);
+}
+
+function summarizeFiles(files) {
+  return files.map((file) => relativePath(file)).sort();
+}
+
+function latestFile(files) {
+  const sorted = [...files].sort();
+  return sorted[sorted.length - 1] ?? "";
+}
+
+async function collectAutopilotContext(goal) {
+  const readmePath = resolveFromRoot("README.md");
+  const releaseDocs = await listFilesSafe(resolveFromRoot("docs/release"));
+  const runtimeMemoryFiles = await listFilesSafe(resolveFromRoot("examples/jinhu-smart-park/runtime-memory"));
+  const proposalFiles = await listFilesSafe(resolveFromRoot("examples/jinhu-smart-park/task-proposals"));
+  const executionReportFiles = await listFilesSafe(resolveFromRoot("examples/jinhu-smart-park/execution-reports"));
+  const packageEvidenceFiles = (await listFilesSafe(resolveFromRoot("packages")))
+    .filter((file) => file.includes("/schemas/") || file.includes("/examples/"));
+  const projectState = await readJsonIfExists(resolveFromRoot("examples/jinhu-smart-park/runtime-memory/project-state.json"));
+  const agentStudioStatus = await readJsonIfExists(resolveFromRoot("examples/jinhu-smart-park/runtime-memory/agent-studio-status.json"));
+  const runtimeProviders = await readJsonIfExists(resolveFromRoot("packages/runtime-center/examples/runtime-providers.example.json"));
+  const runtimeProfiles = await readJsonIfExists(resolveFromRoot("packages/runtime-center/examples/runtime-profiles.example.json"));
+
+  const releaseDocNames = summarizeFiles(releaseDocs);
+  const extractionCompleted = releaseDocNames.includes("docs/release/ANKSEN_AGENT_STUDIO_EXTRACTION_CLOSURE_REPORT.md");
+  const remoteExecuteCompleted = executionReportFiles.some((file) => file.endsWith(".md"));
+  const runtimeCenterExists = existsSync(resolveFromRoot("packages/runtime-center"))
+    && releaseDocNames.includes("docs/release/AGENT_RUNTIME_CENTER_PRD.md");
+
+  return {
+    goal,
+    readme: {
+      path: "README.md",
+      present: existsSync(readmePath),
+      sha256: createHash("sha256").update(await readTextIfExists(readmePath)).digest("hex").slice(0, 16)
+    },
+    docs: {
+      release_count: releaseDocs.length,
+      release_files: releaseDocNames,
+      v4_roadmap_present: releaseDocNames.includes("docs/release/AGENT_STUDIO_V4_ROADMAP.md"),
+      runtime_center_prd_present: releaseDocNames.includes("docs/release/AGENT_RUNTIME_CENTER_PRD.md")
+    },
+    managed_project: {
+      runtime_memory_files: summarizeFiles(runtimeMemoryFiles),
+      task_proposals: summarizeFiles(proposalFiles.filter((file) => file.endsWith(".json"))),
+      execution_reports: summarizeFiles(executionReportFiles),
+      project_state: {
+        imported_at: projectState?.imported_at ?? "unknown",
+        doctor_status: projectState?.local_orchestrator_status?.doctor_status
+          ?? agentStudioStatus?.local_orchestrator_status?.doctor_status
+          ?? "unknown",
+        repo_clean: projectState?.repo_status?.clean ?? "unknown",
+        queue_status_counts: projectState?.queue_summary?.status_counts ?? {},
+        event_file_count: projectState?.event_summary?.event_file_count ?? "unknown"
+      }
+    },
+    packages: {
+      schema_or_example_count: packageEvidenceFiles.length,
+      schema_or_example_files: summarizeFiles(packageEvidenceFiles),
+      runtime_center_exists: runtimeCenterExists,
+      runtime_providers: runtimeProviders?.providers?.map((provider) => provider.provider_id) ?? [],
+      runtime_profiles: runtimeProfiles?.profiles?.map((profile) => profile.runtime_id) ?? []
+    },
+    stage: {
+      extraction_completed: extractionCompleted,
+      remote_execute_completed: remoteExecuteCompleted,
+      next_stage: "V4-I Agent Runtime Center",
+      runtime_center_bootstrapped: runtimeCenterExists
+    },
+    evidence: {
+      latest_execution_report: relativePath(latestFile(executionReportFiles)),
+      latest_task_proposal: relativePath(latestFile(proposalFiles.filter((file) => file.endsWith(".json"))))
+    }
+  };
+}
+
+function buildAutopilotAction(context) {
+  const runtimeCenterBootstrapped = context.stage.runtime_center_bootstrapped;
+  const runtimeProfiles = context.packages.runtime_profiles;
+  const runtimeProviders = context.packages.runtime_providers;
+  const hasProfiles = runtimeProfiles.length >= 6;
+  const hasProviders = runtimeProviders.length >= 6;
+
+  if (!runtimeCenterBootstrapped || !hasProfiles || !hasProviders) {
+    return {
+      title: "Bootstrap V4-I Agent Runtime Center MVP",
+      reason: "Extraction and Remote Execute are complete; Runtime Center is the next V4 platform capability and must define providers, runtime profiles, credential references, and dry-run health checks.",
+      target_package: "packages/runtime-center",
+      expected_files: [
+        "packages/runtime-center/schemas/runtime-provider.schema.json",
+        "packages/runtime-center/schemas/runtime-profile.schema.json",
+        "packages/runtime-center/schemas/credential_reference.schema.json",
+        "packages/runtime-center/examples/runtime-providers.example.json",
+        "packages/runtime-center/examples/runtime-profiles.example.json",
+        "packages/runtime-center/bin/runtime-health-check.mjs",
+        "docs/release/AGENT_RUNTIME_CENTER_PRD.md"
+      ],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/runtime-center/bin/runtime-health-check.mjs --dry-run",
+        "git diff --check"
+      ],
+      risk: "MEDIUM",
+      approval_required: false,
+      execution_mode: "proposal_only"
+    };
+  }
+
+  return {
+    title: "Harden V4-I Agent Runtime Center routing and health gates",
+    reason: "Runtime Center MVP exists; the next safe V4 action is to turn provider/profile metadata into runtime selection and health gate evidence before any active runtime execution.",
+    target_package: "packages/runtime-center",
+    expected_files: [
+      "packages/runtime-center/bin/runtime-health-check.mjs",
+      "packages/runtime-center/examples/runtime-profiles.example.json",
+      "packages/skill-router/registry/skill-registry.json",
+      "docs/release/AGENT_RUNTIME_CENTER_PRD.md",
+      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/runtime-center/bin/runtime-health-check.mjs --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs autopilot --goal \"继续推进 V4\" --dry-run",
+      "git diff --check"
+    ],
+    risk: "MEDIUM",
+    approval_required: false,
+    execution_mode: "proposal_only"
+  };
+}
+
+function buildAutopilotRun(goal, context, action, mode, maxSteps) {
+  const now = new Date().toISOString();
+  const runId = `autopilot-${timestampForFile(now)}-${createHash("sha1").update(`${goal}:${now}`).digest("hex").slice(0, 8)}`;
+  const stopCondition = maxSteps >= 1
+    ? "STOP: max_steps=1 reached after generating one supervised action. No Agent, deploy, production operation, or managed-project write was executed."
+    : "STOP: no steps allowed.";
+  return {
+    schema_version: 1,
+    run_id: runId,
+    created_at: now,
+    mode,
+    goal,
+    max_steps: maxSteps,
+    current_stage: context.stage,
+    context_summary: {
+      release_doc_count: context.docs.release_count,
+      runtime_memory_file_count: context.managed_project.runtime_memory_files.length,
+      task_proposal_count: context.managed_project.task_proposals.length,
+      execution_report_count: context.managed_project.execution_reports.length,
+      schema_or_example_count: context.packages.schema_or_example_count,
+      runtime_provider_count: context.packages.runtime_providers.length,
+      runtime_profile_count: context.packages.runtime_profiles.length,
+      managed_project_doctor: context.managed_project.project_state.doctor_status
+    },
+    action,
+    safety: {
+      apply_writes: mode === "apply" ? "autopilot-runs only" : "none",
+      agent_execution: "disabled",
+      managed_project_writes: "disabled",
+      deploy: "disabled",
+      production_operations: "disabled",
+      high_risk_policy: "HIGH risk actions require approval gate and are not auto-executed"
+    },
+    stop_condition: stopCondition,
+    evidence: context.evidence
+  };
+}
+
+function autopilotRunMarkdown(run) {
+  const action = run.action;
+  return `# Autopilot Supervisor Run
+
+- run_id: ${run.run_id}
+- created_at: ${run.created_at}
+- mode: ${run.mode}
+- goal: ${run.goal}
+- max_steps: ${run.max_steps}
+
+## Current Stage
+
+- extraction_completed: ${run.current_stage.extraction_completed ? "yes" : "no"}
+- remote_execute_completed: ${run.current_stage.remote_execute_completed ? "yes" : "no"}
+- next_stage: ${run.current_stage.next_stage}
+- runtime_center_bootstrapped: ${run.current_stage.runtime_center_bootstrapped ? "yes" : "no"}
+
+## Context Summary
+
+- release_doc_count: ${run.context_summary.release_doc_count}
+- runtime_memory_file_count: ${run.context_summary.runtime_memory_file_count}
+- task_proposal_count: ${run.context_summary.task_proposal_count}
+- execution_report_count: ${run.context_summary.execution_report_count}
+- schema_or_example_count: ${run.context_summary.schema_or_example_count}
+- runtime_provider_count: ${run.context_summary.runtime_provider_count}
+- runtime_profile_count: ${run.context_summary.runtime_profile_count}
+- managed_project_doctor: ${run.context_summary.managed_project_doctor}
+
+## Next Action
+
+- title: ${action.title}
+- reason: ${action.reason}
+- target_package: ${action.target_package}
+- risk: ${action.risk}
+- approval_required: ${action.approval_required ? "yes" : "no"}
+- execution_mode: ${action.execution_mode}
+
+### Expected Files
+
+${action.expected_files.map((file) => `- ${file}`).join("\n")}
+
+### Validation Commands
+
+${action.validation_commands.map((command) => `- ${command}`).join("\n")}
+
+## Safety
+
+- apply_writes: ${run.safety.apply_writes}
+- agent_execution: ${run.safety.agent_execution}
+- managed_project_writes: ${run.safety.managed_project_writes}
+- deploy: ${run.safety.deploy}
+- production_operations: ${run.safety.production_operations}
+- high_risk_policy: ${run.safety.high_risk_policy}
+
+## Stop Condition
+
+${run.stop_condition}
+`;
+}
+
+async function writeAutopilotRun(run) {
+  const dir = resolveFromRoot("autopilot-runs");
+  await mkdir(dir, { recursive: true });
+  const jsonPath = join(dir, `${run.run_id}.json`);
+  const markdownPath = join(dir, `${run.run_id}.md`);
+  await writeFile(jsonPath, `${JSON.stringify(run, null, 2)}\n`, "utf8");
+  await writeFile(markdownPath, autopilotRunMarkdown(run), "utf8");
+  return { jsonPath, markdownPath };
+}
+
+function printAutopilot(run, files = null) {
+  console.log(`# Autopilot Supervisor ${run.mode}`);
+  console.log("");
+  console.log(`goal: ${run.goal}`);
+  console.log(`run_id: ${run.run_id}`);
+  console.log(`max_steps: ${run.max_steps}`);
+  console.log("");
+  console.log("current_stage:");
+  console.log(`- extraction_completed: ${run.current_stage.extraction_completed ? "yes" : "no"}`);
+  console.log(`- remote_execute_completed: ${run.current_stage.remote_execute_completed ? "yes" : "no"}`);
+  console.log(`- next_stage: ${run.current_stage.next_stage}`);
+  console.log(`- runtime_center_bootstrapped: ${run.current_stage.runtime_center_bootstrapped ? "yes" : "no"}`);
+  console.log("");
+  console.log("next_action:");
+  console.log(`- title: ${run.action.title}`);
+  console.log(`- reason: ${run.action.reason}`);
+  console.log(`- target_package: ${run.action.target_package}`);
+  console.log(`- risk: ${run.action.risk}`);
+  console.log(`- approval_required: ${run.action.approval_required ? "yes" : "no"}`);
+  console.log("");
+  console.log("expected_files:");
+  for (const file of run.action.expected_files) console.log(`- ${file}`);
+  console.log("");
+  console.log("validation_commands:");
+  for (const command of run.action.validation_commands) console.log(`- ${command}`);
+  console.log("");
+  if (files) {
+    console.log("written_files:");
+    console.log(`- ${files.jsonPath}`);
+    console.log(`- ${files.markdownPath}`);
+    console.log("");
+  }
+  console.log(`stop_condition: ${run.stop_condition}`);
+  console.log("agent_execution: disabled");
+  console.log("managed_project_writes: disabled");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+}
+
+async function autopilot(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("autopilot requires --dry-run or --apply.");
+  }
+  const goal = (args.goal || args.text).trim();
+  if (!goal) {
+    throw new Error("Missing --goal for autopilot.");
+  }
+  if (args.maxSteps !== 1) {
+    throw new Error("Autopilot MVP only allows --max-steps 1.");
+  }
+  const context = await collectAutopilotContext(goal);
+  const action = buildAutopilotAction(context);
+  if (action.risk === "HIGH" && !action.approval_required) {
+    throw new Error("Internal autopilot policy violation: HIGH risk action must require approval.");
+  }
+  const run = buildAutopilotRun(goal, context, action, args.apply ? "apply" : "dry-run", args.maxSteps);
+
+  if (args.dryRun) {
+    printAutopilot(run);
+    return;
+  }
+
+  const files = await writeAutopilotRun(run);
+  printAutopilot(run, files);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.command || args.command === "--help" || args.command === "-h") {
@@ -2137,6 +2475,7 @@ async function main() {
   if (args.command === "observe") return observe();
   if (args.command === "evolution-plan") return evolutionPlan();
   if (args.command === "discovery") return discovery(args);
+  if (args.command === "autopilot") return autopilot(args);
   if (args.command === "lint-check") {
     console.log("lint:check: no ESLint configuration is enabled in the extraction-stage skeleton.");
     console.log("status: PASS");
