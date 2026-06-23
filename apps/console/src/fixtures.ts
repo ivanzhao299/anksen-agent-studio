@@ -32,8 +32,8 @@ export const consoleFixture = {
     next_action_execution_mode: "blocked",
     managed_project_count: 1,
     completed_v4_milestones: 8,
-    release_doc_count: 18,
-    schema_or_example_count: 75,
+    release_doc_count: 20,
+    schema_or_example_count: 89,
     safety_mode: "read-only"
   },
   modules: [
@@ -308,6 +308,26 @@ export const consoleFixture = {
     approval_required: true,
     execution_mode: "blocked",
     stop_condition: "Autopilot max_steps=1; no Agent, deploy, production operation, credential read, or managed-project write is allowed."
+  },
+  production_ops: {
+    display_mode: "reserved_read_only",
+    source: "packages/production-ops/examples",
+    server_count: 2,
+    plan_count: 6,
+    risk: "HIGH",
+    execution_mode: "proposal_only",
+    real_execution_approval_gate: "CRITICAL",
+    server_connections: "disabled",
+    ssh: "disabled",
+    deploy: "disabled",
+    production_operations: "disabled",
+    credential_values_read: "no",
+    commands: [
+      "node packages/orchestrator-core/bin/studio.mjs production server-list --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs production deploy-plan --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs production safety-check --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs production rollback-plan --dry-run"
+    ]
   },
   autopilot: {
     max_steps: 1,

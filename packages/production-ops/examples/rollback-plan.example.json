@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "plan_id": "rollback-plan-dry-run",
+  "mode": "dry_run_only",
+  "target_environment": "production",
+  "risk": "HIGH",
+  "execution_mode": "proposal_only",
+  "approval_required_for_execution": "CRITICAL",
+  "rollback_strategy": "Document rollback decision points and blocked execution steps only.",
+  "steps": [
+    {
+      "step_id": "rollback-trigger-plan",
+      "title": "Describe rollback trigger criteria",
+      "operation_category": "production_operation",
+      "execution_status": "not_executed",
+      "notes": "No production metric is queried."
+    },
+    {
+      "step_id": "rollback-release-plan",
+      "title": "Describe release revert order",
+      "operation_category": "deploy",
+      "execution_status": "not_executed",
+      "notes": "No deploy, revert, or restart command is executed."
+    },
+    {
+      "step_id": "rollback-server-plan",
+      "title": "Describe server access requirements for a future approved run",
+      "operation_category": "server_access",
+      "execution_status": "not_executed",
+      "notes": "Server access remains disabled in MVP."
+    }
+  ],
+  "safety": {
+    "server_access": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read"
+  }
+}

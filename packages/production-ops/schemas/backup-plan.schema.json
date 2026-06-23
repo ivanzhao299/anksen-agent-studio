@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/production-ops/backup-plan.schema.json",
+  "title": "Backup Plan",
+  "type": "object",
+  "required": ["schema_version", "plan_id", "mode", "target_environment", "risk", "execution_mode", "backup_targets", "verification_checks", "safety"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "mode": { "const": "dry_run_only" },
+    "target_environment": { "type": "string", "minLength": 1 },
+    "risk": { "const": "HIGH" },
+    "execution_mode": { "const": "proposal_only" },
+    "approval_required_for_execution": { "const": "CRITICAL" },
+    "backup_targets": { "type": "array", "items": { "$ref": "#/$defs/target" } },
+    "verification_checks": { "type": "array", "items": { "type": "string" } },
+    "safety": { "$ref": "#/$defs/safety" }
+  },
+  "$defs": {
+    "target": {
+      "type": "object",
+      "required": ["target_id", "target_type", "operation_category", "execution_status"],
+      "additionalProperties": false,
+      "properties": {
+        "target_id": { "type": "string" },
+        "target_type": { "enum": ["database", "object_storage", "configuration", "release_artifact"] },
+        "operation_category": { "enum": ["production_operation", "server_access"] },
+        "execution_status": { "const": "not_executed" }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": ["server_access", "deploy", "production_operations", "credential_values"],
+      "additionalProperties": false,
+      "properties": {
+        "server_access": { "const": "disabled" },
+        "deploy": { "const": "disabled" },
+        "production_operations": { "const": "disabled" },
+        "credential_values": { "const": "not_read" }
+      }
+    }
+  }
+}

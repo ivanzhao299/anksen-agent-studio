@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "check_bundle_id": "monitoring-check-dry-run",
+  "mode": "dry_run_only",
+  "target_environment": "production",
+  "risk": "HIGH",
+  "execution_mode": "proposal_only",
+  "approval_required_for_execution": "CRITICAL",
+  "checks": [
+    {
+      "check_id": "health-endpoint-plan",
+      "title": "Describe health endpoint verification",
+      "source_ref": "monitoring://placeholder/health",
+      "execution_status": "not_executed",
+      "notes": "No production endpoint is called."
+    },
+    {
+      "check_id": "log-review-plan",
+      "title": "Describe log review criteria",
+      "source_ref": "logs://placeholder/application",
+      "execution_status": "not_executed",
+      "notes": "No log system is queried."
+    },
+    {
+      "check_id": "alert-review-plan",
+      "title": "Describe alert review criteria",
+      "source_ref": "alerts://placeholder/production",
+      "execution_status": "not_executed",
+      "notes": "No monitoring provider is called."
+    }
+  ],
+  "safety": {
+    "server_access": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/production-ops/deploy-plan.schema.json",
+  "title": "Deploy Plan",
+  "type": "object",
+  "required": ["schema_version", "plan_id", "mode", "target_environment", "risk", "execution_mode", "approval_required_for_execution", "preflight_checks", "steps", "rollback_plan_ref", "safety"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "mode": { "const": "dry_run_only" },
+    "target_environment": { "type": "string", "minLength": 1 },
+    "risk": { "const": "HIGH" },
+    "execution_mode": { "const": "proposal_only" },
+    "approval_required_for_execution": { "const": "CRITICAL" },
+    "preflight_checks": { "type": "array", "items": { "$ref": "#/$defs/check" } },
+    "steps": { "type": "array", "items": { "$ref": "#/$defs/step" } },
+    "rollback_plan_ref": { "type": "string", "minLength": 1 },
+    "safety": { "$ref": "#/$defs/safety" }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "required": ["check_id", "title", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "check_id": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "enum": ["planned", "blocked", "not_run"] }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": ["step_id", "title", "operation_category", "execution_status"],
+      "additionalProperties": false,
+      "properties": {
+        "step_id": { "type": "string" },
+        "title": { "type": "string" },
+        "operation_category": { "enum": ["deploy", "server_access", "production_operation"] },
+        "execution_status": { "const": "not_executed" },
+        "notes": { "type": "string" }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": ["server_access", "deploy", "production_operations", "credential_values"],
+      "additionalProperties": false,
+      "properties": {
+        "server_access": { "const": "disabled" },
+        "deploy": { "const": "disabled" },
+        "production_operations": { "const": "disabled" },
+        "credential_values": { "const": "not_read" }
+      }
+    }
+  }
+}

@@ -50,6 +50,7 @@
               "managed_project_write",
               "deploy",
               "production_operation",
+              "server_access",
               "credential_value_access"
             ]
           },

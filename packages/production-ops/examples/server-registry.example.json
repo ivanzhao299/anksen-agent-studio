@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "registry_id": "production-server-registry-dry-run",
+  "mode": "dry_run_only",
+  "servers": [
+    {
+      "server_id": "prod-web-placeholder",
+      "display_name": "Production Web Placeholder",
+      "environment": "production",
+      "role": "web",
+      "provider": "external-hosting-placeholder",
+      "region_ref": "region://placeholder/primary",
+      "host_ref": "host://placeholder/prod-web",
+      "credential_reference_id": "openhands-worker-ssh-ref",
+      "connection_status": "not_connected",
+      "risk": "HIGH",
+      "execution_mode": "proposal_only",
+      "notes": "Placeholder only. No real host, SSH session, or server probe is performed."
+    },
+    {
+      "server_id": "prod-worker-placeholder",
+      "display_name": "Production Worker Placeholder",
+      "environment": "production",
+      "role": "worker",
+      "provider": "external-hosting-placeholder",
+      "region_ref": "region://placeholder/primary",
+      "host_ref": "host://placeholder/prod-worker",
+      "credential_reference_id": "openhands-worker-ssh-ref",
+      "connection_status": "not_connected",
+      "risk": "HIGH",
+      "execution_mode": "proposal_only",
+      "notes": "Placeholder only. Future real access requires CRITICAL approval gate."
+    }
+  ],
+  "safety": {
+    "server_access": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read"
+  }
+}

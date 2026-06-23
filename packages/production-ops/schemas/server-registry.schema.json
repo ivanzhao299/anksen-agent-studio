@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/production-ops/server-registry.schema.json",
+  "title": "Production Ops Server Registry",
+  "type": "object",
+  "required": ["schema_version", "registry_id", "mode", "servers", "safety"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "registry_id": { "type": "string", "minLength": 1 },
+    "mode": { "const": "dry_run_only" },
+    "servers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["server_id", "display_name", "environment", "role", "host_ref", "credential_reference_id", "connection_status", "risk", "execution_mode"],
+        "additionalProperties": false,
+        "properties": {
+          "server_id": { "type": "string", "minLength": 1 },
+          "display_name": { "type": "string", "minLength": 1 },
+          "environment": { "type": "string", "minLength": 1 },
+          "role": { "type": "string", "minLength": 1 },
+          "provider": { "type": "string" },
+          "region_ref": { "type": "string" },
+          "host_ref": { "type": "string", "minLength": 1 },
+          "credential_reference_id": { "type": "string", "minLength": 1 },
+          "connection_status": { "const": "not_connected" },
+          "risk": { "const": "HIGH" },
+          "execution_mode": { "const": "proposal_only" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "safety": { "$ref": "#/$defs/safety" }
+  },
+  "$defs": {
+    "safety": {
+      "type": "object",
+      "required": ["server_access", "deploy", "production_operations", "credential_values"],
+      "additionalProperties": false,
+      "properties": {
+        "server_access": { "const": "disabled" },
+        "deploy": { "const": "disabled" },
+        "production_operations": { "const": "disabled" },
+        "credential_values": { "const": "not_read" }
+      }
+    }
+  }
+}

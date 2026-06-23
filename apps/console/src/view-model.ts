@@ -93,6 +93,7 @@ export function getConsoleViewModel() {
       credential_vault: consoleFixture.credential_vault,
       governance: consoleFixture.governance,
       planning: consoleFixture.planning,
+      production_ops: consoleFixture.production_ops,
       autopilot: consoleFixture.autopilot,
       memory_context: consoleFixture.memory_context,
       evolution_discovery: consoleFixture.evolution_discovery

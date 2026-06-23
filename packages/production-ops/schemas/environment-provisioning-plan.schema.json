@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/production-ops/environment-provisioning-plan.schema.json",
+  "title": "Environment Provisioning Plan",
+  "type": "object",
+  "required": ["schema_version", "plan_id", "mode", "environment", "risk", "execution_mode", "steps", "safety"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "mode": { "const": "dry_run_only" },
+    "environment": { "type": "string", "minLength": 1 },
+    "risk": { "const": "HIGH" },
+    "execution_mode": { "const": "proposal_only" },
+    "approval_required_for_execution": { "const": "CRITICAL" },
+    "steps": { "type": "array", "items": { "$ref": "#/$defs/step" } },
+    "safety": { "$ref": "#/$defs/safety" }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "required": ["step_id", "title", "operation_category", "execution_status"],
+      "additionalProperties": false,
+      "properties": {
+        "step_id": { "type": "string" },
+        "title": { "type": "string" },
+        "operation_category": { "enum": ["server_access", "production_operation"] },
+        "execution_status": { "const": "not_executed" },
+        "notes": { "type": "string" }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": ["server_access", "deploy", "production_operations", "credential_values"],
+      "additionalProperties": false,
+      "properties": {
+        "server_access": { "const": "disabled" },
+        "deploy": { "const": "disabled" },
+        "production_operations": { "const": "disabled" },
+        "credential_values": { "const": "not_read" }
+      }
+    }
+  }
+}

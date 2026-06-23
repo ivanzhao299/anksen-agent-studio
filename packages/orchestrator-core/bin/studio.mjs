@@ -40,6 +40,10 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs adapter list --dry-run
   node packages/orchestrator-core/bin/studio.mjs adapter health --dry-run
   node packages/orchestrator-core/bin/studio.mjs adapter invoke-plan --runtime <runtime_id> --skill <skill_type> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs production server-list --dry-run
+  node packages/orchestrator-core/bin/studio.mjs production deploy-plan --dry-run
+  node packages/orchestrator-core/bin/studio.mjs production safety-check --dry-run
+  node packages/orchestrator-core/bin/studio.mjs production rollback-plan --dry-run
   node packages/orchestrator-core/bin/studio.mjs production-ops policy --dry-run
   node packages/orchestrator-core/bin/studio.mjs production-ops gates --dry-run
   node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run
@@ -65,7 +69,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "production-ops", "context", "autopilot", "debug"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "production", "production-ops", "context", "autopilot", "debug"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -2602,6 +2606,10 @@ function commandSpec(command) {
     ["node packages/orchestrator-core/bin/studio.mjs approval-policy --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "approval-policy", "--dry-run"], 120000]],
     ["node packages/orchestrator-core/bin/studio.mjs adapter list --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "adapter", "list", "--dry-run"], 120000]],
     ["node packages/orchestrator-core/bin/studio.mjs adapter health --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "adapter", "health", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs production server-list --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "production", "server-list", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs production deploy-plan --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "production", "deploy-plan", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs production safety-check --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "production", "safety-check", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs production rollback-plan --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "production", "rollback-plan", "--dry-run"], 120000]],
     ["node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "production-ops", "validate", "--dry-run"], 120000]],
     ["node packages/runtime-center/bin/runtime-health-check.mjs --dry-run", ["node", ["packages/runtime-center/bin/runtime-health-check.mjs", "--dry-run"], 120000]],
     ["node packages/orchestrator-core/bin/studio.mjs runtime select --skill code_development --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "runtime", "select", "--skill", "code_development", "--dry-run"], 120000]],
@@ -4631,6 +4639,150 @@ async function adapterInvokePlan(args) {
   if (plan.execution_status !== "planned") process.exitCode = 1;
 }
 
+async function productionServerList(args) {
+  assertDryRun(args, "production server-list");
+  const { api, bundle } = await loadProductionOpsApi();
+  const servers = api.serverInventory(bundle);
+  console.log("# Production Operations Server List dry-run");
+  console.log("");
+  console.log(`registry_id: ${bundle.serverRegistry.registry_id}`);
+  console.log(`servers: ${servers.length}`);
+  console.log("server_connections: disabled");
+  console.log("ssh: disabled");
+  console.log("credential_values_read: no");
+  console.log("");
+  console.log("| Server | Environment | Role | Host Ref | Credential Ref | Connection | Risk | Execution |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
+  for (const server of servers) {
+    console.log(`| ${server.server_id} | ${server.environment} | ${server.role} | ${server.host_ref} | ${server.credential_reference_id} | ${server.connection_status} | ${server.risk} | ${server.execution_mode} |`);
+  }
+}
+
+async function productionDeployPlan(args) {
+  assertDryRun(args, "production deploy-plan");
+  const { api, bundle } = await loadProductionOpsApi();
+  const plan = api.deployPlanSummary(bundle);
+  console.log("# Production Operations Deploy Plan dry-run");
+  console.log("");
+  console.log(`plan_id: ${plan.plan_id}`);
+  console.log(`target_environment: ${plan.target_environment}`);
+  console.log(`risk: ${plan.risk}`);
+  console.log(`execution_mode: ${plan.execution_mode}`);
+  console.log(`approval_required_for_execution: ${plan.approval_required_for_execution}`);
+  console.log(`preflight_count: ${plan.preflight_count}`);
+  console.log(`step_count: ${plan.step_count}`);
+  console.log(`rollback_plan_ref: ${plan.rollback_plan_ref}`);
+  console.log("deploy_execution: disabled");
+  console.log(`server_access: ${plan.server_access}`);
+  console.log(`production_operations: ${plan.production_operations}`);
+  console.log(`credential_values_read: ${plan.credential_values_read ? "yes" : "no"}`);
+  console.log("");
+  console.log("| Step | Category | Status | Title |");
+  console.log("| --- | --- | --- | --- |");
+  for (const step of plan.steps) {
+    console.log(`| ${step.step_id} | ${step.operation_category} | ${step.execution_status} | ${step.title} |`);
+  }
+}
+
+async function productionSafetyCheck(args) {
+  assertDryRun(args, "production safety-check");
+  const { api, bundle } = await loadProductionOpsApi();
+  const { api: governanceApi, bundle: governanceBundle } = await loadGovernanceCenterApi();
+  const validation = api.validateProductionOps(bundle);
+  const readiness = api.evaluateReleaseReadiness(bundle);
+  const inventory = api.productionCenterInventory(bundle);
+  const highRiskAction = {
+    title: "Production Operations Center dry-run deploy plan",
+    reason: "Production action metadata must remain proposal-only and cannot connect server, deploy, or run production operation.",
+    target_project: "anksen-agent-studio",
+    target_package: "packages/production-ops",
+    expected_files: [
+      "packages/production-ops/examples/deploy-plan.example.json",
+      "packages/production-ops/examples/server-registry.example.json"
+    ],
+    validation_commands: [
+      "node packages/orchestrator-core/bin/studio.mjs production deploy-plan --dry-run"
+    ],
+    risk: "HIGH",
+    approval_required: false,
+    execution_mode: "proposal_only"
+  };
+  const criticalAction = {
+    ...highRiskAction,
+    title: "Real production operation execution",
+    reason: "A real execution path would connect server, deploy, or run production operation and therefore requires CRITICAL approval gate.",
+    risk: "CRITICAL",
+    approval_required: true,
+    execution_mode: "human_approval_required"
+  };
+  const highRiskGovernance = governanceApi.evaluateActionGovernance(governanceBundle, highRiskAction);
+  const criticalGovernance = governanceApi.evaluateActionGovernance(governanceBundle, criticalAction);
+  console.log("# Production Operations Safety Check dry-run");
+  console.log("");
+  console.log(`status: ${validation.status}`);
+  console.log(`policy_id: ${validation.policy_id}`);
+  console.log(`registry_id: ${validation.registry_id}`);
+  console.log(`server_count: ${validation.server_count}`);
+  console.log(`plan_count: ${validation.plan_count}`);
+  console.log(`release_readiness: ${readiness.status}`);
+  console.log(`blocked_gate_count: ${validation.blocked_gate_count}`);
+  console.log(`real_execution_approval_gate: ${validation.real_execution_approval_gate}`);
+  console.log(`deploy_enabled: ${validation.deploy_enabled ? "yes" : "no"}`);
+  console.log(`production_operations_enabled: ${validation.production_operations_enabled ? "yes" : "no"}`);
+  console.log(`server_connections: ${validation.server_connections}`);
+  console.log(`credential_values_read: ${validation.credential_values_read ? "yes" : "no"}`);
+  console.log("");
+  console.log("governance_gate:");
+  console.log(`- high_risk_status: ${highRiskGovernance.status}`);
+  console.log(`- high_risk_execution_mode: ${highRiskGovernance.execution_mode}`);
+  console.log(`- high_risk_reason: ${highRiskGovernance.reason}`);
+  console.log(`- critical_status: ${criticalGovernance.status}`);
+  console.log(`- critical_execution_mode: ${criticalGovernance.execution_mode}`);
+  console.log("- critical_required_approval_gate: CRITICAL");
+  console.log("- critical_human_approval_required: yes");
+  console.log(`- critical_reason: ${criticalGovernance.reason}`);
+  console.log("");
+  console.log("plans:");
+  for (const plan of inventory.plans) {
+    console.log(`- ${plan.kind}: ${plan.plan_id} | risk=${plan.risk} | execution=${plan.execution_mode} | approval=${plan.approval_required_for_execution}`);
+  }
+  console.log("");
+  console.log("findings:");
+  if (validation.findings.length === 0) {
+    console.log("- none");
+  } else {
+    for (const finding of validation.findings) {
+      console.log(`- ${finding.severity}: ${finding.message}`);
+    }
+  }
+  if (validation.status !== "PASS") process.exitCode = 1;
+}
+
+async function productionRollbackPlan(args) {
+  assertDryRun(args, "production rollback-plan");
+  const { api, bundle } = await loadProductionOpsApi();
+  const plan = api.rollbackPlanSummary(bundle);
+  console.log("# Production Operations Rollback Plan dry-run");
+  console.log("");
+  console.log(`plan_id: ${plan.plan_id}`);
+  console.log(`target_environment: ${plan.target_environment}`);
+  console.log(`risk: ${plan.risk}`);
+  console.log(`execution_mode: ${plan.execution_mode}`);
+  console.log(`approval_required_for_execution: ${plan.approval_required_for_execution}`);
+  console.log(`rollback_strategy: ${plan.rollback_strategy}`);
+  console.log(`step_count: ${plan.step_count}`);
+  console.log("deploy_execution: disabled");
+  console.log(`server_access: ${plan.server_access}`);
+  console.log(`production_operations: ${plan.production_operations}`);
+  console.log(`credential_values_read: ${plan.credential_values_read ? "yes" : "no"}`);
+  console.log("");
+  console.log("| Step | Category | Status | Title |");
+  console.log("| --- | --- | --- | --- |");
+  for (const step of plan.steps) {
+    console.log(`| ${step.step_id} | ${step.operation_category} | ${step.execution_status} | ${step.title} |`);
+  }
+}
+
 async function productionOpsPolicy(args) {
   assertDryRun(args, "production-ops policy");
   const { api, bundle } = await loadProductionOpsApi();
@@ -4642,6 +4794,7 @@ async function productionOpsPolicy(args) {
   console.log(`audit_required: ${policy.audit_required ? "yes" : "no"}`);
   console.log(`deploy_execution: ${policy.deploy_execution}`);
   console.log(`production_operations: ${policy.production_operations}`);
+  console.log(`server_access: ${policy.server_access}`);
   console.log(`credential_values: ${policy.credential_values}`);
   console.log(`managed_project_writes: ${policy.managed_project_writes}`);
   console.log("server_connections: disabled");
@@ -4805,6 +4958,10 @@ async function main() {
   if (args.command === "adapter" && args.subcommand === "list") return adapterList(args);
   if (args.command === "adapter" && args.subcommand === "health") return adapterHealth(args);
   if (args.command === "adapter" && args.subcommand === "invoke-plan") return adapterInvokePlan(args);
+  if (args.command === "production" && args.subcommand === "server-list") return productionServerList(args);
+  if (args.command === "production" && args.subcommand === "deploy-plan") return productionDeployPlan(args);
+  if (args.command === "production" && args.subcommand === "safety-check") return productionSafetyCheck(args);
+  if (args.command === "production" && args.subcommand === "rollback-plan") return productionRollbackPlan(args);
   if (args.command === "production-ops" && args.subcommand === "policy") return productionOpsPolicy(args);
   if (args.command === "production-ops" && args.subcommand === "gates") return productionOpsGates(args);
   if (args.command === "production-ops" && args.subcommand === "validate") return productionOpsValidate(args);

@@ -7,6 +7,7 @@ export type OperationCategory =
   | "managed_project_write"
   | "deploy"
   | "production_operation"
+  | "server_access"
   | "credential_value_access";
 
 export type ApprovalStatus = "not_required" | "required" | "approved" | "rejected";
@@ -23,6 +24,7 @@ export interface GovernancePolicy {
   readonly approval_required_for: readonly OperationCategory[];
   readonly audit_required: boolean;
   readonly credential_values: "forbidden";
+  readonly server_access: "forbidden";
   readonly deploy_execution: "forbidden";
   readonly production_operations: "forbidden";
   readonly managed_project_writes: "approval_required";
@@ -62,6 +64,74 @@ export interface ReleaseReadiness {
   readonly credential_values_read: false;
 }
 
+export type ProductionPlanRisk = "HIGH";
+export type ProductionPlanExecutionMode = "proposal_only";
+export type ProductionRealExecutionApprovalGate = "CRITICAL";
+export type ProductionExecutionStatus = "not_executed";
+
+export interface ProductionOpsSafety {
+  readonly server_access: "disabled";
+  readonly deploy: "disabled";
+  readonly production_operations: "disabled";
+  readonly credential_values: "not_read";
+}
+
+export interface ServerRegistryEntry {
+  readonly server_id: string;
+  readonly display_name: string;
+  readonly environment: string;
+  readonly role: string;
+  readonly provider?: string;
+  readonly region_ref?: string;
+  readonly host_ref: string;
+  readonly credential_reference_id: string;
+  readonly connection_status: "not_connected";
+  readonly risk: ProductionPlanRisk;
+  readonly execution_mode: ProductionPlanExecutionMode;
+  readonly notes?: string;
+}
+
+export interface ServerRegistry {
+  readonly schema_version: number;
+  readonly registry_id: string;
+  readonly mode: ProductionOpsMode;
+  readonly servers: readonly ServerRegistryEntry[];
+  readonly safety: ProductionOpsSafety;
+}
+
+export interface ProductionPlanStep {
+  readonly step_id: string;
+  readonly title: string;
+  readonly operation_category: Extract<OperationCategory, "deploy" | "production_operation" | "server_access">;
+  readonly execution_status: ProductionExecutionStatus;
+  readonly notes?: string;
+}
+
+export interface ProductionPlan {
+  readonly schema_version: number;
+  readonly plan_id: string;
+  readonly mode: ProductionOpsMode;
+  readonly target_environment: string;
+  readonly risk: ProductionPlanRisk;
+  readonly execution_mode: ProductionPlanExecutionMode;
+  readonly approval_required_for_execution: ProductionRealExecutionApprovalGate;
+  readonly steps: readonly ProductionPlanStep[];
+  readonly safety: ProductionOpsSafety;
+}
+
+export interface DeployPlan extends ProductionPlan {
+  readonly preflight_checks: readonly {
+    readonly check_id: string;
+    readonly title: string;
+    readonly status: "planned" | "blocked" | "not_run";
+  }[];
+  readonly rollback_plan_ref: string;
+}
+
+export interface RollbackPlan extends ProductionPlan {
+  readonly rollback_strategy: string;
+}
+
 export const productionOpsPolicy: ProductionOpsMode = "dry_run_only";
 
 export const forbiddenOperationCategories: readonly OperationCategory[] = [
@@ -69,6 +139,7 @@ export const forbiddenOperationCategories: readonly OperationCategory[] = [
   "managed_project_write",
   "deploy",
   "production_operation",
+  "server_access",
   "credential_value_access"
 ];
 

@@ -15,7 +15,7 @@ V4 should turn ANKSEN Agent Studio from a project-local orchestrator extraction 
 | V4-E Multi-Project Workspace | Support multiple project connectors in one console. | MVP complete as read-only workspace contracts under `packages/project-connector`. |
 | V4-F Governance and Release Gates | Add approvals, audit trail, policy bundles, risk matrix, and release readiness gates. | MVP complete as dry-run-only Governance Center under `packages/governance-center`, with Production Ops gates still blocked. |
 | V4-N Platform Hardening Review | Review platform safety and readiness after Governance, Credential Vault, Runtime Adapters, Console, and Workspace MVPs. | Complete as documentation-only hardening review under `docs/release/PLATFORM_HARDENING_REVIEW.md`. |
-| V4-O Production Operations Center | Prepare a production-operations proposal without enabling production execution. | Proposal prepared under `docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md`; implementation remains blocked pending explicit approval. |
+| V4-O Production Operations Center | Prepare production-operations dry-run planning without enabling production execution. | Dry-run MVP available under `packages/production-ops`; real SSH, deploy, and production operations remain blocked pending CRITICAL approval. |
 
 ## Multi-Project Workspace MVP
 
@@ -65,11 +65,13 @@ The first hardening review is documentation-only:
 
 ## Production Operations Center Proposal
 
-The first V4-O artifact is proposal-only:
+The first V4-O implementation is dry-run only:
 
 - Source of truth: `docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md`.
-- Current execution mode: blocked/proposal-only.
-- Required next state: explicit human approval before any implementation beyond schemas, dry-run CLI, and audit documentation.
+- Dry-run MVP: `docs/release/PRODUCTION_OPERATIONS_CENTER_DRY_RUN_MVP.md`.
+- Package: `packages/production-ops`.
+- Current execution mode: HIGH/proposal-only.
+- Required next state: CRITICAL human approval before any real execution path.
 - Deploy execution: forbidden.
 - Production operations: forbidden.
 - Server access: forbidden.

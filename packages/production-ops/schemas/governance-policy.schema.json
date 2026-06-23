@@ -11,6 +11,7 @@
     "approval_required_for",
     "audit_required",
     "credential_values",
+    "server_access",
     "deploy_execution",
     "production_operations",
     "managed_project_writes"
@@ -49,6 +50,9 @@
     "credential_values": {
       "const": "forbidden"
     },
+    "server_access": {
+      "const": "forbidden"
+    },
     "deploy_execution": {
       "const": "forbidden"
     },
@@ -74,6 +78,7 @@
         "managed_project_write",
         "deploy",
         "production_operation",
+        "server_access",
         "credential_value_access"
       ]
     }

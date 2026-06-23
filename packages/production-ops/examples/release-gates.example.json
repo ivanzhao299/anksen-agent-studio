@@ -67,6 +67,22 @@
       ]
     },
     {
+      "gate_id": "server-access-blocked",
+      "title": "Server and SSH access remain blocked",
+      "operation_category": "server_access",
+      "requires_approval": true,
+      "approval_status": "required",
+      "decision": "BLOCK",
+      "evidence": [
+        {
+          "evidence_id": "server-access-disabled-policy",
+          "evidence_type": "policy",
+          "source_path": "packages/production-ops/examples/governance-policy.example.json",
+          "status": "present"
+        }
+      ]
+    },
+    {
       "gate_id": "credential-values-blocked",
       "title": "Credential values remain blocked",
       "operation_category": "credential_value_access",

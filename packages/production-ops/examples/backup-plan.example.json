@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "plan_id": "backup-plan-dry-run",
+  "mode": "dry_run_only",
+  "target_environment": "production",
+  "risk": "HIGH",
+  "execution_mode": "proposal_only",
+  "approval_required_for_execution": "CRITICAL",
+  "backup_targets": [
+    {
+      "target_id": "database-backup-placeholder",
+      "target_type": "database",
+      "operation_category": "production_operation",
+      "execution_status": "not_executed"
+    },
+    {
+      "target_id": "configuration-backup-placeholder",
+      "target_type": "configuration",
+      "operation_category": "server_access",
+      "execution_status": "not_executed"
+    }
+  ],
+  "verification_checks": [
+    "Confirm backup runbook exists before any real backup.",
+    "Confirm restore drill has explicit approval before any production access.",
+    "Confirm credential values remain unread in dry-run mode."
+  ],
+  "safety": {
+    "server_access": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read"
+  }
+}
