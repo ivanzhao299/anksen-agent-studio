@@ -19,18 +19,42 @@ function runtimeCenterReady(inputs) {
     && Boolean(inputs.docs?.runtime_center_prd_present);
 }
 
+function credentialVaultReady(inputs) {
+  return Boolean(inputs.packages?.credential_vault_exists)
+    && Number(inputs.packages?.credential_references?.length ?? 0) >= 6
+    && Boolean(inputs.docs?.credential_vault_mvp_present);
+}
+
+function autopilotRunnerReady(inputs) {
+  return Boolean(inputs.autopilot_runs?.autopilot_runner_completed);
+}
+
 function currentStage(inputs) {
   const extractionCompleted = Boolean(inputs.closure_report?.extraction_completed);
   const remoteExecuteCompleted = Boolean(inputs.closure_report?.remote_execute_completed);
   const runtimeCenterBootstrapped = runtimeCenterReady(inputs);
+  const credentialVaultCompleted = credentialVaultReady(inputs);
+  const autopilotRunnerCompleted = autopilotRunnerReady(inputs);
   return {
-    stage_name: runtimeCenterBootstrapped
-      ? "V4-I Agent Runtime Center"
-      : "Post-extraction V4 bootstrap",
+    stage_name: autopilotRunnerCompleted
+      ? "V4-K Console Read-Only preparation"
+      : credentialVaultCompleted
+        ? "V4-J Autopilot Runner"
+        : runtimeCenterBootstrapped
+          ? "V4-J Credential Vault"
+          : "Post-extraction V4 bootstrap",
     extraction_completed: extractionCompleted,
     remote_execute_completed: remoteExecuteCompleted,
-    next_stage: "V4-I Agent Runtime Center",
+    next_stage: autopilotRunnerCompleted
+      ? "V4-K Console Read-Only MVP"
+      : credentialVaultCompleted
+        ? "V4-J Autopilot Runner"
+        : runtimeCenterBootstrapped
+          ? "V4-J Credential Vault"
+          : "V4-I Agent Runtime Center",
     runtime_center_bootstrapped: runtimeCenterBootstrapped,
+    credential_vault_completed: credentialVaultCompleted,
+    autopilot_runner_completed: autopilotRunnerCompleted,
     planning_center_exists: Boolean(inputs.packages?.planning_center_exists),
     managed_project_doctor: inputs.runtime_memory?.project_state?.doctor_status ?? "unknown"
   };
@@ -89,11 +113,91 @@ function hardenRuntimeCenterAction() {
   };
 }
 
+function credentialVaultAction() {
+  return {
+    title: "Add V4-J Credential Vault MVP",
+    reason: "Runtime Center can route and report health, so the next safe V4 action is a credential-reference layer that stores references only and lets Runtime Center detect auth presence without reading secret values.",
+    target_project: "anksen-agent-studio",
+    target_package: "packages/credential-vault",
+    expected_files: [
+      "packages/credential-vault/schemas/credential.schema.json",
+      "packages/credential-vault/schemas/secret-reference.schema.json",
+      "packages/credential-vault/schemas/vault-policy.schema.json",
+      "packages/credential-vault/examples/credential-references.example.json",
+      "packages/credential-vault/examples/vault-policy.example.json",
+      "packages/orchestrator-core/bin/studio.mjs",
+      "packages/runtime-center/lib/runtime-center-utils.mjs",
+      "docs/release/CREDENTIAL_VAULT_MVP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs credential validate --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run",
+      "git diff --check"
+    ],
+    risk: "MEDIUM",
+    approval_required: false,
+    execution_mode: "proposal_only"
+  };
+}
+
+function autopilotRunnerAction() {
+  return {
+    title: "Add V4-J Autopilot Runner",
+    reason: "Credential references and Runtime Center health gates are in place; the next V4 step is to let Autopilot execute one safe local repository action, validate it, commit it, and write the next recommendation.",
+    target_project: "anksen-agent-studio",
+    target_package: "packages/orchestrator-core",
+    expected_files: [
+      "packages/orchestrator-core/bin/studio.mjs",
+      "packages/planning-center/lib/planning-engine.mjs",
+      "docs/release/AUTOPILOT_RUNNER_MVP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs autopilot run --goal \"继续推进 V4\" --dry-run",
+      "git diff --check"
+    ],
+    risk: "MEDIUM",
+    approval_required: false,
+    execution_mode: "local_repo_execute"
+  };
+}
+
+function consoleReadOnlyAction() {
+  return {
+    title: "Prepare V4-K Console Read-Only MVP",
+    reason: "Autopilot Runner is available; the next safe V4 step is to prepare a read-only console implementation plan before adding mutation paths.",
+    target_project: "anksen-agent-studio",
+    target_package: "apps/console",
+    expected_files: [
+      "apps/console/src/index.ts",
+      "docs/release/AGENT_STUDIO_CONSOLE_PRD.md",
+      "docs/release/AGENT_STUDIO_CONSOLE_ARCHITECTURE.md",
+      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs autopilot run --goal \"继续推进 V4\" --dry-run",
+      "git diff --check"
+    ],
+    risk: "MEDIUM",
+    approval_required: false,
+    execution_mode: "local_repo_execute"
+  };
+}
+
 export function buildPlanningOutput(request) {
   const stage = currentStage(request.inputs ?? {});
-  const action = stage.runtime_center_bootstrapped
-    ? hardenRuntimeCenterAction()
-    : bootstrapRuntimeCenterAction();
+  const action = !stage.runtime_center_bootstrapped
+    ? bootstrapRuntimeCenterAction()
+    : !stage.credential_vault_completed
+      ? credentialVaultAction()
+      : !stage.autopilot_runner_completed
+        ? autopilotRunnerAction()
+        : consoleReadOnlyAction();
   const stopCondition = "STOP: Planning Center generated one next action. Autopilot max_steps=1; no Agent, deploy, production operation, credential read, or managed-project write is allowed.";
 
   return {

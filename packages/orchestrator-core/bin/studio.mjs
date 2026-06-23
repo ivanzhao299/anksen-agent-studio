@@ -41,6 +41,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs evolution-plan [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs discovery --target <file> [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs autopilot --goal "..." [--dry-run|--apply --max-steps 1]
+  node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "..." [--dry-run|--apply --max-steps 1]
   node packages/orchestrator-core/bin/studio.mjs lint-check
 
 Project execution is available only through explicit project execute --apply. Deploy and production operations remain disabled.`);
@@ -48,7 +49,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "autopilot"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -2175,9 +2176,39 @@ function latestFile(files) {
   return sorted[sorted.length - 1] ?? "";
 }
 
+async function autopilotRunEvidence(runFiles) {
+  const runs = [];
+  for (const file of runFiles.filter((entry) => entry.endsWith(".json"))) {
+    const run = await readJsonIfExists(file);
+    if (!run) continue;
+    runs.push({
+      path: relativePath(file),
+      run_id: run.run_id ?? "",
+      goal: run.goal ?? "",
+      execution_mode: run.execution_mode ?? run.action?.execution_mode ?? "",
+      selected_action_title: run.selected_action?.title ?? run.action?.title ?? "",
+      commit_hash: run.commit_hash ?? "",
+      created_at: run.created_at ?? ""
+    });
+  }
+
+  const autopilotRunnerRuns = runs.filter((run) =>
+    run.execution_mode === "local_repo_execute"
+    && /Autopilot Runner/i.test(run.selected_action_title)
+  );
+  return {
+    run_count: runs.length,
+    latest_run: latestFile(runFiles) ? relativePath(latestFile(runFiles)) : "",
+    autopilot_runner_run_count: autopilotRunnerRuns.length,
+    autopilot_runner_completed: autopilotRunnerRuns.length > 0,
+    latest_autopilot_runner_run: autopilotRunnerRuns.sort((a, b) => a.path.localeCompare(b.path)).at(-1) ?? null
+  };
+}
+
 async function collectAutopilotContext(goal) {
   const readmePath = resolveFromRoot("README.md");
   const releaseDocs = await listFilesSafe(resolveFromRoot("docs/release"));
+  const autopilotRunFiles = await listFilesSafe(resolveFromRoot("autopilot-runs"));
   const runtimeMemoryFiles = await listFilesSafe(resolveFromRoot("examples/jinhu-smart-park/runtime-memory"));
   const proposalFiles = await listFilesSafe(resolveFromRoot("examples/jinhu-smart-park/task-proposals"));
   const executionReportFiles = await listFilesSafe(resolveFromRoot("examples/jinhu-smart-park/execution-reports"));
@@ -2187,6 +2218,8 @@ async function collectAutopilotContext(goal) {
   const agentStudioStatus = await readJsonIfExists(resolveFromRoot("examples/jinhu-smart-park/runtime-memory/agent-studio-status.json"));
   const runtimeProviders = await readJsonIfExists(resolveFromRoot("packages/runtime-center/examples/runtime-providers.example.json"));
   const runtimeProfiles = await readJsonIfExists(resolveFromRoot("packages/runtime-center/examples/runtime-profiles.example.json"));
+  const credentialReferences = await readJsonIfExists(resolveFromRoot("packages/credential-vault/examples/credential-references.example.json"));
+  const runEvidence = await autopilotRunEvidence(autopilotRunFiles);
 
   const releaseDocNames = summarizeFiles(releaseDocs);
   const extractionCompleted = releaseDocNames.includes("docs/release/ANKSEN_AGENT_STUDIO_EXTRACTION_CLOSURE_REPORT.md");
@@ -2205,8 +2238,11 @@ async function collectAutopilotContext(goal) {
       release_count: releaseDocs.length,
       release_files: releaseDocNames,
       v4_roadmap_present: releaseDocNames.includes("docs/release/AGENT_STUDIO_V4_ROADMAP.md"),
-      runtime_center_prd_present: releaseDocNames.includes("docs/release/AGENT_RUNTIME_CENTER_PRD.md")
+      runtime_center_prd_present: releaseDocNames.includes("docs/release/AGENT_RUNTIME_CENTER_PRD.md"),
+      credential_vault_mvp_present: releaseDocNames.includes("docs/release/CREDENTIAL_VAULT_MVP.md"),
+      autopilot_runner_mvp_present: releaseDocNames.includes("docs/release/AUTOPILOT_RUNNER_MVP.md")
     },
+    autopilot_runs: runEvidence,
     managed_project: {
       runtime_memory_files: summarizeFiles(runtimeMemoryFiles),
       task_proposals: summarizeFiles(proposalFiles.filter((file) => file.endsWith(".json"))),
@@ -2227,7 +2263,10 @@ async function collectAutopilotContext(goal) {
       planning_center_exists: existsSync(resolveFromRoot("packages/planning-center")),
       runtime_center_exists: runtimeCenterExists,
       runtime_providers: runtimeProviders?.providers?.map((provider) => provider.provider_id) ?? [],
-      runtime_profiles: runtimeProfiles?.profiles?.map((profile) => profile.runtime_id) ?? []
+      runtime_profiles: runtimeProfiles?.profiles?.map((profile) => profile.runtime_id) ?? [],
+      credential_vault_exists: existsSync(resolveFromRoot("packages/credential-vault")),
+      credential_references: credentialReferences?.credential_references?.map((credential) => credential.provider) ?? [],
+      autopilot_runner_exists: existsSync(resolveFromRoot("docs/release/AUTOPILOT_RUNNER_MVP.md"))
     },
     stage: {
       extraction_completed: extractionCompleted,
@@ -2237,7 +2276,9 @@ async function collectAutopilotContext(goal) {
     },
     evidence: {
       latest_execution_report: relativePath(latestFile(executionReportFiles)),
-      latest_task_proposal: relativePath(latestFile(proposalFiles.filter((file) => file.endsWith(".json"))))
+      latest_task_proposal: relativePath(latestFile(proposalFiles.filter((file) => file.endsWith(".json")))),
+      latest_autopilot_run: runEvidence.latest_run,
+      latest_autopilot_runner_run: runEvidence.latest_autopilot_runner_run?.path ?? ""
     }
   };
 }
@@ -2269,6 +2310,7 @@ function buildPlanningRequest(goal, context) {
         v4_roadmap_present: context.docs.v4_roadmap_present,
         next_stage: context.stage.next_stage
       },
+      autopilot_runs: context.autopilot_runs,
       closure_report: {
         extraction_completed: context.stage.extraction_completed,
         remote_execute_completed: context.stage.remote_execute_completed
@@ -2455,6 +2497,506 @@ function printAutopilot(run, files = null) {
   console.log("managed_project_writes: disabled");
   console.log("deploy: disabled");
   console.log("production_operations: disabled");
+}
+
+function riskRank(risk) {
+  return { LOW: 1, MEDIUM: 2, HIGH: 3 }[risk] ?? 3;
+}
+
+function actionText(action) {
+  return [
+    action.title,
+    action.reason,
+    action.target_project,
+    action.target_package,
+    ...(action.expected_files ?? []),
+    ...(action.validation_commands ?? [])
+  ].join(" ").toLowerCase();
+}
+
+function containsForbiddenAutomation(action) {
+  const text = actionText(action);
+  return [
+    "deploy",
+    "production",
+    "migration",
+    "seed",
+    "reset",
+    "cleanup",
+    "prod:",
+    "api key",
+    "private key",
+    "ssh key",
+    "secret value",
+    "credential value"
+  ].some((token) => text.includes(token));
+}
+
+function localExecutionGate(action) {
+  if (action.target_project !== "anksen-agent-studio") {
+    return {
+      allowed: false,
+      execution_mode: "proposal_only",
+      reason: "Action targets a managed or external project, so Autopilot Runner may only generate a proposal."
+    };
+  }
+  if (riskRank(action.risk) > riskRank("MEDIUM")) {
+    return {
+      allowed: false,
+      execution_mode: "proposal_only",
+      reason: "HIGH risk actions require approval and cannot be executed by Autopilot Runner."
+    };
+  }
+  if (containsForbiddenAutomation(action)) {
+    return {
+      allowed: false,
+      execution_mode: "proposal_only",
+      reason: "Action text references deploy, production, destructive data operations, or secret values."
+    };
+  }
+  return {
+    allowed: true,
+    execution_mode: "local_repo_execute",
+    reason: "Action targets anksen-agent-studio and is LOW/MEDIUM risk with no forbidden operation."
+  };
+}
+
+function commandSpec(command) {
+  const planMatch = command.match(/^node packages\/orchestrator-core\/bin\/studio\.mjs plan --goal "([^"]+)" --dry-run$/);
+  if (planMatch) {
+    return ["node", ["packages/orchestrator-core/bin/studio.mjs", "plan", "--goal", planMatch[1], "--dry-run"], 120000];
+  }
+  const autopilotRunMatch = command.match(/^node packages\/orchestrator-core\/bin\/studio\.mjs autopilot run --goal "([^"]+)" --dry-run$/);
+  if (autopilotRunMatch) {
+    return ["node", ["packages/orchestrator-core/bin/studio.mjs", "autopilot", "run", "--goal", autopilotRunMatch[1], "--dry-run"], 120000];
+  }
+  const specs = new Map([
+    ["pnpm typecheck", ["pnpm", ["typecheck"], 120000]],
+    ["pnpm lint:check", ["pnpm", ["lint:check"], 120000]],
+    ["git diff --check", ["git", ["diff", "--check"], 120000]],
+    ["git status", ["git", ["status", "--short", "--branch"], 120000]],
+    ["node packages/runtime-center/bin/runtime-health-check.mjs --dry-run", ["node", ["packages/runtime-center/bin/runtime-health-check.mjs", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs runtime select --skill code_development --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "runtime", "select", "--skill", "code_development", "--dry-run"], 120000]]
+  ]);
+  return specs.get(command) ?? null;
+}
+
+async function runAllowedCommand(command) {
+  const spec = commandSpec(command);
+  if (!spec) {
+    return {
+      command,
+      ok: false,
+      status: 1,
+      blocked: true,
+      stdout_tail: "",
+      stderr_tail: "Command is not in the Autopilot Runner allowlist."
+    };
+  }
+  const [bin, args, timeout] = spec;
+  const result = await execReadOnly(repoRoot, bin, args, timeout);
+  return {
+    command,
+    ok: result.ok,
+    status: result.status,
+    blocked: false,
+    stdout_tail: stdoutTail(result.stdout, 40),
+    stderr_tail: stdoutTail(result.stderr, 40)
+  };
+}
+
+function runnerValidationCommands(action, goal) {
+  const goalSpecificDryRun = `node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "${goal}" --dry-run`;
+  const commands = unique([
+    ...(action.validation_commands ?? []),
+    goalSpecificDryRun,
+    "git status"
+  ]);
+  return commands.filter((command) => commandSpec(command) && !command.includes("--apply"));
+}
+
+async function gitStatusShort() {
+  try {
+    const { stdout } = await execFileAsync("git", ["status", "--short"], {
+      cwd: repoRoot,
+      timeout: 120000,
+      maxBuffer: 1024 * 1024 * 20
+    });
+    return stdout;
+  } catch (error) {
+    return String(error?.stdout ?? "");
+  }
+}
+
+function changedFilesFromStatus(status) {
+  return status
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .map((line) => {
+      const path = line.slice(3);
+      return path.includes(" -> ") ? path.split(" -> ").at(-1) : path;
+    })
+    .sort();
+}
+
+async function currentChangedFiles() {
+  return changedFilesFromStatus(await gitStatusShort());
+}
+
+function internalTaskFromAction(goal, action, route) {
+  const seed = stableHash({ goal, title: action.title, target_package: action.target_package }).slice(0, 10).toUpperCase();
+  return {
+    task_id: `INTERNAL-${seed}`,
+    title: action.title,
+    goal,
+    target_project: action.target_project,
+    target_package: action.target_package,
+    owner: "autopilot-runner",
+    skill_type: route.selected_skill,
+    runtime: route.selected_runtime,
+    risk: action.risk,
+    approval_required: action.approval_required,
+    expected_files: action.expected_files,
+    validation_commands: action.validation_commands
+  };
+}
+
+function executorRunPlan(goal, action, internalTask) {
+  return {
+    runtime_strategy: "codex-cli-compatible-local-runner",
+    executor_prompt: [
+      `Goal: ${goal}`,
+      `Task: ${action.title}`,
+      `Reason: ${action.reason}`,
+      `Target package: ${action.target_package}`,
+      `Expected files: ${(action.expected_files ?? []).join(", ")}`,
+      "Safety: do not deploy, do not run production operations, do not read or write secret values, and do not modify managed projects."
+    ].join("\n"),
+    steps: [
+      "Confirm Planning Center selected one bounded next_action.",
+      `Create internal task ${internalTask.task_id}.`,
+      "Use the current local Codex workspace/runtime to implement or capture the local repository change.",
+      "Run the validation command allowlist.",
+      "Write Autopilot run JSON and Markdown evidence.",
+      "Commit the safe local repository result."
+    ]
+  };
+}
+
+function validationSummary(commandResults) {
+  const failed = commandResults.filter((command) => !command.ok);
+  return {
+    status: failed.length === 0 ? "PASS" : "FAIL",
+    command_count: commandResults.length,
+    failed_commands: failed.map((command) => command.command)
+  };
+}
+
+function nextRecommendation(goal, action, validationResult) {
+  if (validationResult.status !== "PASS") {
+    return {
+      title: "Fix validation failures before continuing V4",
+      reason: "Autopilot Runner stops after one step and will not continue while validation is failing.",
+      command: `node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "${goal}" --dry-run`
+    };
+  }
+  if (/Autopilot Runner/i.test(action.title)) {
+    return {
+      title: "Refresh Planning Center and select the next V4 action",
+      reason: "Autopilot Runner is now available for one-step local repository execution, so the next run should advance to the next safe roadmap item.",
+      command: `node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "${goal}" --dry-run`
+    };
+  }
+  return {
+    title: "Run the next bounded Autopilot step",
+    reason: "This run completed one bounded action and stopped at max_steps=1.",
+    command: `node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "${goal}" --dry-run`
+  };
+}
+
+function commitMessageForAction(action) {
+  if (/Autopilot Runner/i.test(action.title)) return "chore: add autopilot runner";
+  if (action.target_package === "packages/runtime-center") return "chore(runtime-center): apply autopilot runtime step";
+  return `chore(autopilot): ${safeSegment(action.title).toLowerCase().slice(0, 48) || "apply-safe-step"}`;
+}
+
+function buildAutopilotRunnerRun({
+  goal,
+  context,
+  planningOutput,
+  selectedAction,
+  mode,
+  maxSteps,
+  gate,
+  internalTask,
+  runPlan,
+  commandsRun,
+  changedFiles,
+  validationResult,
+  commitHash,
+  nextRecommendationValue
+}) {
+  const now = new Date().toISOString();
+  return {
+    schema_version: 1,
+    run_id: `autopilot-run-${timestampForFile(now)}-${createHash("sha1").update(`${goal}:${now}:runner`).digest("hex").slice(0, 8)}`,
+    created_at: now,
+    mode,
+    goal,
+    max_steps: maxSteps,
+    planning_output: planningOutput,
+    selected_action: selectedAction,
+    execution_mode: gate.execution_mode,
+    execution_gate: gate,
+    internal_task: internalTask,
+    executor_run_plan: runPlan,
+    commands_run: commandsRun,
+    changed_files: changedFiles,
+    validation_result: validationResult,
+    commit_hash: commitHash,
+    commit_hash_note: commitHash === "pending_until_commit"
+      ? "The actual commit hash is printed after git commit; the run artifact is written before commit to keep the commit atomic."
+      : "",
+    next_recommendation: nextRecommendationValue,
+    safety: {
+      agent_execution: "disabled",
+      managed_project_writes: "disabled",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "disabled",
+      max_steps: 1
+    },
+    context_summary: {
+      release_doc_count: context.docs.release_count,
+      autopilot_run_count: context.autopilot_runs.run_count,
+      runtime_provider_count: context.packages.runtime_providers.length,
+      runtime_profile_count: context.packages.runtime_profiles.length,
+      credential_reference_count: context.packages.credential_references.length,
+      managed_project_doctor: context.managed_project.project_state.doctor_status
+    }
+  };
+}
+
+function autopilotRunnerMarkdown(run) {
+  const commands = run.commands_run.length === 0
+    ? "- none"
+    : run.commands_run.map((command) => `- ${command.command}: ${command.ok ? "PASS" : "FAIL"} (exit ${command.status})`).join("\n");
+  const changedFiles = run.changed_files.length === 0
+    ? "- none"
+    : run.changed_files.map((file) => `- ${file}`).join("\n");
+  return `# Autopilot Runner Run
+
+- run_id: ${run.run_id}
+- created_at: ${run.created_at}
+- mode: ${run.mode}
+- goal: ${run.goal}
+- max_steps: ${run.max_steps}
+- execution_mode: ${run.execution_mode}
+- commit_hash: ${run.commit_hash ?? "none"}
+
+## Selected Action
+
+- title: ${run.selected_action.title}
+- target_project: ${run.selected_action.target_project}
+- target_package: ${run.selected_action.target_package}
+- risk: ${run.selected_action.risk}
+- approval_required: ${run.selected_action.approval_required ? "yes" : "no"}
+- gate: ${run.execution_gate.reason}
+
+## Internal Task
+
+- task_id: ${run.internal_task.task_id}
+- owner: ${run.internal_task.owner}
+- runtime: ${run.internal_task.runtime}
+- skill_type: ${run.internal_task.skill_type}
+
+## Commands Run
+
+${commands}
+
+## Changed Files
+
+${changedFiles}
+
+## Validation
+
+- status: ${run.validation_result.status}
+- command_count: ${run.validation_result.command_count}
+- failed_commands: ${run.validation_result.failed_commands.length === 0 ? "none" : run.validation_result.failed_commands.join(", ")}
+
+## Next Recommendation
+
+- title: ${run.next_recommendation.title}
+- reason: ${run.next_recommendation.reason}
+- command: ${run.next_recommendation.command}
+
+## Safety
+
+- agent_execution: ${run.safety.agent_execution}
+- managed_project_writes: ${run.safety.managed_project_writes}
+- deploy: ${run.safety.deploy}
+- production_operations: ${run.safety.production_operations}
+- credential_values: ${run.safety.credential_values}
+`;
+}
+
+async function writeAutopilotRunnerRun(run) {
+  const dir = resolveFromRoot("autopilot-runs");
+  await mkdir(dir, { recursive: true });
+  const jsonPath = join(dir, `${run.run_id}.json`);
+  const markdownPath = join(dir, `${run.run_id}.md`);
+  await writeFile(jsonPath, `${JSON.stringify(run, null, 2)}\n`, "utf8");
+  await writeFile(markdownPath, autopilotRunnerMarkdown(run), "utf8");
+  return { jsonPath, markdownPath };
+}
+
+function printAutopilotRunner(run, files = null) {
+  console.log(`# Autopilot Runner ${run.mode}`);
+  console.log("");
+  console.log(`goal: ${run.goal}`);
+  console.log(`run_id: ${run.run_id}`);
+  console.log(`execution_mode: ${run.execution_mode}`);
+  console.log(`selected_action: ${run.selected_action.title}`);
+  console.log(`target_project: ${run.selected_action.target_project}`);
+  console.log(`target_package: ${run.selected_action.target_package}`);
+  console.log(`risk: ${run.selected_action.risk}`);
+  console.log(`gate: ${run.execution_gate.reason}`);
+  console.log(`validation: ${run.validation_result.status}`);
+  console.log(`commit_hash: ${run.commit_hash ?? "none"}`);
+  console.log("");
+  console.log("changed_files:");
+  if (run.changed_files.length === 0) {
+    console.log("- none");
+  } else {
+    for (const file of run.changed_files) console.log(`- ${file}`);
+  }
+  console.log("");
+  console.log("next_recommendation:");
+  console.log(`- title: ${run.next_recommendation.title}`);
+  console.log(`- command: ${run.next_recommendation.command}`);
+  if (files) {
+    console.log("");
+    console.log("written_files:");
+    console.log(`- ${files.jsonPath}`);
+    console.log(`- ${files.markdownPath}`);
+  }
+}
+
+async function commitAutopilotRunnerResult(message, commandsRun) {
+  const addResult = await execReadOnly(repoRoot, "git", ["add", "--all", "--", "."], 120000);
+  commandsRun.push({
+    command: "git add --all -- .",
+    ok: addResult.ok,
+    status: addResult.status,
+    blocked: false,
+    stdout_tail: stdoutTail(addResult.stdout, 20),
+    stderr_tail: stdoutTail(addResult.stderr, 20)
+  });
+  if (!addResult.ok) return { ok: false, hash: "", result: addResult };
+
+  const commitResult = await execReadOnly(repoRoot, "git", ["commit", "-m", message], 120000);
+  commandsRun.push({
+    command: `git commit -m "${message}"`,
+    ok: commitResult.ok,
+    status: commitResult.status,
+    blocked: false,
+    stdout_tail: stdoutTail(commitResult.stdout, 40),
+    stderr_tail: stdoutTail(commitResult.stderr, 40)
+  });
+  const hash = commitResult.ok ? await execGit(repoRoot, ["rev-parse", "HEAD"]) : "";
+  return { ok: commitResult.ok, hash, result: commitResult };
+}
+
+async function autopilotRunner(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("autopilot run requires --dry-run or --apply.");
+  }
+  const goal = (args.goal || args.text).trim();
+  if (!goal) {
+    throw new Error("Missing --goal for autopilot run.");
+  }
+  if (args.maxSteps !== 1) {
+    throw new Error("Autopilot Runner only allows --max-steps 1.");
+  }
+
+  const { context, output } = await runPlanningCenter(goal);
+  const selectedAction = actionFromPlanningOutput(output);
+  const gate = localExecutionGate(selectedAction);
+  const route = await loadSkillRoute(`${selectedAction.title} ${selectedAction.reason}`);
+  const internalTask = internalTaskFromAction(goal, selectedAction, route);
+  const runPlan = executorRunPlan(goal, selectedAction, internalTask);
+  const baseValidation = { status: args.dryRun ? "DRY_RUN" : "PENDING", command_count: 0, failed_commands: [] };
+  const baseRecommendation = nextRecommendation(goal, selectedAction, { status: "PASS" });
+
+  let run = buildAutopilotRunnerRun({
+    goal,
+    context,
+    planningOutput: output,
+    selectedAction,
+    mode: args.apply ? "apply" : "dry-run",
+    maxSteps: args.maxSteps,
+    gate,
+    internalTask,
+    runPlan,
+    commandsRun: [],
+    changedFiles: args.dryRun ? await currentChangedFiles() : [],
+    validationResult: baseValidation,
+    commitHash: args.dryRun ? null : "pending_until_commit",
+    nextRecommendationValue: baseRecommendation
+  });
+
+  if (args.dryRun) {
+    printAutopilotRunner(run);
+    return;
+  }
+
+  let files = await writeAutopilotRunnerRun(run);
+  const commandsRun = [];
+
+  if (gate.allowed) {
+    commandsRun.push(await runAllowedCommand("node packages/orchestrator-core/bin/studio.mjs runtime select --skill code_development --dry-run"));
+    const validationCommands = runnerValidationCommands(selectedAction, goal);
+    for (const command of validationCommands) {
+      commandsRun.push(await runAllowedCommand(command));
+    }
+  }
+
+  const validationResult = gate.allowed
+    ? validationSummary(commandsRun.filter((command) => !command.command.startsWith("git add") && !command.command.startsWith("git commit")))
+    : { status: "PROPOSAL_ONLY", command_count: 0, failed_commands: [] };
+  const changedFiles = await currentChangedFiles();
+  const nextRecommendationValue = nextRecommendation(goal, selectedAction, validationResult);
+
+  run = {
+    ...run,
+    commands_run: commandsRun,
+    changed_files: changedFiles,
+    validation_result: validationResult,
+    next_recommendation: nextRecommendationValue
+  };
+  files = await writeAutopilotRunnerRun(run);
+
+  if (gate.allowed && validationResult.status !== "PASS") {
+    printAutopilotRunner(run, files);
+    process.exitCode = 1;
+    return;
+  }
+
+  const commit = await commitAutopilotRunnerResult(commitMessageForAction(selectedAction), commandsRun);
+  run = {
+    ...run,
+    commands_run: commandsRun,
+    commit_hash: commit.hash || "commit_failed"
+  };
+
+  if (!commit.ok) {
+    printAutopilotRunner(run, files);
+    process.exitCode = 1;
+    return;
+  }
+
+  printAutopilotRunner(run, files);
 }
 
 async function autopilot(args) {
@@ -2708,6 +3250,7 @@ async function main() {
   if (args.command === "observe") return observe();
   if (args.command === "evolution-plan") return evolutionPlan();
   if (args.command === "discovery") return discovery(args);
+  if (args.command === "autopilot" && args.subcommand === "run") return autopilotRunner(args);
   if (args.command === "autopilot") return autopilot(args);
   if (args.command === "lint-check") {
     console.log("lint:check: no ESLint configuration is enabled in the extraction-stage skeleton.");
