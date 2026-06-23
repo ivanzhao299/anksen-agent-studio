@@ -1,4 +1,5 @@
 import { consoleApp, consoleSafety } from "./app.js";
+import { consoleActions } from "./actions.js";
 import { consoleFixture } from "./fixtures.js";
 import { consoleNavigation, type ConsolePageId } from "./navigation.js";
 
@@ -21,6 +22,7 @@ export interface ConsolePanel {
 
 export interface ConsoleReadOnlySummary {
   readonly module_count: number;
+  readonly operable_action_count: number;
   readonly ready_module_count: number;
   readonly high_risk_module_count: number;
   readonly managed_project_writes: typeof consoleSafety.managed_project_writes;
@@ -50,6 +52,7 @@ export const consolePanels: readonly ConsolePanel[] = consoleNavigation.map((ite
 
 export const consoleReadOnlySummary: ConsoleReadOnlySummary = {
   module_count: consoleFixture.modules.length,
+  operable_action_count: consoleActions.length,
   ready_module_count: consoleFixture.modules.filter((module) => module.status === "ready").length,
   high_risk_module_count: consoleFixture.modules.filter((module) => module.risk === "HIGH").length,
   managed_project_writes: consoleSafety.managed_project_writes,
@@ -83,6 +86,7 @@ export function getConsoleViewModel() {
     summary: consoleReadOnlySummary,
     navigation: consoleNavigation,
     panels: consolePanels,
+    actions: consoleActions,
     fixture: consoleFixture,
     details: {
       dashboard: consoleFixture.dashboard,
