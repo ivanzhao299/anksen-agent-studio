@@ -97,6 +97,29 @@ The task planner reads:
 
 It outputs a task candidate with owner, skill/runtime, allowed paths, forbidden paths, expected outputs, validation commands, risk, and approval requirement. It does not write project queue/events and does not execute Agent tasks.
 
+## Task Proposal Gate
+
+Persist a task candidate as a platform-side proposal:
+
+```bash
+node packages/orchestrator-core/bin/studio.mjs project task-plan \
+  --config examples/jinhu-smart-park/project.config.example.json \
+  --text "优化智慧园区仪表盘移动端样式" \
+  --apply-proposal
+
+node packages/orchestrator-core/bin/studio.mjs project proposals \
+  --config examples/jinhu-smart-park/project.config.example.json
+```
+
+`--apply-proposal` writes only to `examples/jinhu-smart-park/task-proposals/` in `anksen-agent-studio`.
+
+Proposal status values:
+
+- `PROPOSED`
+- `APPROVAL_REQUIRED`
+- `PROJECT_WRITES_DISABLED`
+- `AGENT_EXECUTION_DISABLED`
+
 ## Safety Rules
 
 - No Agent execution.
