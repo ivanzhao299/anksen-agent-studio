@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "invocation_id": "adapter-plan-codex-cli-code-development",
+  "created_at": "2026-06-23T00:00:00.000Z",
+  "adapter_id": "codex-cli",
+  "runtime_id": "codex-cli",
+  "skill_type": "code_development",
+  "dry_run": true,
+  "execution_status": "planned",
+  "model_invocation": "disabled",
+  "credential_values_read": false,
+  "external_calls": "disabled",
+  "credential_reference_status": "reference_only",
+  "governance_risk": "MEDIUM",
+  "steps": [
+    "Resolve adapter metadata from packages/runtime-adapters/examples/runtime-adapters.example.json.",
+    "Confirm supported skill code_development.",
+    "Confirm Credential Vault reference presence only.",
+    "Run Governance Center metadata check.",
+    "Return plan without invoking the runtime."
+  ],
+  "blocked_reasons": []
+}

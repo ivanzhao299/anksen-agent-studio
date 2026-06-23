@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/runtime-adapters/adapter-invocation.schema.json",
+  "title": "Runtime Adapter Invocation Plan",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "invocation_id",
+    "created_at",
+    "adapter_id",
+    "runtime_id",
+    "skill_type",
+    "dry_run",
+    "execution_status",
+    "model_invocation",
+    "credential_values_read",
+    "external_calls",
+    "steps"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "invocation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "adapter_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtime_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "skill_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dry_run": {
+      "const": true
+    },
+    "execution_status": {
+      "enum": [
+        "planned",
+        "blocked"
+      ]
+    },
+    "model_invocation": {
+      "const": "disabled"
+    },
+    "credential_values_read": {
+      "const": false
+    },
+    "external_calls": {
+      "const": "disabled"
+    },
+    "credential_reference_status": {
+      "enum": [
+        "reference_only",
+        "not_required",
+        "missing"
+      ]
+    },
+    "governance_risk": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -34,6 +34,9 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs governance check --dry-run
   node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run
   node packages/orchestrator-core/bin/studio.mjs approval-policy --dry-run
+  node packages/orchestrator-core/bin/studio.mjs adapter list --dry-run
+  node packages/orchestrator-core/bin/studio.mjs adapter health --dry-run
+  node packages/orchestrator-core/bin/studio.mjs adapter invoke-plan --runtime <runtime_id> --skill <skill_type> --dry-run
   node packages/orchestrator-core/bin/studio.mjs production-ops policy --dry-run
   node packages/orchestrator-core/bin/studio.mjs production-ops gates --dry-run
   node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run
@@ -58,7 +61,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "production-ops", "context", "autopilot"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "production-ops", "context", "autopilot"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -70,6 +73,7 @@ function parseArgs(argv) {
     text: "",
     goal: "",
     skill: "",
+    runtime: "",
     capability: "",
     region: "local",
     budgetUsd: null,
@@ -88,6 +92,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--goal") {
       args.goal = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--runtime") {
+      args.runtime = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--skill") {
       args.skill = rest[index + 1] ?? "";
@@ -2319,6 +2326,10 @@ function runtimeCenterUtilsUrl() {
   return pathToFileURL(resolve(packageDir, "../runtime-center/lib/runtime-center-utils.mjs")).href;
 }
 
+function runtimeAdapterUtilsUrl() {
+  return pathToFileURL(resolve(packageDir, "../runtime-adapters/lib/runtime-adapter-utils.mjs")).href;
+}
+
 function credentialVaultUtilsUrl() {
   return pathToFileURL(resolve(packageDir, "../credential-vault/lib/credential-vault-utils.mjs")).href;
 }
@@ -2563,6 +2574,10 @@ function commandSpec(command) {
   if (autopilotRunMatch) {
     return ["node", ["packages/orchestrator-core/bin/studio.mjs", "autopilot", "run", "--goal", autopilotRunMatch[1], "--dry-run"], 120000];
   }
+  const adapterInvokePlanMatch = command.match(/^node packages\/orchestrator-core\/bin\/studio\.mjs adapter invoke-plan --runtime ([a-z0-9-]+) --skill ([a-zA-Z0-9_-]+) --dry-run$/);
+  if (adapterInvokePlanMatch) {
+    return ["node", ["packages/orchestrator-core/bin/studio.mjs", "adapter", "invoke-plan", "--runtime", adapterInvokePlanMatch[1], "--skill", adapterInvokePlanMatch[2], "--dry-run"], 120000];
+  }
   const specs = new Map([
     ["pnpm typecheck", ["pnpm", ["typecheck"], 120000]],
     ["pnpm lint:check", ["pnpm", ["lint:check"], 120000]],
@@ -2571,6 +2586,8 @@ function commandSpec(command) {
     ["node packages/orchestrator-core/bin/studio.mjs governance check --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "governance", "check", "--dry-run"], 120000]],
     ["node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "release-gate", "check", "--dry-run"], 120000]],
     ["node packages/orchestrator-core/bin/studio.mjs approval-policy --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "approval-policy", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs adapter list --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "adapter", "list", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs adapter health --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "adapter", "health", "--dry-run"], 120000]],
     ["node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "production-ops", "validate", "--dry-run"], 120000]],
     ["node packages/runtime-center/bin/runtime-health-check.mjs --dry-run", ["node", ["packages/runtime-center/bin/runtime-health-check.mjs", "--dry-run"], 120000]],
     ["node packages/orchestrator-core/bin/studio.mjs runtime select --skill code_development --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "runtime", "select", "--skill", "code_development", "--dry-run"], 120000]]
@@ -4205,6 +4222,12 @@ async function loadRuntimeCenterApi() {
   return { api, center };
 }
 
+async function loadRuntimeAdapterApi() {
+  const api = await import(runtimeAdapterUtilsUrl());
+  const bundle = await api.loadRuntimeAdapters();
+  return { api, bundle };
+}
+
 async function loadCredentialVaultApi() {
   const api = await import(credentialVaultUtilsUrl());
   const vault = await api.loadCredentialVault();
@@ -4361,6 +4384,94 @@ async function releaseGateCheck(args) {
   if (result.status !== "PASS") process.exitCode = 1;
 }
 
+async function adapterList(args) {
+  assertDryRun(args, "adapter list");
+  const { api, bundle } = await loadRuntimeAdapterApi();
+  const { api: governanceApi, bundle: governanceBundle } = await loadGovernanceCenterApi();
+  const validation = api.validateRuntimeAdapters(bundle);
+  const inventory = api.adapterInventory(bundle).map((adapter) => ({
+    ...adapter,
+    governance: governanceApi.evaluateAdapterMetadata(governanceBundle, adapter)
+  }));
+  console.log("# Runtime Adapter List dry-run");
+  console.log("");
+  console.log(`status: ${validation.status}`);
+  console.log(`adapters: ${inventory.length}`);
+  console.log("model_invocation: disabled");
+  console.log("credential_values_read: no");
+  console.log("external_calls: disabled");
+  console.log("");
+  console.log("| Adapter | Runtime | Mode | Skills | Credential Ref | Network | Workspace | Parallel | Risk | Governance |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+  for (const adapter of inventory) {
+    console.log(`| ${adapter.adapter_id} | ${adapter.runtime_id} | ${adapter.invoke_mode} | ${adapter.supported_skills.join(", ")} | ${adapter.credential_reference_status} | ${adapter.network_required ? "yes" : "no"} | ${adapter.workspace_required ? "yes" : "no"} | ${adapter.max_parallel_tasks} | ${adapter.risk_baseline} | ${adapter.governance.status} |`);
+  }
+  if (validation.status !== "PASS") process.exitCode = 1;
+}
+
+async function adapterHealth(args) {
+  assertDryRun(args, "adapter health");
+  const { api, bundle } = await loadRuntimeAdapterApi();
+  const { api: governanceApi, bundle: governanceBundle } = await loadGovernanceCenterApi();
+  const health = api.adapterHealth(bundle);
+  const adaptersById = new Map((bundle.registry.adapters ?? []).map((adapter) => [adapter.adapter_id, adapter]));
+  console.log("# Runtime Adapter Health dry-run");
+  console.log("");
+  console.log(`adapters: ${health.results.length}`);
+  console.log(`model_invocation: ${health.model_invocation}`);
+  console.log(`credential_values_read: ${health.credential_values_read ? "yes" : "no"}`);
+  console.log(`external_calls: ${health.external_calls}`);
+  console.log("");
+  console.log("| Adapter | Runtime | Mode | Status | Credential Ref | Network | Workspace | Risk | Governance |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+  for (const result of health.results) {
+    const governance = governanceApi.evaluateAdapterMetadata(governanceBundle, adaptersById.get(result.adapter_id) ?? result);
+    console.log(`| ${result.adapter_id} | ${result.runtime_id} | ${result.invoke_mode} | ${result.status} | ${result.credential_reference_status} | ${result.network_required ? "yes" : "no"} | ${result.workspace_required ? "yes" : "no"} | ${result.risk_baseline} | ${governance.status} |`);
+  }
+}
+
+async function adapterInvokePlan(args) {
+  assertDryRun(args, "adapter invoke-plan");
+  if (!args.runtime.trim()) {
+    throw new Error("Missing --runtime for adapter invoke-plan.");
+  }
+  if (!args.skill.trim()) {
+    throw new Error("Missing --skill for adapter invoke-plan.");
+  }
+  const { api, bundle } = await loadRuntimeAdapterApi();
+  const { api: governanceApi, bundle: governanceBundle } = await loadGovernanceCenterApi();
+  const plan = api.buildInvokePlan(bundle, {
+    runtime: args.runtime,
+    skillType: args.skill
+  });
+  const adapter = bundle.indexes.adaptersById.get(plan.adapter_id);
+  const governance = adapter ? governanceApi.evaluateAdapterMetadata(governanceBundle, adapter) : null;
+  console.log("# Runtime Adapter Invoke Plan dry-run");
+  console.log("");
+  console.log(`invocation_id: ${plan.invocation_id}`);
+  console.log(`adapter_id: ${plan.adapter_id}`);
+  console.log(`runtime_id: ${plan.runtime_id}`);
+  console.log(`skill_type: ${plan.skill_type}`);
+  console.log(`execution_status: ${plan.execution_status}`);
+  console.log(`governance_risk: ${plan.governance_risk}`);
+  console.log(`governance_status: ${governance?.status ?? "BLOCKED"}`);
+  console.log(`credential_reference_status: ${plan.credential_reference_status}`);
+  console.log(`model_invocation: ${plan.model_invocation}`);
+  console.log(`credential_values_read: ${plan.credential_values_read ? "yes" : "no"}`);
+  console.log(`external_calls: ${plan.external_calls}`);
+  console.log("");
+  console.log("steps:");
+  for (const step of plan.steps) console.log(`- ${step}`);
+  console.log("");
+  console.log("blocked_reasons:");
+  if (plan.blocked_reasons.length === 0) {
+    console.log("- none");
+  } else {
+    for (const reason of plan.blocked_reasons) console.log(`- ${reason}`);
+  }
+  if (plan.execution_status !== "planned") process.exitCode = 1;
+}
+
 async function productionOpsPolicy(args) {
   assertDryRun(args, "production-ops policy");
   const { api, bundle } = await loadProductionOpsApi();
@@ -4437,13 +4548,14 @@ async function runtimeList() {
   console.log("");
   console.log(`providers: ${center.providers.providers?.length ?? 0}`);
   console.log(`profiles: ${center.profiles.profiles?.length ?? 0}`);
+  console.log(`adapters: ${center.adapters.adapters?.length ?? 0}`);
   console.log("credential_values: not read");
   console.log("");
-  console.log("| Runtime | Provider | Type | Mode | Region | Health | Auth | Budget | Skills |");
-  console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+  console.log("| Runtime | Adapter | Adapter Status | Provider | Type | Mode | Region | Health | Auth | Budget | Skills |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const runtime of inventory) {
     console.log(
-      `| ${runtime.runtime_id} | ${runtime.provider_name} | ${runtime.provider_type} | ${runtime.invoke_mode} | ${runtime.region} | ${runtime.health_status} | ${runtime.auth_status} | ${runtime.budget_status} / $${runtime.max_usd_per_task} | ${runtime.supported_skills.join(", ")} |`
+      `| ${runtime.runtime_id} | ${runtime.adapter_id} | ${runtime.adapter_status} | ${runtime.provider_name} | ${runtime.provider_type} | ${runtime.invoke_mode} | ${runtime.region} | ${runtime.health_status} | ${runtime.auth_status} | ${runtime.budget_status} / $${runtime.max_usd_per_task} | ${runtime.supported_skills.join(", ")} |`
     );
   }
 }
@@ -4458,14 +4570,15 @@ async function runtimeHealth(args) {
   console.log("");
   console.log(`providers: ${center.providers.providers?.length ?? 0}`);
   console.log(`runtimes: ${center.profiles.profiles?.length ?? 0}`);
+  console.log(`adapters: ${center.adapters.adapters?.length ?? 0}`);
   console.log("network_probes: disabled");
   console.log("credential_values: not read");
   console.log("");
-  console.log("| Provider | Runtime | Status | Latency | Auth | Available Skills |");
-  console.log("| --- | --- | --- | --- | --- | --- |");
+  console.log("| Provider | Runtime | Adapter | Adapter Status | Status | Latency | Auth | Available Skills |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const result of payload.results) {
     console.log(
-      `| ${result.provider} | ${result.runtime} | ${result.status} | ${result.latency_ms ?? "n/a"} | ${result.auth_status} | ${result.available_skills.join(", ")} |`
+      `| ${result.provider} | ${result.runtime} | ${result.adapter_id} | ${result.adapter_status} | ${result.status} | ${result.latency_ms ?? "n/a"} | ${result.auth_status} | ${result.available_skills.join(", ")} |`
     );
   }
 }
@@ -4501,7 +4614,7 @@ async function runtimeSelect(args) {
   console.log("");
   console.log("candidates:");
   for (const candidate of selection.candidates.slice(0, 6)) {
-    console.log(`- ${candidate.runtime_id} | provider=${candidate.provider} | score=${candidate.score} | eligible=${candidate.eligible ? "yes" : "no"} | health=${candidate.status} | budget=${candidate.budget_status} | auth=${candidate.auth_status}`);
+    console.log(`- ${candidate.runtime_id} | adapter=${candidate.adapter_id}/${candidate.adapter_status} | provider=${candidate.provider} | score=${candidate.score} | eligible=${candidate.eligible ? "yes" : "no"} | health=${candidate.status} | budget=${candidate.budget_status} | auth=${candidate.auth_status}`);
   }
 }
 
@@ -4527,6 +4640,9 @@ async function main() {
   if (args.command === "governance" && args.subcommand === "check") return governanceCheck(args);
   if (args.command === "release-gate" && args.subcommand === "check") return releaseGateCheck(args);
   if (args.command === "approval-policy") return approvalPolicy(args);
+  if (args.command === "adapter" && args.subcommand === "list") return adapterList(args);
+  if (args.command === "adapter" && args.subcommand === "health") return adapterHealth(args);
+  if (args.command === "adapter" && args.subcommand === "invoke-plan") return adapterInvokePlan(args);
   if (args.command === "production-ops" && args.subcommand === "policy") return productionOpsPolicy(args);
   if (args.command === "production-ops" && args.subcommand === "gates") return productionOpsGates(args);
   if (args.command === "production-ops" && args.subcommand === "validate") return productionOpsValidate(args);

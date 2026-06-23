@@ -8,20 +8,21 @@ function parseArgs(argv) {
   };
 }
 
-function printMarkdown(payload, providersCount, profilesCount) {
+function printMarkdown(payload, center) {
   console.log("# Runtime Health Check");
   console.log("");
   console.log(`mode: ${payload.dry_run ? "dry-run" : "registry-only"}`);
-  console.log(`providers: ${providersCount}`);
-  console.log(`runtimes: ${profilesCount}`);
+  console.log(`providers: ${center.providers.providers?.length ?? 0}`);
+  console.log(`runtimes: ${center.profiles.profiles?.length ?? 0}`);
+  console.log(`adapters: ${center.adapters.adapters?.length ?? 0}`);
   console.log("network_probes: disabled");
   console.log("credential_values: not read");
   console.log("");
-  console.log("| Provider | Runtime | Status | Latency | Auth | Available Skills |");
-  console.log("| --- | --- | --- | --- | --- | --- |");
+  console.log("| Provider | Runtime | Adapter | Adapter Status | Status | Latency | Auth | Available Skills |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const result of payload.results) {
     console.log(
-      `| ${result.provider} | ${result.runtime} | ${result.status} | ${result.latency_ms ?? "n/a"} | ${result.auth_status} | ${result.available_skills.join(", ")} |`
+      `| ${result.provider} | ${result.runtime} | ${result.adapter_id} | ${result.adapter_status} | ${result.status} | ${result.latency_ms ?? "n/a"} | ${result.auth_status} | ${result.available_skills.join(", ")} |`
     );
   }
 }
@@ -42,7 +43,7 @@ async function main() {
     return;
   }
 
-  printMarkdown(payload, center.providers.providers?.length ?? 0, center.profiles.profiles?.length ?? 0);
+  printMarkdown(payload, center);
 }
 
 await main();

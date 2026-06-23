@@ -302,3 +302,55 @@ export function evaluateActionGovernance(bundle, action) {
     reason: `${risk} risk is allowed by governance, approval policy, and release gates.`
   };
 }
+
+export function evaluateAdapterMetadata(bundle, adapter) {
+  const risk = requiredRisks.includes(adapter.risk_baseline) ? adapter.risk_baseline : "CRITICAL";
+  const rule = approvalRule(bundle, risk);
+  const categories = new Set(["runtime_adapter"]);
+  if (adapter.invoke_mode === "remote-worker" || adapter.invoke_mode === "webhook") categories.add("server_access");
+  if (adapter.credential_reference_required) categories.add("credential_reference_required");
+  if (adapter.workspace_required) categories.add("workspace_required");
+  if (adapter.network_required) categories.add("network_required");
+
+  if (!rule) {
+    return {
+      adapter_id: adapter.adapter_id,
+      status: "BLOCKED",
+      risk,
+      automation_mode: "proposal_only",
+      categories: [...categories],
+      reason: `No approval rule exists for adapter risk ${risk}.`
+    };
+  }
+
+  if (rule.automation_mode === "human_approval_required") {
+    return {
+      adapter_id: adapter.adapter_id,
+      status: "NEEDS_APPROVAL",
+      risk,
+      automation_mode: rule.automation_mode,
+      categories: [...categories],
+      reason: "Adapter metadata is CRITICAL risk and requires human approval."
+    };
+  }
+
+  if (rule.automation_mode === "proposal_only") {
+    return {
+      adapter_id: adapter.adapter_id,
+      status: "PROPOSAL_ONLY",
+      risk,
+      automation_mode: rule.automation_mode,
+      categories: [...categories],
+      reason: "Adapter metadata is HIGH risk and must stop at proposal-only mode."
+    };
+  }
+
+  return {
+    adapter_id: adapter.adapter_id,
+    status: "PASS",
+    risk,
+    automation_mode: rule.automation_mode,
+    categories: [...categories],
+    reason: `Adapter metadata is ${risk} risk and may proceed through ${rule.automation_mode} after dry-run gates.`
+  };
+}

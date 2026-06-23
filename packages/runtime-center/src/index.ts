@@ -13,6 +13,7 @@ export interface RuntimeProvider {
 
 export interface RuntimeProfile {
   readonly runtime_id: string;
+  readonly adapter_id: string;
   readonly provider: string;
   readonly invoke_mode: "api" | "cli" | "browser" | "remote-worker" | "local";
   readonly supported_skills: readonly string[];

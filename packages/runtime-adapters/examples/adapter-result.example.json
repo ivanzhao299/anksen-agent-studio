@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "result_id": "adapter-result-codex-cli-code-development",
+  "invocation_id": "adapter-plan-codex-cli-code-development",
+  "adapter_id": "codex-cli",
+  "status": "planned",
+  "dry_run": true,
+  "model_invocation": "disabled",
+  "credential_values_read": false,
+  "external_calls": "disabled",
+  "summary": "Dry-run invocation plan was generated. No model, CLI, browser, webhook, remote worker, credential value, server, deploy, or production operation was executed."
+}

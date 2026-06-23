@@ -11,7 +11,7 @@ V4 should turn ANKSEN Agent Studio from a project-local orchestrator extraction 
 | V4-A Project Connector Runtime | Standardize `--project` adapters, frozen path policy, and worktree discovery. | Complete for initial Jinhu connector. |
 | V4-B Core Engine Parity | Port reusable doctor, skill routing, goal planning, runtime memory, discovery, and evolution logic with fixture parity tests. | In progress through package contracts and CLI dry-runs. |
 | V4-C Console Read-Only MVP | Build a standalone `apps/console` that reads platform and project state without mutation. | Complete as local fixture-backed read-only skeleton. |
-| V4-D Hosted Runtime Adapters | Add guarded adapters for Codex CLI, browser, and future hosted execution. | Planned. |
+| V4-D Hosted Runtime Adapters | Add guarded adapters for Codex CLI, browser, and future hosted execution. | Runtime Adapter Marketplace MVP complete as dry-run registry under `packages/runtime-adapters`. |
 | V4-E Multi-Project Workspace | Support multiple project connectors in one console. | MVP complete as read-only workspace contracts under `packages/project-connector`. |
 | V4-F Governance and Release Gates | Add approvals, audit trail, policy bundles, risk matrix, and release readiness gates. | MVP complete as dry-run-only Governance Center under `packages/governance-center`, with Production Ops gates still blocked. |
 
@@ -39,6 +39,18 @@ The unified governance model is local and dry-run only:
 - Production operations: forbidden.
 - Managed project writes: blocked unless a separate explicit approval exists.
 - Credential values: not read or stored.
+
+## Runtime Adapter Marketplace MVP
+
+The first adapter marketplace is registry-backed and dry-run only:
+
+- Source of truth: `packages/runtime-adapters/examples/runtime-adapters.example.json`.
+- Schema bundle: `packages/runtime-adapters/schemas/`.
+- CLI validation: `node packages/orchestrator-core/bin/studio.mjs adapter list --dry-run`.
+- Invoke planning: `node packages/orchestrator-core/bin/studio.mjs adapter invoke-plan --runtime codex-cli --skill code_development --dry-run`.
+- Runtime Center profiles reference `adapter_id`.
+- Governance Center evaluates adapter metadata risk.
+- Model invocation, credential value access, server access, deploy, production operations, and managed project writes remain disabled.
 
 ## Safety Boundary
 

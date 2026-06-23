@@ -6,6 +6,8 @@
     {
       "provider": "openai",
       "runtime": "codex-cli",
+      "adapter_id": "codex-cli",
+      "adapter_status": "registered",
       "status": "unknown",
       "latency_ms": null,
       "auth_status": "reference_only",
@@ -15,6 +17,8 @@
     {
       "provider": "local-runtime",
       "runtime": "local-agent",
+      "adapter_id": "local-agent",
+      "adapter_status": "registered",
       "status": "unknown",
       "latency_ms": null,
       "auth_status": "not_required",

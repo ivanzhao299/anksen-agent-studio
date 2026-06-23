@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-06-23T00:00:00.000Z",
+  "adapters": [
+    {
+      "adapter_id": "codex-cli",
+      "runtime_id": "codex-cli",
+      "provider": "openai",
+      "invoke_mode": "cli",
+      "supported_skills": ["code_development", "validation_testing", "data_integration", "evolution_observer"],
+      "credential_reference_required": true,
+      "credential_reference_id": "openai-primary-ref",
+      "network_required": true,
+      "workspace_required": true,
+      "max_parallel_tasks": 2,
+      "health_status": "unknown",
+      "risk_baseline": "MEDIUM",
+      "guardrails": [
+        "dry_run_invocation_plan_only",
+        "no_model_invocation",
+        "no_secret_value_read",
+        "no_deploy",
+        "no_production_operation",
+        "no_managed_project_write"
+      ],
+      "notes": "Codex CLI adapter contract. MVP generates plans only."
+    },
+    {
+      "adapter_id": "claude-code",
+      "runtime_id": "claude-code",
+      "provider": "anthropic",
+      "invoke_mode": "cli",
+      "supported_skills": ["code_development", "data_integration", "validation_testing"],
+      "credential_reference_required": true,
+      "credential_reference_id": "anthropic-primary-ref",
+      "network_required": true,
+      "workspace_required": true,
+      "max_parallel_tasks": 2,
+      "health_status": "unknown",
+      "risk_baseline": "MEDIUM",
+      "guardrails": [
+        "dry_run_invocation_plan_only",
+        "no_model_invocation",
+        "no_secret_value_read",
+        "no_deploy",
+        "no_production_operation",
+        "no_managed_project_write"
+      ]
+    },
+    {
+      "adapter_id": "gemini-cli",
+      "runtime_id": "gemini-cli",
+      "provider": "google",
+      "invoke_mode": "cli",
+      "supported_skills": ["code_development", "web_research", "spreadsheet_analysis"],
+      "credential_reference_required": true,
+      "credential_reference_id": "google-primary-ref",
+      "network_required": true,
+      "workspace_required": true,
+      "max_parallel_tasks": 1,
+      "health_status": "unknown",
+      "risk_baseline": "MEDIUM",
+      "guardrails": [
+        "dry_run_invocation_plan_only",
+        "no_model_invocation",
+        "no_secret_value_read",
+        "no_deploy",
+        "no_production_operation",
+        "no_managed_project_write"
+      ]
+    },
+    {
+      "adapter_id": "openhands",
+      "runtime_id": "openhands",
+      "provider": "openhands",
+      "invoke_mode": "remote-worker",
+      "supported_skills": ["code_development", "data_integration"],
+      "credential_reference_required": true,
+      "credential_reference_id": "openhands-worker-ssh-ref",
+      "network_required": true,
+      "workspace_required": true,
+      "max_parallel_tasks": 3,
+      "health_status": "unknown",
+      "risk_baseline": "HIGH",
+      "guardrails": [
+        "dry_run_invocation_plan_only",
+        "no_model_invocation",
+        "no_secret_value_read",
+        "no_deploy",
+        "no_production_operation",
+        "no_managed_project_write",
+        "proposal_required_for_remote_worker"
+      ]
+    },
+    {
+      "adapter_id": "aider",
+      "runtime_id": "aider",
+      "provider": "aider",
+      "invoke_mode": "cli",
+      "supported_skills": ["code_development", "validation_testing"],
+      "credential_reference_required": true,
+      "credential_reference_id": "aider-model-ref",
+      "network_required": true,
+      "workspace_required": true,
+      "max_parallel_tasks": 1,
+      "health_status": "unknown",
+      "risk_baseline": "MEDIUM",
+      "guardrails": [
+        "dry_run_invocation_plan_only",
+        "no_model_invocation",
+        "no_secret_value_read",
+        "no_deploy",
+        "no_production_operation",
+        "no_managed_project_write"
+      ]
+    },
+    {
+      "adapter_id": "local-agent",
+      "runtime_id": "local-agent",
+      "provider": "local-runtime",
+      "invoke_mode": "cli",
+      "supported_skills": ["validation_testing", "evolution_observer", "legacy_discovery", "replica_scoring"],
+      "credential_reference_required": false,
+      "network_required": false,
+      "workspace_required": true,
+      "max_parallel_tasks": 5,
+      "health_status": "unknown",
+      "risk_baseline": "LOW",
+      "guardrails": [
+        "dry_run_invocation_plan_only",
+        "no_model_invocation",
+        "no_secret_value_read",
+        "no_deploy",
+        "no_production_operation",
+        "no_managed_project_write"
+      ],
+      "notes": "Deterministic local adapter. MVP still plans only."
+    }
+  ]
+}

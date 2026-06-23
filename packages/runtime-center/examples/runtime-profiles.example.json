@@ -4,6 +4,7 @@
   "profiles": [
     {
       "runtime_id": "codex-cli",
+      "adapter_id": "codex-cli",
       "provider": "openai",
       "invoke_mode": "cli",
       "supported_skills": ["code_development", "validation_testing", "data_integration", "evolution_observer"],
@@ -20,6 +21,7 @@
     },
     {
       "runtime_id": "claude-code",
+      "adapter_id": "claude-code",
       "provider": "anthropic",
       "invoke_mode": "cli",
       "supported_skills": ["code_development", "data_integration", "validation_testing"],
@@ -36,6 +38,7 @@
     },
     {
       "runtime_id": "gemini-cli",
+      "adapter_id": "gemini-cli",
       "provider": "google",
       "invoke_mode": "cli",
       "supported_skills": ["code_development", "web_research", "spreadsheet_analysis"],
@@ -52,6 +55,7 @@
     },
     {
       "runtime_id": "openhands",
+      "adapter_id": "openhands",
       "provider": "openhands",
       "invoke_mode": "remote-worker",
       "supported_skills": ["code_development", "data_integration"],
@@ -68,6 +72,7 @@
     },
     {
       "runtime_id": "aider",
+      "adapter_id": "aider",
       "provider": "aider",
       "invoke_mode": "cli",
       "supported_skills": ["code_development", "validation_testing"],
@@ -84,6 +89,7 @@
     },
     {
       "runtime_id": "local-agent",
+      "adapter_id": "local-agent",
       "provider": "local-runtime",
       "invoke_mode": "local",
       "supported_skills": ["validation_testing", "evolution_observer", "legacy_discovery", "replica_scoring"],

@@ -22,6 +22,7 @@
         "additionalProperties": false,
         "required": [
           "runtime_id",
+          "adapter_id",
           "provider",
           "invoke_mode",
           "supported_skills",
@@ -33,6 +34,10 @@
         ],
         "properties": {
           "runtime_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "adapter_id": {
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9-]*$"
           },

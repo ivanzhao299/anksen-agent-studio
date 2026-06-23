@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/runtime-adapters/adapter-result.schema.json",
+  "title": "Runtime Adapter Dry-Run Result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "result_id",
+    "invocation_id",
+    "adapter_id",
+    "status",
+    "dry_run",
+    "model_invocation",
+    "credential_values_read",
+    "external_calls"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "result_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "invocation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adapter_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "planned",
+        "blocked",
+        "not_executed"
+      ]
+    },
+    "dry_run": {
+      "const": true
+    },
+    "model_invocation": {
+      "const": "disabled"
+    },
+    "credential_values_read": {
+      "const": false
+    },
+    "external_calls": {
+      "const": "disabled"
+    },
+    "summary": {
+      "type": "string"
+    }
+  }
+}

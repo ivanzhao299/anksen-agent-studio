@@ -25,6 +25,7 @@
         "required": [
           "provider",
           "runtime",
+          "adapter_id",
           "status",
           "latency_ms",
           "auth_status",
@@ -36,6 +37,13 @@
           },
           "runtime": {
             "type": "string"
+          },
+          "adapter_id": {
+            "type": "string"
+          },
+          "adapter_status": {
+            "type": "string",
+            "enum": ["registered", "missing"]
           },
           "status": {
             "type": "string",
