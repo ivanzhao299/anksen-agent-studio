@@ -2,9 +2,9 @@
 
 ## Objective
 
-Autopilot Runner reduces manual instruction transfer between ChatGPT and Codex by letting ANKSEN Agent Studio execute one bounded, safe platform-repository step from a Planning Center `next_action`.
+Autopilot Runner reduces manual instruction transfer between ChatGPT and Codex by letting ANKSEN Agent Studio read global context, call Planning Center, and record one bounded next-step plan from a Planning Center `next_action`.
 
-The MVP is intentionally single-step. It does not create an autonomous loop, does not execute managed-project work, and does not bypass approval gates.
+The MVP is intentionally single-step and planning-only. It does not create an autonomous loop, does not modify code, does not execute managed-project work, and does not bypass approval gates.
 
 ## Commands
 
@@ -17,32 +17,33 @@ node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "继续推�
 
 ## Execution Policy
 
-Autopilot Runner may execute only when all conditions are true:
+Autopilot Runner may generate a local repository action plan only when all conditions are true:
 
 - `target_project` is `anksen-agent-studio`
 - risk is `LOW` or `MEDIUM`
 - the action does not reference deploy, production operations, destructive data operations, or secret values
-- the selected validation commands are in the runner allowlist
 
 Otherwise the runner remains in proposal-only mode.
 
-## Local Repository Execution
+## Local Repository Action Plan
 
 For a safe local action, the runner:
 
+- reads `runtime/global/*`
+- calls Planning Center
 - creates an internal task
 - records an executor prompt and run plan
-- selects a local code runtime through Runtime Center dry-run metadata
-- runs validation commands
 - writes `autopilot-runs/<run_id>.json`
 - writes `autopilot-runs/<run_id>.md`
-- commits the bounded local result
+- records the next recommendation
+- stops before code modification
 
 ## Run Artifact Contract
 
 Each run record includes:
 
 - `goal`
+- `global_context`
 - `planning_output`
 - `selected_action`
 - `execution_mode`
@@ -56,6 +57,8 @@ Each run record includes:
 
 Autopilot Runner does not:
 
+- modify code
+- commit changes
 - execute Agents
 - deploy
 - run production operations
@@ -69,4 +72,4 @@ Autopilot Runner does not:
 1. Add structured proposal files for managed-project and HIGH-risk actions.
 2. Add a Console view for Autopilot run history and next recommendations.
 3. Add per-step approval checkpoints before any multi-step mode.
-4. Add runtime usage metrics for local repository automation.
+4. Add an approved executor handoff that can run validation and commit in a later phase.

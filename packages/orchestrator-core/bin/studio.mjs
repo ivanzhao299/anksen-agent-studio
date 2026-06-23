@@ -2559,8 +2559,8 @@ function localExecutionGate(action) {
   }
   return {
     allowed: true,
-    execution_mode: "local_repo_execute",
-    reason: "Action targets anksen-agent-studio and is LOW/MEDIUM risk with no forbidden operation."
+    execution_mode: "local_repo_action_plan",
+    reason: "Action targets anksen-agent-studio and is LOW/MEDIUM risk with no forbidden operation; this runner records an action plan only."
   };
 }
 
@@ -2667,7 +2667,7 @@ function internalTaskFromAction(goal, action, route) {
 
 function executorRunPlan(goal, action, internalTask) {
   return {
-    runtime_strategy: "codex-cli-compatible-local-runner",
+    runtime_strategy: "planning-only-local-action-plan",
     executor_prompt: [
       `Goal: ${goal}`,
       `Task: ${action.title}`,
@@ -2677,12 +2677,12 @@ function executorRunPlan(goal, action, internalTask) {
       "Safety: do not deploy, do not run production operations, do not read or write secret values, and do not modify managed projects."
     ].join("\n"),
     steps: [
+      "Read runtime/global context files.",
       "Confirm Planning Center selected one bounded next_action.",
       `Create internal task ${internalTask.task_id}.`,
-      "Use the current local Codex workspace/runtime to implement or capture the local repository change.",
-      "Run the validation command allowlist.",
-      "Write Autopilot run JSON and Markdown evidence.",
-      "Commit the safe local repository result."
+      "Record a local repository action plan when safety gates allow it.",
+      "Write Autopilot run JSON and Markdown evidence in apply mode.",
+      "Stop before code modification, Agent execution, deploy, production operations, credential reads, or managed-project writes."
     ]
   };
 }
@@ -2718,15 +2718,50 @@ function nextRecommendation(goal, action, validationResult) {
   };
 }
 
+function planningOnlyNextRecommendation(goal, action, gate) {
+  if (!gate.allowed) {
+    return {
+      title: "Review generated proposal before any execution",
+      reason: "The selected action is outside the safe local planning gate, so Autopilot Runner stopped at proposal-only mode.",
+      command: `node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "${goal}" --dry-run`
+    };
+  }
+  return {
+    title: `Review and implement: ${action.title}`,
+    reason: "Autopilot Runner recorded a planning-only local repository action plan. A user or a future approved executor should implement it in a separate step.",
+    command: `node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "${goal}" --dry-run`
+  };
+}
+
 function commitMessageForAction(action) {
   if (/Autopilot Runner/i.test(action.title)) return "chore: add autopilot runner";
   if (action.target_package === "packages/runtime-center") return "chore(runtime-center): apply autopilot runtime step";
   return `chore(autopilot): ${safeSegment(action.title).toLowerCase().slice(0, 48) || "apply-safe-step"}`;
 }
 
+function globalContextSummary(bundle) {
+  return {
+    loaded_at: bundle.loaded_at,
+    source_dir: bundle.source_dir,
+    files: Object.values(bundle.files).map((file) => ({
+      path: file.path,
+      kind: file.kind,
+      bytes: file.bytes,
+      sha256: file.sha256
+    })),
+    platform_status: bundle.platform_state?.current_platform_status ?? "unknown",
+    current_v4_stage: bundle.platform_state?.current_v4_stage?.stage_name ?? bundle.roadmap_memory?.current_stage ?? "unknown",
+    next_recommended_action: bundle.platform_state?.next_recommended_action?.title
+      ?? bundle.roadmap_memory?.next_recommended_action?.title
+      ?? "unknown",
+    managed_projects: bundle.platform_state?.managed_projects?.map((project) => project.project_id) ?? []
+  };
+}
+
 function buildAutopilotRunnerRun({
   goal,
   context,
+  globalContext,
   planningOutput,
   selectedAction,
   mode,
@@ -2748,6 +2783,7 @@ function buildAutopilotRunnerRun({
     mode,
     goal,
     max_steps: maxSteps,
+    global_context: globalContextSummary(globalContext),
     planning_output: planningOutput,
     selected_action: selectedAction,
     execution_mode: gate.execution_mode,
@@ -2758,9 +2794,7 @@ function buildAutopilotRunnerRun({
     changed_files: changedFiles,
     validation_result: validationResult,
     commit_hash: commitHash,
-    commit_hash_note: commitHash === "pending_until_commit"
-      ? "The actual commit hash is printed after git commit; the run artifact is written before commit to keep the commit atomic."
-      : "",
+    commit_hash_note: "Autopilot Runner planning mode does not create commits; implementation commits are created by the caller after validation.",
     next_recommendation: nextRecommendationValue,
     safety: {
       agent_execution: "disabled",
@@ -2798,6 +2832,14 @@ function autopilotRunnerMarkdown(run) {
 - execution_mode: ${run.execution_mode}
 - commit_hash: ${run.commit_hash ?? "none"}
 
+## Global Context
+
+- source_dir: ${run.global_context.source_dir}
+- platform_status: ${run.global_context.platform_status}
+- current_v4_stage: ${run.global_context.current_v4_stage}
+- next_recommended_action: ${run.global_context.next_recommended_action}
+- files_read: ${run.global_context.files.length}
+
 ## Selected Action
 
 - title: ${run.selected_action.title}
@@ -2813,6 +2855,12 @@ function autopilotRunnerMarkdown(run) {
 - owner: ${run.internal_task.owner}
 - runtime: ${run.internal_task.runtime}
 - skill_type: ${run.internal_task.skill_type}
+
+## Action Plan
+
+- runtime_strategy: ${run.executor_run_plan.runtime_strategy}
+- expected_files: ${(run.selected_action.expected_files ?? []).join(", ")}
+- validation_commands: ${(run.selected_action.validation_commands ?? []).join(", ")}
 
 ## Commands Run
 
@@ -2854,11 +2902,20 @@ async function writeAutopilotRunnerRun(run) {
   return { jsonPath, markdownPath };
 }
 
+function autopilotRunnerRunFiles(run) {
+  return [
+    `autopilot-runs/${run.run_id}.json`,
+    `autopilot-runs/${run.run_id}.md`
+  ];
+}
+
 function printAutopilotRunner(run, files = null) {
   console.log(`# Autopilot Runner ${run.mode}`);
   console.log("");
   console.log(`goal: ${run.goal}`);
   console.log(`run_id: ${run.run_id}`);
+  console.log(`global_context_files_read: ${run.global_context.files.length}`);
+  console.log(`global_context_stage: ${run.global_context.current_v4_stage}`);
   console.log(`execution_mode: ${run.execution_mode}`);
   console.log(`selected_action: ${run.selected_action.title}`);
   console.log(`target_project: ${run.selected_action.target_project}`);
@@ -3211,6 +3268,49 @@ function contextFileList(memory) {
   ];
 }
 
+function globalContextFiles() {
+  return [
+    "runtime/global/platform-state.json",
+    "runtime/global/roadmap-memory.json",
+    "runtime/global/decision-log.json",
+    "runtime/global/codex-context-index.json",
+    "runtime/global/codex-startup.md",
+    "runtime/global/handoff-summary.md"
+  ];
+}
+
+async function loadGlobalContextBundle() {
+  const files = {};
+  const missing = [];
+  for (const relativeFile of globalContextFiles()) {
+    const absoluteFile = resolveFromRoot(relativeFile);
+    if (!existsSync(absoluteFile)) {
+      missing.push(relativeFile);
+      continue;
+    }
+    const text = await readFile(absoluteFile, "utf8");
+    files[relativeFile] = {
+      path: relativeFile,
+      bytes: Buffer.byteLength(text, "utf8"),
+      sha256: createHash("sha256").update(text).digest("hex").slice(0, 16),
+      kind: relativeFile.endsWith(".json") ? "json" : "markdown",
+      data: relativeFile.endsWith(".json") ? JSON.parse(text) : null
+    };
+  }
+  if (missing.length > 0) {
+    throw new Error(`Global context is incomplete. Run context bootstrap --apply first. Missing: ${missing.join(", ")}`);
+  }
+  return {
+    loaded_at: new Date().toISOString(),
+    source_dir: "runtime/global",
+    files,
+    platform_state: files["runtime/global/platform-state.json"].data,
+    roadmap_memory: files["runtime/global/roadmap-memory.json"].data,
+    decision_log: files["runtime/global/decision-log.json"].data,
+    context_index: files["runtime/global/codex-context-index.json"].data
+  };
+}
+
 async function contextBootstrap(args) {
   if (!args.apply) {
     throw new Error("context bootstrap currently requires --apply.");
@@ -3326,18 +3426,42 @@ async function autopilotRunner(args) {
     throw new Error("Autopilot Runner only allows --max-steps 1.");
   }
 
+  const globalContext = await loadGlobalContextBundle();
   const { context, output } = await runPlanningCenter(goal);
   const selectedAction = actionFromPlanningOutput(output);
   const gate = localExecutionGate(selectedAction);
   const route = await loadSkillRoute(`${selectedAction.title} ${selectedAction.reason}`);
   const internalTask = internalTaskFromAction(goal, selectedAction, route);
   const runPlan = executorRunPlan(goal, selectedAction, internalTask);
-  const baseValidation = { status: args.dryRun ? "DRY_RUN" : "PENDING", command_count: 0, failed_commands: [] };
-  const baseRecommendation = nextRecommendation(goal, selectedAction, { status: "PASS" });
+  const commandsRun = [
+    {
+      command: "read runtime/global/*",
+      ok: true,
+      status: 0,
+      blocked: false,
+      stdout_tail: `files=${Object.keys(globalContext.files).length}; stage=${globalContextSummary(globalContext).current_v4_stage}`,
+      stderr_tail: ""
+    },
+    {
+      command: "Planning Center buildPlanningOutput",
+      ok: true,
+      status: 0,
+      blocked: false,
+      stdout_tail: `planning_output_id=${output.planning_output_id}; next_action=${selectedAction.title}`,
+      stderr_tail: ""
+    }
+  ];
+  const baseValidation = {
+    status: args.dryRun ? "DRY_RUN" : "RECORDED",
+    command_count: commandsRun.length,
+    failed_commands: []
+  };
+  const baseRecommendation = planningOnlyNextRecommendation(goal, selectedAction, gate);
 
-  let run = buildAutopilotRunnerRun({
+  const run = buildAutopilotRunnerRun({
     goal,
     context,
+    globalContext,
     planningOutput: output,
     selectedAction,
     mode: args.apply ? "apply" : "dry-run",
@@ -3345,63 +3469,22 @@ async function autopilotRunner(args) {
     gate,
     internalTask,
     runPlan,
-    commandsRun: [],
-    changedFiles: args.dryRun ? await currentChangedFiles() : [],
+    commandsRun,
+    changedFiles: [],
     validationResult: baseValidation,
-    commitHash: args.dryRun ? null : "pending_until_commit",
+    commitHash: null,
     nextRecommendationValue: baseRecommendation
   });
+  if (args.apply) {
+    run.changed_files = autopilotRunnerRunFiles(run);
+  }
 
   if (args.dryRun) {
     printAutopilotRunner(run);
     return;
   }
 
-  let files = await writeAutopilotRunnerRun(run);
-  const commandsRun = [];
-
-  if (gate.allowed) {
-    commandsRun.push(await runAllowedCommand("node packages/orchestrator-core/bin/studio.mjs runtime select --skill code_development --dry-run"));
-    const validationCommands = runnerValidationCommands(selectedAction, goal);
-    for (const command of validationCommands) {
-      commandsRun.push(await runAllowedCommand(command));
-    }
-  }
-
-  const validationResult = gate.allowed
-    ? validationSummary(commandsRun.filter((command) => !command.command.startsWith("git add") && !command.command.startsWith("git commit")))
-    : { status: "PROPOSAL_ONLY", command_count: 0, failed_commands: [] };
-  const changedFiles = await currentChangedFiles();
-  const nextRecommendationValue = nextRecommendation(goal, selectedAction, validationResult);
-
-  run = {
-    ...run,
-    commands_run: commandsRun,
-    changed_files: changedFiles,
-    validation_result: validationResult,
-    next_recommendation: nextRecommendationValue
-  };
-  files = await writeAutopilotRunnerRun(run);
-
-  if (gate.allowed && validationResult.status !== "PASS") {
-    printAutopilotRunner(run, files);
-    process.exitCode = 1;
-    return;
-  }
-
-  const commit = await commitAutopilotRunnerResult(commitMessageForAction(selectedAction), commandsRun);
-  run = {
-    ...run,
-    commands_run: commandsRun,
-    commit_hash: commit.hash || "commit_failed"
-  };
-
-  if (!commit.ok) {
-    printAutopilotRunner(run, files);
-    process.exitCode = 1;
-    return;
-  }
-
+  const files = await writeAutopilotRunnerRun(run);
   printAutopilotRunner(run, files);
 }
 
