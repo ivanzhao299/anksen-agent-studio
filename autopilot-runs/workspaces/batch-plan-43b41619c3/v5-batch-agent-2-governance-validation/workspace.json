@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-43b41619c3",
+  "task_id": "v5-batch-agent-2-governance-validation",
+  "owner_agent": "agent-2",
+  "execution_strategy": "sequential_executor_with_parallel_plan_semantics_parallel_2",
+  "target_package": "packages/governance-center",
+  "allowed_paths": [
+    "packages/governance-center/**",
+    "packages/planning-center/schemas/**",
+    "docs/release/V5_*GOVERNANCE*",
+    "docs/release/V5_*TEST*"
+  ],
+  "forbidden_paths": [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "examples/jinhu-smart-park/**",
+    "runtime/projects/jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ],
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled",
+    "real_worker_execution": "disabled"
+  }
+}
