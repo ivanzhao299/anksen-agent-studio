@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -20,6 +20,8 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs doctor [--project <file>] --dry-run
   node packages/orchestrator-core/bin/studio.mjs project inspect --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project parity --config <file> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs project import-memory --config <file> [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs project memory --config <file> --summary
   node packages/orchestrator-core/bin/studio.mjs skill-route --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
@@ -28,7 +30,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs discovery --target <file> [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs lint-check
 
-All apply/execution flows are intentionally disabled in the extraction-stage CLI.`);
+Project writes, Agent execution, deploy, and production operations are intentionally disabled in the extraction-stage CLI.`);
 }
 
 function parseArgs(argv) {
@@ -38,6 +40,7 @@ function parseArgs(argv) {
     command,
     subcommand,
     dryRun: rest.includes("--dry-run"),
+    apply: rest.includes("--apply"),
     summary: rest.includes("--summary"),
     text: "",
     project: DEFAULT_PROJECT,
@@ -406,6 +409,109 @@ async function eventStoreSummary(projectPath, config) {
   };
 }
 
+async function localOrchestratorStatus(projectPath, config) {
+  const orchestratorPath = statePath(projectPath, config);
+  const exists = existsSync(orchestratorPath);
+  const doctor = exists
+    ? await execReadOnly(projectPath, process.execPath, ["ops/agent-orchestrator/scripts/orchestratorctl.mjs", "doctor", "--json"])
+    : { ok: false, status: 1, stdout: "", stderr: "local orchestrator missing" };
+  const checkStatus = exists
+    ? await execReadOnly(projectPath, "./ops/agent-orchestrator/check-status.sh", [])
+    : { ok: false, status: 1, stdout: "", stderr: "local orchestrator missing" };
+  const dispatchStatus = exists
+    ? await execReadOnly(projectPath, process.execPath, ["ops/agent-orchestrator/scripts/check-dispatch-status.mjs"])
+    : { ok: false, status: 1, stdout: "", stderr: "local orchestrator missing" };
+  const doctorJson = parseJsonObject(doctor.stdout);
+  return {
+    exists,
+    path: orchestratorPath,
+    doctor_can_run: doctor.ok,
+    doctor_status: doctorJson?.status ?? "unknown",
+    check_status_can_run: checkStatus.ok,
+    check_dispatch_status_can_run: dispatchStatus.ok,
+    doctor_json: doctorJson,
+    command_status: {
+      doctor: doctor.status,
+      check_status: checkStatus.status,
+      check_dispatch_status: dispatchStatus.status
+    }
+  };
+}
+
+function recommendedNextActions(parityResult = "UNKNOWN", repoClean = "unknown") {
+  const actions = [
+    "Use project inspect/parity/import-memory as read-only migration gates.",
+    "Keep writes in the business repository disabled until adapter apply flows have dedicated approval.",
+    "Run project memory --summary before handing this adapter to a new Agent Studio session."
+  ];
+  if (parityResult !== "PASS") {
+    actions.push("Run local doctor and check-status inside the business repository before relying on imported memory.");
+  }
+  if (repoClean !== "yes") {
+    actions.push("Clean or intentionally commit business repository changes before platform migration work.");
+  }
+  return actions;
+}
+
+async function collectProjectSnapshot(configPath) {
+  if (!existsSync(configPath)) {
+    throw new Error(`Project config not found: ${configPath}`);
+  }
+  const config = await readJson(configPath);
+  const projectPath = resolveProjectPath(configPath, config.project_root);
+  const projectExists = existsSync(projectPath);
+  const repo = projectExists ? await repoStatus(projectPath) : {
+    branch: "missing",
+    head: "missing",
+    clean: "unknown",
+    dirty_files: [],
+    ahead_behind: "unknown"
+  };
+  const packageScripts = projectExists ? await readPackageScripts(projectPath) : [];
+  const availableCommands = [...new Set([...(config.available_commands ?? []), ...packageScripts])].sort();
+  const guardedPaths = config.guarded_paths ?? config.frozen_paths ?? [];
+  const runtimeMemory = projectExists ? await runtimeMemoryStatus(projectPath, config) : {
+    directory: "unknown",
+    exists: "no",
+    summary: "missing",
+    platform_state: "missing",
+    generated_at: "unknown",
+    head_summary: "unknown",
+    event_count: "unknown"
+  };
+  const detectedStack = projectExists ? detectStack(projectPath, config) : (config.detected_stack_hints ?? []);
+  const queue = projectExists ? await queueSummary(projectPath, config) : null;
+  const events = projectExists ? await eventStoreSummary(projectPath, config) : null;
+  const localOrchestrator = projectExists ? await localOrchestratorStatus(projectPath, config) : {
+    exists: false,
+    path: "",
+    doctor_can_run: false,
+    doctor_status: "unknown",
+    check_status_can_run: false,
+    check_dispatch_status_can_run: false,
+    doctor_json: null,
+    command_status: {
+      doctor: 1,
+      check_status: 1,
+      check_dispatch_status: 1
+    }
+  };
+  return {
+    configPath,
+    config,
+    projectPath,
+    projectExists,
+    repo,
+    detectedStack,
+    availableCommands,
+    guardedPaths,
+    runtimeMemory,
+    queue,
+    events,
+    localOrchestrator
+  };
+}
+
 async function projectInspect(args) {
   if (!args.dryRun) {
     throw new Error("project inspect is dry-run only in the extraction-stage CLI. Pass --dry-run.");
@@ -614,6 +720,250 @@ async function projectParity(args) {
   if (parityResult === "FAIL") process.exitCode = 1;
 }
 
+function projectRuntimeMemoryDir(configPath) {
+  return join(dirname(configPath), "runtime-memory");
+}
+
+function conciseLocalOrchestratorStatus(localOrchestrator) {
+  return {
+    exists: localOrchestrator.exists,
+    path: localOrchestrator.path,
+    doctor_can_run: localOrchestrator.doctor_can_run,
+    doctor_status: localOrchestrator.doctor_status,
+    check_status_can_run: localOrchestrator.check_status_can_run,
+    check_dispatch_status_can_run: localOrchestrator.check_dispatch_status_can_run,
+    findings_count: localOrchestrator.doctor_json?.findings?.length ?? 0,
+    candidate_agent_branches: localOrchestrator.doctor_json?.integration?.can_integrate_candidates ?? "unknown",
+    command_status: localOrchestrator.command_status
+  };
+}
+
+function buildProjectMemory(snapshot) {
+  const importedAt = new Date().toISOString();
+  const repoStatus = {
+    branch: snapshot.repo.branch,
+    head: snapshot.repo.head,
+    clean: snapshot.repo.clean,
+    dirty_files: snapshot.repo.dirty_files,
+    ahead_behind: snapshot.repo.ahead_behind
+  };
+  const localStatus = conciseLocalOrchestratorStatus(snapshot.localOrchestrator);
+  const recommendedActions = recommendedNextActions(
+    localStatus.doctor_status === "GO" && snapshot.projectExists ? "PASS" : "WARN",
+    snapshot.repo.clean
+  );
+
+  const projectState = {
+    schema_version: 1,
+    imported_at: importedAt,
+    source: "project_adapter_import_memory",
+    project_id: snapshot.config.project_id,
+    project_name: snapshot.config.project_name,
+    project_path: snapshot.projectPath,
+    project_exists: snapshot.projectExists,
+    repo_status: repoStatus,
+    detected_stack: snapshot.detectedStack,
+    available_commands: snapshot.availableCommands,
+    local_orchestrator_status: localStatus,
+    queue_summary: snapshot.queue,
+    event_summary: snapshot.events,
+    runtime_memory_status: snapshot.runtimeMemory,
+    guarded_paths: snapshot.guardedPaths,
+    recommended_next_actions: recommendedActions,
+    safety: {
+      project_writes: "disabled",
+      agent_execution: "disabled",
+      deploy: "disabled",
+      production_operations: "disabled"
+    }
+  };
+
+  const architecture = {
+    schema_version: 1,
+    imported_at: importedAt,
+    project_id: snapshot.config.project_id,
+    detected_stack: snapshot.detectedStack,
+    available_commands: snapshot.availableCommands,
+    read_paths: snapshot.config.read_paths ?? [],
+    write_paths: snapshot.config.write_paths ?? [],
+    guarded_paths: snapshot.guardedPaths,
+    frozen_paths: snapshot.config.frozen_paths ?? [],
+    runtime_memory_status: snapshot.runtimeMemory
+  };
+
+  const agentStudioStatus = {
+    schema_version: 1,
+    imported_at: importedAt,
+    project_id: snapshot.config.project_id,
+    local_orchestrator_status: localStatus,
+    queue_summary: snapshot.queue,
+    event_summary: snapshot.events,
+    runtime_memory_status: snapshot.runtimeMemory,
+    recommended_next_actions: recommendedActions
+  };
+
+  const handoffSummary = `# ${snapshot.config.project_name ?? snapshot.config.project_id} Runtime Memory Handoff
+
+Generated by ANKSEN Agent Studio project adapter import at ${importedAt}.
+
+## Project
+
+- project_id: ${snapshot.config.project_id}
+- project_path: ${snapshot.projectPath}
+- repo_branch: ${repoStatus.branch}
+- repo_head: ${repoStatus.head}
+- git_clean: ${repoStatus.clean}
+- ahead_behind: ${repoStatus.ahead_behind}
+
+## Local Orchestrator
+
+- exists: ${localStatus.exists ? "yes" : "no"}
+- doctor_can_run: ${localStatus.doctor_can_run ? "yes" : "no"}
+- doctor_status: ${localStatus.doctor_status}
+- check_status_can_run: ${localStatus.check_status_can_run ? "yes" : "no"}
+- check_dispatch_status_can_run: ${localStatus.check_dispatch_status_can_run ? "yes" : "no"}
+- candidate_agent_branches: ${localStatus.candidate_agent_branches}
+
+## Queue
+
+- available: ${snapshot.queue?.available ?? "no"}
+- tasks: ${snapshot.queue?.task_count ?? 0}
+- status_counts: ${JSON.stringify(snapshot.queue?.status_counts ?? {})}
+- active_locks: ${snapshot.queue?.active_locks ?? 0}
+- results: ${snapshot.queue?.result_count ?? 0}
+
+## Event Store
+
+- available: ${snapshot.events?.available ?? "no"}
+- event_file_count: ${snapshot.events?.event_file_count ?? 0}
+- event_types: ${JSON.stringify(snapshot.events?.event_types ?? {})}
+
+## Runtime Memory
+
+- exists: ${snapshot.runtimeMemory.exists}
+- summary: ${snapshot.runtimeMemory.summary}
+- platform_state: ${snapshot.runtimeMemory.platform_state}
+- generated_at: ${snapshot.runtimeMemory.generated_at}
+- event_count: ${snapshot.runtimeMemory.event_count}
+
+## Detected Stack
+
+${snapshot.detectedStack.map((item) => `- ${item}`).join("\n")}
+
+## Guarded Paths
+
+${snapshot.guardedPaths.map((path) => `- ${path}`).join("\n")}
+
+## Recommended Next Actions
+
+${recommendedActions.map((action) => `- ${action}`).join("\n")}
+
+## Safety
+
+- No writes were made to the managed project.
+- No Agent task was executed.
+- No deploy or production operation was executed.
+`;
+
+  return {
+    files: {
+      "project-state.json": projectState,
+      "architecture.json": architecture,
+      "agent-studio-status.json": agentStudioStatus,
+      "handoff-summary.md": handoffSummary
+    },
+    imported_at: importedAt,
+    recommended_next_actions: recommendedActions
+  };
+}
+
+async function writeProjectMemory(memoryDir, memory) {
+  await mkdir(memoryDir, { recursive: true });
+  for (const [file, content] of Object.entries(memory.files)) {
+    const path = join(memoryDir, file);
+    if (typeof content === "string") {
+      await writeFile(path, content, "utf8");
+    } else {
+      await writeFile(path, `${JSON.stringify(content, null, 2)}\n`, "utf8");
+    }
+  }
+}
+
+async function projectImportMemory(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("project import-memory requires --dry-run or --apply.");
+  }
+  const configPath = resolveMaybeFromRoot(args.config || args.project || DEFAULT_PROJECT);
+  const snapshot = await collectProjectSnapshot(configPath);
+  const memoryDir = projectRuntimeMemoryDir(configPath);
+  const memory = buildProjectMemory(snapshot);
+  const files = Object.keys(memory.files).map((file) => join(memoryDir, file));
+
+  if (args.apply) {
+    await writeProjectMemory(memoryDir, memory);
+  }
+
+  console.log(`# Project Runtime Memory Import ${args.apply ? "apply" : "dry-run"}`);
+  console.log("");
+  console.log(`project_id: ${snapshot.config.project_id}`);
+  console.log(`project_path: ${snapshot.projectPath}`);
+  console.log(`memory_dir: ${memoryDir}`);
+  console.log(`write_mode: ${args.apply ? "platform-memory-only" : "no-write"}`);
+  console.log(`project_writes: disabled`);
+  console.log(`repo_branch: ${snapshot.repo.branch}`);
+  console.log(`repo_clean: ${snapshot.repo.clean}`);
+  console.log(`doctor_status: ${snapshot.localOrchestrator.doctor_status}`);
+  console.log(`queue_status_counts: ${JSON.stringify(snapshot.queue?.status_counts ?? {})}`);
+  console.log(`event_file_count: ${snapshot.events?.event_file_count ?? 0}`);
+  console.log(`runtime_memory_exists: ${snapshot.runtimeMemory.exists}`);
+  console.log("");
+  console.log(args.apply ? "written_files:" : "would_write_files:");
+  for (const file of files) console.log(`- ${file}`);
+  console.log("");
+  console.log("recommended_next_actions:");
+  for (const action of memory.recommended_next_actions) console.log(`- ${action}`);
+}
+
+async function projectMemory(args) {
+  if (!args.summary) {
+    throw new Error("project memory currently supports --summary only.");
+  }
+  const configPath = resolveMaybeFromRoot(args.config || args.project || DEFAULT_PROJECT);
+  if (!existsSync(configPath)) {
+    throw new Error(`Project config not found: ${configPath}`);
+  }
+  const memoryDir = projectRuntimeMemoryDir(configPath);
+  const statePath = join(memoryDir, "project-state.json");
+  const architecturePath = join(memoryDir, "architecture.json");
+  const statusPath = join(memoryDir, "agent-studio-status.json");
+  const handoffPath = join(memoryDir, "handoff-summary.md");
+  const hasState = existsSync(statePath);
+  const state = hasState ? await readJson(statePath) : null;
+
+  console.log("# Project Runtime Memory Summary");
+  console.log("");
+  console.log(`memory_dir: ${memoryDir}`);
+  console.log(`project_id: ${state?.project_id ?? "unknown"}`);
+  console.log(`imported_at: ${state?.imported_at ?? "missing"}`);
+  console.log(`repo_branch: ${state?.repo_status?.branch ?? "unknown"}`);
+  console.log(`repo_clean: ${state?.repo_status?.clean ?? "unknown"}`);
+  console.log(`doctor_status: ${state?.local_orchestrator_status?.doctor_status ?? "unknown"}`);
+  console.log(`queue_status_counts: ${JSON.stringify(state?.queue_summary?.status_counts ?? {})}`);
+  console.log(`event_file_count: ${state?.event_summary?.event_file_count ?? "unknown"}`);
+  console.log(`runtime_memory_exists: ${state?.runtime_memory_status?.exists ?? "unknown"}`);
+  console.log("");
+  console.log("files:");
+  console.log(`- project-state.json: ${existsSync(statePath) ? "present" : "missing"}`);
+  console.log(`- architecture.json: ${existsSync(architecturePath) ? "present" : "missing"}`);
+  console.log(`- agent-studio-status.json: ${existsSync(statusPath) ? "present" : "missing"}`);
+  console.log(`- handoff-summary.md: ${existsSync(handoffPath) ? "present" : "missing"}`);
+  console.log("");
+  console.log("recommended_next_actions:");
+  for (const action of state?.recommended_next_actions ?? ["Run project import-memory --apply to create project runtime memory."]) {
+    console.log(`- ${action}`);
+  }
+}
+
 async function runtimeMemory() {
   const docs = await countFiles(resolveFromRoot("docs/release"));
   const schemas = await countFiles(resolveFromRoot("packages"));
@@ -684,6 +1034,8 @@ async function main() {
   if (args.command === "doctor") return doctor(args);
   if (args.command === "project" && args.subcommand === "inspect") return projectInspect(args);
   if (args.command === "project" && args.subcommand === "parity") return projectParity(args);
+  if (args.command === "project" && args.subcommand === "import-memory") return projectImportMemory(args);
+  if (args.command === "project" && args.subcommand === "memory") return projectMemory(args);
   if (args.command === "skill-route") {
     if (!args.text.trim()) throw new Error("Missing --text for skill-route.");
     console.log(JSON.stringify(await loadSkillRoute(args.text), null, 2));

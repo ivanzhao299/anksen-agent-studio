@@ -57,6 +57,25 @@ The parity command compares the adapter's direct read of `jinhu-smart-park` agai
 
 `PASS` means the standalone adapter can read the same high-level project state as the project-local orchestrator. `WARN` means a non-blocking mismatch needs review. `FAIL` means a required local probe could not run or the project path/orchestrator state is missing.
 
+## Import Runtime Memory
+
+Import a durable platform-side memory snapshot for this managed project:
+
+```bash
+node packages/orchestrator-core/bin/studio.mjs project import-memory --config examples/jinhu-smart-park/project.config.example.json --dry-run
+node packages/orchestrator-core/bin/studio.mjs project import-memory --config examples/jinhu-smart-park/project.config.example.json --apply
+node packages/orchestrator-core/bin/studio.mjs project memory --config examples/jinhu-smart-park/project.config.example.json --summary
+```
+
+`--apply` writes only to `examples/jinhu-smart-park/runtime-memory/` inside the standalone `anksen-agent-studio` repository. It does not write to `jinhu-smart-park`.
+
+Imported files:
+
+- `project-state.json`
+- `architecture.json`
+- `agent-studio-status.json`
+- `handoff-summary.md`
+
 ## Safety Rules
 
 - No Agent execution.

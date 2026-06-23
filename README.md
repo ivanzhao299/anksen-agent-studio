@@ -51,6 +51,8 @@ Useful dry-run CLI examples:
 ```bash
 node packages/orchestrator-core/bin/studio.mjs project inspect --config examples/jinhu-smart-park/project.config.example.json --dry-run
 node packages/orchestrator-core/bin/studio.mjs project parity --config examples/jinhu-smart-park/project.config.example.json --dry-run
+node packages/orchestrator-core/bin/studio.mjs project import-memory --config examples/jinhu-smart-park/project.config.example.json --dry-run
+node packages/orchestrator-core/bin/studio.mjs project memory --config examples/jinhu-smart-park/project.config.example.json --summary
 node packages/orchestrator-core/bin/studio.mjs skill-route --text "生成一份推进方案 Word 文件" --dry-run
 node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "继续把 Agent Studio 提升到 99%" --dry-run
 node packages/orchestrator-core/bin/studio.mjs discovery --target packages/discovery-engine/examples/discovery-target.example.json --dry-run

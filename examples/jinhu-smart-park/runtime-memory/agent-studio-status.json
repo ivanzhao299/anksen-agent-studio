@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "imported_at": "2026-06-23T05:58:17.757Z",
+  "project_id": "jinhu-smart-park",
+  "local_orchestrator_status": {
+    "exists": true,
+    "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator",
+    "doctor_can_run": true,
+    "doctor_status": "GO",
+    "check_status_can_run": true,
+    "check_dispatch_status_can_run": true,
+    "findings_count": 0,
+    "candidate_agent_branches": 0,
+    "command_status": {
+      "doctor": 0,
+      "check_status": 0,
+      "check_dispatch_status": 0
+    }
+  },
+  "queue_summary": {
+    "available": "yes",
+    "queue_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/queue/task-queue.json",
+    "updated_at": "2026-06-22T17:09:31.178Z",
+    "read_model_only": "yes",
+    "task_count": 38,
+    "status_counts": {
+      "AUDITED": 34,
+      "BLOCKED": 4
+    },
+    "active_locks": 0,
+    "result_count": 34
+  },
+  "event_summary": {
+    "available": "yes",
+    "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/events",
+    "event_file_count": 174,
+    "event_types": {
+      "task.created": 38,
+      "task.claimed": 17,
+      "task.completed": 39,
+      "task.reconciled": 24,
+      "task.integrated": 18,
+      "task.audited": 34,
+      "task.failed": 4
+    }
+  },
+  "runtime_memory_status": {
+    "directory": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runtime",
+    "exists": "yes",
+    "summary": "present",
+    "platform_state": "present",
+    "generated_at": "2026-06-23T04:50:20.808Z",
+    "head_summary": "9db5647 chore(orchestrator): plan agent studio console mvp",
+    "event_count": "174"
+  },
+  "recommended_next_actions": [
+    "Use project inspect/parity/import-memory as read-only migration gates.",
+    "Keep writes in the business repository disabled until adapter apply flows have dedicated approval.",
+    "Run project memory --summary before handing this adapter to a new Agent Studio session."
+  ]
+}
