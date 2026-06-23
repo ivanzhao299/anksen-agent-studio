@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +10,7 @@ const paths = {
   providers: resolve(packageRoot, "examples/runtime-providers.example.json"),
   profiles: resolve(packageRoot, "examples/runtime-profiles.example.json"),
   credentials: resolve(packageRoot, "examples/credential-references.example.json"),
+  credentialVault: resolve(packageRoot, "../credential-vault/examples/credential-references.example.json"),
   budgets: resolve(packageRoot, "examples/runtime-budgets.example.json"),
   selection: resolve(packageRoot, "examples/runtime-selection-rules.example.json")
 };
@@ -22,10 +24,11 @@ function byId(items, idField) {
 }
 
 export async function loadRuntimeCenter() {
+  const credentialPath = existsSync(paths.credentialVault) ? paths.credentialVault : paths.credentials;
   const [providers, profiles, credentials, budgets, selection] = await Promise.all([
     readJson(paths.providers),
     readJson(paths.profiles),
-    readJson(paths.credentials),
+    readJson(credentialPath),
     readJson(paths.budgets),
     readJson(paths.selection)
   ]);
@@ -33,6 +36,7 @@ export async function loadRuntimeCenter() {
     providers,
     profiles,
     credentials,
+    credential_source: credentialPath,
     budgets,
     selection,
     indexes: {
@@ -49,7 +53,16 @@ function providerAuthStatus(center, provider) {
   if (authModes.includes("none")) return "not_required";
   const credential = center.indexes.credentialsByProvider.get(provider?.provider_id ?? "");
   if (credential?.credential_type === "none") return "not_required";
-  if (credential?.vault_path) return "reference_only";
+  if (
+    credential?.vault_path
+    || credential?.env_ref
+    || credential?.keychain_ref
+    || credential?.external_vault_ref
+    || credential?.reference?.vault_path
+    || credential?.reference?.env_ref
+    || credential?.reference?.keychain_ref
+    || credential?.reference?.external_vault_ref
+  ) return "reference_only";
   return "missing";
 }
 
@@ -69,7 +82,7 @@ export function buildRuntimeHealth(center, dryRun = true) {
       auth_status: providerAuthStatus(center, provider),
       available_skills: profile.supported_skills ?? [],
       notes: dryRun
-        ? "Dry-run registry health only. No external service, browser, CLI login, or credential value was accessed."
+        ? `Dry-run registry health only. Credential source: ${center.credential_source}. No external service, browser, CLI login, env value, keychain item, vault secret, or credential value was accessed.`
         : "Active probes are disabled in Runtime Center MVP."
     };
   });

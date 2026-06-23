@@ -28,6 +28,9 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs project approve-proposal --config <file> --task-id <task_id> [--dry-run|--apply --approve-high-risk]
   node packages/orchestrator-core/bin/studio.mjs project execute --config <file> --task-id <task_id> [--dry-run|--apply --parallel 1]
   node packages/orchestrator-core/bin/studio.mjs skill-route --text "..." [--dry-run]
+  node packages/orchestrator-core/bin/studio.mjs credential list --dry-run
+  node packages/orchestrator-core/bin/studio.mjs credential validate --dry-run
+  node packages/orchestrator-core/bin/studio.mjs credential policy --dry-run
   node packages/orchestrator-core/bin/studio.mjs runtime list
   node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run
   node packages/orchestrator-core/bin/studio.mjs runtime select --skill <skill_type> [--dry-run]
@@ -45,7 +48,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -2247,6 +2250,10 @@ function runtimeCenterUtilsUrl() {
   return pathToFileURL(resolve(packageDir, "../runtime-center/lib/runtime-center-utils.mjs")).href;
 }
 
+function credentialVaultUtilsUrl() {
+  return pathToFileURL(resolve(packageDir, "../credential-vault/lib/credential-vault-utils.mjs")).href;
+}
+
 function buildPlanningRequest(goal, context) {
   const createdAt = new Date().toISOString();
   return {
@@ -2518,6 +2525,81 @@ async function loadRuntimeCenterApi() {
   return { api, center };
 }
 
+async function loadCredentialVaultApi() {
+  const api = await import(credentialVaultUtilsUrl());
+  const vault = await api.loadCredentialVault();
+  return { api, vault };
+}
+
+function assertDryRun(args, commandName) {
+  if (!args.dryRun) {
+    throw new Error(`${commandName} currently supports --dry-run only.`);
+  }
+}
+
+async function credentialList(args) {
+  assertDryRun(args, "credential list");
+  const { api, vault } = await loadCredentialVaultApi();
+  const inventory = api.credentialInventory(vault);
+  console.log("# Credential Vault List dry-run");
+  console.log("");
+  console.log(`credential_references: ${inventory.length}`);
+  console.log("secret_values_read: no");
+  console.log("env_read: no");
+  console.log("keychain_read: no");
+  console.log("external_vault_read: no");
+  console.log("");
+  console.log("| Credential | Provider | Type | Reference Type | Status | Secret Read |");
+  console.log("| --- | --- | --- | --- | --- | --- |");
+  for (const credential of inventory) {
+    console.log(`| ${credential.credential_id} | ${credential.provider} | ${credential.credential_type} | ${credential.reference_type} | ${credential.status} | ${credential.secret_value_read} |`);
+  }
+}
+
+async function credentialValidate(args) {
+  assertDryRun(args, "credential validate");
+  const { api, vault } = await loadCredentialVaultApi();
+  const result = api.validateCredentialVault(vault);
+  console.log("# Credential Vault Validate dry-run");
+  console.log("");
+  console.log(`status: ${result.status}`);
+  console.log(`credential_count: ${result.credential_count}`);
+  console.log(`provider_count: ${result.provider_count}`);
+  console.log(`secret_values_read: ${result.secret_values_read}`);
+  console.log(`env_read: ${result.env_read}`);
+  console.log(`keychain_read: ${result.keychain_read}`);
+  console.log(`external_vault_read: ${result.external_vault_read}`);
+  console.log("");
+  console.log("findings:");
+  if (result.findings.length === 0) {
+    console.log("- none");
+  } else {
+    for (const finding of result.findings) {
+      console.log(`- ${finding.severity}: ${finding.message}`);
+    }
+  }
+  if (result.status !== "PASS") process.exitCode = 1;
+}
+
+async function credentialPolicy(args) {
+  assertDryRun(args, "credential policy");
+  const { api, vault } = await loadCredentialVaultApi();
+  const policy = api.policySummary(vault);
+  console.log("# Credential Vault Policy dry-run");
+  console.log("");
+  console.log(`secret_values: ${policy.secret_values}`);
+  console.log(`env_read: ${policy.env_read}`);
+  console.log(`keychain_read: ${policy.keychain_read}`);
+  console.log(`external_vault_read: ${policy.external_vault_read}`);
+  console.log(`runtime_health_secret_access: ${policy.runtime_health_secret_access}`);
+  console.log("");
+  console.log("allowed_reference_types:");
+  for (const type of policy.allowed_reference_types) console.log(`- ${type}`);
+  console.log("");
+  console.log("forbidden_fields:");
+  for (const field of policy.forbidden_fields) console.log(`- ${field}`);
+}
+
 async function runtimeList() {
   const { api, center } = await loadRuntimeCenterApi();
   const inventory = api.runtimeInventory(center);
@@ -2609,6 +2691,9 @@ async function main() {
   if (args.command === "project" && args.subcommand === "proposals") return projectProposals(args);
   if (args.command === "project" && args.subcommand === "approve-proposal") return projectApproveProposal(args);
   if (args.command === "project" && args.subcommand === "execute") return projectExecute(args);
+  if (args.command === "credential" && args.subcommand === "list") return credentialList(args);
+  if (args.command === "credential" && args.subcommand === "validate") return credentialValidate(args);
+  if (args.command === "credential" && args.subcommand === "policy") return credentialPolicy(args);
   if (args.command === "runtime" && args.subcommand === "list") return runtimeList();
   if (args.command === "runtime" && args.subcommand === "health") return runtimeHealth(args);
   if (args.command === "runtime" && args.subcommand === "select") return runtimeSelect(args);

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/vault-policy.schema.json",
+  "title": "ANKSEN Agent Studio Vault Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "updated_at",
+    "secret_values",
+    "env_read",
+    "keychain_read",
+    "external_vault_read",
+    "allowed_reference_types",
+    "forbidden_fields",
+    "runtime_health_secret_access"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "secret_values": {
+      "type": "string",
+      "enum": ["forbidden"]
+    },
+    "env_read": {
+      "type": "string",
+      "enum": ["forbidden"]
+    },
+    "keychain_read": {
+      "type": "string",
+      "enum": ["forbidden"]
+    },
+    "external_vault_read": {
+      "type": "string",
+      "enum": ["forbidden"]
+    },
+    "allowed_reference_types": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["vault_path", "env_ref", "keychain_ref", "external_vault_ref"]
+      },
+      "uniqueItems": true
+    },
+    "forbidden_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "runtime_health_secret_access": {
+      "type": "string",
+      "enum": ["reference_presence_only"]
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
