@@ -56,6 +56,7 @@ node packages/orchestrator-core/bin/studio.mjs project memory --config examples/
 node packages/orchestrator-core/bin/studio.mjs project task-plan --config examples/jinhu-smart-park/project.config.example.json --text "优化智慧园区仪表盘移动端样式" --dry-run
 node packages/orchestrator-core/bin/studio.mjs project task-plan --config examples/jinhu-smart-park/project.config.example.json --text "优化智慧园区仪表盘移动端样式" --apply-proposal
 node packages/orchestrator-core/bin/studio.mjs project proposals --config examples/jinhu-smart-park/project.config.example.json
+node packages/orchestrator-core/bin/studio.mjs project approve-proposal --config examples/jinhu-smart-park/project.config.example.json --task-id JINHU-SMART-PARK-TASK-2A48545294 --dry-run
 node packages/orchestrator-core/bin/studio.mjs skill-route --text "生成一份推进方案 Word 文件" --dry-run
 node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "继续把 Agent Studio 提升到 99%" --dry-run
 node packages/orchestrator-core/bin/studio.mjs discovery --target packages/discovery-engine/examples/discovery-target.example.json --dry-run

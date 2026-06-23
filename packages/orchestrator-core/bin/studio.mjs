@@ -25,6 +25,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs project memory --config <file> --summary
   node packages/orchestrator-core/bin/studio.mjs project task-plan --config <file> --text "..." [--dry-run|--apply-proposal]
   node packages/orchestrator-core/bin/studio.mjs project proposals --config <file>
+  node packages/orchestrator-core/bin/studio.mjs project approve-proposal --config <file> --task-id <task_id> [--dry-run|--apply --approve-high-risk]
   node packages/orchestrator-core/bin/studio.mjs skill-route --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
@@ -45,8 +46,10 @@ function parseArgs(argv) {
     dryRun: rest.includes("--dry-run"),
     apply: rest.includes("--apply"),
     applyProposal: rest.includes("--apply-proposal"),
+    approveHighRisk: rest.includes("--approve-high-risk"),
     summary: rest.includes("--summary"),
     text: "",
+    taskId: "",
     project: DEFAULT_PROJECT,
     config: "",
     target: ""
@@ -65,6 +68,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--target") {
       args.target = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--task-id") {
+      args.taskId = rest[index + 1] ?? "";
       index += 1;
     }
   }
@@ -1145,6 +1151,10 @@ function projectTaskProposalsDir(configPath) {
   return join(dirname(configPath), "task-proposals");
 }
 
+function proposalPathForTask(configPath, taskId) {
+  return join(projectTaskProposalsDir(configPath), `${taskId}.json`);
+}
+
 function proposalReadmeContent(config) {
   return `# ${config.project_name ?? config.project_id} Task Proposals
 
@@ -1203,6 +1213,197 @@ function proposalFromCandidate(candidate) {
     routing: candidate.routing,
     project_context: candidate.project_context
   };
+}
+
+function timestampForFile(value = new Date().toISOString()) {
+  return new Date(value).toISOString().replaceAll(":", "").replaceAll(".", "");
+}
+
+function safeSegment(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function stableJson(value) {
+  return JSON.stringify(value);
+}
+
+function stableHash(value) {
+  return createHash("sha256").update(stableJson(value)).digest("hex");
+}
+
+function eventFileName(event) {
+  const hash = createHash("sha256").update(event.event_id).digest("hex").slice(0, 12);
+  return `${timestampForFile(event.created_at)}-${safeSegment(event.event_type)}-${hash}.json`;
+}
+
+function normalizeTaskPath(path) {
+  return String(path ?? "").replace(/\/\*\*$/, "").replace(/\/$/, "");
+}
+
+function taskSnapshotFromProposal(proposal, createdAt) {
+  const normalizedAllowed = proposal.allowed_paths?.map(normalizeTaskPath) ?? [];
+  const normalizedForbidden = proposal.forbidden_paths?.map(normalizeTaskPath) ?? [];
+  return {
+    task_id: proposal.task_id,
+    batch_id: `EXTERNAL-PROPOSAL-${proposal.project_id}`,
+    title: proposal.text,
+    owner: proposal.owner,
+    domain: `external-proposal-${proposal.skill_type}`,
+    priority: proposal.risk === "HIGH" ? "P0" : "P1",
+    status: "READY",
+    risk: proposal.risk,
+    skill_type: proposal.skill_type,
+    skill_id: proposal.skill_id,
+    runtime: proposal.runtime,
+    allowed_paths: normalizedAllowed,
+    forbidden_paths: normalizedForbidden,
+    acceptance: [
+      `Implement approved proposal: ${proposal.text}`,
+      "Stay within allowed_paths and avoid forbidden_paths.",
+      "Do not deploy or perform production operations.",
+      "Run all validation_commands and record truthful results.",
+      "Respect approval_required and high-risk boundaries before project writes."
+    ],
+    validation_commands: proposal.validation_commands ?? [],
+    required_checks: [
+      "No forbidden paths changed",
+      "Validation commands pass or failures are reported truthfully",
+      "No deploy or production operation executed"
+    ],
+    expected_outputs: proposal.expected_outputs ?? [],
+    expected_output_files: [],
+    requires_human_approval: Boolean(proposal.approval_required),
+    approval_source: "anksen-agent-studio",
+    external_proposal_ref: `examples/${proposal.project_id}/task-proposals/${proposal.task_id}.json`,
+    allow_commit: false,
+    created_at: createdAt,
+    updated_at: createdAt
+  };
+}
+
+function taskCreatedEventFromProposal(proposal, createdAt) {
+  const taskSnapshot = taskSnapshotFromProposal(proposal, createdAt);
+  const idempotencyKey = stableHash({
+    source: "anksen-agent-studio.project.approve-proposal",
+    task_id: proposal.task_id,
+    proposal_created_at: proposal.created_at
+  });
+  return {
+    event_id: `external-proposal:v1:${proposal.task_id}:task.created`,
+    event_type: "task.created",
+    task_id: proposal.task_id,
+    owner: proposal.owner,
+    status_before: null,
+    status_after: "READY",
+    created_at: createdAt,
+    actor: "anksen-agent-studio",
+    source: "anksen-agent-studio.project.approve-proposal",
+    reason: `approved external project task proposal: ${proposal.text}`,
+    changed_files: [],
+    result_ref: "",
+    audit_ref: "",
+    metadata: {
+      idempotency_key: idempotencyKey,
+      external_proposal: true,
+      proposal_snapshot: proposal,
+      task_snapshot: taskSnapshot
+    }
+  };
+}
+
+async function readProposal(configPath, taskId) {
+  const path = proposalPathForTask(configPath, taskId);
+  if (!existsSync(path)) {
+    throw new Error(`Proposal not found: ${path}`);
+  }
+  return {
+    path,
+    proposal: await readJson(path)
+  };
+}
+
+async function writeProposalJson(path, proposal) {
+  await writeFile(path, `${JSON.stringify(proposal, null, 2)}\n`, "utf8");
+}
+
+function approveProposal(proposal, approvedAt) {
+  return {
+    ...proposal,
+    proposal_status: [
+      "PROPOSED",
+      "APPROVED",
+      "PROJECT_WRITES_DISABLED",
+      "AGENT_EXECUTION_DISABLED"
+    ],
+    approval_status: "APPROVED",
+    approved_at: approvedAt,
+    approved_by: "anksen-agent-studio.project.approve-proposal",
+    project_write_mode: "PROJECT_WRITES_DISABLED",
+    agent_execution_mode: "AGENT_EXECUTION_DISABLED"
+  };
+}
+
+function parseAheadBehindStrict(value) {
+  const parsed = parseAheadBehind(value);
+  return {
+    ahead: parsed.ahead,
+    behind: parsed.behind,
+    clean: parsed.ahead === 0 && parsed.behind === 0
+  };
+}
+
+function assertProjectInjectionPrecheck(snapshot) {
+  const failures = [];
+  const aheadBehind = parseAheadBehindStrict(snapshot.repo.ahead_behind);
+  if (!snapshot.projectExists) failures.push("project path missing");
+  if (snapshot.repo.branch !== "main") failures.push(`project branch must be main, got ${snapshot.repo.branch}`);
+  if (snapshot.repo.clean !== "yes") failures.push("project repo must be clean");
+  if (!aheadBehind.clean) failures.push(`project ahead/behind must be 0/0, got ${snapshot.repo.ahead_behind}`);
+  if (!snapshot.localOrchestrator.exists) failures.push("local orchestrator is missing");
+  return failures;
+}
+
+async function listTaskEventFiles(projectPath, config, taskId) {
+  const taskDir = statePath(projectPath, config, "events", "tasks", safeSegment(taskId));
+  if (!existsSync(taskDir)) return [];
+  return (await readdir(taskDir))
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => join(taskDir, file));
+}
+
+async function findExistingExternalProposalEvent(projectPath, config, taskId) {
+  const files = await listTaskEventFiles(projectPath, config, taskId);
+  for (const file of files) {
+    try {
+      const event = await readJson(file);
+      if (event.event_type === "task.created" && event.source === "anksen-agent-studio.project.approve-proposal") {
+        return file;
+      }
+    } catch {
+      // Ignore corrupt unrelated files here; the project rebuild command will report them.
+    }
+  }
+  return "";
+}
+
+async function writeProjectTaskCreatedEvent(projectPath, config, event) {
+  const existing = await findExistingExternalProposalEvent(projectPath, config, event.task_id);
+  if (existing) {
+    return { path: existing, written: false, skipped: true };
+  }
+  const taskDir = statePath(projectPath, config, "events", "tasks", safeSegment(event.task_id));
+  await mkdir(taskDir, { recursive: true });
+  const path = join(taskDir, eventFileName(event));
+  await writeFile(path, `${JSON.stringify(event, null, 2)}\n`, { flag: "wx" });
+  return { path, written: true, skipped: false };
+}
+
+async function rebuildProjectReadModel(projectPath) {
+  return execReadOnly(projectPath, process.execPath, ["ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs", "--apply"]);
 }
 
 async function writeProposal(configPath, config, proposal) {
@@ -1276,6 +1477,93 @@ async function projectProposals(args) {
   for (const file of proposalFiles) {
     const proposal = await readJson(join(proposalDir, file));
     console.log(`- ${proposal.task_id} | ${proposal.owner} | ${proposal.skill_type} | ${proposal.risk} | ${proposal.approval_status} | ${file}`);
+  }
+}
+
+async function projectApproveProposal(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("project approve-proposal requires --dry-run or --apply.");
+  }
+  if (!args.taskId.trim()) {
+    throw new Error("Missing --task-id for project approve-proposal.");
+  }
+  const configPath = resolveMaybeFromRoot(args.config || args.project || DEFAULT_PROJECT);
+  if (!existsSync(configPath)) {
+    throw new Error(`Project config not found: ${configPath}`);
+  }
+  const snapshot = await collectProjectSnapshot(configPath);
+  const { path: proposalPath, proposal } = await readProposal(configPath, args.taskId);
+  const precheckFailures = assertProjectInjectionPrecheck(snapshot);
+  const highRisk = proposal.risk === "HIGH";
+  if (args.apply && highRisk && !args.approveHighRisk) {
+    throw new Error(`Proposal ${proposal.task_id} is HIGH risk. Re-run with --approve-high-risk to apply.`);
+  }
+  if (args.apply && precheckFailures.length > 0) {
+    throw new Error(`Project injection precheck failed: ${precheckFailures.join("; ")}`);
+  }
+
+  const approvedAt = new Date().toISOString();
+  const approvedProposal = approveProposal(proposal, approvedAt);
+  const event = taskCreatedEventFromProposal(approvedProposal, approvedAt);
+  const eventDir = statePath(snapshot.projectPath, snapshot.config, "events", "tasks", safeSegment(proposal.task_id));
+  const existingEvent = snapshot.projectExists
+    ? await findExistingExternalProposalEvent(snapshot.projectPath, snapshot.config, proposal.task_id)
+    : "";
+
+  if (!args.apply) {
+    console.log("# Project Proposal Approval dry-run");
+    console.log("");
+    console.log(`proposal_file: ${proposalPath}`);
+    console.log(`task_id: ${proposal.task_id}`);
+    console.log(`proposal_risk: ${proposal.risk}`);
+    console.log(`approval_required: ${proposal.approval_required ? "yes" : "no"}`);
+    console.log(`approve_high_risk_flag: ${args.approveHighRisk ? "yes" : "no"}`);
+    console.log(`project_branch: ${snapshot.repo.branch}`);
+    console.log(`project_clean: ${snapshot.repo.clean}`);
+    console.log(`project_ahead_behind: ${snapshot.repo.ahead_behind}`);
+    console.log(`precheck: ${precheckFailures.length === 0 ? "PASS" : "FAIL"}`);
+    if (precheckFailures.length > 0) {
+      for (const failure of precheckFailures) console.log(`- precheck_failure: ${failure}`);
+    }
+    console.log(`high_risk_apply_gate: ${highRisk ? "requires --approve-high-risk" : "not required"}`);
+    console.log(`would_update_proposal_approval_status: APPROVED`);
+    console.log(`would_write_event_dir: ${eventDir}`);
+    console.log(`would_write_event_type: ${event.event_type}`);
+    console.log(`would_write_task_status: ${event.status_after}`);
+    console.log(`existing_external_event: ${existingEvent || "none"}`);
+    console.log("would_rebuild_queue_read_model: yes");
+    console.log("agent_execution: disabled");
+    console.log("deploy: disabled");
+    console.log("production_operations: disabled");
+    return;
+  }
+
+  await writeProposalJson(proposalPath, approvedProposal);
+  const eventWrite = await writeProjectTaskCreatedEvent(snapshot.projectPath, snapshot.config, event);
+  const rebuild = await rebuildProjectReadModel(snapshot.projectPath);
+  if (!rebuild.ok) {
+    throw new Error(`Project read model rebuild failed: ${rebuild.stderr || rebuild.stdout}`);
+  }
+
+  console.log("# Project Proposal Approval apply");
+  console.log("");
+  console.log(`proposal_file: ${proposalPath}`);
+  console.log(`task_id: ${approvedProposal.task_id}`);
+  console.log(`approval_status: ${approvedProposal.approval_status}`);
+  console.log(`proposal_status: ${approvedProposal.proposal_status.join(", ")}`);
+  console.log(`event_file: ${eventWrite.path}`);
+  console.log(`event_written: ${eventWrite.written ? "yes" : "no"}`);
+  console.log(`event_skipped_existing: ${eventWrite.skipped ? "yes" : "no"}`);
+  console.log("queue_read_model_rebuilt: yes");
+  console.log("project_allowed_writes: ops/agent-orchestrator/events/**, ops/agent-orchestrator/queue/**");
+  console.log("business_code_writes: disabled");
+  console.log("agent_execution: disabled");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  if (rebuild.stdout) {
+    console.log("");
+    console.log("rebuild_output:");
+    console.log(rebuild.stdout);
   }
 }
 
@@ -1353,6 +1641,7 @@ async function main() {
   if (args.command === "project" && args.subcommand === "memory") return projectMemory(args);
   if (args.command === "project" && args.subcommand === "task-plan") return projectTaskPlan(args);
   if (args.command === "project" && args.subcommand === "proposals") return projectProposals(args);
+  if (args.command === "project" && args.subcommand === "approve-proposal") return projectApproveProposal(args);
   if (args.command === "skill-route") {
     if (!args.text.trim()) throw new Error("Missing --text for skill-route.");
     console.log(JSON.stringify(await loadSkillRoute(args.text), null, 2));

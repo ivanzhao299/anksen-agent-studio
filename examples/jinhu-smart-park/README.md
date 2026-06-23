@@ -120,6 +120,32 @@ Proposal status values:
 - `PROJECT_WRITES_DISABLED`
 - `AGENT_EXECUTION_DISABLED`
 
+## Approved Injection
+
+Inject an approved proposal into the managed project's orchestrator queue/event system:
+
+```bash
+node packages/orchestrator-core/bin/studio.mjs project approve-proposal \
+  --config examples/jinhu-smart-park/project.config.example.json \
+  --task-id JINHU-SMART-PARK-TASK-2A48545294 \
+  --dry-run
+
+node packages/orchestrator-core/bin/studio.mjs project approve-proposal \
+  --config examples/jinhu-smart-park/project.config.example.json \
+  --task-id JINHU-SMART-PARK-TASK-2A48545294 \
+  --apply \
+  --approve-high-risk
+```
+
+Apply mode is guarded:
+
+- The managed project must be on `main`.
+- The managed project must be clean.
+- The managed project must be `0/0` ahead/behind.
+- `HIGH` risk proposals require `--approve-high-risk`.
+- Only `ops/agent-orchestrator/events/**` and queue read-model files may be written.
+- Agent execution, deploy, and production operations remain disabled.
+
 ## Safety Rules
 
 - No Agent execution.

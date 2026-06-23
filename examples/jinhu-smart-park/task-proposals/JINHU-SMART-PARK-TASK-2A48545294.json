@@ -2,7 +2,7 @@
   "schema_version": 1,
   "proposal_status": [
     "PROPOSED",
-    "APPROVAL_REQUIRED",
+    "APPROVED",
     "PROJECT_WRITES_DISABLED",
     "AGENT_EXECUTION_DISABLED"
   ],
@@ -47,7 +47,7 @@
   ],
   "risk": "HIGH",
   "approval_required": true,
-  "approval_status": "APPROVAL_REQUIRED",
+  "approval_status": "APPROVED",
   "project_write_mode": "PROJECT_WRITES_DISABLED",
   "agent_execution_mode": "AGENT_EXECUTION_DISABLED",
   "queue_write_mode": "QUEUE_WRITES_DISABLED",
@@ -92,5 +92,7 @@
       "BLOCKED": 4
     },
     "runtime_memory_imported_at": "2026-06-23T05:58:17.757Z"
-  }
+  },
+  "approved_at": "2026-06-23T07:22:04.307Z",
+  "approved_by": "anksen-agent-studio.project.approve-proposal"
 }
