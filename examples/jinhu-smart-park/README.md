@@ -37,6 +37,26 @@ The inspection prints:
 - Runtime Memory status
 - recommended next actions
 
+## Parity
+
+Run the read-only parity check before porting more platform code out of the business repository:
+
+```bash
+node packages/orchestrator-core/bin/studio.mjs project parity --config examples/jinhu-smart-park/project.config.example.json --dry-run
+```
+
+The parity command compares the adapter's direct read of `jinhu-smart-park` against the local project orchestrator probes:
+
+- Git branch, clean state, and ahead/behind
+- Runtime Memory existence
+- local `orchestratorctl.mjs doctor --json`
+- local `check-status.sh`
+- local `check-dispatch-status.mjs`
+- queue summary
+- event store summary
+
+`PASS` means the standalone adapter can read the same high-level project state as the project-local orchestrator. `WARN` means a non-blocking mismatch needs review. `FAIL` means a required local probe could not run or the project path/orchestrator state is missing.
+
 ## Safety Rules
 
 - No Agent execution.
@@ -44,4 +64,3 @@ The inspection prints:
 - No production migration, seed, reset, cleanup, or production data operation.
 - No write to `jinhu-smart-park`.
 - Business paths remain guarded by adapter policy.
-

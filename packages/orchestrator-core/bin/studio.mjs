@@ -19,6 +19,7 @@ function usage() {
 Usage:
   node packages/orchestrator-core/bin/studio.mjs doctor [--project <file>] --dry-run
   node packages/orchestrator-core/bin/studio.mjs project inspect --config <file> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs project parity --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs skill-route --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
@@ -92,6 +93,29 @@ async function execGit(cwd, args) {
   }
 }
 
+async function execReadOnly(cwd, command, args, timeout = 120000) {
+  try {
+    const { stdout, stderr } = await execFileAsync(command, args, {
+      cwd,
+      timeout,
+      maxBuffer: 1024 * 1024 * 20
+    });
+    return {
+      ok: true,
+      status: 0,
+      stdout: stdout.trim(),
+      stderr: stderr.trim()
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: typeof error?.code === "number" ? error.code : 1,
+      stdout: String(error?.stdout ?? "").trim(),
+      stderr: String(error?.stderr ?? error?.message ?? "").trim()
+    };
+  }
+}
+
 async function countFiles(path) {
   if (!existsSync(path)) return 0;
   const entries = await readdir(path, { withFileTypes: true });
@@ -105,6 +129,21 @@ async function countFiles(path) {
     }
   }
   return count;
+}
+
+async function listFiles(path) {
+  if (!existsSync(path)) return [];
+  const entries = await readdir(path, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const child = join(path, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...await listFiles(child));
+    } else {
+      files.push(child);
+    }
+  }
+  return files;
 }
 
 async function listPackageNames() {
@@ -235,6 +274,36 @@ async function repoStatus(projectPath) {
   };
 }
 
+function statePath(projectPath, config, ...segments) {
+  return join(projectPath, config.state_dir ?? "ops/agent-orchestrator", ...segments);
+}
+
+function countTaskStatuses(tasks) {
+  const statuses = {};
+  for (const task of tasks ?? []) {
+    const status = task.status ?? "UNKNOWN";
+    statuses[status] = (statuses[status] ?? 0) + 1;
+  }
+  return statuses;
+}
+
+function parseAheadBehind(value) {
+  const parts = String(value ?? "").trim().split(/\s+/).map((part) => Number(part));
+  if (parts.length < 2 || parts.some((part) => Number.isNaN(part))) {
+    return { ahead: null, behind: null };
+  }
+  return { ahead: parts[0], behind: parts[1] };
+}
+
+function parseJsonObject(value) {
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function detectStack(projectPath, config) {
   const detected = new Set(config.detected_stack_hints ?? []);
   const probes = [
@@ -279,6 +348,62 @@ async function runtimeMemoryStatus(projectPath, config) {
     }
   }
   return status;
+}
+
+async function queueSummary(projectPath, config) {
+  const queuePath = statePath(projectPath, config, "queue", "task-queue.json");
+  const locksPath = statePath(projectPath, config, "queue", "task-locks.json");
+  const resultsPath = statePath(projectPath, config, "queue", "task-results.json");
+  const summary = {
+    available: existsSync(queuePath) ? "yes" : "no",
+    queue_path: queuePath,
+    updated_at: "unknown",
+    read_model_only: "unknown",
+    task_count: 0,
+    status_counts: {},
+    active_locks: 0,
+    result_count: 0
+  };
+  if (existsSync(queuePath)) {
+    const queue = await readJson(queuePath);
+    const tasks = Array.isArray(queue) ? queue : (queue.tasks ?? []);
+    summary.updated_at = queue.updated_at ?? "unknown";
+    summary.read_model_only = queue.read_model_only === true ? "yes" : "no";
+    summary.task_count = tasks.length;
+    summary.status_counts = countTaskStatuses(tasks);
+  }
+  if (existsSync(locksPath)) {
+    const locksJson = await readJson(locksPath);
+    const locks = Array.isArray(locksJson) ? locksJson : (locksJson.locks ?? []);
+    summary.active_locks = locks.filter((lock) => lock.active !== false).length;
+  }
+  if (existsSync(resultsPath)) {
+    const resultsJson = await readJson(resultsPath);
+    const results = Array.isArray(resultsJson) ? resultsJson : (resultsJson.results ?? []);
+    summary.result_count = results.length;
+  }
+  return summary;
+}
+
+async function eventStoreSummary(projectPath, config) {
+  const eventsPath = statePath(projectPath, config, "events");
+  const files = (await listFiles(eventsPath)).filter((file) => file.endsWith(".json"));
+  const eventTypes = {};
+  for (const file of files) {
+    try {
+      const event = await readJson(file);
+      const type = event.event_type ?? "unknown";
+      eventTypes[type] = (eventTypes[type] ?? 0) + 1;
+    } catch {
+      eventTypes.invalid = (eventTypes.invalid ?? 0) + 1;
+    }
+  }
+  return {
+    available: existsSync(eventsPath) ? "yes" : "no",
+    path: eventsPath,
+    event_file_count: files.length,
+    event_types: eventTypes
+  };
 }
 
 async function projectInspect(args) {
@@ -354,6 +479,141 @@ async function projectInspect(args) {
   console.log("- Do not execute Agent tasks, deploy, or production operations from project inspect.");
 }
 
+async function projectParity(args) {
+  if (!args.dryRun) {
+    throw new Error("project parity is dry-run only in the extraction-stage CLI. Pass --dry-run.");
+  }
+  const configPath = resolveMaybeFromRoot(args.config || args.project || DEFAULT_PROJECT);
+  if (!existsSync(configPath)) {
+    throw new Error(`Project config not found: ${configPath}`);
+  }
+  const config = await readJson(configPath);
+  const projectPath = resolveProjectPath(configPath, config.project_root);
+  const projectExists = existsSync(projectPath);
+  const orchestratorPath = projectExists ? statePath(projectPath, config) : "";
+  const localOrchestratorExists = projectExists && existsSync(orchestratorPath);
+  const repo = projectExists ? await repoStatus(projectPath) : {
+    branch: "missing",
+    head: "missing",
+    clean: "unknown",
+    dirty_files: [],
+    ahead_behind: "unknown"
+  };
+  const memory = projectExists ? await runtimeMemoryStatus(projectPath, config) : {
+    exists: "no",
+    summary: "missing",
+    platform_state: "missing",
+    generated_at: "unknown",
+    head_summary: "unknown",
+    event_count: "unknown"
+  };
+  const queue = projectExists ? await queueSummary(projectPath, config) : null;
+  const events = projectExists ? await eventStoreSummary(projectPath, config) : null;
+  const doctor = localOrchestratorExists
+    ? await execReadOnly(projectPath, process.execPath, ["ops/agent-orchestrator/scripts/orchestratorctl.mjs", "doctor", "--json"])
+    : { ok: false, status: 1, stdout: "", stderr: "local orchestrator missing" };
+  const checkStatus = localOrchestratorExists
+    ? await execReadOnly(projectPath, "./ops/agent-orchestrator/check-status.sh", [])
+    : { ok: false, status: 1, stdout: "", stderr: "local orchestrator missing" };
+  const dispatchStatus = localOrchestratorExists
+    ? await execReadOnly(projectPath, process.execPath, ["ops/agent-orchestrator/scripts/check-dispatch-status.mjs"])
+    : { ok: false, status: 1, stdout: "", stderr: "local orchestrator missing" };
+  const doctorJson = parseJsonObject(doctor.stdout);
+  const mismatches = [];
+
+  if (!projectExists) mismatches.push("project_path does not exist");
+  if (!localOrchestratorExists) mismatches.push("local orchestrator state_dir does not exist");
+  if (!doctor.ok) mismatches.push("local doctor command failed");
+  if (!checkStatus.ok) mismatches.push("local check-status command failed");
+  if (!dispatchStatus.ok) mismatches.push("local check-dispatch-status command failed");
+  if (memory.exists !== "yes") mismatches.push("runtime memory directory missing");
+
+  if (doctorJson?.worktrees?.main) {
+    const localMain = doctorJson.worktrees.main;
+    if (repo.branch !== localMain.branch) {
+      mismatches.push(`branch mismatch: adapter=${repo.branch} local_doctor=${localMain.branch}`);
+    }
+    const adapterClean = repo.clean === "yes";
+    if (adapterClean !== Boolean(localMain.clean)) {
+      mismatches.push(`git clean mismatch: adapter=${adapterClean} local_doctor=${Boolean(localMain.clean)}`);
+    }
+    const adapterAheadBehind = parseAheadBehind(repo.ahead_behind);
+    if (
+      adapterAheadBehind.ahead !== null
+      && (adapterAheadBehind.ahead !== Number(localMain.ahead) || adapterAheadBehind.behind !== Number(localMain.behind))
+    ) {
+      mismatches.push(`ahead/behind mismatch: adapter=${adapterAheadBehind.ahead}/${adapterAheadBehind.behind} local_doctor=${localMain.ahead}/${localMain.behind}`);
+    }
+  } else if (doctor.ok) {
+    mismatches.push("local doctor output was not parseable JSON");
+  }
+
+  if (doctorJson?.queue?.counts && queue) {
+    for (const [status, count] of Object.entries(queue.status_counts)) {
+      if (Number(doctorJson.queue.counts[status] ?? 0) !== Number(count)) {
+        mismatches.push(`queue ${status} count mismatch: adapter=${count} local_doctor=${doctorJson.queue.counts[status] ?? 0}`);
+      }
+    }
+  }
+
+  const hasHardFailure = !projectExists || !localOrchestratorExists || !doctor.ok || !checkStatus.ok || !dispatchStatus.ok;
+  const parityResult = hasHardFailure ? "FAIL" : (mismatches.length > 0 ? "WARN" : "PASS");
+  const recommendedActions = [];
+  if (parityResult === "PASS") {
+    recommendedActions.push("Adapter parity PASS; continue using project inspect/parity as read-only gates.");
+    recommendedActions.push("Keep writes in the business repository disabled until adapter apply flows have dedicated approval.");
+  } else {
+    recommendedActions.push("Run local doctor and check-status inside the business repository and compare the mismatch list.");
+    recommendedActions.push("Refresh Runtime Memory in the business repository before relying on extracted adapter state.");
+  }
+  if (repo.clean !== "yes") {
+    recommendedActions.push("Clean or intentionally commit business repository changes before platform migration work.");
+  }
+
+  console.log("# Project Adapter Parity dry-run");
+  console.log("");
+  console.log("adapter_status:");
+  console.log(`- project_id: ${config.project_id}`);
+  console.log(`- project_path: ${projectPath}`);
+  console.log(`- project_exists: ${projectExists ? "yes" : "no"}`);
+  console.log(`- repo_branch: ${repo.branch}`);
+  console.log(`- repo_head: ${repo.head}`);
+  console.log(`- git_clean: ${repo.clean}`);
+  console.log(`- ahead_behind: ${repo.ahead_behind}`);
+  console.log(`- runtime_memory_exists: ${memory.exists}`);
+  console.log(`- runtime_memory_generated_at: ${memory.generated_at}`);
+  console.log(`- local_orchestrator_exists: ${localOrchestratorExists ? "yes" : "no"}`);
+  console.log("");
+  console.log("local_status:");
+  console.log(`- doctor_can_run: ${doctor.ok ? "yes" : "no"}`);
+  console.log(`- doctor_status: ${doctorJson?.status ?? "unknown"}`);
+  console.log(`- check_status_can_run: ${checkStatus.ok ? "yes" : "no"}`);
+  console.log(`- check_dispatch_status_can_run: ${dispatchStatus.ok ? "yes" : "no"}`);
+  console.log(`- queue_available: ${queue?.available ?? "no"}`);
+  console.log(`- queue_tasks: ${queue?.task_count ?? 0}`);
+  console.log(`- queue_read_model_only: ${queue?.read_model_only ?? "unknown"}`);
+  console.log(`- queue_status_counts: ${JSON.stringify(queue?.status_counts ?? {})}`);
+  console.log(`- active_locks: ${queue?.active_locks ?? 0}`);
+  console.log(`- result_count: ${queue?.result_count ?? 0}`);
+  console.log(`- event_store_available: ${events?.available ?? "no"}`);
+  console.log(`- event_file_count: ${events?.event_file_count ?? 0}`);
+  console.log(`- event_types: ${JSON.stringify(events?.event_types ?? {})}`);
+  console.log("");
+  console.log(`parity_result: ${parityResult}`);
+  console.log("");
+  console.log("mismatch_list:");
+  if (mismatches.length === 0) {
+    console.log("- none");
+  } else {
+    for (const mismatch of mismatches) console.log(`- ${mismatch}`);
+  }
+  console.log("");
+  console.log("recommended_actions:");
+  for (const action of recommendedActions) console.log(`- ${action}`);
+
+  if (parityResult === "FAIL") process.exitCode = 1;
+}
+
 async function runtimeMemory() {
   const docs = await countFiles(resolveFromRoot("docs/release"));
   const schemas = await countFiles(resolveFromRoot("packages"));
@@ -423,6 +683,7 @@ async function main() {
 
   if (args.command === "doctor") return doctor(args);
   if (args.command === "project" && args.subcommand === "inspect") return projectInspect(args);
+  if (args.command === "project" && args.subcommand === "parity") return projectParity(args);
   if (args.command === "skill-route") {
     if (!args.text.trim()) throw new Error("Missing --text for skill-route.");
     console.log(JSON.stringify(await loadSkillRoute(args.text), null, 2));
