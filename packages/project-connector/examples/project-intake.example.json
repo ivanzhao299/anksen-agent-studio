@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "project_id": "example-local-project",
+  "source_type": "local_path",
+  "local_path": "../example-project",
+  "git_url_present": false,
+  "zip_placeholder_present": false,
+  "project_exists": false,
+  "repo_metadata": {
+    "default_branch": "main",
+    "package_manager": "pnpm",
+    "is_git_repository": false,
+    "branch": "missing",
+    "head": "missing",
+    "remote_url_present": false
+  },
+  "safety": {
+    "dry_run_only": true,
+    "project_writes": "disabled",
+    "agent_execution": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled"
+  }
+}

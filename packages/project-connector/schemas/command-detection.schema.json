@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/project-connector/command-detection.schema.json",
+  "title": "Command Detection",
+  "type": "object",
+  "required": ["schema_version", "project_id", "commands", "safety"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "project_id": { "type": "string", "minLength": 1 },
+    "command_count": { "type": "integer", "minimum": 0 },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "command", "source", "executable_in_mvp"],
+        "properties": {
+          "kind": { "enum": ["install", "typecheck", "lint", "test", "build", "dev", "doctor"] },
+          "command": { "type": "string" },
+          "source": { "enum": ["package_json", "config", "detected_default"] },
+          "executable_in_mvp": { "const": false }
+        }
+      }
+    },
+    "safety": { "type": "object" }
+  }
+}

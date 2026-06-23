@@ -30,6 +30,58 @@ export interface ProjectConnectorConfig {
     readonly allow_production_operations?: boolean;
   };
   readonly production_operations?: Record<string, "forbidden" | "manual_approval_required" | "allowed">;
+  readonly intake?: ProjectIntakeConfig;
+}
+
+export type ProjectIntakeSourceType = "local_path" | "git_url" | "zip_placeholder";
+
+export interface ProjectIntakeConfig {
+  readonly source_type: ProjectIntakeSourceType;
+  readonly local_path?: string;
+  readonly git_url?: string;
+  readonly zip_placeholder?: string;
+  readonly repo_metadata?: ProjectRepoMetadata;
+}
+
+export interface ProjectRepoMetadata {
+  readonly default_branch?: string;
+  readonly package_manager?: string;
+  readonly monorepo?: boolean;
+  readonly repository_kind?: string;
+}
+
+export interface ProjectStackDetection {
+  readonly project_id: string;
+  readonly project_exists: boolean;
+  readonly detected_stack: readonly string[];
+  readonly package_json: "present" | "missing";
+  readonly pnpm_workspace: "present" | "missing";
+  readonly nextjs: "present" | "missing" | "hinted";
+  readonly nestjs: "present" | "missing" | "hinted";
+  readonly typescript: "present" | "missing" | "hinted";
+  readonly prisma_postgresql: "present" | "missing" | "hinted";
+  readonly docker: "present" | "missing" | "hinted";
+  readonly cicd: "present" | "missing";
+  readonly scripts: readonly string[];
+}
+
+export interface ProjectCommandDetection {
+  readonly project_id: string;
+  readonly commands: readonly {
+    readonly kind: "install" | "typecheck" | "lint" | "test" | "build" | "dev" | "doctor";
+    readonly command: string;
+    readonly source: "package_json" | "config" | "detected_default";
+    readonly executable_in_mvp: false;
+  }[];
+}
+
+export interface DebugSpecialistAnalysis {
+  readonly fixture_path: string;
+  readonly error_class: "build" | "type" | "lint" | "test" | "runtime" | "unknown";
+  readonly severity: "LOW" | "MEDIUM" | "HIGH";
+  readonly summary: string;
+  readonly proposed_repair_task: string;
+  readonly execution_mode: "proposal_only";
 }
 
 export {

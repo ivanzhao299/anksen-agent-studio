@@ -19,6 +19,9 @@ function usage() {
 
 Usage:
   node packages/orchestrator-core/bin/studio.mjs doctor [--project <file>] --dry-run
+  node packages/orchestrator-core/bin/studio.mjs project intake --config <file> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs project stack --config <file> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs project commands --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project inspect --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project parity --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project import-memory --config <file> [--dry-run|--apply]
@@ -52,6 +55,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs observe [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs evolution-plan [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs discovery --target <file> [--dry-run]
+  node packages/orchestrator-core/bin/studio.mjs debug analyze --fixture <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs autopilot --goal "..." [--dry-run|--apply --max-steps 1]
   node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "..." [--dry-run|--apply --max-steps 1]
   node packages/orchestrator-core/bin/studio.mjs lint-check
@@ -61,7 +65,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "production-ops", "context", "autopilot"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "production-ops", "context", "autopilot", "debug"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -81,6 +85,7 @@ function parseArgs(argv) {
     project: DEFAULT_PROJECT,
     config: "",
     target: "",
+    fixture: "",
     parallel: 1,
     maxSteps: 1
   };
@@ -116,6 +121,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--target") {
       args.target = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--fixture") {
+      args.fixture = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--task-id") {
       args.taskId = rest[index + 1] ?? "";
@@ -2331,6 +2339,10 @@ function runtimeAdapterUtilsUrl() {
   return pathToFileURL(resolve(packageDir, "../runtime-adapters/lib/runtime-adapter-utils.mjs")).href;
 }
 
+function projectConnectorUtilsUrl() {
+  return pathToFileURL(resolve(packageDir, "../project-connector/lib/project-connector-utils.mjs")).href;
+}
+
 function credentialVaultUtilsUrl() {
   return pathToFileURL(resolve(packageDir, "../credential-vault/lib/credential-vault-utils.mjs")).href;
 }
@@ -2591,7 +2603,11 @@ function commandSpec(command) {
     ["node packages/orchestrator-core/bin/studio.mjs adapter health --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "adapter", "health", "--dry-run"], 120000]],
     ["node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "production-ops", "validate", "--dry-run"], 120000]],
     ["node packages/runtime-center/bin/runtime-health-check.mjs --dry-run", ["node", ["packages/runtime-center/bin/runtime-health-check.mjs", "--dry-run"], 120000]],
-    ["node packages/orchestrator-core/bin/studio.mjs runtime select --skill code_development --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "runtime", "select", "--skill", "code_development", "--dry-run"], 120000]]
+    ["node packages/orchestrator-core/bin/studio.mjs runtime select --skill code_development --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "runtime", "select", "--skill", "code_development", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs project intake --config examples/jinhu-smart-park/project.config.example.json --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "project", "intake", "--config", "examples/jinhu-smart-park/project.config.example.json", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs project stack --config examples/jinhu-smart-park/project.config.example.json --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "project", "stack", "--config", "examples/jinhu-smart-park/project.config.example.json", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs project commands --config examples/jinhu-smart-park/project.config.example.json --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "project", "commands", "--config", "examples/jinhu-smart-park/project.config.example.json", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs debug analyze --fixture packages/project-connector/examples/debug-error.example.log --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "debug", "analyze", "--fixture", "packages/project-connector/examples/debug-error.example.log", "--dry-run"], 120000]]
   ]);
   return specs.get(command) ?? null;
 }
@@ -4229,6 +4245,10 @@ async function loadRuntimeAdapterApi() {
   return { api, bundle };
 }
 
+async function loadProjectConnectorApi() {
+  return import(projectConnectorUtilsUrl());
+}
+
 async function loadCredentialVaultApi() {
   const api = await import(credentialVaultUtilsUrl());
   const vault = await api.loadCredentialVault();
@@ -4251,6 +4271,143 @@ function assertDryRun(args, commandName) {
   if (!args.dryRun) {
     throw new Error(`${commandName} currently supports --dry-run only.`);
   }
+}
+
+function projectConfigPathFromArgs(args) {
+  const configPath = resolveMaybeFromRoot(args.config || args.project || DEFAULT_PROJECT);
+  if (!existsSync(configPath)) {
+    throw new Error(`Project config not found: ${configPath}`);
+  }
+  return configPath;
+}
+
+async function projectIntake(args) {
+  assertDryRun(args, "project intake");
+  const api = await loadProjectConnectorApi();
+  const intake = await api.buildProjectIntake(projectConfigPathFromArgs(args), repoRoot);
+  console.log("# Project Intake dry-run");
+  console.log("");
+  console.log(`project_id: ${intake.project_id}`);
+  console.log(`project_name: ${intake.project_name}`);
+  console.log(`source_type: ${intake.source_type}`);
+  console.log(`local_path: ${intake.local_path}`);
+  console.log(`project_exists: ${intake.project_exists ? "yes" : "no"}`);
+  console.log(`git_url_present: ${intake.git_url_present ? "yes" : "no"}`);
+  console.log(`zip_placeholder_present: ${intake.zip_placeholder_present ? "yes" : "no"}`);
+  console.log("");
+  console.log("repo_metadata:");
+  console.log(`- default_branch: ${intake.repo_metadata.default_branch}`);
+  console.log(`- package_manager: ${intake.repo_metadata.package_manager}`);
+  console.log(`- is_git_repository: ${intake.repo_metadata.is_git_repository ? "yes" : "no"}`);
+  console.log(`- branch: ${intake.repo_metadata.branch}`);
+  console.log(`- head: ${intake.repo_metadata.head}`);
+  console.log(`- remote_url_present: ${intake.repo_metadata.remote_url_present ? "yes" : "no"}`);
+  console.log("");
+  console.log("safety:");
+  console.log(`- dry_run_only: ${intake.safety.dry_run_only ? "yes" : "no"}`);
+  console.log(`- project_writes: ${intake.safety.project_writes}`);
+  console.log(`- agent_execution: ${intake.safety.agent_execution}`);
+  console.log(`- deploy: ${intake.safety.deploy}`);
+  console.log(`- production_operations: ${intake.safety.production_operations}`);
+  console.log(`- credential_values: ${intake.safety.credential_values}`);
+}
+
+async function projectStack(args) {
+  assertDryRun(args, "project stack");
+  const api = await loadProjectConnectorApi();
+  const stack = await api.detectProjectStack(projectConfigPathFromArgs(args), repoRoot);
+  console.log("# Project Stack Detector dry-run");
+  console.log("");
+  console.log(`project_id: ${stack.project_id}`);
+  console.log(`project_path: ${stack.project_path}`);
+  console.log(`project_exists: ${stack.project_exists ? "yes" : "no"}`);
+  console.log("");
+  console.log("probes:");
+  console.log(`- package_json: ${stack.package_json}`);
+  console.log(`- pnpm_workspace: ${stack.pnpm_workspace}`);
+  console.log(`- nextjs: ${stack.nextjs}`);
+  console.log(`- nestjs: ${stack.nestjs}`);
+  console.log(`- typescript: ${stack.typescript}`);
+  console.log(`- prisma_postgresql: ${stack.prisma_postgresql}`);
+  console.log(`- docker: ${stack.docker}`);
+  console.log(`- cicd: ${stack.cicd}`);
+  console.log("");
+  console.log("scripts:");
+  if (stack.scripts.length === 0) {
+    console.log("- none");
+  } else {
+    for (const script of stack.scripts) console.log(`- ${script}`);
+  }
+  console.log("");
+  console.log("detected_stack:");
+  if (stack.detected_stack.length === 0) {
+    console.log("- none");
+  } else {
+    for (const item of stack.detected_stack) console.log(`- ${item}`);
+  }
+  console.log("");
+  console.log("safety:");
+  console.log("- command_execution: disabled");
+  console.log("- project_writes: disabled");
+  console.log("- deploy: disabled");
+  console.log("- production_operations: disabled");
+}
+
+async function projectCommands(args) {
+  assertDryRun(args, "project commands");
+  const api = await loadProjectConnectorApi();
+  const detection = await api.detectProjectCommands(projectConfigPathFromArgs(args), repoRoot);
+  console.log("# Project Command Detector dry-run");
+  console.log("");
+  console.log(`project_id: ${detection.project_id}`);
+  console.log(`project_path: ${detection.project_path}`);
+  console.log(`project_exists: ${detection.project_exists ? "yes" : "no"}`);
+  console.log(`command_count: ${detection.command_count}`);
+  console.log(`command_execution: ${detection.safety.command_execution}`);
+  console.log("");
+  console.log("| Kind | Command | Source | Executable In MVP |");
+  console.log("| --- | --- | --- | --- |");
+  for (const command of detection.commands) {
+    console.log(`| ${command.kind} | ${command.command} | ${command.source} | ${command.executable_in_mvp ? "yes" : "no"} |`);
+  }
+  console.log("");
+  console.log("safety:");
+  console.log("- dry_run_only: yes");
+  console.log("- project_writes: disabled");
+  console.log("- agent_execution: disabled");
+  console.log("- deploy: disabled");
+  console.log("- production_operations: disabled");
+}
+
+async function debugAnalyze(args) {
+  assertDryRun(args, "debug analyze");
+  const fixturePath = resolveMaybeFromRoot(args.fixture || args.target);
+  if (!fixturePath) {
+    throw new Error("Missing --fixture for debug analyze.");
+  }
+  if (!existsSync(fixturePath)) {
+    throw new Error(`Debug fixture not found: ${fixturePath}`);
+  }
+  const api = await loadProjectConnectorApi();
+  const analysis = await api.analyzeDebugFixture(fixturePath);
+  console.log("# Debug Specialist Analyze dry-run");
+  console.log("");
+  console.log(`fixture_path: ${analysis.fixture_path}`);
+  console.log(`error_class: ${analysis.error_class}`);
+  console.log(`severity: ${analysis.severity}`);
+  console.log(`summary: ${analysis.summary}`);
+  console.log(`execution_mode: ${analysis.execution_mode}`);
+  console.log("");
+  console.log("proposed_repair_task:");
+  console.log(`- ${analysis.proposed_repair_task}`);
+  console.log("");
+  console.log("safety:");
+  console.log(`- agent_execution: ${analysis.safety.agent_execution}`);
+  console.log(`- project_writes: ${analysis.safety.project_writes}`);
+  console.log(`- deploy: ${analysis.safety.deploy}`);
+  console.log(`- production_operations: ${analysis.safety.production_operations}`);
+  console.log(`- server_access: ${analysis.safety.server_access}`);
+  console.log(`- credential_values: ${analysis.safety.credential_values}`);
 }
 
 async function credentialList(args) {
@@ -4627,6 +4784,9 @@ async function main() {
   }
 
   if (args.command === "doctor") return doctor(args);
+  if (args.command === "project" && args.subcommand === "intake") return projectIntake(args);
+  if (args.command === "project" && args.subcommand === "stack") return projectStack(args);
+  if (args.command === "project" && args.subcommand === "commands") return projectCommands(args);
   if (args.command === "project" && args.subcommand === "inspect") return projectInspect(args);
   if (args.command === "project" && args.subcommand === "parity") return projectParity(args);
   if (args.command === "project" && args.subcommand === "import-memory") return projectImportMemory(args);
@@ -4664,6 +4824,7 @@ async function main() {
   if (args.command === "observe") return observe();
   if (args.command === "evolution-plan") return evolutionPlan();
   if (args.command === "discovery") return discovery(args);
+  if (args.command === "debug" && args.subcommand === "analyze") return debugAnalyze(args);
   if (args.command === "autopilot" && args.subcommand === "run") return autopilotRunner(args);
   if (args.command === "autopilot") return autopilot(args);
   if (args.command === "lint-check") {

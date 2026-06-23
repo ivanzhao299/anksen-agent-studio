@@ -70,6 +70,43 @@
         "type": "string"
       }
     },
+    "intake": {
+      "type": "object",
+      "required": ["source_type"],
+      "properties": {
+        "source_type": {
+          "enum": ["local_path", "git_url", "zip_placeholder"]
+        },
+        "local_path": {
+          "type": "string"
+        },
+        "git_url": {
+          "type": "string"
+        },
+        "zip_placeholder": {
+          "type": "string"
+        },
+        "repo_metadata": {
+          "type": "object",
+          "properties": {
+            "default_branch": {
+              "type": "string"
+            },
+            "package_manager": {
+              "type": "string"
+            },
+            "monorepo": {
+              "type": "boolean"
+            },
+            "repository_kind": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
     "read_paths": {
       "type": "array",
       "items": {
@@ -158,4 +195,3 @@
   },
   "additionalProperties": true
 }
-

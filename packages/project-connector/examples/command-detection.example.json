@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "project_id": "example-local-project",
+  "command_count": 6,
+  "commands": [
+    { "kind": "install", "command": "pnpm install", "source": "detected_default", "executable_in_mvp": false },
+    { "kind": "typecheck", "command": "pnpm typecheck", "source": "detected_default", "executable_in_mvp": false },
+    { "kind": "lint", "command": "pnpm lint", "source": "detected_default", "executable_in_mvp": false },
+    { "kind": "test", "command": "pnpm test", "source": "detected_default", "executable_in_mvp": false },
+    { "kind": "build", "command": "pnpm build", "source": "detected_default", "executable_in_mvp": false },
+    { "kind": "dev", "command": "pnpm dev", "source": "detected_default", "executable_in_mvp": false }
+  ],
+  "safety": {
+    "command_execution": "disabled",
+    "dry_run_only": true
+  }
+}

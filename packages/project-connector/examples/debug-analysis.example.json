@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "fixture_path": "packages/project-connector/examples/debug-error.example.log",
+  "error_class": "type",
+  "severity": "MEDIUM",
+  "summary": "Debug Specialist classified fixture as type.",
+  "proposed_repair_task": "Create a proposal to inspect TypeScript diagnostics, update the affected types/imports, and validate with typecheck.",
+  "execution_mode": "proposal_only",
+  "safety": {
+    "agent_execution": "disabled",
+    "project_writes": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "server_access": "disabled",
+    "credential_values": "disabled"
+  }
+}

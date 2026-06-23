@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/project-connector/stack-detection.schema.json",
+  "title": "Stack Detection",
+  "type": "object",
+  "required": ["schema_version", "project_id", "detected_stack", "scripts"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "project_id": { "type": "string", "minLength": 1 },
+    "detected_stack": { "type": "array", "items": { "type": "string" } },
+    "package_json": { "enum": ["present", "missing"] },
+    "pnpm_workspace": { "enum": ["present", "missing"] },
+    "nextjs": { "enum": ["present", "missing", "hinted"] },
+    "nestjs": { "enum": ["present", "missing", "hinted"] },
+    "typescript": { "enum": ["present", "missing", "hinted"] },
+    "prisma_postgresql": { "enum": ["present", "missing", "hinted"] },
+    "docker": { "enum": ["present", "missing", "hinted"] },
+    "cicd": { "enum": ["present", "missing"] },
+    "scripts": { "type": "array", "items": { "type": "string" } }
+  }
+}

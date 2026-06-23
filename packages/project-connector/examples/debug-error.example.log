@@ -1,0 +1,13 @@
+> next build
+
+Failed to compile.
+
+./apps/web/app/dashboard/page.tsx:42:18
+Type error: Type 'string | undefined' is not assignable to type 'string'.
+
+  40 | export default function DashboardPage() {
+  41 |   const title = process.env.NEXT_PUBLIC_DASHBOARD_TITLE
+> 42 |   return <Header title={title} />
+     |                  ^
+
+Build failed because of TypeScript diagnostics.

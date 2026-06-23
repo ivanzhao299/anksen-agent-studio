@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/project-connector/project-intake.schema.json",
+  "title": "Project Intake",
+  "type": "object",
+  "required": ["schema_version", "project_id", "source_type", "repo_metadata", "safety"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "project_id": { "type": "string", "minLength": 1 },
+    "source_type": { "enum": ["local_path", "git_url", "zip_placeholder"] },
+    "local_path": { "type": "string" },
+    "git_url_present": { "type": "boolean" },
+    "zip_placeholder_present": { "type": "boolean" },
+    "project_exists": { "type": "boolean" },
+    "repo_metadata": { "type": "object" },
+    "safety": { "type": "object" }
+  }
+}

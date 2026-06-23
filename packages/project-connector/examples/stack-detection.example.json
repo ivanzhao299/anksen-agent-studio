@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "project_id": "example-local-project",
+  "project_exists": false,
+  "detected_stack": ["pnpm workspace", "Next.js", "TypeScript"],
+  "package_json": "missing",
+  "pnpm_workspace": "missing",
+  "nextjs": "hinted",
+  "nestjs": "missing",
+  "typescript": "hinted",
+  "prisma_postgresql": "missing",
+  "docker": "missing",
+  "cicd": "missing",
+  "scripts": []
+}

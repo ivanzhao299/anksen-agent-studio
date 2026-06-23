@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/project-connector/debug-analysis.schema.json",
+  "title": "Debug Specialist Analysis",
+  "type": "object",
+  "required": ["schema_version", "fixture_path", "error_class", "severity", "summary", "proposed_repair_task", "execution_mode"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "fixture_path": { "type": "string" },
+    "error_class": { "enum": ["build", "type", "lint", "test", "runtime", "unknown"] },
+    "severity": { "enum": ["LOW", "MEDIUM", "HIGH"] },
+    "summary": { "type": "string" },
+    "proposed_repair_task": { "type": "string" },
+    "execution_mode": { "const": "proposal_only" },
+    "safety": { "type": "object" }
+  }
+}
