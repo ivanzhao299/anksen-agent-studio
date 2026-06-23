@@ -32,4 +32,14 @@ export interface ProjectConnectorConfig {
   readonly production_operations?: Record<string, "forbidden" | "manual_approval_required" | "allowed">;
 }
 
-export const projectConnectorStatus = "skeleton";
+export {
+  listWorkspaceProjects,
+  multiProjectWorkspaceFixture,
+  projectWorkspaceSafety,
+  type ManagedProjectWorkspaceEntry,
+  type MultiProjectWorkspace,
+  type ProjectOperationPolicy,
+  type ProjectWritePolicy
+} from "./workspace.js";
+
+export const projectConnectorStatus = "multi-project-workspace-mvp";

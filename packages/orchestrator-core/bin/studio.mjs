@@ -2272,7 +2272,9 @@ async function collectAutopilotContext(goal) {
       autopilot_runner_exists: existsSync(resolveFromRoot("docs/release/AUTOPILOT_RUNNER_MVP.md")),
       console_read_only_mvp_exists: existsSync(resolveFromRoot("apps/console/src/view-model.ts"))
         && existsSync(resolveFromRoot("apps/console/src/fixtures.ts"))
-        && existsSync(resolveFromRoot("apps/console/src/navigation.ts"))
+        && existsSync(resolveFromRoot("apps/console/src/navigation.ts")),
+      multi_project_workspace_exists: existsSync(resolveFromRoot("packages/project-connector/src/workspace.ts"))
+        && existsSync(resolveFromRoot("packages/project-connector/examples/multi-project-workspace.example.json"))
     },
     stage: {
       extraction_completed: extractionCompleted,
@@ -2755,6 +2757,7 @@ function commitMessageForAction(action) {
   if (/Autopilot Runner/i.test(action.title)) return "chore: add autopilot runner";
   if (action.target_package === "packages/runtime-center") return "chore(runtime-center): apply autopilot runtime step";
   if (action.target_package === "apps/console") return "chore(console): add read-only console mvp";
+  if (action.target_package === "packages/project-connector") return "chore(project-connector): add multi-project workspace mvp";
   return `chore(autopilot): ${safeSegment(action.title).toLowerCase().slice(0, 48) || "apply-safe-step"}`;
 }
 
@@ -2980,6 +2983,231 @@ async function writeConsoleMvp(globalContext, planningOutput) {
   return Object.keys(files).sort();
 }
 
+function multiProjectWorkspaceFiles(globalContext, planningOutput) {
+  const platform = globalContext.platform_state ?? {};
+  const managedProjects = platform.managed_projects ?? [];
+  const nextAction = actionFromPlanningOutput(planningOutput);
+  const generatedAt = new Date().toISOString();
+  const projectEntries = managedProjects.map((project) => ({
+    project_id: project.project_id,
+    display_name: project.project_id,
+    memory_dir: project.memory_dir,
+    source_memory_dir: project.source_memory_dir,
+    connector_status: "available",
+    doctor_status: project.doctor_status,
+    repo_clean: project.repo_clean,
+    write_policy: "disabled",
+    deploy_policy: "forbidden",
+    production_operation_policy: "forbidden",
+    context_files: [
+      `${project.memory_dir}/project-state.json`,
+      `${project.memory_dir}/architecture.json`,
+      `${project.memory_dir}/agent-studio-status.json`,
+      `${project.memory_dir}/handoff-summary.md`
+    ]
+  }));
+
+  const workspaceTs = `export type ProjectWritePolicy = "disabled" | "approval_required" | "enabled";
+export type ProjectOperationPolicy = "forbidden" | "manual_approval_required" | "allowed";
+
+export interface ManagedProjectWorkspaceEntry {
+  readonly project_id: string;
+  readonly display_name: string;
+  readonly memory_dir: string;
+  readonly source_memory_dir?: string;
+  readonly connector_status: "available" | "missing" | "disabled";
+  readonly doctor_status: string;
+  readonly repo_clean: string;
+  readonly write_policy: ProjectWritePolicy;
+  readonly deploy_policy: ProjectOperationPolicy;
+  readonly production_operation_policy: ProjectOperationPolicy;
+  readonly context_files: readonly string[];
+}
+
+export interface MultiProjectWorkspace {
+  readonly schema_version: number;
+  readonly generated_at: string;
+  readonly workspace_id: string;
+  readonly mode: "read_only";
+  readonly projects: readonly ManagedProjectWorkspaceEntry[];
+  readonly safety: {
+    readonly managed_project_writes: "disabled";
+    readonly deploy: "disabled";
+    readonly production_operations: "disabled";
+    readonly credential_values: "disabled";
+  };
+}
+
+export const multiProjectWorkspaceFixture: MultiProjectWorkspace = ${JSON.stringify({
+    schema_version: 1,
+    generated_at: generatedAt,
+    workspace_id: "anksen-agent-studio-local",
+    mode: "read_only",
+    projects: projectEntries,
+    safety: {
+      managed_project_writes: "disabled",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "disabled"
+    }
+  }, null, 2)} as const;
+
+export function listWorkspaceProjects(workspace: MultiProjectWorkspace = multiProjectWorkspaceFixture) {
+  return workspace.projects.map((project) => ({
+    project_id: project.project_id,
+    connector_status: project.connector_status,
+    doctor_status: project.doctor_status,
+    repo_clean: project.repo_clean,
+    memory_dir: project.memory_dir
+  }));
+}
+
+export function projectWorkspaceSafety(workspace: MultiProjectWorkspace = multiProjectWorkspaceFixture) {
+  return {
+    project_count: workspace.projects.length,
+    writable_project_count: workspace.projects.filter((project) => project.write_policy !== "disabled").length,
+    deploy_enabled_count: workspace.projects.filter((project) => project.deploy_policy === "allowed").length,
+    production_operation_enabled_count: workspace.projects.filter((project) => project.production_operation_policy === "allowed").length,
+    credential_values: workspace.safety.credential_values
+  };
+}
+`;
+
+  const indexTs = `export interface ProjectConnectorConfig {
+  readonly schema_version?: number;
+  readonly project_id: string;
+  readonly project_name?: string;
+  readonly project_type?: string;
+  readonly description?: string;
+  readonly project_root: string;
+  readonly state_dir: string;
+  readonly mode?: string;
+  readonly default_branch?: string;
+  readonly package_manager?: string;
+  readonly worktrees?: Record<string, string>;
+  readonly detected_stack_hints?: readonly string[];
+  readonly available_commands?: readonly string[];
+  readonly read_paths?: readonly string[];
+  readonly write_paths?: readonly string[];
+  readonly frozen_paths: readonly string[];
+  readonly guarded_paths?: readonly string[];
+  readonly runtime_memory?: {
+    readonly directory?: string;
+    readonly summary_file?: string;
+    readonly platform_state_file?: string;
+    readonly validate_command?: string;
+  };
+  readonly inspection?: {
+    readonly dry_run_only?: boolean;
+    readonly allow_agent_execution?: boolean;
+    readonly allow_project_writes?: boolean;
+    readonly allow_deploy?: boolean;
+    readonly allow_production_operations?: boolean;
+  };
+  readonly production_operations?: Record<string, "forbidden" | "manual_approval_required" | "allowed">;
+}
+
+export {
+  listWorkspaceProjects,
+  multiProjectWorkspaceFixture,
+  projectWorkspaceSafety,
+  type ManagedProjectWorkspaceEntry,
+  type MultiProjectWorkspace,
+  type ProjectOperationPolicy,
+  type ProjectWritePolicy
+} from "./workspace.js";
+
+export const projectConnectorStatus = "multi-project-workspace-mvp";
+`;
+
+  const example = {
+    schema_version: 1,
+    generated_at: generatedAt,
+    workspace_id: "anksen-agent-studio-local",
+    source: "runtime/global/codex-context-index.json",
+    mode: "read_only",
+    selected_action: {
+      title: nextAction.title,
+      planning_output_id: planningOutput.planning_output_id
+    },
+    projects: projectEntries,
+    safety: {
+      managed_project_writes: "disabled",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "disabled"
+    }
+  };
+
+  const index = globalContext.context_index ?? {};
+  const updatedIndex = {
+    ...index,
+    generated_at: generatedAt,
+    multi_project_workspace: {
+      workspace_id: "anksen-agent-studio-local",
+      mode: "read_only",
+      project_count: projectEntries.length,
+      source: "packages/project-connector/examples/multi-project-workspace.example.json",
+      project_connector_package: "packages/project-connector"
+    },
+    project_contexts: projectEntries.map((project) => ({
+      project_id: project.project_id,
+      files: project.context_files
+    }))
+  };
+
+  const roadmap = `# ANKSEN Agent Studio V4 Roadmap
+
+## Goal
+
+V4 should turn ANKSEN Agent Studio from a project-local orchestrator extraction into a reusable AI Software Factory platform that can connect to multiple repositories through explicit project connectors.
+
+## Proposed Tracks
+
+| Track | Objective | Current Status |
+| --- | --- | --- |
+| V4-A Project Connector Runtime | Standardize \`--project\` adapters, frozen path policy, and worktree discovery. | Complete for initial Jinhu connector. |
+| V4-B Core Engine Parity | Port reusable doctor, skill routing, goal planning, runtime memory, discovery, and evolution logic with fixture parity tests. | In progress through package contracts and CLI dry-runs. |
+| V4-C Console Read-Only MVP | Build a standalone \`apps/console\` that reads platform and project state without mutation. | Complete as local fixture-backed read-only skeleton. |
+| V4-D Hosted Runtime Adapters | Add guarded adapters for Codex CLI, browser, and future hosted execution. | Planned. |
+| V4-E Multi-Project Workspace | Support multiple project connectors in one console. | MVP complete as read-only workspace contracts under \`packages/project-connector\`. |
+| V4-F Governance and Release Gates | Add approvals, audit trail, policy bundles, and release readiness gates. | Next. |
+
+## Multi-Project Workspace MVP
+
+The first workspace model is read-only and context-backed:
+
+- Source of truth: \`runtime/global/codex-context-index.json\` and \`runtime/projects/<project_id>\`.
+- Project connector package: \`packages/project-connector\`.
+- Example workspace: \`packages/project-connector/examples/multi-project-workspace.example.json\`.
+- Managed project writes: disabled.
+- Deploy and production operations: forbidden.
+- Credential values: not read.
+
+## Safety Boundary
+
+V4 must keep business repositories external. Deploy, production migration, production seed, reset, cleanup, and production data writes remain forbidden unless a separate approved production-ops implementation exists.
+`;
+
+  return {
+    "packages/project-connector/src/index.ts": indexTs,
+    "packages/project-connector/src/workspace.ts": workspaceTs,
+    "packages/project-connector/examples/multi-project-workspace.example.json": `${JSON.stringify(example, null, 2)}\n`,
+    "runtime/global/codex-context-index.json": `${JSON.stringify(updatedIndex, null, 2)}\n`,
+    "docs/release/AGENT_STUDIO_V4_ROADMAP.md": roadmap
+  };
+}
+
+async function writeMultiProjectWorkspaceMvp(globalContext, planningOutput) {
+  const files = multiProjectWorkspaceFiles(globalContext, planningOutput);
+  for (const [relativeFile, content] of Object.entries(files)) {
+    const absoluteFile = resolveFromRoot(relativeFile);
+    await mkdir(dirname(absoluteFile), { recursive: true });
+    await writeFile(absoluteFile, content, "utf8");
+  }
+  return Object.keys(files).sort();
+}
+
 async function executeLocalRepoAction(action, globalContext, planningOutput) {
   if (action.target_package === "apps/console" || /Console Read-Only/i.test(action.title)) {
     const files = await writeConsoleMvp(globalContext, planningOutput);
@@ -2987,6 +3215,15 @@ async function executeLocalRepoAction(action, globalContext, planningOutput) {
       executed: true,
       implementation: "console-read-only-mvp",
       summary: "Generated a read-only Console MVP skeleton with local fixture-backed views.",
+      files
+    };
+  }
+  if (action.target_package === "packages/project-connector" || /Multi-Project Workspace/i.test(action.title)) {
+    const files = await writeMultiProjectWorkspaceMvp(globalContext, planningOutput);
+    return {
+      executed: true,
+      implementation: "multi-project-workspace-mvp",
+      summary: "Generated read-only multi-project workspace contracts and context index metadata.",
       files
     };
   }

@@ -33,6 +33,10 @@ function consoleReadOnlyReady(inputs) {
   return Boolean(inputs.packages?.console_read_only_mvp_exists);
 }
 
+function multiProjectWorkspaceReady(inputs) {
+  return Boolean(inputs.packages?.multi_project_workspace_exists);
+}
+
 function currentStage(inputs) {
   const extractionCompleted = Boolean(inputs.closure_report?.extraction_completed);
   const remoteExecuteCompleted = Boolean(inputs.closure_report?.remote_execute_completed);
@@ -40,8 +44,11 @@ function currentStage(inputs) {
   const credentialVaultCompleted = credentialVaultReady(inputs);
   const autopilotRunnerCompleted = autopilotRunnerReady(inputs);
   const consoleReadOnlyCompleted = consoleReadOnlyReady(inputs);
+  const multiProjectWorkspaceCompleted = multiProjectWorkspaceReady(inputs);
   return {
-    stage_name: consoleReadOnlyCompleted
+    stage_name: multiProjectWorkspaceCompleted
+      ? "V4-M Governance and Release Gates preparation"
+      : consoleReadOnlyCompleted
       ? "V4-L Multi-Project Workspace preparation"
       : autopilotRunnerCompleted
       ? "V4-K Console Read-Only preparation"
@@ -52,7 +59,9 @@ function currentStage(inputs) {
           : "Post-extraction V4 bootstrap",
     extraction_completed: extractionCompleted,
     remote_execute_completed: remoteExecuteCompleted,
-    next_stage: consoleReadOnlyCompleted
+    next_stage: multiProjectWorkspaceCompleted
+      ? "V4-M Governance and Release Gates"
+      : consoleReadOnlyCompleted
       ? "V4-L Multi-Project Workspace"
       : autopilotRunnerCompleted
       ? "V4-K Console Read-Only MVP"
@@ -65,6 +74,7 @@ function currentStage(inputs) {
     credential_vault_completed: credentialVaultCompleted,
     autopilot_runner_completed: autopilotRunnerCompleted,
     console_read_only_completed: consoleReadOnlyCompleted,
+    multi_project_workspace_completed: multiProjectWorkspaceCompleted,
     planning_center_exists: Boolean(inputs.packages?.planning_center_exists),
     managed_project_doctor: inputs.runtime_memory?.project_state?.doctor_status ?? "unknown"
   };
@@ -218,6 +228,28 @@ function multiProjectWorkspaceAction() {
     ],
     risk: "MEDIUM",
     approval_required: false,
+    execution_mode: "local_repo_execute"
+  };
+}
+
+function governanceReleaseGatesAction() {
+  return {
+    title: "Prepare V4-M Governance and Release Gates",
+    reason: "The multi-project workspace contracts exist; the next safe V4 step is to define approval, audit, and release gate policy bundles without enabling deploy or production operations.",
+    target_project: "anksen-agent-studio",
+    target_package: "packages/production-ops",
+    expected_files: [
+      "packages/production-ops/src/index.ts",
+      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs context summary",
+      "git diff --check"
+    ],
+    risk: "MEDIUM",
+    approval_required: false,
     execution_mode: "proposal_only"
   };
 }
@@ -232,7 +264,9 @@ export function buildPlanningOutput(request) {
         ? autopilotRunnerAction()
         : !stage.console_read_only_completed
           ? consoleReadOnlyAction()
-          : multiProjectWorkspaceAction();
+          : !stage.multi_project_workspace_completed
+            ? multiProjectWorkspaceAction()
+            : governanceReleaseGatesAction();
   const stopCondition = "STOP: Planning Center generated one next action. Autopilot max_steps=1; no Agent, deploy, production operation, credential read, or managed-project write is allowed.";
 
   return {

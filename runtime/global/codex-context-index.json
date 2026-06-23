@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-23T12:56:30.821Z",
+  "generated_at": "2026-06-23T14:33:43.655Z",
   "startup_command": "node packages/orchestrator-core/bin/studio.mjs context summary",
   "project_command": "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
   "global_context_files": [
@@ -37,5 +37,12 @@
     "Do not run production migration, seed, reset, cleanup, or production operations.",
     "Do not read or write real credential values.",
     "Keep Studio Context under runtime/global and Project Context under runtime/projects/<project_id>."
-  ]
+  ],
+  "multi_project_workspace": {
+    "workspace_id": "anksen-agent-studio-local",
+    "mode": "read_only",
+    "project_count": 1,
+    "source": "packages/project-connector/examples/multi-project-workspace.example.json",
+    "project_connector_package": "packages/project-connector"
+  }
 }

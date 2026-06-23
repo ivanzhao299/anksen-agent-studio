@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-23T14:33:43.655Z",
+  "workspace_id": "anksen-agent-studio-local",
+  "source": "runtime/global/codex-context-index.json",
+  "mode": "read_only",
+  "selected_action": {
+    "title": "Prepare V4-L Multi-Project Workspace",
+    "planning_output_id": "planning-output-afd6faa5eb"
+  },
+  "projects": [
+    {
+      "project_id": "jinhu-smart-park",
+      "display_name": "jinhu-smart-park",
+      "memory_dir": "runtime/projects/jinhu-smart-park",
+      "source_memory_dir": "examples/jinhu-smart-park/runtime-memory",
+      "connector_status": "available",
+      "doctor_status": "GO",
+      "repo_clean": "yes",
+      "write_policy": "disabled",
+      "deploy_policy": "forbidden",
+      "production_operation_policy": "forbidden",
+      "context_files": [
+        "runtime/projects/jinhu-smart-park/project-state.json",
+        "runtime/projects/jinhu-smart-park/architecture.json",
+        "runtime/projects/jinhu-smart-park/agent-studio-status.json",
+        "runtime/projects/jinhu-smart-park/handoff-summary.md"
+      ]
+    }
+  ],
+  "safety": {
+    "managed_project_writes": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled"
+  }
+}

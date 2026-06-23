@@ -6,16 +6,26 @@ V4 should turn ANKSEN Agent Studio from a project-local orchestrator extraction 
 
 ## Proposed Tracks
 
-| Track | Objective |
-| --- | --- |
-| V4-A Project Connector Runtime | Standardize `--project` adapters, frozen path policy, and worktree discovery. |
-| V4-B Core Engine Parity | Port reusable doctor, skill routing, goal planning, runtime memory, discovery, and evolution logic with fixture parity tests. |
-| V4-C Console Read-Only MVP | Build a standalone `apps/console` that reads platform and project state without mutation. |
-| V4-D Hosted Runtime Adapters | Add guarded adapters for Codex CLI, browser, and future hosted execution. |
-| V4-E Multi-Project Workspace | Support multiple project connectors in one console. |
-| V4-F Governance and Release Gates | Add approvals, audit trail, policy bundles, and release readiness gates. |
+| Track | Objective | Current Status |
+| --- | --- | --- |
+| V4-A Project Connector Runtime | Standardize `--project` adapters, frozen path policy, and worktree discovery. | Complete for initial Jinhu connector. |
+| V4-B Core Engine Parity | Port reusable doctor, skill routing, goal planning, runtime memory, discovery, and evolution logic with fixture parity tests. | In progress through package contracts and CLI dry-runs. |
+| V4-C Console Read-Only MVP | Build a standalone `apps/console` that reads platform and project state without mutation. | Complete as local fixture-backed read-only skeleton. |
+| V4-D Hosted Runtime Adapters | Add guarded adapters for Codex CLI, browser, and future hosted execution. | Planned. |
+| V4-E Multi-Project Workspace | Support multiple project connectors in one console. | MVP complete as read-only workspace contracts under `packages/project-connector`. |
+| V4-F Governance and Release Gates | Add approvals, audit trail, policy bundles, and release readiness gates. | Next. |
+
+## Multi-Project Workspace MVP
+
+The first workspace model is read-only and context-backed:
+
+- Source of truth: `runtime/global/codex-context-index.json` and `runtime/projects/<project_id>`.
+- Project connector package: `packages/project-connector`.
+- Example workspace: `packages/project-connector/examples/multi-project-workspace.example.json`.
+- Managed project writes: disabled.
+- Deploy and production operations: forbidden.
+- Credential values: not read.
 
 ## Safety Boundary
 
 V4 must keep business repositories external. Deploy, production migration, production seed, reset, cleanup, and production data writes remain forbidden unless a separate approved production-ops implementation exists.
-
