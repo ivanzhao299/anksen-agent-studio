@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/planning-request.schema.json",
+  "title": "ANKSEN Agent Studio Planning Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "request_id", "created_at", "goal", "inputs", "constraints"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["readme", "docs", "runtime_memory", "roadmap", "closure_report", "packages"]
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_steps",
+        "agent_execution",
+        "managed_project_writes",
+        "deploy",
+        "production_operations",
+        "credential_values"
+      ],
+      "properties": {
+        "max_steps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1
+        },
+        "agent_execution": {
+          "type": "string",
+          "enum": ["disabled", "approval_required", "enabled"]
+        },
+        "managed_project_writes": {
+          "type": "string",
+          "enum": ["disabled", "approval_required", "enabled"]
+        },
+        "deploy": {
+          "type": "string",
+          "enum": ["disabled", "approval_required", "enabled"]
+        },
+        "production_operations": {
+          "type": "string",
+          "enum": ["disabled", "approval_required", "enabled"]
+        },
+        "credential_values": {
+          "type": "string",
+          "enum": ["disabled", "approval_required", "enabled"]
+        }
+      }
+    }
+  }
+}

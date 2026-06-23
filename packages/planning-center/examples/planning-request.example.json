@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "request_id": "planning-example-v4",
+  "created_at": "2026-06-23T00:00:00.000Z",
+  "goal": "继续推进 V4",
+  "inputs": {
+    "readme": {
+      "path": "README.md",
+      "present": true
+    },
+    "docs": {
+      "v4_roadmap_present": true,
+      "runtime_center_prd_present": true
+    },
+    "runtime_memory": {
+      "project_state": {
+        "doctor_status": "GO"
+      }
+    },
+    "roadmap": {
+      "next_stage": "V4-I Agent Runtime Center"
+    },
+    "closure_report": {
+      "extraction_completed": true,
+      "remote_execute_completed": true
+    },
+    "packages": {
+      "planning_center_exists": true,
+      "runtime_center_exists": true,
+      "runtime_providers": ["openai", "anthropic", "google", "openhands", "aider", "local-runtime"],
+      "runtime_profiles": ["codex-cli", "claude-code", "gemini-cli", "openhands", "aider", "local-agent"]
+    },
+    "evidence": {
+      "latest_execution_report": "examples/jinhu-smart-park/execution-reports/JINHU-SMART-PARK-TASK-2A48545294.md"
+    }
+  },
+  "constraints": {
+    "max_steps": 1,
+    "agent_execution": "disabled",
+    "managed_project_writes": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled"
+  }
+}

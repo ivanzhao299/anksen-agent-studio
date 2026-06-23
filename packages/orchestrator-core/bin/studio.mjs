@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const binDir = dirname(fileURLToPath(import.meta.url));
 const packageDir = dirname(binDir);
@@ -28,6 +28,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs project approve-proposal --config <file> --task-id <task_id> [--dry-run|--apply --approve-high-risk]
   node packages/orchestrator-core/bin/studio.mjs project execute --config <file> --task-id <task_id> [--dry-run|--apply --parallel 1]
   node packages/orchestrator-core/bin/studio.mjs skill-route --text "..." [--dry-run]
+  node packages/orchestrator-core/bin/studio.mjs plan --goal "..." --dry-run
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
   node packages/orchestrator-core/bin/studio.mjs observe [--dry-run]
@@ -2201,6 +2202,7 @@ async function collectAutopilotContext(goal) {
     packages: {
       schema_or_example_count: packageEvidenceFiles.length,
       schema_or_example_files: summarizeFiles(packageEvidenceFiles),
+      planning_center_exists: existsSync(resolveFromRoot("packages/planning-center")),
       runtime_center_exists: runtimeCenterExists,
       runtime_providers: runtimeProviders?.providers?.map((provider) => provider.provider_id) ?? [],
       runtime_profiles: runtimeProfiles?.profiles?.map((profile) => profile.runtime_id) ?? []
@@ -2218,69 +2220,71 @@ async function collectAutopilotContext(goal) {
   };
 }
 
-function buildAutopilotAction(context) {
-  const runtimeCenterBootstrapped = context.stage.runtime_center_bootstrapped;
-  const runtimeProfiles = context.packages.runtime_profiles;
-  const runtimeProviders = context.packages.runtime_providers;
-  const hasProfiles = runtimeProfiles.length >= 6;
-  const hasProviders = runtimeProviders.length >= 6;
+function planningCenterEngineUrl() {
+  return pathToFileURL(resolve(packageDir, "../planning-center/lib/planning-engine.mjs")).href;
+}
 
-  if (!runtimeCenterBootstrapped || !hasProfiles || !hasProviders) {
-    return {
-      title: "Bootstrap V4-I Agent Runtime Center MVP",
-      reason: "Extraction and Remote Execute are complete; Runtime Center is the next V4 platform capability and must define providers, runtime profiles, credential references, and dry-run health checks.",
-      target_package: "packages/runtime-center",
-      expected_files: [
-        "packages/runtime-center/schemas/runtime-provider.schema.json",
-        "packages/runtime-center/schemas/runtime-profile.schema.json",
-        "packages/runtime-center/schemas/credential_reference.schema.json",
-        "packages/runtime-center/examples/runtime-providers.example.json",
-        "packages/runtime-center/examples/runtime-profiles.example.json",
-        "packages/runtime-center/bin/runtime-health-check.mjs",
-        "docs/release/AGENT_RUNTIME_CENTER_PRD.md"
-      ],
-      validation_commands: [
-        "pnpm typecheck",
-        "pnpm lint:check",
-        "node packages/runtime-center/bin/runtime-health-check.mjs --dry-run",
-        "git diff --check"
-      ],
-      risk: "MEDIUM",
-      approval_required: false,
-      execution_mode: "proposal_only"
-    };
-  }
-
+function buildPlanningRequest(goal, context) {
+  const createdAt = new Date().toISOString();
   return {
-    title: "Harden V4-I Agent Runtime Center routing and health gates",
-    reason: "Runtime Center MVP exists; the next safe V4 action is to turn provider/profile metadata into runtime selection and health gate evidence before any active runtime execution.",
-    target_package: "packages/runtime-center",
-    expected_files: [
-      "packages/runtime-center/bin/runtime-health-check.mjs",
-      "packages/runtime-center/examples/runtime-profiles.example.json",
-      "packages/skill-router/registry/skill-registry.json",
-      "docs/release/AGENT_RUNTIME_CENTER_PRD.md",
-      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
-    ],
-    validation_commands: [
-      "pnpm typecheck",
-      "pnpm lint:check",
-      "node packages/runtime-center/bin/runtime-health-check.mjs --dry-run",
-      "node packages/orchestrator-core/bin/studio.mjs autopilot --goal \"继续推进 V4\" --dry-run",
-      "git diff --check"
-    ],
-    risk: "MEDIUM",
-    approval_required: false,
-    execution_mode: "proposal_only"
+    schema_version: 1,
+    request_id: `planning-${timestampForFile(createdAt)}-${createHash("sha1").update(goal).digest("hex").slice(0, 8)}`,
+    created_at: createdAt,
+    goal,
+    inputs: {
+      readme: context.readme,
+      docs: context.docs,
+      runtime_memory: context.managed_project,
+      roadmap: {
+        v4_roadmap_present: context.docs.v4_roadmap_present,
+        next_stage: context.stage.next_stage
+      },
+      closure_report: {
+        extraction_completed: context.stage.extraction_completed,
+        remote_execute_completed: context.stage.remote_execute_completed
+      },
+      packages: context.packages,
+      evidence: context.evidence
+    },
+    constraints: {
+      max_steps: 1,
+      agent_execution: "disabled",
+      managed_project_writes: "disabled",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "disabled"
+    }
   };
 }
 
-function buildAutopilotRun(goal, context, action, mode, maxSteps) {
+async function runPlanningCenter(goal) {
+  const context = await collectAutopilotContext(goal);
+  const request = buildPlanningRequest(goal, context);
+  const planningEngine = await import(planningCenterEngineUrl());
+  const output = planningEngine.buildPlanningOutput(request);
+  return { context, request, output };
+}
+
+function actionFromPlanningOutput(output) {
+  return {
+    ...output.next_action,
+    reason: output.reason,
+    target_project: output.target_project,
+    target_package: output.target_package,
+    expected_files: output.expected_files,
+    validation_commands: output.validation_commands,
+    risk: output.risk,
+    approval_required: output.approval_required,
+    execution_mode: output.execution_mode ?? output.next_action?.execution_mode ?? "proposal_only"
+  };
+}
+
+function buildAutopilotRun(goal, context, action, mode, maxSteps, planningOutput) {
   const now = new Date().toISOString();
   const runId = `autopilot-${timestampForFile(now)}-${createHash("sha1").update(`${goal}:${now}`).digest("hex").slice(0, 8)}`;
-  const stopCondition = maxSteps >= 1
+  const stopCondition = planningOutput?.stop_condition ?? (maxSteps >= 1
     ? "STOP: max_steps=1 reached after generating one supervised action. No Agent, deploy, production operation, or managed-project write was executed."
-    : "STOP: no steps allowed.";
+    : "STOP: no steps allowed.");
   return {
     schema_version: 1,
     run_id: runId,
@@ -2288,7 +2292,7 @@ function buildAutopilotRun(goal, context, action, mode, maxSteps) {
     mode,
     goal,
     max_steps: maxSteps,
-    current_stage: context.stage,
+    current_stage: planningOutput?.current_stage ?? context.stage,
     context_summary: {
       release_doc_count: context.docs.release_count,
       runtime_memory_file_count: context.managed_project.runtime_memory_files.length,
@@ -2299,6 +2303,7 @@ function buildAutopilotRun(goal, context, action, mode, maxSteps) {
       runtime_profile_count: context.packages.runtime_profiles.length,
       managed_project_doctor: context.managed_project.project_state.doctor_status
     },
+    planning_output: planningOutput,
     action,
     safety: {
       apply_writes: mode === "apply" ? "autopilot-runs only" : "none",
@@ -2433,12 +2438,12 @@ async function autopilot(args) {
   if (args.maxSteps !== 1) {
     throw new Error("Autopilot MVP only allows --max-steps 1.");
   }
-  const context = await collectAutopilotContext(goal);
-  const action = buildAutopilotAction(context);
+  const { context, output } = await runPlanningCenter(goal);
+  const action = actionFromPlanningOutput(output);
   if (action.risk === "HIGH" && !action.approval_required) {
     throw new Error("Internal autopilot policy violation: HIGH risk action must require approval.");
   }
-  const run = buildAutopilotRun(goal, context, action, args.apply ? "apply" : "dry-run", args.maxSteps);
+  const run = buildAutopilotRun(goal, context, action, args.apply ? "apply" : "dry-run", args.maxSteps, output);
 
   if (args.dryRun) {
     printAutopilot(run);
@@ -2447,6 +2452,41 @@ async function autopilot(args) {
 
   const files = await writeAutopilotRun(run);
   printAutopilot(run, files);
+}
+
+async function plan(args) {
+  if (!args.dryRun) {
+    throw new Error("plan currently supports --dry-run only.");
+  }
+  const goal = (args.goal || args.text).trim();
+  if (!goal) {
+    throw new Error("Missing --goal for plan.");
+  }
+  const { request, output } = await runPlanningCenter(goal);
+  console.log("# Planning Center dry-run");
+  console.log("");
+  console.log(`goal: ${goal}`);
+  console.log(`request_id: ${request.request_id}`);
+  console.log(`planning_output_id: ${output.planning_output_id}`);
+  console.log(`current_stage: ${output.current_stage.stage_name}`);
+  console.log(`next_action: ${output.next_action.title}`);
+  console.log(`reason: ${output.reason}`);
+  console.log(`target_project: ${output.target_project}`);
+  console.log(`target_package: ${output.target_package}`);
+  console.log(`risk: ${output.risk}`);
+  console.log(`approval_required: ${output.approval_required ? "yes" : "no"}`);
+  console.log("");
+  console.log("expected_files:");
+  for (const file of output.expected_files) console.log(`- ${file}`);
+  console.log("");
+  console.log("validation_commands:");
+  for (const command of output.validation_commands) console.log(`- ${command}`);
+  console.log("");
+  console.log(`stop_condition: ${output.stop_condition}`);
+  console.log("agent_execution: disabled");
+  console.log("managed_project_writes: disabled");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
 }
 
 async function main() {
@@ -2470,6 +2510,7 @@ async function main() {
     console.log(JSON.stringify(await loadSkillRoute(args.text), null, 2));
     return;
   }
+  if (args.command === "plan") return plan(args);
   if (args.command === "goal-to-queue") return goalToQueue(args);
   if (args.command === "runtime-memory") return runtimeMemory();
   if (args.command === "observe") return observe();

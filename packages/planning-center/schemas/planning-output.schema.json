@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/planning-output.schema.json",
+  "title": "ANKSEN Agent Studio Planning Output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "planning_output_id",
+    "source_request_id",
+    "goal",
+    "current_stage",
+    "next_action",
+    "reason",
+    "target_project",
+    "target_package",
+    "expected_files",
+    "validation_commands",
+    "risk",
+    "approval_required",
+    "stop_condition"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "planning_output_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "current_stage": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "next_action": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["title", "reason", "target_project", "target_package", "expected_files", "validation_commands", "risk", "approval_required"]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_project": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_package": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expected_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "validation_commands": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risk": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH"]
+    },
+    "approval_required": {
+      "type": "boolean"
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": ["proposal_only", "approval_gate", "blocked"]
+    },
+    "stop_condition": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

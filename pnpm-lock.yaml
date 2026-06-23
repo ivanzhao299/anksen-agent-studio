@@ -20,6 +20,8 @@ importers:
 
   packages/orchestrator-core: {}
 
+  packages/planning-center: {}
+
   packages/production-ops: {}
 
   packages/project-connector: {}
