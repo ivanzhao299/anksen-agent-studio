@@ -81,6 +81,108 @@
       "type": "string",
       "enum": ["local_repo_execute", "proposal_only", "approval_gate", "blocked", "human_approval_required"]
     },
+    "batch_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "batch_id",
+        "tasks"
+      ],
+      "properties": {
+        "batch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "goal": {
+          "type": "string"
+        },
+        "source_planning_output_id": {
+          "type": "string"
+        },
+        "source_action_title": {
+          "type": "string"
+        },
+        "parallelism": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "execution_policy": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "tasks": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "task_id",
+              "owner_agent",
+              "target_package",
+              "skill_type",
+              "runtime",
+              "allowed_paths",
+              "forbidden_paths",
+              "risk",
+              "dependencies",
+              "validation_commands"
+            ],
+            "properties": {
+              "task_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "owner_agent": {
+                "type": "string",
+                "pattern": "^agent-[1-5]$"
+              },
+              "target_package": {
+                "type": "string",
+                "minLength": 1
+              },
+              "skill_type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "runtime": {
+                "type": "string",
+                "minLength": 1
+              },
+              "allowed_paths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "forbidden_paths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "risk": {
+                "type": "string",
+                "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+              },
+              "dependencies": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "validation_commands": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "stop_condition": {
       "type": "string",
       "minLength": 1

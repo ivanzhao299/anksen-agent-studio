@@ -55,5 +55,86 @@
   "risk": "MEDIUM",
   "approval_required": false,
   "execution_mode": "proposal_only",
+  "batch_plan": {
+    "batch_id": "batch-plan-example-v5",
+    "tasks": [
+      {
+        "task_id": "v5-batch-agent-1-docs-console-manual",
+        "owner_agent": "agent-1",
+        "target_package": "docs/release",
+        "skill_type": "document_generation",
+        "runtime": "codex-cli",
+        "allowed_paths": [
+          "docs/release/V5_*",
+          "apps/console/README.md"
+        ],
+        "forbidden_paths": [
+          "jinhu-smart-park/**",
+          "../jinhu-smart-park/**",
+          "**/.env*"
+        ],
+        "risk": "LOW",
+        "dependencies": [],
+        "validation_commands": [
+          "pnpm typecheck",
+          "pnpm lint:check",
+          "git diff --check"
+        ]
+      },
+      {
+        "task_id": "v5-batch-agent-2-governance-validation",
+        "owner_agent": "agent-2",
+        "target_package": "packages/governance-center",
+        "skill_type": "validation_testing",
+        "runtime": "codex-cli",
+        "allowed_paths": [
+          "packages/governance-center/**",
+          "packages/planning-center/schemas/**",
+          "docs/release/V5_*TEST*"
+        ],
+        "forbidden_paths": [
+          "jinhu-smart-park/**",
+          "../jinhu-smart-park/**",
+          "**/.env*"
+        ],
+        "risk": "MEDIUM",
+        "dependencies": [],
+        "validation_commands": [
+          "pnpm typecheck",
+          "pnpm lint:check",
+          "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+          "git diff --check"
+        ],
+        "execution_mode": "local_repo_execute"
+      },
+      {
+        "task_id": "v5-batch-agent-5-architecture-runtime-prodops",
+        "owner_agent": "agent-5",
+        "target_package": "docs/release",
+        "skill_type": "code_development",
+        "runtime": "codex-cli",
+        "allowed_paths": [
+          "docs/release/V5_*PRODUCTION*",
+          "packages/production-ops/**"
+        ],
+        "forbidden_paths": [
+          "jinhu-smart-park/**",
+          "../jinhu-smart-park/**",
+          "**/.env*"
+        ],
+        "risk": "HIGH",
+        "dependencies": [
+          "v5-batch-agent-2-governance-validation"
+        ],
+        "validation_commands": [
+          "pnpm typecheck",
+          "pnpm lint:check",
+          "node packages/orchestrator-core/bin/studio.mjs production safety-check --dry-run",
+          "git diff --check"
+        ],
+        "execution_mode": "proposal_only"
+      }
+    ]
+  },
   "stop_condition": "STOP: Planning Center generated one next action. Autopilot max_steps=1; no Agent, deploy, production operation, credential read, or managed-project write is allowed."
 }

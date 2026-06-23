@@ -1,4 +1,4 @@
-export type PlanningRisk = "LOW" | "MEDIUM" | "HIGH";
+export type PlanningRisk = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 export interface PlanningRequest {
   readonly schema_version: number;
@@ -25,7 +25,28 @@ export interface PlanningAction {
   readonly validation_commands: readonly string[];
   readonly risk: PlanningRisk;
   readonly approval_required: boolean;
-  readonly execution_mode: "proposal_only" | "approval_gate" | "blocked";
+  readonly execution_mode: "local_repo_execute" | "proposal_only" | "approval_gate" | "blocked" | "human_approval_required";
+}
+
+export interface PlanningBatchTask {
+  readonly task_id: string;
+  readonly owner_agent: `agent-${1 | 2 | 3 | 4 | 5}`;
+  readonly target_package: string;
+  readonly skill_type: string;
+  readonly runtime: string;
+  readonly allowed_paths: readonly string[];
+  readonly forbidden_paths: readonly string[];
+  readonly risk: PlanningRisk;
+  readonly dependencies: readonly string[];
+  readonly validation_commands: readonly string[];
+  readonly execution_mode?: "local_repo_execute" | "proposal_only" | "human_approval_required";
+  readonly approval_required?: boolean;
+  readonly proposal_required?: boolean;
+}
+
+export interface PlanningBatchPlan {
+  readonly batch_id: string;
+  readonly tasks: readonly PlanningBatchTask[];
 }
 
 export interface PlanningOutput {
@@ -42,6 +63,8 @@ export interface PlanningOutput {
   readonly validation_commands: readonly string[];
   readonly risk: PlanningRisk;
   readonly approval_required: boolean;
+  readonly execution_mode?: "local_repo_execute" | "proposal_only" | "approval_gate" | "blocked" | "human_approval_required";
+  readonly batch_plan?: PlanningBatchPlan;
   readonly stop_condition: string;
 }
 

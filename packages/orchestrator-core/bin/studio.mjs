@@ -62,6 +62,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs debug analyze --fixture <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs autopilot --goal "..." [--dry-run|--apply --max-steps 1]
   node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "..." [--dry-run|--apply --max-steps 1|4]
+  node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal "..." [--dry-run|--apply --parallel 2]
   node packages/orchestrator-core/bin/studio.mjs lint-check
 
 Project execution is available only through explicit project execute --apply. Deploy and production operations remain disabled.`);
@@ -2607,6 +2608,10 @@ function commandSpec(command) {
   if (autopilotRunMatch) {
     return ["node", ["packages/orchestrator-core/bin/studio.mjs", "autopilot", "run", "--goal", autopilotRunMatch[1], "--dry-run"], 120000];
   }
+  const autopilotBatchMatch = command.match(/^node packages\/orchestrator-core\/bin\/studio\.mjs autopilot batch --goal "([^"]+)" --dry-run$/);
+  if (autopilotBatchMatch) {
+    return ["node", ["packages/orchestrator-core/bin/studio.mjs", "autopilot", "batch", "--goal", autopilotBatchMatch[1], "--dry-run"], 120000];
+  }
   const adapterInvokePlanMatch = command.match(/^node packages\/orchestrator-core\/bin\/studio\.mjs adapter invoke-plan --runtime ([a-z0-9-]+) --skill ([a-zA-Z0-9_-]+) --dry-run$/);
   if (adapterInvokePlanMatch) {
     return ["node", ["packages/orchestrator-core/bin/studio.mjs", "adapter", "invoke-plan", "--runtime", adapterInvokePlanMatch[1], "--skill", adapterInvokePlanMatch[2], "--dry-run"], 120000];
@@ -4848,6 +4853,255 @@ async function contextProject(args) {
   }
 }
 
+function batchTaskAction(task) {
+  return {
+    title: task.title ?? task.task_id,
+    reason: task.objective ?? `Batch task ${task.task_id}`,
+    target_project: task.target_project ?? "anksen-agent-studio",
+    target_package: task.target_package,
+    expected_files: task.allowed_paths ?? [],
+    validation_commands: task.validation_commands ?? [],
+    risk: task.risk,
+    approval_required: Boolean(task.approval_required),
+    execution_mode: task.execution_mode ?? "proposal_only"
+  };
+}
+
+async function evaluateBatchTasks(tasks) {
+  const results = [];
+  for (const task of tasks) {
+    const gate = await localExecutionGate(batchTaskAction(task));
+    const risk = gate.governance?.risk ?? task.risk;
+    results.push({
+      ...task,
+      execution_gate: gate,
+      automatic_execution_allowed: Boolean(gate.allowed && !["HIGH", "CRITICAL"].includes(risk)),
+      effective_execution_mode: ["HIGH", "CRITICAL"].includes(risk)
+        ? "proposal_only"
+        : gate.execution_mode,
+      proposal_required: Boolean(task.proposal_required || ["HIGH", "CRITICAL"].includes(risk) || !gate.allowed)
+    });
+  }
+  return results;
+}
+
+function autopilotBatchRunFiles(run) {
+  return [
+    `autopilot-runs/${run.run_id}.json`,
+    `autopilot-runs/${run.run_id}.md`
+  ];
+}
+
+function autopilotBatchMarkdown(run) {
+  const rows = run.batch_plan.tasks.map((task) =>
+    `| ${task.owner_agent} | ${task.task_id} | ${task.target_package} | ${task.skill_type} | ${task.runtime} | ${task.risk} | ${task.effective_execution_mode} | ${task.execution_gate.reason} |`
+  ).join("\n");
+  return `# Autopilot Batch Plan
+
+- run_id: ${run.run_id}
+- created_at: ${run.created_at}
+- mode: ${run.mode}
+- goal: ${run.goal}
+- batch_id: ${run.batch_plan.batch_id}
+- parallel_requested: ${run.parallel_requested}
+- execution_result: ${run.execution_result.summary}
+
+## Tasks
+
+| Agent | Task | Target Package | Skill | Runtime | Risk | Mode | Gate |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+${rows}
+
+## Safety
+
+- deploy: ${run.safety.deploy}
+- production_operations: ${run.safety.production_operations}
+- credential_values: ${run.safety.credential_values}
+- managed_project_writes: ${run.safety.managed_project_writes}
+- real_worker_execution: ${run.safety.real_worker_execution}
+
+## Next Recommendation
+
+- title: ${run.next_recommendation.title}
+- command: ${run.next_recommendation.command}
+`;
+}
+
+async function writeAutopilotBatchRun(run) {
+  const dir = resolveFromRoot("autopilot-runs");
+  await mkdir(dir, { recursive: true });
+  const jsonPath = join(dir, `${run.run_id}.json`);
+  const markdownPath = join(dir, `${run.run_id}.md`);
+  await writeFile(jsonPath, `${JSON.stringify(run, null, 2)}\n`, "utf8");
+  await writeFile(markdownPath, autopilotBatchMarkdown(run), "utf8");
+  return { jsonPath, markdownPath };
+}
+
+function buildAutopilotBatchRun({
+  goal,
+  mode,
+  parallel,
+  globalContext,
+  planningOutput,
+  batchPlan,
+  tasks,
+  commandsRun,
+  changedFiles
+}) {
+  const now = new Date().toISOString();
+  return {
+    schema_version: 1,
+    run_id: `autopilot-batch-${timestampForFile(now)}-${createHash("sha1").update(`${goal}:${now}:batch`).digest("hex").slice(0, 8)}`,
+    created_at: now,
+    mode,
+    goal,
+    parallel_requested: parallel,
+    global_context: globalContextSummary(globalContext),
+    planning_output: planningOutput,
+    batch_plan: {
+      ...batchPlan,
+      tasks
+    },
+    execution_mode: "batch_proposal",
+    execution_result: {
+      executed: false,
+      implementation: "parallel-batch-planner-proposal",
+      summary: mode === "dry-run"
+        ? "Dry-run only. No batch proposal was written and no task was executed."
+        : "Batch proposal recorded. Real parallel execution is not implemented in this MVP."
+    },
+    commands_run: commandsRun,
+    changed_files: changedFiles,
+    validation_result: {
+      status: mode === "dry-run" ? "DRY_RUN" : "RECORDED",
+      command_count: commandsRun.length,
+      failed_commands: commandsRun.filter((command) => !command.ok).map((command) => command.command)
+    },
+    next_recommendation: {
+      title: "Review batch plan before parallel execution",
+      reason: "Parallel Autopilot Planner currently produces a governed batch proposal; the next step is approving an executor implementation for selected LOW/MEDIUM tasks.",
+      command: `node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal "${goal}" --dry-run`
+    },
+    safety: {
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "disabled",
+      managed_project_writes: "disabled",
+      real_worker_execution: "disabled",
+      high_critical_policy: "proposal_only"
+    }
+  };
+}
+
+function printAutopilotBatch(run, files = null) {
+  console.log(`# Autopilot Batch ${run.mode}`);
+  console.log("");
+  console.log(`goal: ${run.goal}`);
+  console.log(`run_id: ${run.run_id}`);
+  console.log(`batch_id: ${run.batch_plan.batch_id}`);
+  console.log(`parallel_requested: ${run.parallel_requested}`);
+  console.log(`task_count: ${run.batch_plan.tasks.length}`);
+  console.log("execution: proposal_only");
+  console.log("");
+  console.log("| Agent | Task | Target Package | Skill | Runtime | Risk | Mode | Proposal |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
+  for (const task of run.batch_plan.tasks) {
+    console.log(`| ${task.owner_agent} | ${task.task_id} | ${task.target_package} | ${task.skill_type} | ${task.runtime} | ${task.risk} | ${task.effective_execution_mode} | ${task.proposal_required ? "yes" : "no"} |`);
+  }
+  console.log("");
+  console.log("automatic_execution_allowed:");
+  for (const task of run.batch_plan.tasks.filter((task) => task.automatic_execution_allowed)) {
+    console.log(`- ${task.owner_agent}: ${task.task_id}`);
+  }
+  console.log("");
+  console.log("proposal_only:");
+  const proposalOnlyTasks = run.batch_plan.tasks.filter((task) => task.proposal_required);
+  if (proposalOnlyTasks.length === 0) {
+    console.log("- none");
+  } else {
+    for (const task of proposalOnlyTasks) console.log(`- ${task.owner_agent}: ${task.task_id} (${task.risk})`);
+  }
+  console.log("");
+  console.log("safety:");
+  console.log("- deploy: disabled");
+  console.log("- production_operations: disabled");
+  console.log("- credential_values: disabled");
+  console.log("- managed_project_writes: disabled");
+  console.log("- real_worker_execution: disabled");
+  if (files) {
+    console.log("");
+    console.log("written_files:");
+    console.log(`- ${files.jsonPath}`);
+    console.log(`- ${files.markdownPath}`);
+  }
+}
+
+async function autopilotBatch(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("autopilot batch requires --dry-run or --apply.");
+  }
+  const goal = (args.goal || args.text).trim();
+  if (!goal) {
+    throw new Error("Missing --goal for autopilot batch.");
+  }
+  if (!Number.isInteger(args.parallel) || args.parallel < 1 || args.parallel > 5) {
+    throw new Error("autopilot batch allows --parallel between 1 and 5.");
+  }
+
+  const globalContext = await loadGlobalContextBundle();
+  const { output } = await runPlanningCenter(goal);
+  if (!output.batch_plan?.tasks?.length) {
+    throw new Error("Planning Center did not return a batch_plan for this goal.");
+  }
+  const tasks = await evaluateBatchTasks(output.batch_plan.tasks);
+  const commandsRun = [
+    {
+      command: "read runtime/global/*",
+      ok: true,
+      status: 0,
+      blocked: false,
+      stdout_tail: `files=${Object.keys(globalContext.files).length}; v5=${globalContext.v5_roadmap?.plan_id ?? "missing"}`,
+      stderr_tail: ""
+    },
+    {
+      command: "Planning Center batch_plan",
+      ok: true,
+      status: 0,
+      blocked: false,
+      stdout_tail: `batch_id=${output.batch_plan.batch_id}; tasks=${output.batch_plan.tasks.length}`,
+      stderr_tail: ""
+    },
+    ...tasks.map((task) => ({
+      command: `governance gate ${task.task_id}`,
+      ok: task.execution_gate.governance?.governance_check === "PASS",
+      status: task.execution_gate.governance?.governance_check === "PASS" ? 0 : 1,
+      blocked: task.effective_execution_mode === "proposal_only" && ["HIGH", "CRITICAL"].includes(task.risk),
+      stdout_tail: `agent=${task.owner_agent}; risk=${task.risk}; mode=${task.effective_execution_mode}; reason=${task.execution_gate.reason}`,
+      stderr_tail: ""
+    }))
+  ];
+  const run = buildAutopilotBatchRun({
+    goal,
+    mode: args.apply ? "apply" : "dry-run",
+    parallel: args.parallel,
+    globalContext,
+    planningOutput: output,
+    batchPlan: output.batch_plan,
+    tasks,
+    commandsRun,
+    changedFiles: []
+  });
+
+  if (args.dryRun) {
+    printAutopilotBatch(run);
+    return;
+  }
+
+  run.changed_files = autopilotBatchRunFiles(run);
+  const files = await writeAutopilotBatchRun(run);
+  printAutopilotBatch(run, files);
+}
+
 async function autopilotRunner(args) {
   if (!args.dryRun && !args.apply) {
     throw new Error("autopilot run requires --dry-run or --apply.");
@@ -5088,6 +5342,17 @@ async function plan(args) {
   console.log("validation_commands:");
   for (const command of output.validation_commands) console.log(`- ${command}`);
   console.log("");
+  if (output.batch_plan) {
+    console.log("batch_plan:");
+    console.log(`- batch_id: ${output.batch_plan.batch_id}`);
+    console.log(`- task_count: ${output.batch_plan.tasks.length}`);
+    console.log("| Agent | Task | Target Package | Risk | Mode |");
+    console.log("| --- | --- | --- | --- | --- |");
+    for (const task of output.batch_plan.tasks) {
+      console.log(`| ${task.owner_agent} | ${task.task_id} | ${task.target_package} | ${task.risk} | ${task.execution_mode ?? "proposal_only"} |`);
+    }
+    console.log("");
+  }
   console.log(`stop_condition: ${output.stop_condition}`);
   console.log("agent_execution: disabled");
   console.log("managed_project_writes: disabled");
@@ -5836,6 +6101,7 @@ async function main() {
   if (args.command === "evolution-plan") return evolutionPlan();
   if (args.command === "discovery") return discovery(args);
   if (args.command === "debug" && args.subcommand === "analyze") return debugAnalyze(args);
+  if (args.command === "autopilot" && args.subcommand === "batch") return autopilotBatch(args);
   if (args.command === "autopilot" && args.subcommand === "run") return autopilotRunner(args);
   if (args.command === "autopilot") return autopilot(args);
   if (args.command === "lint-check") {

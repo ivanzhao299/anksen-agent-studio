@@ -12,6 +12,19 @@ function outputId(request) {
   return `planning-output-${hash}`;
 }
 
+function batchId(request) {
+  const hash = createHash("sha1")
+    .update(JSON.stringify({
+      request_id: request.request_id,
+      goal: request.goal,
+      created_at: request.created_at,
+      kind: "batch_plan"
+    }))
+    .digest("hex")
+    .slice(0, 10);
+  return `batch-plan-${hash}`;
+}
+
 function runtimeCenterReady(inputs) {
   return Boolean(inputs.packages?.runtime_center_exists)
     && Number(inputs.packages?.runtime_providers?.length ?? 0) >= 6
@@ -164,6 +177,188 @@ function v5ActionFromStage(stage) {
   };
 }
 
+function normalizeBatchTask(task) {
+  const risk = task.risk ?? "CRITICAL";
+  return {
+    ...task,
+    execution_mode: highOrCritical(risk) ? "proposal_only" : task.execution_mode ?? "local_repo_execute",
+    approval_required: Boolean(task.approval_required || highOrCritical(risk)),
+    proposal_required: Boolean(task.proposal_required || highOrCritical(risk))
+  };
+}
+
+function v5BatchTasks() {
+  const commonForbiddenPaths = [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "examples/jinhu-smart-park/**",
+    "runtime/projects/jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ];
+  return [
+    normalizeBatchTask({
+      task_id: "v5-batch-agent-1-docs-console-manual",
+      title: "V5 docs, Console copy, and user manual plan",
+      owner_agent: "agent-1",
+      target_project: "anksen-agent-studio",
+      target_package: "docs/release",
+      skill_type: "document_generation",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "docs/release/AGENT_STUDIO_V5_MASTER_PLAN.md",
+        "docs/release/V5_*",
+        "apps/console/README.md"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "LOW",
+      dependencies: [],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Prepare operator-facing V5 documentation, Console microcopy, and user manual outlines without adding mutation paths."
+    }),
+    normalizeBatchTask({
+      task_id: "v5-batch-agent-2-governance-validation",
+      title: "V5 governance, validation, and test matrix",
+      owner_agent: "agent-2",
+      target_project: "anksen-agent-studio",
+      target_package: "packages/governance-center",
+      skill_type: "validation_testing",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "packages/governance-center/**",
+        "packages/planning-center/schemas/**",
+        "docs/release/V5_*GOVERNANCE*",
+        "docs/release/V5_*TEST*"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Define validation matrix and governance evidence for V5 roadmap work while keeping HIGH/CRITICAL gates proposal-only."
+    }),
+    normalizeBatchTask({
+      task_id: "v5-batch-agent-3-project-runtime-memory",
+      title: "V5 project connector, data, and runtime memory plan",
+      owner_agent: "agent-3",
+      target_project: "anksen-agent-studio",
+      target_package: "packages/project-connector",
+      skill_type: "schema_inference",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "packages/project-connector/**",
+        "runtime/global/**",
+        "docs/release/V5_*MULTI_PROJECT*"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs project commands --config examples/jinhu-smart-park/project.config.example.json --dry-run",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Prepare read-only multi-project operation schemas and runtime memory links without writing managed projects."
+    }),
+    normalizeBatchTask({
+      task_id: "v5-batch-agent-4-console-ui-entrypoints",
+      title: "V5 Console UI and operation entrypoints",
+      owner_agent: "agent-4",
+      target_project: "anksen-agent-studio",
+      target_package: "apps/console",
+      skill_type: "code_development",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "apps/console/**",
+        "docs/release/V5_ENTERPRISE_CONSOLE_MVP.md"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [
+        "v5-batch-agent-1-docs-console-manual"
+      ],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Plan Console operation entrypoints as dry-run descriptors and proposal queues without executing commands."
+    }),
+    normalizeBatchTask({
+      task_id: "v5-batch-agent-5-architecture-runtime-prodops",
+      title: "V5 architecture, runtime, and Production Ops proposal",
+      owner_agent: "agent-5",
+      target_project: "anksen-agent-studio",
+      target_package: "docs/release",
+      skill_type: "code_development",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "docs/release/V5_*ARCHITECTURE*",
+        "docs/release/V5_*RUNTIME*",
+        "docs/release/V5_*PRODUCTION*",
+        "packages/runtime-adapters/**",
+        "packages/production-ops/**"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "HIGH",
+      dependencies: [
+        "v5-batch-agent-2-governance-validation"
+      ],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs production safety-check --dry-run",
+        "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+        "git diff --check"
+      ],
+      execution_mode: "proposal_only",
+      approval_required: true,
+      proposal_required: true,
+      objective: "Prepare architecture and Production Ops proposals only; no real Worker, deploy, server access, or production operation."
+    })
+  ];
+}
+
+function buildV5BatchPlan(request, selectedAction) {
+  const tasks = v5BatchTasks();
+  return {
+    batch_id: batchId(request),
+    goal: request.goal,
+    source_planning_output_id: outputId(request),
+    source_action_title: selectedAction.title,
+    parallelism: {
+      min_tasks: 3,
+      max_tasks: 5,
+      recommended_parallel: 2,
+      max_parallel: 5
+    },
+    execution_policy: {
+      low_medium: "local_repo_execute_allowed",
+      high_critical: "proposal_only",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "disabled",
+      managed_project_writes: "disabled"
+    },
+    tasks
+  };
+}
+
 function buildV5PlanningOutput(request) {
   const inputs = request.inputs ?? {};
   const stage = v5CurrentStage(inputs);
@@ -187,6 +382,7 @@ function buildV5PlanningOutput(request) {
     execution_mode: "proposal_only"
   };
   const selectedAction = v5MasterPlanReady(inputs) ? action : v5MasterPlanAction();
+  const batchPlan = buildV5BatchPlan(request, selectedAction);
   return {
     schema_version: 1,
     planning_output_id: outputId(request),
@@ -202,6 +398,7 @@ function buildV5PlanningOutput(request) {
     risk: selectedAction.risk,
     approval_required: selectedAction.approval_required,
     execution_mode: highOrCritical(selectedAction.risk) ? "proposal_only" : selectedAction.execution_mode,
+    batch_plan: batchPlan,
     stop_condition: "STOP: Planning Center generated one V5 next action. HIGH/CRITICAL stages are proposal-only; no Worker, deploy, production operation, credential value, or managed-project write is allowed."
   };
 }
