@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "proposal_id": "proposal-v4-m-governance-release-gates-2026-06-23T144920143Z-3868db72",
+  "created_at": "2026-06-23T14:49:20.143Z",
+  "source": "autopilot-runner",
+  "source_run_id": "autopilot-run-2026-06-23T144920143Z-3868db72",
+  "goal": "继续推进 V4",
+  "title": "Prepare V4-M Governance and Release Gates",
+  "status": "PROPOSED",
+  "execution_mode": "proposal_only",
+  "risk": "MEDIUM",
+  "approval_required": true,
+  "planning_approval_required": false,
+  "approval_reason": "Autopilot detected deploy / production semantics in the selected action text, so execution is blocked until explicit approval.",
+  "target_project": "anksen-agent-studio",
+  "target_package": "packages/production-ops",
+  "selected_action": {
+    "title": "Prepare V4-M Governance and Release Gates",
+    "reason": "The multi-project workspace contracts exist; the next safe V4 step is to define approval, audit, and release gate policy bundles without enabling deploy or production operations.",
+    "target_project": "anksen-agent-studio",
+    "target_package": "packages/production-ops",
+    "expected_files": [
+      "packages/production-ops/src/index.ts",
+      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+    ],
+    "validation_commands": [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs context summary",
+      "git diff --check"
+    ],
+    "risk": "MEDIUM",
+    "approval_required": false,
+    "execution_mode": "proposal_only"
+  },
+  "execution_gate": {
+    "allowed": false,
+    "execution_mode": "proposal_only",
+    "reason": "Action text references deploy, production, destructive data operations, or secret values."
+  },
+  "proposed_scope": [
+    "Define local governance and release gate policy contracts.",
+    "Add audit evidence fields for approval, release readiness, and blocked operation reasons.",
+    "Keep all deploy and production operation behavior disabled.",
+    "Keep credential values out of repository files, runtime memory, and logs.",
+    "Keep managed project writes disabled unless a separate explicit proposal is approved."
+  ],
+  "out_of_scope": [
+    "Deploy execution.",
+    "Production operation execution.",
+    "Real API key, SSH key, or secret value storage.",
+    "Agent execution.",
+    "jinhu-smart-park code or state changes."
+  ],
+  "expected_files_if_approved": [
+    "packages/production-ops/src/index.ts",
+    "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+  ],
+  "validation_commands_if_approved": [
+    "pnpm typecheck",
+    "pnpm lint:check",
+    "node packages/orchestrator-core/bin/studio.mjs context summary",
+    "git diff --check"
+  ],
+  "proposal_summary": "Governance and Release Gates should define approval, audit, and release-readiness metadata while preserving hard stops for deploy, production operations, managed project writes, and credential values.",
+  "next_recommendation": {
+    "title": "Review generated proposal before any execution",
+    "reason": "The selected action is outside the safe local planning gate, so Autopilot Runner stopped at proposal-only mode.",
+    "command": "node packages/orchestrator-core/bin/studio.mjs autopilot run --goal \"继续推进 V4\" --dry-run"
+  }
+}
