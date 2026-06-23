@@ -2256,7 +2256,8 @@ async function collectAutopilotContext(goal) {
       v4_roadmap_present: releaseDocNames.includes("docs/release/AGENT_STUDIO_V4_ROADMAP.md"),
       runtime_center_prd_present: releaseDocNames.includes("docs/release/AGENT_RUNTIME_CENTER_PRD.md"),
       credential_vault_mvp_present: releaseDocNames.includes("docs/release/CREDENTIAL_VAULT_MVP.md"),
-      autopilot_runner_mvp_present: releaseDocNames.includes("docs/release/AUTOPILOT_RUNNER_MVP.md")
+      autopilot_runner_mvp_present: releaseDocNames.includes("docs/release/AUTOPILOT_RUNNER_MVP.md"),
+      platform_hardening_review_present: releaseDocNames.includes("docs/release/PLATFORM_HARDENING_REVIEW.md")
     },
     autopilot_runs: runEvidence,
     managed_project: {
@@ -4167,8 +4168,8 @@ async function autopilot(args) {
   }
   const { context, output } = await runPlanningCenter(goal);
   const action = actionFromPlanningOutput(output);
-  if (action.risk === "HIGH" && !action.approval_required) {
-    throw new Error("Internal autopilot policy violation: HIGH risk action must require approval.");
+  if (action.risk === "CRITICAL" && !action.approval_required) {
+    throw new Error("Internal autopilot policy violation: CRITICAL risk action must require human approval.");
   }
   const run = buildAutopilotRun(goal, context, action, args.apply ? "apply" : "dry-run", args.maxSteps, output);
 

@@ -42,6 +42,10 @@ function governanceReleaseGatesReady(inputs) {
     && Boolean(inputs.packages?.governance_center_exists);
 }
 
+function platformHardeningReviewReady(inputs) {
+  return Boolean(inputs.docs?.platform_hardening_review_present);
+}
+
 function currentStage(inputs) {
   const extractionCompleted = Boolean(inputs.closure_report?.extraction_completed);
   const remoteExecuteCompleted = Boolean(inputs.closure_report?.remote_execute_completed);
@@ -51,8 +55,11 @@ function currentStage(inputs) {
   const consoleReadOnlyCompleted = consoleReadOnlyReady(inputs);
   const multiProjectWorkspaceCompleted = multiProjectWorkspaceReady(inputs);
   const governanceReleaseGatesCompleted = governanceReleaseGatesReady(inputs);
+  const platformHardeningReviewCompleted = platformHardeningReviewReady(inputs);
   return {
-    stage_name: governanceReleaseGatesCompleted
+    stage_name: platformHardeningReviewCompleted
+      ? "V4-O Production Operations Center proposal preparation"
+      : governanceReleaseGatesCompleted
       ? "V4-N Platform Hardening preparation"
       : multiProjectWorkspaceCompleted
       ? "V4-M Governance and Release Gates preparation"
@@ -67,7 +74,9 @@ function currentStage(inputs) {
           : "Post-extraction V4 bootstrap",
     extraction_completed: extractionCompleted,
     remote_execute_completed: remoteExecuteCompleted,
-    next_stage: governanceReleaseGatesCompleted
+    next_stage: platformHardeningReviewCompleted
+      ? "V4-O Production Operations Center Proposal"
+      : governanceReleaseGatesCompleted
       ? "V4-N Platform Hardening Review"
       : multiProjectWorkspaceCompleted
       ? "V4-M Governance and Release Gates"
@@ -86,6 +95,7 @@ function currentStage(inputs) {
     console_read_only_completed: consoleReadOnlyCompleted,
     multi_project_workspace_completed: multiProjectWorkspaceCompleted,
     governance_release_gates_completed: governanceReleaseGatesCompleted,
+    platform_hardening_review_completed: platformHardeningReviewCompleted,
     planning_center_exists: Boolean(inputs.packages?.planning_center_exists),
     managed_project_doctor: inputs.runtime_memory?.project_state?.doctor_status ?? "unknown"
   };
@@ -292,6 +302,29 @@ function platformHardeningReviewAction() {
   };
 }
 
+function productionOperationsCenterProposalAction() {
+  return {
+    title: "Prepare V4-O Production Operations Center Proposal",
+    reason: "Platform hardening review is complete; the next bounded step is a proposal-only Production Operations Center plan that preserves deploy, production operation, credential value, server access, and managed-project write blocks.",
+    target_project: "anksen-agent-studio",
+    target_package: "docs/release",
+    expected_files: [
+      "docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md",
+      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run",
+      "git diff --check"
+    ],
+    risk: "HIGH",
+    approval_required: false,
+    execution_mode: "proposal_only"
+  };
+}
+
 export function buildPlanningOutput(request) {
   const stage = currentStage(request.inputs ?? {});
   const action = !stage.runtime_center_bootstrapped
@@ -306,7 +339,9 @@ export function buildPlanningOutput(request) {
             ? multiProjectWorkspaceAction()
             : !stage.governance_release_gates_completed
               ? governanceReleaseGatesAction()
-              : platformHardeningReviewAction();
+              : !stage.platform_hardening_review_completed
+                ? platformHardeningReviewAction()
+                : productionOperationsCenterProposalAction();
   const stopCondition = "STOP: Planning Center generated one next action. Autopilot max_steps=1; no Agent, deploy, production operation, credential read, or managed-project write is allowed.";
 
   return {

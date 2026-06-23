@@ -14,6 +14,7 @@ V4 should turn ANKSEN Agent Studio from a project-local orchestrator extraction 
 | V4-D Hosted Runtime Adapters | Add guarded adapters for Codex CLI, browser, and future hosted execution. | Runtime Adapter Marketplace MVP complete as dry-run registry under `packages/runtime-adapters`. |
 | V4-E Multi-Project Workspace | Support multiple project connectors in one console. | MVP complete as read-only workspace contracts under `packages/project-connector`. |
 | V4-F Governance and Release Gates | Add approvals, audit trail, policy bundles, risk matrix, and release readiness gates. | MVP complete as dry-run-only Governance Center under `packages/governance-center`, with Production Ops gates still blocked. |
+| V4-N Platform Hardening Review | Review platform safety and readiness after Governance, Credential Vault, Runtime Adapters, Console, and Workspace MVPs. | Complete as documentation-only hardening review under `docs/release/PLATFORM_HARDENING_REVIEW.md`. |
 
 ## Multi-Project Workspace MVP
 
@@ -51,6 +52,15 @@ The first adapter marketplace is registry-backed and dry-run only:
 - Runtime Center profiles reference `adapter_id`.
 - Governance Center evaluates adapter metadata risk.
 - Model invocation, credential value access, server access, deploy, production operations, and managed project writes remain disabled.
+
+## Platform Hardening Review
+
+The first hardening review is documentation-only:
+
+- Source of truth: `docs/release/PLATFORM_HARDENING_REVIEW.md`.
+- Validation matrix covers typecheck, lint, governance, release gates, adapter health, runtime health, diff check, and git status.
+- Next recommendation: prepare Production Operations Center as proposal-only until separately approved.
+- Deploy, production operations, server access, credential values, managed project writes, and business project modifications remain disabled.
 
 ## Safety Boundary
 
