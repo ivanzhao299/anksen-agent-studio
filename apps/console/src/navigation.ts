@@ -1,13 +1,15 @@
 export type ConsolePageId =
   | "dashboard"
   | "projects"
-  | "agents"
-  | "skills"
-  | "runtime"
+  | "projectConnector"
+  | "runtimeCenter"
+  | "runtimeAdapters"
+  | "credentialVault"
+  | "governance"
   | "planning"
-  | "evolution"
-  | "discovery"
-  | "memory";
+  | "autopilot"
+  | "memory"
+  | "evolutionDiscovery";
 
 export interface ConsoleNavigationItem {
   readonly id: ConsolePageId;
@@ -20,11 +22,13 @@ export interface ConsoleNavigationItem {
 export const consoleNavigation: readonly ConsoleNavigationItem[] = [
   { id: "dashboard", label: "Dashboard", route: "/agent-studio", source: "runtime/global/platform-state.json", readOnly: true },
   { id: "projects", label: "Projects", route: "/agent-studio/projects", source: "runtime/projects", readOnly: true },
-  { id: "agents", label: "Agents", route: "/agent-studio/agents", source: "autopilot-runs", readOnly: true },
-  { id: "skills", label: "Skills", route: "/agent-studio/skills", source: "packages/skill-router/registry", readOnly: true },
-  { id: "runtime", label: "Runtime", route: "/agent-studio/runtime", source: "packages/runtime-center/examples", readOnly: true },
-  { id: "planning", label: "Planning", route: "/agent-studio/planning", source: "packages/planning-center/examples", readOnly: true },
-  { id: "evolution", label: "Evolution", route: "/agent-studio/evolution", source: "packages/evolution-center", readOnly: true },
-  { id: "discovery", label: "Discovery", route: "/agent-studio/discovery", source: "packages/discovery-engine/examples", readOnly: true },
-  { id: "memory", label: "Memory", route: "/agent-studio/memory", source: "runtime/global and runtime/projects", readOnly: true }
+  { id: "projectConnector", label: "Project Connector", route: "/agent-studio/project-connector", source: "packages/project-connector/examples", readOnly: true },
+  { id: "runtimeCenter", label: "Runtime Center", route: "/agent-studio/runtime", source: "packages/runtime-center/examples", readOnly: true },
+  { id: "runtimeAdapters", label: "Runtime Adapters", route: "/agent-studio/adapters", source: "packages/runtime-adapters/examples", readOnly: true },
+  { id: "credentialVault", label: "Credential Vault", route: "/agent-studio/credentials", source: "packages/credential-vault/examples", readOnly: true },
+  { id: "governance", label: "Governance", route: "/agent-studio/governance", source: "packages/governance-center/examples", readOnly: true },
+  { id: "planning", label: "Planning", route: "/agent-studio/planning", source: "packages/planning-center and runtime/global/roadmap-memory.json", readOnly: true },
+  { id: "autopilot", label: "Autopilot Runs", route: "/agent-studio/autopilot", source: "autopilot-runs", readOnly: true },
+  { id: "memory", label: "Memory / Context", route: "/agent-studio/memory", source: "runtime/global and runtime/projects", readOnly: true },
+  { id: "evolutionDiscovery", label: "Evolution / Discovery", route: "/agent-studio/evolution-discovery", source: "packages/evolution-center and packages/discovery-engine", readOnly: true }
 ] as const;
