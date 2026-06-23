@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-23T12:56:30.821Z",
+  "startup_command": "node packages/orchestrator-core/bin/studio.mjs context summary",
+  "project_command": "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
+  "global_context_files": [
+    "runtime/global/platform-state.json",
+    "runtime/global/roadmap-memory.json",
+    "runtime/global/decision-log.json",
+    "runtime/global/codex-context-index.json",
+    "runtime/global/codex-startup.md",
+    "runtime/global/handoff-summary.md"
+  ],
+  "project_contexts": [
+    {
+      "project_id": "jinhu-smart-park",
+      "files": [
+        "runtime/projects/jinhu-smart-park/project-state.json",
+        "runtime/projects/jinhu-smart-park/architecture.json",
+        "runtime/projects/jinhu-smart-park/agent-studio-status.json",
+        "runtime/projects/jinhu-smart-park/handoff-summary.md"
+      ]
+    }
+  ],
+  "required_reading": [
+    "runtime/global/codex-startup.md",
+    "runtime/global/handoff-summary.md",
+    "runtime/global/platform-state.json",
+    "runtime/global/roadmap-memory.json",
+    "runtime/projects/jinhu-smart-park/handoff-summary.md",
+    "README.md"
+  ],
+  "safety_boundaries": [
+    "Do not modify jinhu-smart-park unless an explicit proposal is approved.",
+    "Do not execute Agents from context commands.",
+    "Do not deploy.",
+    "Do not run production migration, seed, reset, cleanup, or production operations.",
+    "Do not read or write real credential values.",
+    "Keep Studio Context under runtime/global and Project Context under runtime/projects/<project_id>."
+  ]
+}

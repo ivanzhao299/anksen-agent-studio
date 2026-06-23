@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-23T12:56:30.821Z",
+  "source": "context bootstrap",
+  "platform_id": "anksen-agent-studio",
+  "workspace_root": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio",
+  "repo_status": {
+    "branch": "main",
+    "head": "c35b96b chore: add autopilot runner",
+    "clean": "no",
+    "dirty_files": [
+      "M README.md",
+      " M packages/orchestrator-core/bin/studio.mjs",
+      "?? runtime/"
+    ],
+    "ahead_behind": "unknown"
+  },
+  "current_platform_status": "GO",
+  "current_v4_stage": {
+    "stage_name": "V4-K Console Read-Only preparation",
+    "extraction_completed": true,
+    "remote_execute_completed": true,
+    "next_stage": "V4-K Console Read-Only MVP",
+    "runtime_center_bootstrapped": true,
+    "credential_vault_completed": true,
+    "autopilot_runner_completed": true,
+    "planning_center_exists": true,
+    "managed_project_doctor": "GO"
+  },
+  "planning_output_id": "planning-output-35ce9e2a98",
+  "next_recommended_action": {
+    "title": "Prepare V4-K Console Read-Only MVP",
+    "reason": "Autopilot Runner is available; the next safe V4 step is to prepare a read-only console implementation plan before adding mutation paths.",
+    "target_project": "anksen-agent-studio",
+    "target_package": "apps/console",
+    "expected_files": [
+      "apps/console/src/index.ts",
+      "docs/release/AGENT_STUDIO_CONSOLE_PRD.md",
+      "docs/release/AGENT_STUDIO_CONSOLE_ARCHITECTURE.md",
+      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+    ],
+    "validation_commands": [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs autopilot run --goal \"继续推进 V4\" --dry-run",
+      "git diff --check"
+    ],
+    "risk": "MEDIUM",
+    "approval_required": false,
+    "execution_mode": "local_repo_execute"
+  },
+  "managed_projects": [
+    {
+      "project_id": "jinhu-smart-park",
+      "memory_dir": "runtime/projects/jinhu-smart-park",
+      "source_memory_dir": "examples/jinhu-smart-park/runtime-memory",
+      "doctor_status": "GO",
+      "repo_clean": "yes",
+      "queue_status_counts": {
+        "AUDITED": 35,
+        "BLOCKED": 4
+      },
+      "event_file_count": 180
+    }
+  ],
+  "packages": {
+    "runtime_providers": [
+      "openai",
+      "anthropic",
+      "google",
+      "openhands",
+      "aider",
+      "local-runtime"
+    ],
+    "runtime_profiles": [
+      "codex-cli",
+      "claude-code",
+      "gemini-cli",
+      "openhands",
+      "aider",
+      "local-agent"
+    ],
+    "credential_reference_count": 6,
+    "schema_or_example_count": 46
+  },
+  "safety_boundaries": [
+    "Do not modify jinhu-smart-park unless an explicit proposal is approved.",
+    "Do not execute Agents from context commands.",
+    "Do not deploy.",
+    "Do not run production migration, seed, reset, cleanup, or production operations.",
+    "Do not read or write real credential values.",
+    "Keep Studio Context under runtime/global and Project Context under runtime/projects/<project_id>."
+  ]
+}

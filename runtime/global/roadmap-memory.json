@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-23T12:56:30.821Z",
+  "goal": "继续推进 V4",
+  "current_stage": "V4-K Console Read-Only preparation",
+  "next_stage": "V4-K Console Read-Only MVP",
+  "milestones": [
+    {
+      "id": "extraction",
+      "title": "Standalone Agent Studio extraction",
+      "completed": true
+    },
+    {
+      "id": "remote-execute-smoke",
+      "title": "Managed project remote execute smoke",
+      "completed": true
+    },
+    {
+      "id": "runtime-center",
+      "title": "V4-I Runtime Center routing and health gates",
+      "completed": true
+    },
+    {
+      "id": "credential-vault",
+      "title": "V4-J Credential Vault MVP",
+      "completed": true
+    },
+    {
+      "id": "autopilot-runner",
+      "title": "V4-J Autopilot Runner",
+      "completed": true
+    }
+  ],
+  "next_recommended_action": {
+    "title": "Prepare V4-K Console Read-Only MVP",
+    "reason": "Autopilot Runner is available; the next safe V4 step is to prepare a read-only console implementation plan before adding mutation paths.",
+    "target_project": "anksen-agent-studio",
+    "target_package": "apps/console",
+    "expected_files": [
+      "apps/console/src/index.ts",
+      "docs/release/AGENT_STUDIO_CONSOLE_PRD.md",
+      "docs/release/AGENT_STUDIO_CONSOLE_ARCHITECTURE.md",
+      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+    ],
+    "validation_commands": [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs autopilot run --goal \"继续推进 V4\" --dry-run",
+      "git diff --check"
+    ],
+    "risk": "MEDIUM",
+    "approval_required": false,
+    "execution_mode": "local_repo_execute"
+  },
+  "validation_commands": [
+    "pnpm typecheck",
+    "pnpm lint:check",
+    "node packages/orchestrator-core/bin/studio.mjs context summary",
+    "git diff --check"
+  ],
+  "stop_policy": "max_steps=1 for automated runner apply mode"
+}

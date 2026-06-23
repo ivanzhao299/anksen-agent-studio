@@ -1,5 +1,19 @@
 # ANKSEN Agent Studio
 
+## New Codex Window Startup
+
+Run this first in a new Codex window:
+
+```bash
+node packages/orchestrator-core/bin/studio.mjs context summary
+```
+
+For the active managed project context:
+
+```bash
+node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park
+```
+
 ANKSEN Agent Studio is the standalone platform workspace for goal-driven agent orchestration, project runtime memory, skill routing, resident observation, discovery, and future console operations.
 
 This repository starts as a platform skeleton plus reusable core contracts. It does not contain Jinhu Smart Park business code, project task evidence, queue state, events, run logs, reports, or runtime evidence.

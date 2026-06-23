@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-23T12:56:30.821Z",
+  "decisions": [
+    {
+      "date": "2026-06-23",
+      "title": "Keep Studio platform and business project context separated",
+      "decision": "Studio context lives under runtime/global; formal project context lives under runtime/projects/<project_id>.",
+      "source": "Global Context Bootstrap"
+    },
+    {
+      "date": "2026-06-23",
+      "title": "Preserve examples project memory as compatibility evidence",
+      "decision": "examples/jinhu-smart-park/runtime-memory remains available, while runtime/projects/jinhu-smart-park is the formal project memory.",
+      "source": "Global Context Bootstrap"
+    },
+    {
+      "date": "2026-06-23",
+      "title": "Autopilot remains single-step and approval-gated",
+      "decision": "Autopilot Runner may execute only safe local repository actions; managed project, HIGH risk, deploy, production, and secret-value work remains proposal-only.",
+      "source": "docs/release/AUTOPILOT_RUNNER_MVP.md"
+    }
+  ]
+}

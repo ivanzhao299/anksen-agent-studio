@@ -31,6 +31,9 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs credential list --dry-run
   node packages/orchestrator-core/bin/studio.mjs credential validate --dry-run
   node packages/orchestrator-core/bin/studio.mjs credential policy --dry-run
+  node packages/orchestrator-core/bin/studio.mjs context bootstrap --apply
+  node packages/orchestrator-core/bin/studio.mjs context summary
+  node packages/orchestrator-core/bin/studio.mjs context project --project <project_id>
   node packages/orchestrator-core/bin/studio.mjs runtime list
   node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run
   node packages/orchestrator-core/bin/studio.mjs runtime select --skill <skill_type> [--dry-run]
@@ -49,7 +52,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "autopilot"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "context", "autopilot"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -2908,6 +2911,409 @@ async function commitAutopilotRunnerResult(message, commandsRun) {
   return { ok: commitResult.ok, hash, result: commitResult };
 }
 
+function globalContextDir() {
+  return resolveFromRoot("runtime/global");
+}
+
+function projectsContextDir() {
+  return resolveFromRoot("runtime/projects");
+}
+
+function projectContextDir(projectId) {
+  return join(projectsContextDir(), safeSegment(projectId));
+}
+
+async function writeJsonFile(path, value) {
+  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+async function copyTextFile(source, target) {
+  await writeFile(target, await readFile(source, "utf8"), "utf8");
+}
+
+function contextProjectId(value) {
+  const raw = String(value || "jinhu-smart-park").trim();
+  if (!raw || raw === DEFAULT_PROJECT) return "jinhu-smart-park";
+  return raw.replace(/\.json$/, "").split("/").at(-1) || raw;
+}
+
+function requiredCodexFiles() {
+  return [
+    "runtime/global/codex-startup.md",
+    "runtime/global/handoff-summary.md",
+    "runtime/global/platform-state.json",
+    "runtime/global/roadmap-memory.json",
+    "runtime/projects/jinhu-smart-park/handoff-summary.md",
+    "README.md"
+  ];
+}
+
+function safetyBoundaries() {
+  return [
+    "Do not modify jinhu-smart-park unless an explicit proposal is approved.",
+    "Do not execute Agents from context commands.",
+    "Do not deploy.",
+    "Do not run production migration, seed, reset, cleanup, or production operations.",
+    "Do not read or write real credential values.",
+    "Keep Studio Context under runtime/global and Project Context under runtime/projects/<project_id>."
+  ];
+}
+
+function completedV4Milestones(planningOutput, context) {
+  const stage = planningOutput.current_stage ?? {};
+  return [
+    {
+      id: "extraction",
+      title: "Standalone Agent Studio extraction",
+      completed: Boolean(stage.extraction_completed)
+    },
+    {
+      id: "remote-execute-smoke",
+      title: "Managed project remote execute smoke",
+      completed: Boolean(stage.remote_execute_completed)
+    },
+    {
+      id: "runtime-center",
+      title: "V4-I Runtime Center routing and health gates",
+      completed: Boolean(stage.runtime_center_bootstrapped)
+    },
+    {
+      id: "credential-vault",
+      title: "V4-J Credential Vault MVP",
+      completed: Boolean(stage.credential_vault_completed)
+    },
+    {
+      id: "autopilot-runner",
+      title: "V4-J Autopilot Runner",
+      completed: Boolean(stage.autopilot_runner_completed || context.autopilot_runs.autopilot_runner_completed)
+    }
+  ];
+}
+
+async function buildGlobalContextMemory(goal = "继续推进 V4") {
+  const { context, output } = await runPlanningCenter(goal);
+  const repo = await repoStatus(repoRoot);
+  const generatedAt = new Date().toISOString();
+  const managedProjects = [
+    {
+      project_id: "jinhu-smart-park",
+      memory_dir: "runtime/projects/jinhu-smart-park",
+      source_memory_dir: "examples/jinhu-smart-park/runtime-memory",
+      doctor_status: context.managed_project.project_state.doctor_status,
+      repo_clean: context.managed_project.project_state.repo_clean,
+      queue_status_counts: context.managed_project.project_state.queue_status_counts,
+      event_file_count: context.managed_project.project_state.event_file_count
+    }
+  ];
+  const nextAction = actionFromPlanningOutput(output);
+  const requiredFiles = requiredCodexFiles();
+  const safety = safetyBoundaries();
+  const milestones = completedV4Milestones(output, context);
+
+  const platformState = {
+    schema_version: 1,
+    generated_at: generatedAt,
+    source: "context bootstrap",
+    platform_id: "anksen-agent-studio",
+    workspace_root: repoRoot,
+    repo_status: repo,
+    current_platform_status: "GO",
+    current_v4_stage: output.current_stage,
+    planning_output_id: output.planning_output_id,
+    next_recommended_action: nextAction,
+    managed_projects: managedProjects,
+    packages: {
+      runtime_providers: context.packages.runtime_providers,
+      runtime_profiles: context.packages.runtime_profiles,
+      credential_reference_count: context.packages.credential_references.length,
+      schema_or_example_count: context.packages.schema_or_example_count
+    },
+    safety_boundaries: safety
+  };
+
+  const roadmapMemory = {
+    schema_version: 1,
+    generated_at: generatedAt,
+    goal,
+    current_stage: output.current_stage.stage_name,
+    next_stage: output.current_stage.next_stage,
+    milestones,
+    next_recommended_action: nextAction,
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs context summary",
+      "git diff --check"
+    ],
+    stop_policy: "max_steps=1 for automated runner apply mode"
+  };
+
+  const decisionLog = {
+    schema_version: 1,
+    generated_at: generatedAt,
+    decisions: [
+      {
+        date: "2026-06-23",
+        title: "Keep Studio platform and business project context separated",
+        decision: "Studio context lives under runtime/global; formal project context lives under runtime/projects/<project_id>.",
+        source: "Global Context Bootstrap"
+      },
+      {
+        date: "2026-06-23",
+        title: "Preserve examples project memory as compatibility evidence",
+        decision: "examples/jinhu-smart-park/runtime-memory remains available, while runtime/projects/jinhu-smart-park is the formal project memory.",
+        source: "Global Context Bootstrap"
+      },
+      {
+        date: "2026-06-23",
+        title: "Autopilot remains single-step and approval-gated",
+        decision: "Autopilot Runner may execute only safe local repository actions; managed project, HIGH risk, deploy, production, and secret-value work remains proposal-only.",
+        source: "docs/release/AUTOPILOT_RUNNER_MVP.md"
+      }
+    ]
+  };
+
+  const codexContextIndex = {
+    schema_version: 1,
+    generated_at: generatedAt,
+    startup_command: "node packages/orchestrator-core/bin/studio.mjs context summary",
+    project_command: "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
+    global_context_files: [
+      "runtime/global/platform-state.json",
+      "runtime/global/roadmap-memory.json",
+      "runtime/global/decision-log.json",
+      "runtime/global/codex-context-index.json",
+      "runtime/global/codex-startup.md",
+      "runtime/global/handoff-summary.md"
+    ],
+    project_contexts: managedProjects.map((project) => ({
+      project_id: project.project_id,
+      files: [
+        `${project.memory_dir}/project-state.json`,
+        `${project.memory_dir}/architecture.json`,
+        `${project.memory_dir}/agent-studio-status.json`,
+        `${project.memory_dir}/handoff-summary.md`
+      ]
+    })),
+    required_reading: requiredFiles,
+    safety_boundaries: safety
+  };
+
+  const codexStartup = `# New Codex Window Startup
+
+First command:
+
+\`\`\`bash
+node packages/orchestrator-core/bin/studio.mjs context summary
+\`\`\`
+
+Then inspect the active managed project when needed:
+
+\`\`\`bash
+node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park
+\`\`\`
+
+## Current State
+
+- platform_status: ${platformState.current_platform_status}
+- current_v4_stage: ${output.current_stage.stage_name}
+- next_stage: ${output.current_stage.next_stage}
+- next_action: ${nextAction.title}
+- managed_projects: ${managedProjects.map((project) => project.project_id).join(", ")}
+
+## Required Reading
+
+${requiredFiles.map((file) => `- ${file}`).join("\n")}
+
+## Safety
+
+${safety.map((rule) => `- ${rule}`).join("\n")}
+`;
+
+  const handoffSummary = `# ANKSEN Agent Studio Runtime Handoff
+
+Generated at: ${generatedAt}
+
+## Platform
+
+- platform_status: ${platformState.current_platform_status}
+- repo_branch: ${repo.branch}
+- repo_clean: ${repo.clean}
+- repo_head: ${repo.head}
+
+## V4 Stage
+
+- current_stage: ${output.current_stage.stage_name}
+- next_stage: ${output.current_stage.next_stage}
+- next_action: ${nextAction.title}
+- target_package: ${nextAction.target_package}
+- risk: ${nextAction.risk}
+- execution_mode: ${nextAction.execution_mode}
+
+## Managed Projects
+
+${managedProjects.map((project) => `- ${project.project_id}: doctor=${project.doctor_status}, repo_clean=${project.repo_clean}, memory=${project.memory_dir}`).join("\n")}
+
+## Required Startup Command
+
+\`\`\`bash
+node packages/orchestrator-core/bin/studio.mjs context summary
+\`\`\`
+
+## Required Reading
+
+${requiredFiles.map((file) => `- ${file}`).join("\n")}
+
+## Safety Boundaries
+
+${safety.map((rule) => `- ${rule}`).join("\n")}
+`;
+
+  return {
+    context,
+    planning_output: output,
+    platformState,
+    roadmapMemory,
+    decisionLog,
+    codexContextIndex,
+    codexStartup,
+    handoffSummary,
+    project_sources: {
+      "jinhu-smart-park": resolveFromRoot("examples/jinhu-smart-park/runtime-memory")
+    }
+  };
+}
+
+async function writeGlobalContextMemory(memory) {
+  const globalDir = globalContextDir();
+  await mkdir(globalDir, { recursive: true });
+  await writeJsonFile(join(globalDir, "platform-state.json"), memory.platformState);
+  await writeJsonFile(join(globalDir, "roadmap-memory.json"), memory.roadmapMemory);
+  await writeJsonFile(join(globalDir, "decision-log.json"), memory.decisionLog);
+  await writeJsonFile(join(globalDir, "codex-context-index.json"), memory.codexContextIndex);
+  await writeFile(join(globalDir, "codex-startup.md"), memory.codexStartup, "utf8");
+  await writeFile(join(globalDir, "handoff-summary.md"), memory.handoffSummary, "utf8");
+
+  for (const [projectId, sourceDir] of Object.entries(memory.project_sources)) {
+    const targetDir = projectContextDir(projectId);
+    await mkdir(targetDir, { recursive: true });
+    for (const file of ["project-state.json", "architecture.json", "agent-studio-status.json", "handoff-summary.md"]) {
+      const source = join(sourceDir, file);
+      if (existsSync(source)) await copyTextFile(source, join(targetDir, file));
+    }
+  }
+}
+
+function contextFileList(memory) {
+  return [
+    ...memory.codexContextIndex.global_context_files,
+    ...memory.codexContextIndex.project_contexts.flatMap((project) => project.files)
+  ];
+}
+
+async function contextBootstrap(args) {
+  if (!args.apply) {
+    throw new Error("context bootstrap currently requires --apply.");
+  }
+  const memory = await buildGlobalContextMemory();
+  await writeGlobalContextMemory(memory);
+
+  console.log("# Global Context Bootstrap apply");
+  console.log("");
+  console.log(`global_context_dir: ${globalContextDir()}`);
+  console.log(`projects_context_dir: ${projectsContextDir()}`);
+  console.log(`current_v4_stage: ${memory.planning_output.current_stage.stage_name}`);
+  console.log(`next_recommended_action: ${memory.platformState.next_recommended_action.title}`);
+  console.log("project_writes: disabled");
+  console.log("agent_execution: disabled");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("");
+  console.log("written_files:");
+  for (const file of contextFileList(memory)) console.log(`- ${file}`);
+}
+
+async function loadContextSummaryMemory() {
+  const platformState = await readJsonIfExists(join(globalContextDir(), "platform-state.json"));
+  const roadmapMemory = await readJsonIfExists(join(globalContextDir(), "roadmap-memory.json"));
+  const index = await readJsonIfExists(join(globalContextDir(), "codex-context-index.json"));
+  if (platformState && roadmapMemory && index) {
+    return { platformState, roadmapMemory, index };
+  }
+  const memory = await buildGlobalContextMemory();
+  return {
+    platformState: memory.platformState,
+    roadmapMemory: memory.roadmapMemory,
+    index: memory.codexContextIndex
+  };
+}
+
+async function contextSummary() {
+  const { platformState, roadmapMemory, index } = await loadContextSummaryMemory();
+  const liveRepo = await repoStatus(repoRoot);
+  console.log("# ANKSEN Agent Studio Context Summary");
+  console.log("");
+  console.log("current_platform_status:");
+  console.log(`- platform_id: ${platformState.platform_id}`);
+  console.log(`- repo_branch: ${liveRepo.branch}`);
+  console.log(`- repo_clean: ${liveRepo.clean}`);
+  console.log(`- repo_head: ${liveRepo.head}`);
+  console.log("");
+  console.log("current_v4_stage:");
+  console.log(`- stage_name: ${platformState.current_v4_stage?.stage_name ?? roadmapMemory.current_stage ?? "unknown"}`);
+  console.log(`- next_stage: ${platformState.current_v4_stage?.next_stage ?? roadmapMemory.next_stage ?? "unknown"}`);
+  console.log("");
+  console.log("managed_projects:");
+  for (const project of platformState.managed_projects ?? []) {
+    console.log(`- ${project.project_id}: doctor=${project.doctor_status}, repo_clean=${project.repo_clean}, memory=${project.memory_dir}`);
+  }
+  console.log("");
+  console.log("next_recommended_action:");
+  const action = platformState.next_recommended_action ?? roadmapMemory.next_recommended_action ?? {};
+  console.log(`- title: ${action.title ?? "unknown"}`);
+  console.log(`- target_project: ${action.target_project ?? "unknown"}`);
+  console.log(`- target_package: ${action.target_package ?? "unknown"}`);
+  console.log(`- risk: ${action.risk ?? "unknown"}`);
+  console.log(`- execution_mode: ${action.execution_mode ?? "unknown"}`);
+  console.log("");
+  console.log("required_reading:");
+  for (const file of index.required_reading ?? requiredCodexFiles()) console.log(`- ${file}`);
+  console.log("");
+  console.log("safety_boundaries:");
+  for (const rule of index.safety_boundaries ?? safetyBoundaries()) console.log(`- ${rule}`);
+}
+
+async function contextProject(args) {
+  const projectId = contextProjectId(args.project);
+  const dir = projectContextDir(projectId);
+  const state = await readJsonIfExists(join(dir, "project-state.json"));
+  const architecture = await readJsonIfExists(join(dir, "architecture.json"));
+  const status = await readJsonIfExists(join(dir, "agent-studio-status.json"));
+  const handoffPath = join(dir, "handoff-summary.md");
+
+  console.log("# Project Context");
+  console.log("");
+  console.log(`project_id: ${projectId}`);
+  console.log(`memory_dir: ${dir}`);
+  console.log(`project_state: ${state ? "present" : "missing"}`);
+  console.log(`architecture: ${architecture ? "present" : "missing"}`);
+  console.log(`agent_studio_status: ${status ? "present" : "missing"}`);
+  console.log(`handoff_summary: ${existsSync(handoffPath) ? "present" : "missing"}`);
+  console.log("");
+  console.log("summary:");
+  console.log(`- repo_branch: ${state?.repo_status?.branch ?? "unknown"}`);
+  console.log(`- repo_clean: ${state?.repo_status?.clean ?? "unknown"}`);
+  console.log(`- doctor_status: ${state?.local_orchestrator_status?.doctor_status ?? status?.local_orchestrator_status?.doctor_status ?? "unknown"}`);
+  console.log(`- queue_status_counts: ${JSON.stringify(state?.queue_summary?.status_counts ?? status?.queue_summary?.status_counts ?? {})}`);
+  console.log(`- event_file_count: ${state?.event_summary?.event_file_count ?? status?.event_summary?.event_file_count ?? "unknown"}`);
+  console.log(`- detected_stack_count: ${(architecture?.detected_stack ?? state?.detected_stack ?? []).length}`);
+  console.log("");
+  console.log("files:");
+  for (const file of ["project-state.json", "architecture.json", "agent-studio-status.json", "handoff-summary.md"]) {
+    console.log(`- ${join("runtime/projects", projectId, file)}: ${existsSync(join(dir, file)) ? "present" : "missing"}`);
+  }
+}
+
 async function autopilotRunner(args) {
   if (!args.dryRun && !args.apply) {
     throw new Error("autopilot run requires --dry-run or --apply.");
@@ -3236,6 +3642,9 @@ async function main() {
   if (args.command === "credential" && args.subcommand === "list") return credentialList(args);
   if (args.command === "credential" && args.subcommand === "validate") return credentialValidate(args);
   if (args.command === "credential" && args.subcommand === "policy") return credentialPolicy(args);
+  if (args.command === "context" && args.subcommand === "bootstrap") return contextBootstrap(args);
+  if (args.command === "context" && args.subcommand === "summary") return contextSummary();
+  if (args.command === "context" && args.subcommand === "project") return contextProject(args);
   if (args.command === "runtime" && args.subcommand === "list") return runtimeList();
   if (args.command === "runtime" && args.subcommand === "health") return runtimeHealth(args);
   if (args.command === "runtime" && args.subcommand === "select") return runtimeSelect(args);
