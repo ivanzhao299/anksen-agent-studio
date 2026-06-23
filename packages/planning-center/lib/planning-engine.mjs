@@ -50,6 +50,24 @@ function productionOperationsCenterProposalReady(inputs) {
   return Boolean(inputs.docs?.production_operations_center_proposal_present);
 }
 
+function productionOperationsCenterDryRunReady(inputs) {
+  return Boolean(inputs.docs?.production_operations_center_dry_run_mvp_present)
+    && Boolean(inputs.packages?.production_ops_dry_run_exists);
+}
+
+function autopilotContinuousModeReady(inputs) {
+  return Boolean(inputs.docs?.autopilot_continuous_mode_mvp_present);
+}
+
+function realWorkerRuntimeSmokeProposalReady(inputs) {
+  return Boolean(inputs.docs?.real_worker_runtime_smoke_proposal_present);
+}
+
+function consoleOperableReady(inputs) {
+  return Boolean(inputs.docs?.console_operable_read_only_mvp_present)
+    && Boolean(inputs.packages?.console_operable_mvp_exists);
+}
+
 function currentStage(inputs) {
   const extractionCompleted = Boolean(inputs.closure_report?.extraction_completed);
   const remoteExecuteCompleted = Boolean(inputs.closure_report?.remote_execute_completed);
@@ -61,8 +79,20 @@ function currentStage(inputs) {
   const governanceReleaseGatesCompleted = governanceReleaseGatesReady(inputs);
   const platformHardeningReviewCompleted = platformHardeningReviewReady(inputs);
   const productionOperationsCenterProposalPrepared = productionOperationsCenterProposalReady(inputs);
+  const productionOperationsCenterDryRunCompleted = productionOperationsCenterDryRunReady(inputs);
+  const autopilotContinuousModeCompleted = autopilotContinuousModeReady(inputs);
+  const realWorkerRuntimeSmokeProposalPrepared = realWorkerRuntimeSmokeProposalReady(inputs);
+  const consoleOperableCompleted = consoleOperableReady(inputs);
   return {
-    stage_name: productionOperationsCenterProposalPrepared
+    stage_name: consoleOperableCompleted
+      ? "V4-R Console operable read-only complete"
+      : realWorkerRuntimeSmokeProposalPrepared
+      ? "V4-R Console operable preparation"
+      : autopilotContinuousModeCompleted
+      ? "V4-Q Real Worker Runtime Smoke proposal preparation"
+      : productionOperationsCenterDryRunCompleted
+      ? "V4-P Autopilot Continuous Mode preparation"
+      : productionOperationsCenterProposalPrepared
       ? "V4-O Production Operations Center approval gate"
       : platformHardeningReviewCompleted
       ? "V4-O Production Operations Center proposal preparation"
@@ -81,7 +111,15 @@ function currentStage(inputs) {
           : "Post-extraction V4 bootstrap",
     extraction_completed: extractionCompleted,
     remote_execute_completed: remoteExecuteCompleted,
-    next_stage: productionOperationsCenterProposalPrepared
+    next_stage: consoleOperableCompleted
+      ? "V4 continuous run summary and review"
+      : realWorkerRuntimeSmokeProposalPrepared
+      ? "V4-R Console operable read-only controls"
+      : autopilotContinuousModeCompleted
+      ? "V4-Q Real Worker Runtime Smoke proposal"
+      : productionOperationsCenterDryRunCompleted
+      ? "V4-P Autopilot Continuous Mode"
+      : productionOperationsCenterProposalPrepared
       ? "Await explicit approval for V4-O Production Operations Center implementation"
       : platformHardeningReviewCompleted
       ? "V4-O Production Operations Center Proposal"
@@ -106,6 +144,10 @@ function currentStage(inputs) {
     governance_release_gates_completed: governanceReleaseGatesCompleted,
     platform_hardening_review_completed: platformHardeningReviewCompleted,
     production_operations_center_proposal_prepared: productionOperationsCenterProposalPrepared,
+    production_operations_center_dry_run_completed: productionOperationsCenterDryRunCompleted,
+    autopilot_continuous_mode_completed: autopilotContinuousModeCompleted,
+    real_worker_runtime_smoke_proposal_prepared: realWorkerRuntimeSmokeProposalPrepared,
+    console_operable_completed: consoleOperableCompleted,
     planning_center_exists: Boolean(inputs.packages?.planning_center_exists),
     managed_project_doctor: inputs.runtime_memory?.project_state?.doctor_status ?? "unknown"
   };
@@ -358,10 +400,130 @@ function productionOperationsCenterApprovalGateAction() {
   };
 }
 
+function productionOperationsCenterDryRunAction() {
+  return {
+    title: "Add V4-O Production Operations Center Dry-Run MVP",
+    reason: "The Production Operations Center proposal exists; the next bounded local repository step is dry-run schemas, examples, CLI plans, and safety checks without server access, deploy, production operations, or credential values.",
+    target_project: "anksen-agent-studio",
+    target_package: "packages/production-ops",
+    expected_files: [
+      "packages/production-ops/schemas/server-registry.schema.json",
+      "packages/production-ops/examples/server-registry.example.json",
+      "packages/orchestrator-core/bin/studio.mjs",
+      "docs/release/PRODUCTION_OPERATIONS_CENTER_DRY_RUN_MVP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs production safety-check --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+      "git diff --check"
+    ],
+    risk: "MEDIUM",
+    approval_required: false,
+    execution_mode: "local_repo_execute"
+  };
+}
+
+function autopilotContinuousModeAction() {
+  return {
+    title: "Add V4-P Autopilot Continuous Mode",
+    reason: "Production Ops dry-run is available; the next safe V4 step is a bounded continuous Autopilot mode that runs up to four governed steps, commits each local change, records reports, and stops at HIGH/CRITICAL proposal gates.",
+    target_project: "anksen-agent-studio",
+    target_package: "packages/orchestrator-core",
+    expected_files: [
+      "packages/orchestrator-core/bin/studio.mjs",
+      "packages/planning-center/lib/planning-engine.mjs",
+      "docs/release/AUTOPILOT_CONTINUOUS_MODE_MVP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs autopilot run --goal \"完成 V4 剩余四步\" --dry-run",
+      "git diff --check"
+    ],
+    risk: "MEDIUM",
+    approval_required: false,
+    execution_mode: "local_repo_execute"
+  };
+}
+
+function realWorkerRuntimeSmokeAction() {
+  return {
+    title: "Prepare V4-Q Real Worker Runtime Smoke Proposal",
+    reason: "Continuous mode is available, but real worker runtime smoke may involve live workers, model invocation, credentials, server access, or managed project writes. It must stop at a proposal-only gate.",
+    target_project: "anksen-agent-studio",
+    target_package: "docs/release",
+    expected_files: [
+      "docs/release/REAL_WORKER_RUNTIME_SMOKE_PROPOSAL.md",
+      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+      "git diff --check"
+    ],
+    risk: "HIGH",
+    approval_required: false,
+    execution_mode: "proposal_only"
+  };
+}
+
+function consoleOperableAction() {
+  return {
+    title: "Add V4-R Console operable read-only controls",
+    reason: "Real worker runtime smoke remains proposal-only; the next safe local repository step is to make the Console operable for dry-run command planning without adding mutation paths.",
+    target_project: "anksen-agent-studio",
+    target_package: "apps/console",
+    expected_files: [
+      "apps/console/src/actions.ts",
+      "apps/console/src/view-model.ts",
+      "docs/release/CONSOLE_OPERABLE_READ_ONLY_MVP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "git diff --check"
+    ],
+    risk: "MEDIUM",
+    approval_required: false,
+    execution_mode: "local_repo_execute"
+  };
+}
+
+function v4ContinuousCompleteAction() {
+  return {
+    title: "Review V4 continuous run summary",
+    reason: "The remaining V4 continuous sequence has produced reports, proposals, and safe local repository changes. The next step is review rather than automatic execution.",
+    target_project: "anksen-agent-studio",
+    target_package: "docs/release",
+    expected_files: [
+      "docs/release/V4_CONTINUOUS_RUN_SUMMARY.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "git diff --check"
+    ],
+    risk: "LOW",
+    approval_required: false,
+    execution_mode: "proposal_only"
+  };
+}
+
 export function buildPlanningOutput(request) {
   const stage = currentStage(request.inputs ?? {});
-  const action = stage.production_operations_center_proposal_prepared
-    ? productionOperationsCenterApprovalGateAction()
+  const action = stage.console_operable_completed
+    ? v4ContinuousCompleteAction()
+    : stage.real_worker_runtime_smoke_proposal_prepared
+    ? consoleOperableAction()
+    : stage.autopilot_continuous_mode_completed
+    ? realWorkerRuntimeSmokeAction()
+    : stage.production_operations_center_dry_run_completed
+    ? autopilotContinuousModeAction()
+    : stage.production_operations_center_proposal_prepared
+    ? productionOperationsCenterDryRunAction()
     : !stage.runtime_center_bootstrapped
     ? bootstrapRuntimeCenterAction()
     : !stage.credential_vault_completed

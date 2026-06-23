@@ -61,7 +61,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs discovery --target <file> [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs debug analyze --fixture <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs autopilot --goal "..." [--dry-run|--apply --max-steps 1]
-  node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "..." [--dry-run|--apply --max-steps 1]
+  node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "..." [--dry-run|--apply --max-steps 1|4]
   node packages/orchestrator-core/bin/studio.mjs lint-check
 
 Project execution is available only through explicit project execute --apply. Deploy and production operations remain disabled.`);
@@ -2270,7 +2270,11 @@ async function collectAutopilotContext(goal) {
       credential_vault_mvp_present: releaseDocNames.includes("docs/release/CREDENTIAL_VAULT_MVP.md"),
       autopilot_runner_mvp_present: releaseDocNames.includes("docs/release/AUTOPILOT_RUNNER_MVP.md"),
       platform_hardening_review_present: releaseDocNames.includes("docs/release/PLATFORM_HARDENING_REVIEW.md"),
-      production_operations_center_proposal_present: releaseDocNames.includes("docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md")
+      production_operations_center_proposal_present: releaseDocNames.includes("docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md"),
+      production_operations_center_dry_run_mvp_present: releaseDocNames.includes("docs/release/PRODUCTION_OPERATIONS_CENTER_DRY_RUN_MVP.md"),
+      autopilot_continuous_mode_mvp_present: releaseDocNames.includes("docs/release/AUTOPILOT_CONTINUOUS_MODE_MVP.md"),
+      real_worker_runtime_smoke_proposal_present: releaseDocNames.includes("docs/release/REAL_WORKER_RUNTIME_SMOKE_PROPOSAL.md"),
+      console_operable_read_only_mvp_present: releaseDocNames.includes("docs/release/CONSOLE_OPERABLE_READ_ONLY_MVP.md")
     },
     autopilot_runs: runEvidence,
     managed_project: {
@@ -2315,7 +2319,12 @@ async function collectAutopilotContext(goal) {
         && existsSync(resolveFromRoot("packages/governance-center/schemas/governance-policy.schema.json"))
         && existsSync(resolveFromRoot("packages/governance-center/schemas/approval-policy.schema.json"))
         && existsSync(resolveFromRoot("packages/governance-center/schemas/release-gate.schema.json"))
-        && existsSync(resolveFromRoot("packages/governance-center/schemas/risk-policy.schema.json"))
+        && existsSync(resolveFromRoot("packages/governance-center/schemas/risk-policy.schema.json")),
+      production_ops_dry_run_exists: existsSync(resolveFromRoot("packages/production-ops/schemas/server-registry.schema.json"))
+        && existsSync(resolveFromRoot("packages/production-ops/examples/server-registry.example.json"))
+        && existsSync(resolveFromRoot("packages/production-ops/lib/production-ops-utils.mjs")),
+      console_operable_mvp_exists: existsSync(resolveFromRoot("apps/console/src/actions.ts"))
+        && existsSync(resolveFromRoot("docs/release/CONSOLE_OPERABLE_READ_ONLY_MVP.md"))
     },
     stage: {
       extraction_completed: extractionCompleted,
@@ -3476,6 +3485,839 @@ function autopilotRunnerRunFiles(run) {
   ];
 }
 
+function v4ContinuousRunId(goal) {
+  const now = new Date().toISOString();
+  return `v4-continuous-${timestampForFile(now)}-${stableHash({ goal, now }).slice(0, 8)}`;
+}
+
+function v4ContinuousActions(goal) {
+  return [
+    {
+      step_id: "v4-o-production-ops-dry-run",
+      phase: "V4-O",
+      title: "V4-O Production Operations Center Dry-Run",
+      status_if_complete: "SKIPPED",
+      commit_message: "chore(autopilot): record v4-o continuous step",
+      is_complete: () => existsSync(resolveFromRoot("docs/release/PRODUCTION_OPERATIONS_CENTER_DRY_RUN_MVP.md"))
+        && existsSync(resolveFromRoot("packages/production-ops/schemas/server-registry.schema.json"))
+        && existsSync(resolveFromRoot("packages/production-ops/lib/production-ops-utils.mjs")),
+      write: async () => [],
+      action: {
+        title: "Add V4-O Production Operations Center Dry-Run MVP",
+        reason: "Production operations capability must remain dry-run only: schemas, examples, safety checks, and governance evidence without server access, deploy, or production execution.",
+        target_project: "anksen-agent-studio",
+        target_package: "packages/production-ops",
+        expected_files: [
+          "packages/production-ops/schemas/server-registry.schema.json",
+          "packages/production-ops/examples/server-registry.example.json",
+          "packages/production-ops/lib/production-ops-utils.mjs",
+          "docs/release/PRODUCTION_OPERATIONS_CENTER_DRY_RUN_MVP.md"
+        ],
+        validation_commands: [
+          "pnpm typecheck",
+          "pnpm lint:check",
+          "node packages/orchestrator-core/bin/studio.mjs production safety-check --dry-run",
+          "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+          "git diff --check"
+        ],
+        risk: "MEDIUM",
+        approval_required: false,
+        execution_mode: "local_repo_execute"
+      }
+    },
+    {
+      step_id: "v4-p-autopilot-continuous-mode",
+      phase: "V4-P",
+      title: "V4-P Autopilot Continuous Mode",
+      commit_message: "chore(autopilot): add continuous mode",
+      is_complete: () => existsSync(resolveFromRoot("docs/release/AUTOPILOT_CONTINUOUS_MODE_MVP.md")),
+      write: async (runId) => unique([
+        ...(await writeAutopilotContinuousModeMvp(runId, goal)),
+        "packages/orchestrator-core/bin/studio.mjs",
+        "packages/planning-center/lib/planning-engine.mjs"
+      ]),
+      action: {
+        title: "Add V4-P Autopilot Continuous Mode",
+        reason: "Autopilot needs a bounded continuous mode that can advance multiple safe roadmap steps while stopping at HIGH/CRITICAL proposal gates.",
+        target_project: "anksen-agent-studio",
+        target_package: "packages/orchestrator-core",
+        expected_files: [
+          "packages/orchestrator-core/bin/studio.mjs",
+          "packages/planning-center/lib/planning-engine.mjs",
+          "docs/release/AUTOPILOT_CONTINUOUS_MODE_MVP.md"
+        ],
+        validation_commands: [
+          "pnpm typecheck",
+          "pnpm lint:check",
+          `node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "${goal}" --dry-run`,
+          "git diff --check"
+        ],
+        risk: "MEDIUM",
+        approval_required: false,
+        execution_mode: "local_repo_execute"
+      }
+    },
+    {
+      step_id: "v4-q-real-worker-runtime-smoke",
+      phase: "V4-Q",
+      title: "V4-Q Real Worker Runtime Smoke",
+      commit_message: "docs(runtime): propose real worker runtime smoke",
+      is_complete: () => existsSync(resolveFromRoot("docs/release/REAL_WORKER_RUNTIME_SMOKE_PROPOSAL.md")),
+      write: async (runId, gate) => writeRealWorkerRuntimeSmokeProposal(runId, gate),
+      action: {
+        title: "Prepare V4-Q Real Worker Runtime Smoke Proposal",
+        reason: "Real worker runtime smoke can involve live workers, model calls, credentials, server access, or managed project writes; continuous mode must stop at proposal-only.",
+        target_project: "anksen-agent-studio",
+        target_package: "docs/release",
+        expected_files: [
+          "docs/release/REAL_WORKER_RUNTIME_SMOKE_PROPOSAL.md"
+        ],
+        validation_commands: [
+          "pnpm typecheck",
+          "pnpm lint:check",
+          "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+          "git diff --check"
+        ],
+        risk: "HIGH",
+        approval_required: false,
+        execution_mode: "proposal_only"
+      }
+    },
+    {
+      step_id: "v4-r-console-operable-read-only",
+      phase: "V4-R",
+      title: "V4-R Console operable read-only controls",
+      commit_message: "chore(console): add operable read-only controls",
+      is_complete: () => existsSync(resolveFromRoot("docs/release/CONSOLE_OPERABLE_READ_ONLY_MVP.md"))
+        && existsSync(resolveFromRoot("apps/console/src/actions.ts")),
+      write: async () => writeConsoleOperableReadOnlyMvp(),
+      action: {
+        title: "Add V4-R Console operable read-only controls",
+        reason: "The Console can become operable for dry-run planning and command previews while preserving read-only data policy and disabled mutation paths.",
+        target_project: "anksen-agent-studio",
+        target_package: "apps/console",
+        expected_files: [
+          "apps/console/src/actions.ts",
+          "apps/console/src/view-model.ts",
+          "apps/console/src/index.ts",
+          "apps/console/README.md",
+          "docs/release/CONSOLE_OPERABLE_READ_ONLY_MVP.md"
+        ],
+        validation_commands: [
+          "pnpm typecheck",
+          "pnpm lint:check",
+          "git diff --check"
+        ],
+        risk: "MEDIUM",
+        approval_required: false,
+        execution_mode: "local_repo_execute"
+      }
+    }
+  ];
+}
+
+async function writeAutopilotContinuousModeMvp(runId, goal) {
+  const content = `# Autopilot Continuous Mode MVP
+
+## Scope
+
+Autopilot Continuous Mode lets Studio run a bounded sequence of V4 roadmap steps from one command while keeping each step inside Governance, Approval, and Release Gate policy.
+
+## Command
+
+~~~bash
+node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "${goal}" --apply --max-steps 4
+~~~
+
+## Runtime Rules
+
+- max_steps defaults to 1 and is capped at 4 for continuous mode.
+- Every step reads runtime/global context and Planning Center output before choosing the next action.
+- Every step evaluates Governance Center before writing files.
+- LOW and MEDIUM local repository tasks may execute when release gates pass.
+- HIGH and CRITICAL tasks stop at proposal-only or human-approval gates.
+- The runner writes JSON and Markdown reports under autopilot-runs for each step.
+- The runner runs pnpm typecheck, pnpm lint:check, and git diff --check for each step.
+- The runner commits each safe implementation, proposal, report, and final summary separately.
+
+## Safety Boundaries
+
+- No deploy.
+- No production operation.
+- No server connection.
+- No real credential read or write.
+- No managed project writes.
+- No jinhu-smart-park modification.
+- No unbounded loop; the runner stops at max_steps.
+
+## Current Run
+
+- run_id: ${runId}
+- goal: ${goal}
+- mode: dry-run planning plus bounded apply execution.
+`;
+  const file = "docs/release/AUTOPILOT_CONTINUOUS_MODE_MVP.md";
+  await writeFile(resolveFromRoot(file), content, "utf8");
+  return [file];
+}
+
+async function writeRealWorkerRuntimeSmokeProposal(runId, gate) {
+  const now = new Date().toISOString();
+  const proposalId = `proposal-v4-q-real-worker-runtime-smoke-${timestampForFile(now)}-${stableHash({ runId, now }).slice(0, 8)}`;
+  const content = `# V4-Q Real Worker Runtime Smoke Proposal
+
+- proposal_id: ${proposalId}
+- created_at: ${now}
+- run_id: ${runId}
+- risk: HIGH
+- execution_mode: proposal_only
+- approval_required: proposal review required before any real worker execution
+- governance_gate: ${gate.governance?.release_gate ?? "unknown"}
+
+## Purpose
+
+Validate the future path for real worker runtime smoke tests without starting the worker in this step. The proposal is intentionally limited to planning because real worker smoke can touch live model calls, runtime credentials, external processes, remote workers, or managed project workspaces.
+
+## Proposed Future Smoke
+
+- Select one runtime adapter through Runtime Center.
+- Verify Credential Vault reference presence only.
+- Prepare a minimal dry-run invocation plan.
+- Require explicit approval before any live worker call.
+- Record stdout/stderr, workspace, credential reference id, adapter id, and governance decision as audit evidence.
+
+## Hard Blocks In This Step
+
+- No real model call.
+- No real worker start.
+- No external service call.
+- No server connection.
+- No credential value read.
+- No managed project write.
+- No deploy or production operation.
+
+## Approval Gate
+
+Governance Center classified this as HIGH risk, so continuous mode generated this proposal and stopped execution for V4-Q.
+`;
+  const file = "docs/release/REAL_WORKER_RUNTIME_SMOKE_PROPOSAL.md";
+  await writeFile(resolveFromRoot(file), content, "utf8");
+  return { proposal_id: proposalId, files: [file] };
+}
+
+function consoleActionsSource() {
+  return `export type ConsoleActionId =
+  | "context_summary"
+  | "planning_dry_run"
+  | "runtime_health"
+  | "governance_check"
+  | "production_safety_check"
+  | "autopilot_dry_run";
+
+export type ConsoleActionScope =
+  | "context"
+  | "planning"
+  | "runtime"
+  | "governance"
+  | "production_ops"
+  | "autopilot";
+
+export interface ConsoleActionDescriptor {
+  readonly id: ConsoleActionId;
+  readonly label: string;
+  readonly scope: ConsoleActionScope;
+  readonly command: string;
+  readonly risk: "LOW" | "MEDIUM" | "HIGH";
+  readonly executionMode: "dry_run_only" | "proposal_only";
+  readonly requiresApproval: boolean;
+  readonly readOnly: true;
+  readonly source: string;
+  readonly disabledReason?: string;
+}
+
+export const consoleActions: readonly ConsoleActionDescriptor[] = [
+  {
+    id: "context_summary",
+    label: "Context Summary",
+    scope: "context",
+    command: "node packages/orchestrator-core/bin/studio.mjs context summary",
+    risk: "LOW",
+    executionMode: "dry_run_only",
+    requiresApproval: false,
+    readOnly: true,
+    source: "runtime/global"
+  },
+  {
+    id: "planning_dry_run",
+    label: "Planning Dry Run",
+    scope: "planning",
+    command: "node packages/orchestrator-core/bin/studio.mjs plan --goal \\"继续推进 V4\\" --dry-run",
+    risk: "LOW",
+    executionMode: "dry_run_only",
+    requiresApproval: false,
+    readOnly: true,
+    source: "packages/planning-center"
+  },
+  {
+    id: "runtime_health",
+    label: "Runtime Health",
+    scope: "runtime",
+    command: "node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run",
+    risk: "LOW",
+    executionMode: "dry_run_only",
+    requiresApproval: false,
+    readOnly: true,
+    source: "packages/runtime-center"
+  },
+  {
+    id: "governance_check",
+    label: "Governance Check",
+    scope: "governance",
+    command: "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+    risk: "LOW",
+    executionMode: "dry_run_only",
+    requiresApproval: false,
+    readOnly: true,
+    source: "packages/governance-center"
+  },
+  {
+    id: "production_safety_check",
+    label: "Production Safety Check",
+    scope: "production_ops",
+    command: "node packages/orchestrator-core/bin/studio.mjs production safety-check --dry-run",
+    risk: "HIGH",
+    executionMode: "proposal_only",
+    requiresApproval: true,
+    readOnly: true,
+    source: "packages/production-ops",
+    disabledReason: "Production operations remain proposal-only from the Console."
+  },
+  {
+    id: "autopilot_dry_run",
+    label: "Autopilot Dry Run",
+    scope: "autopilot",
+    command: "node packages/orchestrator-core/bin/studio.mjs autopilot run --goal \\"继续推进 V4\\" --dry-run",
+    risk: "MEDIUM",
+    executionMode: "dry_run_only",
+    requiresApproval: false,
+    readOnly: true,
+    source: "autopilot-runs"
+  }
+] as const;
+
+export function listConsoleActions() {
+  return consoleActions;
+}
+
+export function getConsoleAction(id: string) {
+  return consoleActions.find((action) => action.id === id) ?? null;
+}
+`;
+}
+
+async function writeConsoleOperableReadOnlyMvp() {
+  const files = ["apps/console/src/actions.ts"];
+  await writeFile(resolveFromRoot("apps/console/src/actions.ts"), consoleActionsSource(), "utf8");
+
+  const viewModelPath = resolveFromRoot("apps/console/src/view-model.ts");
+  let viewModel = await readFile(viewModelPath, "utf8");
+  if (!viewModel.includes("./actions.js")) {
+    viewModel = viewModel.replace(
+      `import { consoleApp, consoleSafety } from "./app.js";\n`,
+      `import { consoleApp, consoleSafety } from "./app.js";\nimport { consoleActions } from "./actions.js";\n`
+    );
+  }
+  if (!viewModel.includes("readonly operable_action_count")) {
+    viewModel = viewModel.replace(
+      "  readonly module_count: number;\n",
+      "  readonly module_count: number;\n  readonly operable_action_count: number;\n"
+    );
+  }
+  if (!viewModel.includes("operable_action_count: consoleActions.length")) {
+    viewModel = viewModel.replace(
+      "  module_count: consoleFixture.modules.length,\n",
+      "  module_count: consoleFixture.modules.length,\n  operable_action_count: consoleActions.length,\n"
+    );
+  }
+  if (!viewModel.includes("actions: consoleActions")) {
+    viewModel = viewModel.replace(
+      "    panels: consolePanels,\n    fixture: consoleFixture,\n",
+      "    panels: consolePanels,\n    actions: consoleActions,\n    fixture: consoleFixture,\n"
+    );
+  }
+  await writeFile(viewModelPath, viewModel, "utf8");
+  files.push("apps/console/src/view-model.ts");
+
+  const indexPath = resolveFromRoot("apps/console/src/index.ts");
+  let index = await readFile(indexPath, "utf8");
+  if (!index.includes("./actions.js")) {
+    index = index.replace(
+      `export { consoleApp, consoleSafety } from "./app.js";\n`,
+      `export { consoleApp, consoleSafety } from "./app.js";\nexport { consoleActions, getConsoleAction, listConsoleActions, type ConsoleActionDescriptor, type ConsoleActionId, type ConsoleActionScope } from "./actions.js";\n`
+    );
+  }
+  await writeFile(indexPath, index, "utf8");
+  files.push("apps/console/src/index.ts");
+
+  const readmePath = resolveFromRoot("apps/console/README.md");
+  let readme = await readFile(readmePath, "utf8");
+  if (!readme.includes("## Operable Read-Only Controls")) {
+    readme += `
+
+## Operable Read-Only Controls
+
+The Console exposes command descriptors for dry-run and proposal-only actions. These descriptors are view-model data only; they do not execute commands, call external services, deploy, connect to servers, read credential values, or write managed projects.
+
+- Context Summary
+- Planning Dry Run
+- Runtime Health
+- Governance Check
+- Production Safety Check
+- Autopilot Dry Run
+`;
+  }
+  await writeFile(readmePath, readme, "utf8");
+  files.push("apps/console/README.md");
+
+  const doc = `# Console Operable Read-Only MVP
+
+## Scope
+
+V4-R adds an operable read-only layer to apps/console. The Console now exposes local command descriptors that a future UI can render as disabled, dry-run, or proposal-only actions.
+
+## Included Controls
+
+- Context Summary
+- Planning Dry Run
+- Runtime Health
+- Governance Check
+- Production Safety Check
+- Autopilot Dry Run
+
+## Safety
+
+- No command execution from the Console view model.
+- No database connection.
+- No external service calls.
+- No Agent execution.
+- No deploy.
+- No production operation.
+- No server access.
+- No credential value read or write.
+- No jinhu-smart-park modification.
+`;
+  await writeFile(resolveFromRoot("docs/release/CONSOLE_OPERABLE_READ_ONLY_MVP.md"), doc, "utf8");
+  files.push("docs/release/CONSOLE_OPERABLE_READ_ONLY_MVP.md");
+
+  return files.sort();
+}
+
+function continuousStepReportFiles(report) {
+  return [
+    `autopilot-runs/${report.run_id}.json`,
+    `autopilot-runs/${report.run_id}.md`
+  ];
+}
+
+function continuousStepMarkdown(report) {
+  const commands = report.commands_run.length === 0
+    ? "- none"
+    : report.commands_run.map((command) => `- ${command.command}: ${command.ok ? "PASS" : "FAIL"} (exit ${command.status})`).join("\n");
+  const changedFiles = report.changed_files.length === 0
+    ? "- none"
+    : report.changed_files.map((file) => `- ${file}`).join("\n");
+  return `# V4 Autopilot Continuous Step
+
+- run_id: ${report.run_id}
+- parent_run_id: ${report.parent_run_id}
+- step: ${report.step_index}/${report.max_steps}
+- phase: ${report.phase}
+- status: ${report.status}
+- execution_mode: ${report.execution_mode}
+- risk: ${report.selected_action.risk}
+- commit_hash: ${report.commit_hash ?? "none"}
+- proposal_id: ${report.proposal_id ?? "none"}
+
+## Selected Action
+
+- title: ${report.selected_action.title}
+- target_project: ${report.selected_action.target_project}
+- target_package: ${report.selected_action.target_package}
+- gate: ${report.execution_gate.reason}
+
+## Validation
+
+- status: ${report.validation_result.status}
+- command_count: ${report.validation_result.command_count}
+- failed_commands: ${report.validation_result.failed_commands.length === 0 ? "none" : report.validation_result.failed_commands.join(", ")}
+
+## Commands Run
+
+${commands}
+
+## Changed Files
+
+${changedFiles}
+
+## Next Recommendation
+
+- title: ${report.next_recommendation.title}
+- command: ${report.next_recommendation.command}
+
+## Safety
+
+- deploy: disabled
+- production_operations: disabled
+- server_access: disabled
+- credential_values: disabled
+- managed_project_writes: disabled
+`;
+}
+
+async function writeContinuousStepReport(report) {
+  const dir = resolveFromRoot("autopilot-runs");
+  await mkdir(dir, { recursive: true });
+  const jsonPath = join(dir, `${report.run_id}.json`);
+  const markdownPath = join(dir, `${report.run_id}.md`);
+  await writeFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  await writeFile(markdownPath, continuousStepMarkdown(report), "utf8");
+  return { jsonPath, markdownPath };
+}
+
+async function runContinuousValidation(commandsRun) {
+  const results = [];
+  for (const command of ["pnpm typecheck", "pnpm lint:check", "git diff --check"]) {
+    const result = await runAllowedCommand(command);
+    commandsRun.push(result);
+    results.push(result);
+  }
+  return validationSummary(results);
+}
+
+async function lastCommitForPath(path) {
+  return execGit(repoRoot, ["log", "-1", "--format=%H", "--", path]);
+}
+
+async function buildContinuousStepReport({
+  parentRunId,
+  step,
+  stepIndex,
+  maxSteps,
+  goal,
+  globalContext,
+  planningOutput,
+  gate,
+  status,
+  executionMode,
+  commandsRun,
+  changedFiles,
+  validationResult,
+  commitHash,
+  proposalId,
+  nextRecommendationValue
+}) {
+  const now = new Date().toISOString();
+  return {
+    schema_version: 1,
+    run_id: `${parentRunId}-step-${String(stepIndex).padStart(2, "0")}-${step.step_id}`,
+    parent_run_id: parentRunId,
+    created_at: now,
+    goal,
+    step_index: stepIndex,
+    max_steps: maxSteps,
+    phase: step.phase,
+    status,
+    planning_output: planningOutput,
+    selected_action: step.action,
+    execution_mode: executionMode,
+    execution_gate: gate,
+    commands_run: commandsRun,
+    changed_files: changedFiles,
+    validation_result: validationResult,
+    commit_hash: commitHash,
+    proposal_id: proposalId,
+    next_recommendation: nextRecommendationValue,
+    global_context: globalContextSummary(globalContext),
+    safety: {
+      deploy: "disabled",
+      production_operations: "disabled",
+      server_access: "disabled",
+      credential_values: "disabled",
+      managed_project_writes: "disabled",
+      max_steps: maxSteps
+    }
+  };
+}
+
+function continuousSummaryMarkdown(summary) {
+  const rows = summary.steps.map((step) =>
+    `| ${step.phase} | ${step.status} | ${step.risk} | ${step.gate_status} | ${step.commit_hash || step.proposal_id || "none"} | ${step.report_file} |`
+  ).join("\n");
+  return `# V4 Continuous Run Summary
+
+- run_id: ${summary.run_id}
+- generated_at: ${summary.generated_at}
+- goal: ${summary.goal}
+- max_steps: ${summary.max_steps}
+
+## Steps
+
+| Step | Status | Risk | Gate | Commit / Proposal | Report |
+| --- | --- | --- | --- | --- | --- |
+${rows}
+
+## Gate Summary
+
+- high_or_critical_gate_triggered: ${summary.high_or_critical_gate_triggered ? "yes" : "no"}
+- deploy: disabled
+- production_operations: disabled
+- server_access: disabled
+- credential_values: disabled
+- managed_project_writes: disabled
+- jinhu_smart_park_modified: no
+
+## Next Recommendation
+
+- title: ${summary.next_recommendation.title}
+- command: ${summary.next_recommendation.command}
+`;
+}
+
+async function writeV4ContinuousRunSummary(summary) {
+  const file = "docs/release/V4_CONTINUOUS_RUN_SUMMARY.md";
+  await writeFile(resolveFromRoot(file), continuousSummaryMarkdown(summary), "utf8");
+  return file;
+}
+
+function printAutopilotContinuous(summary) {
+  console.log("# Autopilot Continuous apply");
+  console.log("");
+  console.log(`goal: ${summary.goal}`);
+  console.log(`run_id: ${summary.run_id}`);
+  console.log(`max_steps: ${summary.max_steps}`);
+  console.log("");
+  console.log("steps:");
+  for (const step of summary.steps) {
+    console.log(`- ${step.phase}: ${step.status}; commit_hash=${step.commit_hash || "none"}; proposal_id=${step.proposal_id || "none"}; report=${step.report_file}`);
+  }
+  console.log("");
+  console.log(`high_or_critical_gate_triggered: ${summary.high_or_critical_gate_triggered ? "yes" : "no"}`);
+  console.log("next_recommendation:");
+  console.log(`- title: ${summary.next_recommendation.title}`);
+  console.log(`- command: ${summary.next_recommendation.command}`);
+  console.log("");
+  console.log(`summary_file: ${summary.summary_file}`);
+  console.log(`summary_commit_hash: ${summary.summary_commit_hash ?? "none"}`);
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("server_access: disabled");
+  console.log("credential_values: disabled");
+  console.log("managed_project_writes: disabled");
+}
+
+async function autopilotContinuousRunner(args) {
+  const goal = (args.goal || args.text).trim();
+  if (!goal) throw new Error("Missing --goal for autopilot run.");
+  if (!Number.isInteger(args.maxSteps) || args.maxSteps < 1 || args.maxSteps > 4) {
+    throw new Error("Autopilot Continuous Mode allows --max-steps between 1 and 4.");
+  }
+
+  const parentRunId = v4ContinuousRunId(goal);
+  const steps = v4ContinuousActions(goal).slice(0, args.maxSteps);
+  const summarySteps = [];
+  const globalContext = await loadGlobalContextBundle();
+
+  if (args.dryRun) {
+    const planning = await runPlanningCenter(goal);
+    for (let index = 0; index < steps.length; index += 1) {
+      const step = steps[index];
+      const gate = await localExecutionGate(step.action);
+      const complete = step.is_complete();
+      summarySteps.push({
+        phase: step.phase,
+        status: complete ? step.status_if_complete ?? "SKIPPED" : gate.allowed ? "EXECUTABLE" : "PROPOSAL_ONLY",
+        risk: gate.governance?.risk ?? step.action.risk,
+        gate_status: gate.governance?.release_gate ?? "unknown",
+        commit_hash: "",
+        proposal_id: "",
+        report_file: ""
+      });
+    }
+    const summary = {
+      run_id: parentRunId,
+      generated_at: new Date().toISOString(),
+      goal,
+      max_steps: args.maxSteps,
+      steps: summarySteps,
+      high_or_critical_gate_triggered: summarySteps.some((step) => ["HIGH", "CRITICAL"].includes(step.risk)),
+      next_recommendation: executorNextRecommendation(goal, planning.output),
+      summary_file: "docs/release/V4_CONTINUOUS_RUN_SUMMARY.md",
+      summary_commit_hash: null
+    };
+    printAutopilotContinuous(summary);
+    return;
+  }
+
+  for (let index = 0; index < steps.length; index += 1) {
+    const stepIndex = index + 1;
+    const step = steps[index];
+    const planning = await runPlanningCenter(goal);
+    const gate = await localExecutionGate(step.action);
+    const commandsRun = [
+      {
+        command: "read runtime/global/*",
+        ok: true,
+        status: 0,
+        blocked: false,
+        stdout_tail: `files=${Object.keys(globalContext.files).length}; stage=${globalContextSummary(globalContext).current_v4_stage}`,
+        stderr_tail: ""
+      },
+      {
+        command: "Planning Center buildPlanningOutput",
+        ok: true,
+        status: 0,
+        blocked: false,
+        stdout_tail: `planning_output_id=${planning.output.planning_output_id}; next_action=${actionFromPlanningOutput(planning.output).title}`,
+        stderr_tail: ""
+      },
+      {
+        command: "governance check",
+        ok: gate.governance?.governance_check === "PASS",
+        status: gate.governance?.governance_check === "PASS" ? 0 : 1,
+        blocked: false,
+        stdout_tail: `status=${gate.governance?.governance_check ?? "unknown"}; risk=${gate.governance?.risk ?? step.action.risk}`,
+        stderr_tail: ""
+      },
+      {
+        command: "approval policy",
+        ok: gate.governance?.approval_policy === "PASS",
+        status: gate.governance?.approval_policy === "PASS" ? 0 : 1,
+        blocked: false,
+        stdout_tail: `automation_mode=${gate.governance?.automation_mode ?? "unknown"}; execution_mode=${gate.execution_mode}`,
+        stderr_tail: ""
+      },
+      {
+        command: "release gate",
+        ok: gate.governance?.release_gate === "PASS",
+        status: gate.governance?.release_gate === "PASS" ? 0 : 1,
+        blocked: gate.governance?.release_gate !== "PASS",
+        stdout_tail: `status=${gate.governance?.release_gate ?? "unknown"}; categories=${(gate.governance?.categories ?? []).join(", ")}`,
+        stderr_tail: gate.governance?.release_gate === "PASS" ? "" : gate.reason
+      }
+    ];
+
+    let status = "SKIPPED";
+    let executionMode = gate.execution_mode;
+    let changedFiles = [];
+    let commitHash = "";
+    let proposalId = "";
+    let validationResult = { status: "PASS", command_count: 0, failed_commands: [] };
+
+    if (step.is_complete()) {
+      status = step.status_if_complete ?? "SKIPPED";
+      validationResult = await runContinuousValidation(commandsRun);
+      commitHash = await lastCommitForPath(step.action.expected_files.at(-1) ?? ".");
+    } else if (!gate.allowed) {
+      status = "PROPOSAL_ONLY";
+      executionMode = "proposal_only";
+      const proposal = await step.write(parentRunId, gate);
+      changedFiles = proposal.files ?? [];
+      proposalId = proposal.proposal_id ?? "";
+      validationResult = await runContinuousValidation(commandsRun);
+      if (validationResult.status === "PASS") {
+        const proposalCommit = await commitPaths(changedFiles, step.commit_message, commandsRun);
+        commitHash = proposalCommit.hash;
+        if (!proposalCommit.ok) {
+          validationResult = {
+            status: "FAIL",
+            command_count: commandsRun.length,
+            failed_commands: ["git commit proposal"]
+          };
+        }
+      }
+    } else {
+      status = "EXECUTED";
+      executionMode = "local_repo_execute";
+      const written = await step.write(parentRunId, gate);
+      changedFiles = Array.isArray(written) ? written : written.files ?? [];
+      proposalId = Array.isArray(written) ? "" : written.proposal_id ?? "";
+      validationResult = await runContinuousValidation(commandsRun);
+      if (validationResult.status === "PASS") {
+        const implementationCommit = await commitPaths(changedFiles, step.commit_message, commandsRun);
+        commitHash = implementationCommit.hash;
+        if (!implementationCommit.ok) {
+          validationResult = {
+            status: "FAIL",
+            command_count: commandsRun.length,
+            failed_commands: ["git commit implementation"]
+          };
+        }
+      }
+    }
+
+    const latestPlanning = await runPlanningCenter(goal);
+    const nextRecommendationValue = validationResult.status === "PASS"
+      ? executorNextRecommendation(goal, latestPlanning.output)
+      : {
+        title: "Fix validation failures before continuing V4",
+        reason: "Autopilot Continuous Mode stops when a step validation fails.",
+        command: `node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "${goal}" --dry-run --max-steps ${args.maxSteps}`
+      };
+    const report = await buildContinuousStepReport({
+      parentRunId,
+      step,
+      stepIndex,
+      maxSteps: args.maxSteps,
+      goal,
+      globalContext,
+      planningOutput: planning.output,
+      gate,
+      status,
+      executionMode,
+      commandsRun,
+      changedFiles: unique([...changedFiles, `${parentRunId}-pending-report`]).sort(),
+      validationResult,
+      commitHash,
+      proposalId,
+      nextRecommendationValue
+    });
+    report.changed_files = unique([...changedFiles, ...continuousStepReportFiles(report)]).sort();
+    await writeContinuousStepReport(report);
+    const reportCommit = await commitPaths(continuousStepReportFiles(report), `chore(autopilot): record ${step.phase.toLowerCase()} continuous run`, commandsRun);
+
+    summarySteps.push({
+      phase: step.phase,
+      status,
+      risk: gate.governance?.risk ?? step.action.risk,
+      gate_status: gate.governance?.release_gate ?? "unknown",
+      commit_hash: commitHash,
+      report_commit_hash: reportCommit.hash,
+      proposal_id: proposalId,
+      report_file: `autopilot-runs/${report.run_id}.json`
+    });
+
+    if (validationResult.status !== "PASS") break;
+  }
+
+  const finalPlanning = await runPlanningCenter(goal);
+  const summary = {
+    run_id: parentRunId,
+    generated_at: new Date().toISOString(),
+    goal,
+    max_steps: args.maxSteps,
+    steps: summarySteps,
+    high_or_critical_gate_triggered: summarySteps.some((step) => ["HIGH", "CRITICAL"].includes(step.risk)),
+    next_recommendation: executorNextRecommendation(goal, finalPlanning.output),
+    summary_file: "docs/release/V4_CONTINUOUS_RUN_SUMMARY.md",
+    summary_commit_hash: null
+  };
+  const summaryFile = await writeV4ContinuousRunSummary(summary);
+  const summaryCommands = [];
+  const summaryCommit = await commitPaths([summaryFile], "docs(v4): add continuous run summary", summaryCommands);
+  summary.summary_commit_hash = summaryCommit.hash || null;
+  printAutopilotContinuous(summary);
+}
+
 function printAutopilotRunner(run, files = null) {
   console.log(`# Autopilot Runner ${run.mode}`);
   console.log("");
@@ -4006,8 +4848,11 @@ async function autopilotRunner(args) {
   if (!goal) {
     throw new Error("Missing --goal for autopilot run.");
   }
-  if (args.maxSteps !== 1) {
-    throw new Error("Autopilot Runner only allows --max-steps 1.");
+  if (!Number.isInteger(args.maxSteps) || args.maxSteps < 1 || args.maxSteps > 4) {
+    throw new Error("Autopilot Runner allows --max-steps between 1 and 4.");
+  }
+  if (args.maxSteps > 1) {
+    return autopilotContinuousRunner(args);
   }
 
   const globalContext = await loadGlobalContextBundle();
