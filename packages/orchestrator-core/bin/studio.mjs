@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -22,6 +23,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs project parity --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project import-memory --config <file> [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs project memory --config <file> --summary
+  node packages/orchestrator-core/bin/studio.mjs project task-plan --config <file> --text "..." --dry-run
   node packages/orchestrator-core/bin/studio.mjs skill-route --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
@@ -215,6 +217,8 @@ async function loadSkillRoute(text) {
     selected_agent: final.rule.selected_agent ?? final.skill?.default_agent ?? "agent-5",
     selected_runtime: final.rule.runtime ?? final.skill?.default_runtime ?? "codex-cli",
     expected_outputs: [final.rule.expected_output_type ?? final.skill?.expected_output_types?.[0] ?? "report"],
+    required_inputs: final.skill?.required_inputs ?? [],
+    validation_commands: final.skill?.validation_commands ?? [],
     risk_level: final.skill?.risk_level ?? "MEDIUM",
     confidence: selected ? Math.min(0.95, 0.55 + final.score / 100) : 0.35,
     fallback_used: !selected,
@@ -964,6 +968,191 @@ async function projectMemory(args) {
   }
 }
 
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function taskSlug(text) {
+  const ascii = text.normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").toUpperCase();
+  return ascii.slice(0, 48);
+}
+
+function stableTaskId(projectId, text) {
+  const projectPart = String(projectId ?? "PROJECT").replace(/[^\w-]/g, "-").toUpperCase();
+  const hash = createHash("sha1").update(text).digest("hex").slice(0, 10).toUpperCase();
+  const slug = taskSlug(text);
+  return `${projectPart}-TASK-${slug || hash}`;
+}
+
+function loadMemoryFile(configPath, file) {
+  return readJson(join(projectRuntimeMemoryDir(configPath), file));
+}
+
+async function loadImportedProjectMemory(configPath) {
+  const statePath = join(projectRuntimeMemoryDir(configPath), "project-state.json");
+  if (!existsSync(statePath)) {
+    throw new Error("Imported project runtime memory is missing. Run project import-memory --apply first.");
+  }
+  return {
+    projectState: await loadMemoryFile(configPath, "project-state.json"),
+    architecture: existsSync(join(projectRuntimeMemoryDir(configPath), "architecture.json"))
+      ? await loadMemoryFile(configPath, "architecture.json")
+      : null,
+    agentStudioStatus: existsSync(join(projectRuntimeMemoryDir(configPath), "agent-studio-status.json"))
+      ? await loadMemoryFile(configPath, "agent-studio-status.json")
+      : null
+  };
+}
+
+function isFrontendUiRoute(route, text) {
+  const value = normalizeText(`${text} ${route.reason ?? ""} ${route.matched_keywords?.join(" ") ?? ""}`);
+  return route.selected_agent === "agent-4" || ["前端", "页面", "样式", "移动端", "dashboard", "仪表盘", "ui", "ux"].some((keyword) => value.includes(keyword));
+}
+
+function allowedPathsForTask(route, memory, text) {
+  if (isFrontendUiRoute(route, text)) {
+    return unique([
+      "apps/web/**",
+      "packages/ui/**",
+      "docs/release/**",
+      "docs/testing/**",
+      "ops/agent-orchestrator/reports/**",
+      "ops/agent-orchestrator/results/**"
+    ]);
+  }
+  if (route.selected_agent === "agent-2" || route.selected_skill === "validation_testing") {
+    return unique([
+      "docs/testing/**",
+      "docs/release/**",
+      "ops/agent-orchestrator/reports/**",
+      "ops/agent-orchestrator/results/**"
+    ]);
+  }
+  if (route.selected_agent === "agent-3" || route.selected_skill === "data_integration") {
+    return unique([
+      "docs/release/**",
+      "docs/testing/**",
+      "scripts/e2e/**",
+      "ops/agent-orchestrator/reports/**",
+      "ops/agent-orchestrator/results/**"
+    ]);
+  }
+  return unique([
+    ...(memory.architecture?.write_paths ?? []),
+    "docs/release/**",
+    "docs/testing/**",
+    "ops/agent-orchestrator/reports/**",
+    "ops/agent-orchestrator/results/**"
+  ]);
+}
+
+function forbiddenPathsForTask(allowedPaths, memory) {
+  const allowed = new Set(allowedPaths);
+  const guarded = memory.projectState.guarded_paths ?? [];
+  const expandedBusinessForbidden = [
+    "apps/api/**",
+    "database/**",
+    "infra/**",
+    ".github/**",
+    "Dockerfile",
+    "Dockerfile.*",
+    "docker-compose*",
+    "deploy/**",
+    "auth/**",
+    ".env",
+    ".env.*"
+  ];
+  return unique([
+    ...guarded,
+    ...expandedBusinessForbidden
+  ]).filter((path) => !allowed.has(path) && !(path === "apps/**" && allowedPaths.some((allowedPath) => allowedPath.startsWith("apps/"))));
+}
+
+function approvalRequired(allowedPaths, guardedPaths) {
+  return allowedPaths.some((allowedPath) => guardedPaths.some((guardedPath) => {
+    if (guardedPath.endsWith("/**")) {
+      return allowedPath.startsWith(guardedPath.slice(0, -3));
+    }
+    return allowedPath === guardedPath;
+  }));
+}
+
+function taskRisk(route, approval) {
+  if (approval) return "HIGH";
+  return route.risk_level ?? "MEDIUM";
+}
+
+function validationCommandsForTask(route, memory, approval) {
+  const available = new Set(memory.projectState.available_commands ?? []);
+  const candidates = unique([
+    "pnpm typecheck",
+    available.has("pnpm lint") ? "pnpm lint" : "",
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+    ...(route.validation_commands ?? [])
+  ]);
+  return approval
+    ? unique([...candidates, "manual approval before writing guarded project paths"])
+    : candidates;
+}
+
+async function projectTaskPlan(args) {
+  if (!args.dryRun) {
+    throw new Error("project task-plan is dry-run only. Pass --dry-run.");
+  }
+  if (!args.text.trim()) {
+    throw new Error("Missing --text for project task-plan.");
+  }
+  const configPath = resolveMaybeFromRoot(args.config || args.project || DEFAULT_PROJECT);
+  if (!existsSync(configPath)) {
+    throw new Error(`Project config not found: ${configPath}`);
+  }
+  const config = await readJson(configPath);
+  const memory = await loadImportedProjectMemory(configPath);
+  const route = await loadSkillRoute(args.text);
+  const allowedPaths = allowedPathsForTask(route, memory, args.text);
+  const forbiddenPaths = forbiddenPathsForTask(allowedPaths, memory);
+  const needsApproval = approvalRequired(allowedPaths, memory.projectState.guarded_paths ?? []);
+  const candidate = {
+    task_id: stableTaskId(config.project_id, args.text),
+    project_id: config.project_id,
+    title: args.text,
+    owner: route.selected_agent,
+    skill_type: route.selected_skill,
+    skill_id: route.skill_id,
+    runtime: route.selected_runtime,
+    allowed_paths: allowedPaths,
+    forbidden_paths: forbiddenPaths,
+    expected_outputs: route.expected_outputs,
+    validation_commands: validationCommandsForTask(route, memory, needsApproval),
+    risk: taskRisk(route, needsApproval),
+    approval_required: needsApproval,
+    project_writes: "disabled",
+    queue_write: "disabled",
+    event_write: "disabled",
+    agent_execution: "disabled",
+    deploy: "disabled",
+    production_operations: "disabled",
+    routing: {
+      confidence: route.confidence,
+      fallback_used: route.fallback_used,
+      matched_keywords: route.matched_keywords,
+      reason: route.reason
+    },
+    project_context: {
+      repo_branch: memory.projectState.repo_status?.branch ?? "unknown",
+      repo_clean: memory.projectState.repo_status?.clean ?? "unknown",
+      doctor_status: memory.projectState.local_orchestrator_status?.doctor_status ?? "unknown",
+      detected_stack: memory.projectState.detected_stack ?? [],
+      queue_status_counts: memory.projectState.queue_summary?.status_counts ?? {},
+      runtime_memory_imported_at: memory.projectState.imported_at
+    }
+  };
+
+  console.log("# Project Task Plan dry-run");
+  console.log("");
+  console.log(JSON.stringify(candidate, null, 2));
+}
+
 async function runtimeMemory() {
   const docs = await countFiles(resolveFromRoot("docs/release"));
   const schemas = await countFiles(resolveFromRoot("packages"));
@@ -1036,6 +1225,7 @@ async function main() {
   if (args.command === "project" && args.subcommand === "parity") return projectParity(args);
   if (args.command === "project" && args.subcommand === "import-memory") return projectImportMemory(args);
   if (args.command === "project" && args.subcommand === "memory") return projectMemory(args);
+  if (args.command === "project" && args.subcommand === "task-plan") return projectTaskPlan(args);
   if (args.command === "skill-route") {
     if (!args.text.trim()) throw new Error("Missing --text for skill-route.");
     console.log(JSON.stringify(await loadSkillRoute(args.text), null, 2));

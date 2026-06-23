@@ -76,6 +76,27 @@ Imported files:
 - `agent-studio-status.json`
 - `handoff-summary.md`
 
+## Task Plan Dry-Run
+
+Generate a project task candidate from natural language without writing to `jinhu-smart-park`:
+
+```bash
+node packages/orchestrator-core/bin/studio.mjs project task-plan \
+  --config examples/jinhu-smart-park/project.config.example.json \
+  --text "优化智慧园区仪表盘移动端样式" \
+  --dry-run
+```
+
+The task planner reads:
+
+- project config
+- imported runtime memory
+- skill-router registry/rules
+- guarded paths
+- detected stack
+
+It outputs a task candidate with owner, skill/runtime, allowed paths, forbidden paths, expected outputs, validation commands, risk, and approval requirement. It does not write project queue/events and does not execute Agent tasks.
+
 ## Safety Rules
 
 - No Agent execution.
