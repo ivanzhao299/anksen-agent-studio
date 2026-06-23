@@ -1,0 +1,42 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    devDependencies:
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
+  apps/console: {}
+
+  packages/discovery-engine: {}
+
+  packages/evolution-center: {}
+
+  packages/orchestrator-core: {}
+
+  packages/production-ops: {}
+
+  packages/project-connector: {}
+
+  packages/runtime-adapters: {}
+
+  packages/runtime-memory: {}
+
+  packages/skill-router: {}
+
+packages:
+
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+snapshots:
+
+  typescript@5.9.3: {}

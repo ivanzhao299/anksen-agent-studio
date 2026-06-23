@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "project_id": "jinhu-smart-park",
+  "project_name": "Jinhu Smart Park",
+  "project_root": "../jinhu-smart-park",
+  "state_dir": "ops/agent-orchestrator",
+  "mode": "external-project-adapter-example",
+  "worktrees": {
+    "main": "../jinhu-smart-park",
+    "agent-1": "../jinhu-smart-park-agent-1",
+    "agent-2": "../jinhu-smart-park-agent-2",
+    "agent-3": "../jinhu-smart-park-agent-3",
+    "agent-4": "../jinhu-smart-park-agent-4",
+    "agent-5": "../jinhu-smart-park-agent-5"
+  },
+  "read_paths": [
+    "ops/agent-orchestrator/events/**",
+    "ops/agent-orchestrator/queue/**",
+    "ops/agent-orchestrator/results/**",
+    "ops/agent-orchestrator/reports/**",
+    "ops/agent-orchestrator/runtime/**",
+    "docs/release/**",
+    "docs/testing/**"
+  ],
+  "write_paths": [
+    "ops/agent-orchestrator/events/**",
+    "ops/agent-orchestrator/queue/**",
+    "ops/agent-orchestrator/results/**",
+    "ops/agent-orchestrator/reports/**",
+    "ops/agent-orchestrator/runtime/**"
+  ],
+  "frozen_paths": [
+    "apps/**",
+    "packages/**",
+    "database/**",
+    "infra/**",
+    ".github/**",
+    "Dockerfile",
+    "Dockerfile.*",
+    "docker-compose*",
+    "deploy/**",
+    "auth/**",
+    ".env",
+    ".env.*"
+  ],
+  "production_operations": {
+    "deploy": "forbidden",
+    "migration": "forbidden",
+    "seed": "forbidden",
+    "reset": "forbidden",
+    "cleanup": "forbidden"
+  }
+}
+
