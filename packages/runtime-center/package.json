@@ -1,0 +1,13 @@
+{
+  "name": "@anksen-agent-studio/runtime-center",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "runtime-health-check": "./bin/runtime-health-check.mjs"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "health:dry-run": "node ./bin/runtime-health-check.mjs --dry-run"
+  }
+}

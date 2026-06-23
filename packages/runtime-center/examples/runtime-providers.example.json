@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-06-23T00:00:00.000Z",
+  "providers": [
+    {
+      "provider_id": "openai",
+      "provider_name": "OpenAI",
+      "provider_type": "api",
+      "auth_modes": ["api_key", "oauth"],
+      "capabilities": ["code_development", "validation_testing", "document_generation", "web_research"],
+      "health_status": "unknown",
+      "notes": "Used by Codex CLI/API-capable runtimes. V4-I stores only provider metadata and credential references."
+    },
+    {
+      "provider_id": "anthropic",
+      "provider_name": "Anthropic",
+      "provider_type": "api",
+      "auth_modes": ["api_key", "oauth"],
+      "capabilities": ["code_development", "data_integration", "validation_testing"],
+      "health_status": "unknown",
+      "notes": "Used by Claude Code compatible runtimes."
+    },
+    {
+      "provider_id": "google",
+      "provider_name": "Google",
+      "provider_type": "api",
+      "auth_modes": ["api_key", "oauth"],
+      "capabilities": ["code_development", "web_research", "spreadsheet_analysis"],
+      "health_status": "unknown",
+      "notes": "Used by Gemini CLI/API compatible runtimes."
+    },
+    {
+      "provider_id": "openhands",
+      "provider_name": "OpenHands",
+      "provider_type": "remote-worker",
+      "auth_modes": ["local_login", "ssh", "oauth"],
+      "capabilities": ["code_development", "data_integration", "validation_testing"],
+      "health_status": "unknown",
+      "notes": "Reserved for remote worker or self-hosted agent execution."
+    },
+    {
+      "provider_id": "aider",
+      "provider_name": "Aider",
+      "provider_type": "cli",
+      "auth_modes": ["api_key", "local_login"],
+      "capabilities": ["code_development", "validation_testing"],
+      "health_status": "unknown",
+      "notes": "Local CLI runtime that can be wired to multiple model providers."
+    },
+    {
+      "provider_id": "local-runtime",
+      "provider_name": "Local Runtime",
+      "provider_type": "cli",
+      "auth_modes": ["none", "local_login"],
+      "capabilities": ["code_development", "validation_testing", "evolution_observer"],
+      "health_status": "unknown",
+      "notes": "Local scripts, deterministic adapters, and offline tools."
+    }
+  ]
+}

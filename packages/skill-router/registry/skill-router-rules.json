@@ -214,6 +214,7 @@
       ],
       "expected_output_type": "docx",
       "runtime": "documents",
+      "runtime_candidates": ["documents", "codex-cli"],
       "selected_agent": "platform-document-runtime",
       "confidence_boost": 20,
       "reason": "Word/document/proposal requests should use the document generation runtime."
@@ -278,6 +279,7 @@
       ],
       "expected_output_type": "image",
       "runtime": "imagegen",
+      "runtime_candidates": ["imagegen", "codex-cli"],
       "selected_agent": "platform-image-runtime",
       "confidence_boost": 20,
       "reason": "Rendering/image/logo/promo visual requests should use image generation."
@@ -334,6 +336,7 @@
       ],
       "expected_output_type": "code/patch",
       "runtime": "codex-cli",
+      "runtime_candidates": ["codex-cli", "claude-code", "aider"],
       "selected_agent": "agent-router",
       "confidence_boost": 10,
       "reason": "General code/platform automation tasks should use code development before agent owner selection."
@@ -381,6 +384,7 @@
       ],
       "expected_output_type": "code/patch",
       "runtime": "codex-cli",
+      "runtime_candidates": ["claude-code", "codex-cli"],
       "selected_agent": "agent-4",
       "confidence_boost": 15,
       "reason": "Frontend/UI/dashboard/mobile code work should route to code development with agent-4."

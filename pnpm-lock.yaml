@@ -26,6 +26,8 @@ importers:
 
   packages/runtime-adapters: {}
 
+  packages/runtime-center: {}
+
   packages/runtime-memory: {}
 
   packages/skill-router: {}

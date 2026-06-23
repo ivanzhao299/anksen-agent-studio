@@ -10,6 +10,24 @@
       "purpose": "Code development, fixes, refactors, scripts, orchestrator automation, and UI implementation tasks.",
       "default_runtime": "codex-cli",
       "fallback_runtime": "claude-code",
+      "runtime_selection": {
+        "strategy": "task_type_and_project_context",
+        "preferred_runtimes": ["codex-cli", "claude-code", "aider", "local-agent"],
+        "selection_examples": [
+          {
+            "input": "修改 ERP 前端页面样式",
+            "preferred_runtime": "claude-code",
+            "fallback_runtime": "codex-cli",
+            "reason": "Frontend/UI tasks benefit from a code runtime optimized for interactive refactor and layout work; Codex CLI remains the guarded fallback."
+          },
+          {
+            "input": "修复 orchestrator CLI 脚本",
+            "preferred_runtime": "codex-cli",
+            "fallback_runtime": "claude-code",
+            "reason": "Platform automation tasks should use the existing Codex CLI execution path first."
+          }
+        ]
+      },
       "default_agent": "agent-router",
       "expected_output_types": [
         "code",
@@ -37,6 +55,18 @@
       "purpose": "Word documents, contracts, proposals, meeting notes, official documents, Markdown reports, and PDF-ready deliverables.",
       "default_runtime": "documents",
       "fallback_runtime": "codex-cli",
+      "runtime_selection": {
+        "strategy": "output_type_first",
+        "preferred_runtimes": ["documents", "codex-cli"],
+        "selection_examples": [
+          {
+            "input": "生成一份推进方案 Word 文件",
+            "preferred_runtime": "documents",
+            "fallback_runtime": "codex-cli",
+            "reason": "Word/document output should use the document runtime before general code runtimes."
+          }
+        ]
+      },
       "default_agent": "platform-document-runtime",
       "expected_output_types": [
         "docx",
@@ -110,6 +140,18 @@
       "purpose": "Renderings, logos, promotional images, image editing, visual variants, and bitmap assets.",
       "default_runtime": "imagegen",
       "fallback_runtime": "codex-cli",
+      "runtime_selection": {
+        "strategy": "visual_output_first",
+        "preferred_runtimes": ["imagegen", "codex-cli"],
+        "selection_examples": [
+          {
+            "input": "生成一张园区鸟瞰效果图",
+            "preferred_runtime": "imagegen",
+            "fallback_runtime": "codex-cli",
+            "reason": "Image output should route to the image runtime rather than a code runtime."
+          }
+        ]
+      },
       "default_agent": "platform-image-runtime",
       "expected_output_types": [
         "image",

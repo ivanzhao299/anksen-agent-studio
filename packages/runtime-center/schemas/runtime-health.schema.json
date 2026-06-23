@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/runtime-health.schema.json",
+  "title": "ANKSEN Agent Studio Runtime Health Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "checked_at", "dry_run", "results"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "dry_run": {
+      "type": "boolean"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "runtime",
+          "status",
+          "latency_ms",
+          "auth_status",
+          "available_skills"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "runtime": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["unknown", "healthy", "degraded", "unavailable", "disabled"]
+          },
+          "latency_ms": {
+            "type": ["number", "null"],
+            "minimum": 0
+          },
+          "auth_status": {
+            "type": "string",
+            "enum": ["not_required", "configured", "missing", "invalid", "reference_only", "unknown"]
+          },
+          "available_skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

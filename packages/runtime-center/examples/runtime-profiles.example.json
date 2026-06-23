@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-06-23T00:00:00.000Z",
+  "profiles": [
+    {
+      "runtime_id": "codex-cli",
+      "provider": "openai",
+      "invoke_mode": "cli",
+      "supported_skills": ["code_development", "validation_testing", "data_integration", "evolution_observer"],
+      "max_parallel_tasks": 2,
+      "default_budget": {
+        "max_minutes": 90,
+        "max_usd": 20,
+        "max_tokens": 250000
+      },
+      "region": "local",
+      "health_status": "unknown",
+      "preferred_projects": ["jinhu-smart-park"],
+      "notes": "Default guarded code execution runtime for project worktrees."
+    },
+    {
+      "runtime_id": "claude-code",
+      "provider": "anthropic",
+      "invoke_mode": "cli",
+      "supported_skills": ["code_development", "data_integration", "validation_testing"],
+      "max_parallel_tasks": 2,
+      "default_budget": {
+        "max_minutes": 90,
+        "max_usd": 20,
+        "max_tokens": 250000
+      },
+      "region": "local",
+      "health_status": "unknown",
+      "preferred_projects": ["frontend-heavy-projects"],
+      "notes": "Preferred candidate for frontend/UI code work when available; Codex CLI remains fallback."
+    },
+    {
+      "runtime_id": "gemini-cli",
+      "provider": "google",
+      "invoke_mode": "cli",
+      "supported_skills": ["code_development", "web_research", "spreadsheet_analysis"],
+      "max_parallel_tasks": 1,
+      "default_budget": {
+        "max_minutes": 60,
+        "max_usd": 10,
+        "max_tokens": 150000
+      },
+      "region": "local",
+      "health_status": "unknown",
+      "preferred_projects": [],
+      "notes": "Reserved for Google runtime compatibility checks and multimodal research workflows."
+    },
+    {
+      "runtime_id": "openhands",
+      "provider": "openhands",
+      "invoke_mode": "remote-worker",
+      "supported_skills": ["code_development", "data_integration"],
+      "max_parallel_tasks": 3,
+      "default_budget": {
+        "max_minutes": 120,
+        "max_usd": 30,
+        "max_tokens": 0
+      },
+      "region": "self-hosted",
+      "health_status": "unknown",
+      "preferred_projects": [],
+      "notes": "Remote worker runtime. Must pass credential, sandbox, and approval gates before execution."
+    },
+    {
+      "runtime_id": "aider",
+      "provider": "aider",
+      "invoke_mode": "cli",
+      "supported_skills": ["code_development", "validation_testing"],
+      "max_parallel_tasks": 1,
+      "default_budget": {
+        "max_minutes": 60,
+        "max_usd": 10,
+        "max_tokens": 120000
+      },
+      "region": "local",
+      "health_status": "unknown",
+      "preferred_projects": [],
+      "notes": "Local pair-programming runtime. V4-I does not auto-execute it."
+    },
+    {
+      "runtime_id": "local-agent",
+      "provider": "local-runtime",
+      "invoke_mode": "local",
+      "supported_skills": ["validation_testing", "evolution_observer", "legacy_discovery", "replica_scoring"],
+      "max_parallel_tasks": 5,
+      "default_budget": {
+        "max_minutes": 30,
+        "max_usd": 0,
+        "max_tokens": 0
+      },
+      "region": "local",
+      "health_status": "unknown",
+      "preferred_projects": ["jinhu-smart-park"],
+      "notes": "Deterministic local scripts and read-only analyzers."
+    }
+  ]
+}

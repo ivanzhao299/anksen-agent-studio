@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/runtime-provider.schema.json",
+  "title": "ANKSEN Agent Studio Runtime Provider Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "providers"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "providers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider_id",
+          "provider_name",
+          "provider_type",
+          "auth_modes",
+          "capabilities",
+          "health_status"
+        ],
+        "properties": {
+          "provider_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "provider_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "provider_type": {
+            "type": "string",
+            "enum": ["api", "cli", "browser", "remote-worker"]
+          },
+          "auth_modes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": ["api_key", "oauth", "local_login", "ssh", "none"]
+            },
+            "uniqueItems": true
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "health_status": {
+            "type": "string",
+            "enum": ["unknown", "healthy", "degraded", "unavailable", "disabled"]
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
