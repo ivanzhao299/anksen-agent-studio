@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/runtime-selection.schema.json",
+  "title": "ANKSEN Agent Studio Runtime Selection Rules",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "selection_policy", "rules"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "selection_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score_order", "allow_unknown_health", "credential_values_read"],
+      "properties": {
+        "score_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_unknown_health": {
+          "type": "boolean"
+        },
+        "credential_values_read": {
+          "type": "string",
+          "enum": ["disabled", "approval_required", "enabled"]
+        }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule_id",
+          "skill_type",
+          "capability",
+          "region",
+          "preferred_runtime_ids",
+          "fallback_runtime_ids",
+          "max_budget_usd",
+          "reason"
+        ],
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "skill_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "capability": {
+            "type": "string",
+            "minLength": 1
+          },
+          "region": {
+            "type": "string",
+            "minLength": 1
+          },
+          "preferred_runtime_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fallback_runtime_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_budget_usd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -28,6 +28,9 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs project approve-proposal --config <file> --task-id <task_id> [--dry-run|--apply --approve-high-risk]
   node packages/orchestrator-core/bin/studio.mjs project execute --config <file> --task-id <task_id> [--dry-run|--apply --parallel 1]
   node packages/orchestrator-core/bin/studio.mjs skill-route --text "..." [--dry-run]
+  node packages/orchestrator-core/bin/studio.mjs runtime list
+  node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run
+  node packages/orchestrator-core/bin/studio.mjs runtime select --skill <skill_type> [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs plan --goal "..." --dry-run
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
@@ -42,7 +45,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = command === "project" ? rest[0] : "";
+  const subcommand = ["project", "runtime"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -53,6 +56,10 @@ function parseArgs(argv) {
     summary: rest.includes("--summary"),
     text: "",
     goal: "",
+    skill: "",
+    capability: "",
+    region: "local",
+    budgetUsd: null,
     taskId: "",
     project: DEFAULT_PROJECT,
     config: "",
@@ -68,6 +75,18 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--goal") {
       args.goal = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--skill") {
+      args.skill = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--capability") {
+      args.capability = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--region") {
+      args.region = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--budget-usd") {
+      args.budgetUsd = Number(rest[index + 1] ?? "0");
       index += 1;
     } else if (arg === "--project") {
       args.project = rest[index + 1] ?? "";
@@ -2224,6 +2243,10 @@ function planningCenterEngineUrl() {
   return pathToFileURL(resolve(packageDir, "../planning-center/lib/planning-engine.mjs")).href;
 }
 
+function runtimeCenterUtilsUrl() {
+  return pathToFileURL(resolve(packageDir, "../runtime-center/lib/runtime-center-utils.mjs")).href;
+}
+
 function buildPlanningRequest(goal, context) {
   const createdAt = new Date().toISOString();
   return {
@@ -2489,6 +2512,87 @@ async function plan(args) {
   console.log("production_operations: disabled");
 }
 
+async function loadRuntimeCenterApi() {
+  const api = await import(runtimeCenterUtilsUrl());
+  const center = await api.loadRuntimeCenter();
+  return { api, center };
+}
+
+async function runtimeList() {
+  const { api, center } = await loadRuntimeCenterApi();
+  const inventory = api.runtimeInventory(center);
+  console.log("# Runtime Center List");
+  console.log("");
+  console.log(`providers: ${center.providers.providers?.length ?? 0}`);
+  console.log(`profiles: ${center.profiles.profiles?.length ?? 0}`);
+  console.log("credential_values: not read");
+  console.log("");
+  console.log("| Runtime | Provider | Type | Mode | Region | Health | Auth | Budget | Skills |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+  for (const runtime of inventory) {
+    console.log(
+      `| ${runtime.runtime_id} | ${runtime.provider_name} | ${runtime.provider_type} | ${runtime.invoke_mode} | ${runtime.region} | ${runtime.health_status} | ${runtime.auth_status} | ${runtime.budget_status} / $${runtime.max_usd_per_task} | ${runtime.supported_skills.join(", ")} |`
+    );
+  }
+}
+
+async function runtimeHealth(args) {
+  if (!args.dryRun) {
+    throw new Error("runtime health currently supports --dry-run only.");
+  }
+  const { api, center } = await loadRuntimeCenterApi();
+  const payload = api.buildRuntimeHealth(center, true);
+  console.log("# Runtime Center Health dry-run");
+  console.log("");
+  console.log(`providers: ${center.providers.providers?.length ?? 0}`);
+  console.log(`runtimes: ${center.profiles.profiles?.length ?? 0}`);
+  console.log("network_probes: disabled");
+  console.log("credential_values: not read");
+  console.log("");
+  console.log("| Provider | Runtime | Status | Latency | Auth | Available Skills |");
+  console.log("| --- | --- | --- | --- | --- | --- |");
+  for (const result of payload.results) {
+    console.log(
+      `| ${result.provider} | ${result.runtime} | ${result.status} | ${result.latency_ms ?? "n/a"} | ${result.auth_status} | ${result.available_skills.join(", ")} |`
+    );
+  }
+}
+
+async function runtimeSelect(args) {
+  if (!args.dryRun) {
+    throw new Error("runtime select currently supports --dry-run only.");
+  }
+  if (!args.skill.trim()) {
+    throw new Error("Missing --skill for runtime select.");
+  }
+  const { api, center } = await loadRuntimeCenterApi();
+  const selection = api.selectRuntime(center, {
+    skillType: args.skill,
+    capability: args.capability || args.skill,
+    region: args.region || "local",
+    budgetUsd: args.budgetUsd
+  });
+  console.log("# Runtime Center Select dry-run");
+  console.log("");
+  console.log(`skill_type: ${selection.input.skill_type}`);
+  console.log(`capability: ${selection.input.capability}`);
+  console.log(`region: ${selection.input.region}`);
+  console.log(`requested_budget_usd: ${selection.input.requested_budget_usd}`);
+  console.log(`selected_runtime: ${selection.selected_runtime ?? "none"}`);
+  console.log(`selected_provider: ${selection.selected_provider ?? "none"}`);
+  console.log(`rule_id: ${selection.rule_id}`);
+  console.log(`confidence: ${selection.confidence.toFixed(2)}`);
+  console.log(`fallback_used: ${selection.fallback_used ? "yes" : "no"}`);
+  console.log(`reason: ${selection.reason}`);
+  console.log("credential_values: not read");
+  console.log("external_service_calls: disabled");
+  console.log("");
+  console.log("candidates:");
+  for (const candidate of selection.candidates.slice(0, 6)) {
+    console.log(`- ${candidate.runtime_id} | provider=${candidate.provider} | score=${candidate.score} | eligible=${candidate.eligible ? "yes" : "no"} | health=${candidate.status} | budget=${candidate.budget_status} | auth=${candidate.auth_status}`);
+  }
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.command || args.command === "--help" || args.command === "-h") {
@@ -2505,6 +2609,9 @@ async function main() {
   if (args.command === "project" && args.subcommand === "proposals") return projectProposals(args);
   if (args.command === "project" && args.subcommand === "approve-proposal") return projectApproveProposal(args);
   if (args.command === "project" && args.subcommand === "execute") return projectExecute(args);
+  if (args.command === "runtime" && args.subcommand === "list") return runtimeList();
+  if (args.command === "runtime" && args.subcommand === "health") return runtimeHealth(args);
+  if (args.command === "runtime" && args.subcommand === "select") return runtimeSelect(args);
   if (args.command === "skill-route") {
     if (!args.text.trim()) throw new Error("Missing --text for skill-route.");
     console.log(JSON.stringify(await loadSkillRoute(args.text), null, 2));

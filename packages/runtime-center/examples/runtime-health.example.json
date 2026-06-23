@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-06-23T00:00:00.000Z",
+  "dry_run": true,
+  "results": [
+    {
+      "provider": "openai",
+      "runtime": "codex-cli",
+      "status": "unknown",
+      "latency_ms": null,
+      "auth_status": "reference_only",
+      "available_skills": ["code_development", "validation_testing", "data_integration", "evolution_observer"],
+      "notes": "Dry-run registry health only. No external service was called."
+    },
+    {
+      "provider": "local-runtime",
+      "runtime": "local-agent",
+      "status": "unknown",
+      "latency_ms": null,
+      "auth_status": "not_required",
+      "available_skills": ["validation_testing", "evolution_observer", "legacy_discovery", "replica_scoring"],
+      "notes": "Local deterministic runtime requires no external credential."
+    }
+  ]
+}

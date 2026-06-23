@@ -80,6 +80,25 @@ Shows future execution counts, token/time estimates, cost summaries, and per-pro
 - Skill Router contains runtime selection hints for code, document, and image tasks.
 - Typecheck and lint checks pass.
 
+## V4-I Hardening Addendum
+
+Runtime Center now owns a first-pass routing model:
+
+- `runtime-budget.schema.json` and `runtime-budgets.example.json` define per-runtime budget limits.
+- `credential_reference.schema.json` and `credential-references.example.json` define vault references only; real secrets remain forbidden.
+- `runtime-selection.schema.json` and `runtime-selection-rules.example.json` define skill/capability/region/budget based selection rules.
+- `runtime-center-utils.mjs` evaluates `skill_type + capability + region + health + budget` and returns a ranked runtime candidate list.
+
+CLI surface:
+
+```bash
+node packages/orchestrator-core/bin/studio.mjs runtime list
+node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run
+node packages/orchestrator-core/bin/studio.mjs runtime select --skill code_development --dry-run
+```
+
+The hardening layer is still registry-based. It does not call model APIs, does not open browsers, does not execute Agents, and does not read credential values.
+
 ## Next Milestones
 
 1. Add credential vault adapter interfaces.

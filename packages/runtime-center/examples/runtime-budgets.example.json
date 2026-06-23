@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-06-23T00:00:00.000Z",
+  "budgets": [
+    {
+      "runtime_id": "codex-cli",
+      "budget_status": "within_budget",
+      "max_usd_per_task": 20,
+      "max_minutes_per_task": 90,
+      "max_parallel_tasks": 2,
+      "notes": "Default guarded code runtime budget."
+    },
+    {
+      "runtime_id": "claude-code",
+      "budget_status": "within_budget",
+      "max_usd_per_task": 20,
+      "max_minutes_per_task": 90,
+      "max_parallel_tasks": 2,
+      "notes": "Preferred frontend/UI code runtime candidate when configured."
+    },
+    {
+      "runtime_id": "gemini-cli",
+      "budget_status": "limited",
+      "max_usd_per_task": 10,
+      "max_minutes_per_task": 60,
+      "max_parallel_tasks": 1,
+      "notes": "Limited until active health and usage data exist."
+    },
+    {
+      "runtime_id": "openhands",
+      "budget_status": "limited",
+      "max_usd_per_task": 30,
+      "max_minutes_per_task": 120,
+      "max_parallel_tasks": 3,
+      "notes": "Remote-worker runtime remains approval-gated."
+    },
+    {
+      "runtime_id": "aider",
+      "budget_status": "within_budget",
+      "max_usd_per_task": 10,
+      "max_minutes_per_task": 60,
+      "max_parallel_tasks": 1,
+      "notes": "Local CLI fallback for code tasks."
+    },
+    {
+      "runtime_id": "local-agent",
+      "budget_status": "within_budget",
+      "max_usd_per_task": 0,
+      "max_minutes_per_task": 30,
+      "max_parallel_tasks": 5,
+      "notes": "Deterministic local scripts and offline validators."
+    }
+  ]
+}

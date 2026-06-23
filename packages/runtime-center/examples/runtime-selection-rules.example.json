@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-06-23T00:00:00.000Z",
+  "selection_policy": {
+    "score_order": [
+      "skill_type",
+      "capability",
+      "region",
+      "health",
+      "budget",
+      "credential_reference",
+      "preferred_runtime_order"
+    ],
+    "allow_unknown_health": true,
+    "credential_values_read": "disabled"
+  },
+  "rules": [
+    {
+      "rule_id": "SELECT-CODE-DEVELOPMENT-LOCAL",
+      "skill_type": "code_development",
+      "capability": "code_development",
+      "region": "local",
+      "preferred_runtime_ids": ["codex-cli", "claude-code"],
+      "fallback_runtime_ids": ["aider", "local-agent"],
+      "max_budget_usd": 20,
+      "reason": "Guarded local code tasks should prefer Codex CLI, then Claude Code, while keeping Aider/local-agent as fallback."
+    },
+    {
+      "rule_id": "SELECT-VALIDATION-LOCAL",
+      "skill_type": "validation_testing",
+      "capability": "validation_testing",
+      "region": "local",
+      "preferred_runtime_ids": ["local-agent", "codex-cli"],
+      "fallback_runtime_ids": ["aider"],
+      "max_budget_usd": 5,
+      "reason": "Validation should prefer deterministic local scripts before AI runtimes."
+    },
+    {
+      "rule_id": "SELECT-DATA-INTEGRATION",
+      "skill_type": "data_integration",
+      "capability": "data_integration",
+      "region": "local",
+      "preferred_runtime_ids": ["codex-cli", "claude-code"],
+      "fallback_runtime_ids": ["openhands"],
+      "max_budget_usd": 20,
+      "reason": "Integration tasks need code context and may later use remote workers after approval."
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/runtime-budget.schema.json",
+  "title": "ANKSEN Agent Studio Runtime Budget Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "budgets"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "budgets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["runtime_id", "budget_status", "max_usd_per_task", "max_minutes_per_task", "max_parallel_tasks"],
+        "properties": {
+          "runtime_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "budget_status": {
+            "type": "string",
+            "enum": ["unknown", "within_budget", "limited", "disabled"]
+          },
+          "max_usd_per_task": {
+            "type": "number",
+            "minimum": 0
+          },
+          "max_minutes_per_task": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "max_parallel_tasks": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
