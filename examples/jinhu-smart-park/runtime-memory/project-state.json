@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "imported_at": "2026-06-23T05:58:17.757Z",
+  "imported_at": "2026-06-23T07:30:32.176Z",
   "source": "project_adapter_import_memory",
   "project_id": "jinhu-smart-park",
   "project_name": "Jinhu Smart Park",
@@ -8,7 +8,7 @@
   "project_exists": true,
   "repo_status": {
     "branch": "main",
-    "head": "7d394bd chore(orchestrator): plan agent studio extraction",
+    "head": "9e2c5bf chore(orchestrator): refresh runtime memory after external task injection",
     "clean": "yes",
     "dirty_files": [],
     "ahead_behind": "0\t0"
@@ -106,12 +106,13 @@
   "queue_summary": {
     "available": "yes",
     "queue_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/queue/task-queue.json",
-    "updated_at": "2026-06-22T17:09:31.178Z",
+    "updated_at": "2026-06-23T07:22:04.307Z",
     "read_model_only": "yes",
-    "task_count": 38,
+    "task_count": 39,
     "status_counts": {
       "AUDITED": 34,
-      "BLOCKED": 4
+      "BLOCKED": 4,
+      "READY": 1
     },
     "active_locks": 0,
     "result_count": 34
@@ -119,9 +120,9 @@
   "event_summary": {
     "available": "yes",
     "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/events",
-    "event_file_count": 174,
+    "event_file_count": 175,
     "event_types": {
-      "task.created": 38,
+      "task.created": 39,
       "task.claimed": 17,
       "task.completed": 39,
       "task.reconciled": 24,
@@ -135,9 +136,9 @@
     "exists": "yes",
     "summary": "present",
     "platform_state": "present",
-    "generated_at": "2026-06-23T04:50:20.808Z",
-    "head_summary": "9db5647 chore(orchestrator): plan agent studio console mvp",
-    "event_count": "174"
+    "generated_at": "2026-06-23T07:29:03.437Z",
+    "head_summary": "38275f5 chore(orchestrator): accept external task proposal",
+    "event_count": "175"
   },
   "guarded_paths": [
     "apps/**",

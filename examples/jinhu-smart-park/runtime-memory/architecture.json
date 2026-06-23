@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "imported_at": "2026-06-23T05:58:17.757Z",
+  "imported_at": "2026-06-23T07:30:32.176Z",
   "project_id": "jinhu-smart-park",
   "detected_stack": [
     "Agent Orchestrator project state",
@@ -126,8 +126,8 @@
     "exists": "yes",
     "summary": "present",
     "platform_state": "present",
-    "generated_at": "2026-06-23T04:50:20.808Z",
-    "head_summary": "9db5647 chore(orchestrator): plan agent studio console mvp",
-    "event_count": "174"
+    "generated_at": "2026-06-23T07:29:03.437Z",
+    "head_summary": "38275f5 chore(orchestrator): accept external task proposal",
+    "event_count": "175"
   }
 }
