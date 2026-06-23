@@ -2269,7 +2269,10 @@ async function collectAutopilotContext(goal) {
       runtime_profiles: runtimeProfiles?.profiles?.map((profile) => profile.runtime_id) ?? [],
       credential_vault_exists: existsSync(resolveFromRoot("packages/credential-vault")),
       credential_references: credentialReferences?.credential_references?.map((credential) => credential.provider) ?? [],
-      autopilot_runner_exists: existsSync(resolveFromRoot("docs/release/AUTOPILOT_RUNNER_MVP.md"))
+      autopilot_runner_exists: existsSync(resolveFromRoot("docs/release/AUTOPILOT_RUNNER_MVP.md")),
+      console_read_only_mvp_exists: existsSync(resolveFromRoot("apps/console/src/view-model.ts"))
+        && existsSync(resolveFromRoot("apps/console/src/fixtures.ts"))
+        && existsSync(resolveFromRoot("apps/console/src/navigation.ts"))
     },
     stage: {
       extraction_completed: extractionCompleted,
@@ -2559,8 +2562,8 @@ function localExecutionGate(action) {
   }
   return {
     allowed: true,
-    execution_mode: "local_repo_action_plan",
-    reason: "Action targets anksen-agent-studio and is LOW/MEDIUM risk with no forbidden operation; this runner records an action plan only."
+    execution_mode: "local_repo_execute",
+    reason: "Action targets anksen-agent-studio and is LOW/MEDIUM risk with no forbidden operation."
   };
 }
 
@@ -2667,7 +2670,7 @@ function internalTaskFromAction(goal, action, route) {
 
 function executorRunPlan(goal, action, internalTask) {
   return {
-    runtime_strategy: "planning-only-local-action-plan",
+    runtime_strategy: "safe-local-repository-executor",
     executor_prompt: [
       `Goal: ${goal}`,
       `Task: ${action.title}`,
@@ -2680,9 +2683,11 @@ function executorRunPlan(goal, action, internalTask) {
       "Read runtime/global context files.",
       "Confirm Planning Center selected one bounded next_action.",
       `Create internal task ${internalTask.task_id}.`,
-      "Record a local repository action plan when safety gates allow it.",
-      "Write Autopilot run JSON and Markdown evidence in apply mode.",
-      "Stop before code modification, Agent execution, deploy, production operations, credential reads, or managed-project writes."
+      "Execute the allowed local repository action when safety gates allow it.",
+      "Run pnpm typecheck, pnpm lint:check, and git diff --check.",
+      "Commit the local repository implementation.",
+      "Write Autopilot run JSON and Markdown evidence.",
+      "Stop before Agent execution, deploy, production operations, credential reads, or managed-project writes."
     ]
   };
 }
@@ -2733,10 +2738,293 @@ function planningOnlyNextRecommendation(goal, action, gate) {
   };
 }
 
+function executorNextRecommendation(goal, planningOutput) {
+  const action = actionFromPlanningOutput(planningOutput);
+  return {
+    title: `Next safe action: ${action.title}`,
+    reason: planningOutput.reason,
+    command: `node packages/orchestrator-core/bin/studio.mjs autopilot run --goal "${goal}" --dry-run`,
+    target_project: action.target_project,
+    target_package: action.target_package,
+    risk: action.risk,
+    execution_mode: action.execution_mode
+  };
+}
+
 function commitMessageForAction(action) {
   if (/Autopilot Runner/i.test(action.title)) return "chore: add autopilot runner";
   if (action.target_package === "packages/runtime-center") return "chore(runtime-center): apply autopilot runtime step";
+  if (action.target_package === "apps/console") return "chore(console): add read-only console mvp";
   return `chore(autopilot): ${safeSegment(action.title).toLowerCase().slice(0, 48) || "apply-safe-step"}`;
+}
+
+function consoleMvpFiles(globalContext, planningOutput) {
+  const platform = globalContext.platform_state ?? {};
+  const stage = platform.current_v4_stage ?? planningOutput.current_stage ?? {};
+  const nextAction = actionFromPlanningOutput(planningOutput);
+  const managedProjects = platform.managed_projects ?? [];
+  const runtimeProviders = platform.packages?.runtime_providers ?? [];
+  const runtimeProfiles = platform.packages?.runtime_profiles ?? [];
+  const credentialReferenceCount = platform.packages?.credential_reference_count ?? 0;
+  const project = managedProjects[0] ?? {};
+
+  const appTs = `export const consoleApp = {
+  name: "ANKSEN Agent Studio Console",
+  status: "read-only-mvp",
+  mode: "read-only",
+  framework_target: "Next.js App Router",
+  data_policy: "local fixtures and runtime memory only",
+  mutation_policy: "disabled"
+} as const;
+
+export const consoleSafety = {
+  database: "not connected",
+  external_services: "not called",
+  managed_project_writes: "disabled",
+  deploy: "disabled",
+  production_operations: "disabled",
+  credential_values: "not read"
+} as const;
+`;
+
+  const navigationTs = `export type ConsolePageId =
+  | "dashboard"
+  | "projects"
+  | "agents"
+  | "skills"
+  | "runtime"
+  | "planning"
+  | "evolution"
+  | "discovery"
+  | "memory";
+
+export interface ConsoleNavigationItem {
+  readonly id: ConsolePageId;
+  readonly label: string;
+  readonly route: string;
+  readonly source: string;
+  readonly readOnly: true;
+}
+
+export const consoleNavigation: readonly ConsoleNavigationItem[] = [
+  { id: "dashboard", label: "Dashboard", route: "/agent-studio", source: "runtime/global/platform-state.json", readOnly: true },
+  { id: "projects", label: "Projects", route: "/agent-studio/projects", source: "runtime/projects", readOnly: true },
+  { id: "agents", label: "Agents", route: "/agent-studio/agents", source: "autopilot-runs", readOnly: true },
+  { id: "skills", label: "Skills", route: "/agent-studio/skills", source: "packages/skill-router/registry", readOnly: true },
+  { id: "runtime", label: "Runtime", route: "/agent-studio/runtime", source: "packages/runtime-center/examples", readOnly: true },
+  { id: "planning", label: "Planning", route: "/agent-studio/planning", source: "packages/planning-center/examples", readOnly: true },
+  { id: "evolution", label: "Evolution", route: "/agent-studio/evolution", source: "packages/evolution-center", readOnly: true },
+  { id: "discovery", label: "Discovery", route: "/agent-studio/discovery", source: "packages/discovery-engine/examples", readOnly: true },
+  { id: "memory", label: "Memory", route: "/agent-studio/memory", source: "runtime/global and runtime/projects", readOnly: true }
+] as const;
+`;
+
+  const fixture = {
+    generated_from: "autopilot executor local fixtures",
+    data_sources: [
+      "runtime/global/platform-state.json",
+      "runtime/global/roadmap-memory.json",
+      "runtime/projects/jinhu-smart-park/project-state.json",
+      "packages/runtime-center/examples/runtime-providers.example.json",
+      "packages/runtime-center/examples/runtime-profiles.example.json",
+      "packages/skill-router/registry/skill-registry.json"
+    ],
+    dashboard: {
+      platform_status: platform.current_platform_status ?? "GO",
+      current_stage: stage.stage_name ?? "unknown",
+      next_stage: stage.next_stage ?? "unknown",
+      next_action: nextAction.title,
+      safety_mode: "read-only"
+    },
+    projects: managedProjects.map((item) => ({
+      project_id: item.project_id,
+      doctor_status: item.doctor_status,
+      repo_clean: item.repo_clean,
+      memory_dir: item.memory_dir,
+      queue_status_counts: item.queue_status_counts ?? {}
+    })),
+    agents: [
+      { agent_id: "autopilot-runner", lane: "platform", status: "available", mode: "max_steps_1" },
+      { agent_id: "planning-center", lane: "planning", status: "available", mode: "dry_run" },
+      { agent_id: "managed-project-agents", lane: project.project_id ?? "jinhu-smart-park", status: "disabled_from_console", mode: "proposal_only" }
+    ],
+    skills: [
+      "code_development",
+      "document_generation",
+      "spreadsheet_analysis",
+      "slide_generation",
+      "image_generation",
+      "pdf_processing",
+      "web_research",
+      "data_integration",
+      "validation_testing",
+      "evolution_observer"
+    ],
+    runtime: {
+      provider_count: runtimeProviders.length,
+      profile_count: runtimeProfiles.length,
+      credential_reference_count: credentialReferenceCount,
+      credential_values_read: "no",
+      external_service_calls: "disabled"
+    },
+    planning: {
+      planning_output_id: planningOutput.planning_output_id,
+      selected_action: nextAction.title,
+      target_package: nextAction.target_package,
+      risk: nextAction.risk,
+      approval_required: nextAction.approval_required
+    },
+    evolution: {
+      mode: "read-only placeholder",
+      source: "packages/evolution-center",
+      open_improvements: "from future observer memory"
+    },
+    discovery: {
+      mode: "fixture/manual-manifest",
+      source: "packages/discovery-engine/examples",
+      external_crawling: "disabled"
+    },
+    memory: {
+      global_context_files: Object.keys(globalContext.files ?? {}).length,
+      project_contexts: managedProjects.length,
+      active_project: project.project_id ?? "jinhu-smart-park"
+    }
+  };
+
+  const fixturesTs = `export const consoleFixture = ${JSON.stringify(fixture, null, 2)} as const;
+
+export type ConsoleFixture = typeof consoleFixture;
+`;
+
+  const viewModelTs = `import { consoleApp, consoleSafety } from "./app.js";
+import { consoleFixture } from "./fixtures.js";
+import { consoleNavigation, type ConsolePageId } from "./navigation.js";
+
+export interface ConsolePanel {
+  readonly id: ConsolePageId;
+  readonly title: string;
+  readonly route: string;
+  readonly source: string;
+  readonly readOnly: true;
+}
+
+export const consolePanels: readonly ConsolePanel[] = consoleNavigation.map((item) => ({
+  id: item.id,
+  title: item.label,
+  route: item.route,
+  source: item.source,
+  readOnly: true
+}));
+
+export function getConsoleViewModel() {
+  return {
+    app: consoleApp,
+    safety: consoleSafety,
+    navigation: consoleNavigation,
+    panels: consolePanels,
+    fixture: consoleFixture
+  } as const;
+}
+`;
+
+  const indexTs = `export { consoleApp, consoleSafety } from "./app.js";
+export { consoleFixture, type ConsoleFixture } from "./fixtures.js";
+export { consoleNavigation, type ConsoleNavigationItem, type ConsolePageId } from "./navigation.js";
+export { consolePanels, getConsoleViewModel, type ConsolePanel } from "./view-model.js";
+`;
+
+  const readme = `# ANKSEN Agent Studio Console
+
+This package is the read-only Console MVP skeleton for the future Next.js App Router surface.
+
+## Views
+
+- Dashboard
+- Projects
+- Agents
+- Skills
+- Runtime
+- Planning
+- Evolution
+- Discovery
+- Memory
+
+## Data Policy
+
+- Uses local fixtures and runtime memory only.
+- Does not connect to a real database.
+- Does not call external services.
+- Does not execute Agents.
+- Does not modify managed projects.
+- Does not deploy or run production operations.
+- Does not read real credential values.
+`;
+
+  return {
+    "apps/console/README.md": readme,
+    "apps/console/src/app.ts": appTs,
+    "apps/console/src/navigation.ts": navigationTs,
+    "apps/console/src/fixtures.ts": fixturesTs,
+    "apps/console/src/view-model.ts": viewModelTs,
+    "apps/console/src/index.ts": indexTs
+  };
+}
+
+async function writeConsoleMvp(globalContext, planningOutput) {
+  const files = consoleMvpFiles(globalContext, planningOutput);
+  for (const [relativeFile, content] of Object.entries(files)) {
+    const absoluteFile = resolveFromRoot(relativeFile);
+    await mkdir(dirname(absoluteFile), { recursive: true });
+    await writeFile(absoluteFile, content, "utf8");
+  }
+  return Object.keys(files).sort();
+}
+
+async function executeLocalRepoAction(action, globalContext, planningOutput) {
+  if (action.target_package === "apps/console" || /Console Read-Only/i.test(action.title)) {
+    const files = await writeConsoleMvp(globalContext, planningOutput);
+    return {
+      executed: true,
+      implementation: "console-read-only-mvp",
+      summary: "Generated a read-only Console MVP skeleton with local fixture-backed views.",
+      files
+    };
+  }
+  return {
+    executed: false,
+    implementation: "unsupported-local-action",
+    summary: "No executor is registered for this local action.",
+    files: []
+  };
+}
+
+async function commitPaths(paths, message, commandsRun) {
+  const uniquePaths = unique(paths).filter(Boolean);
+  if (uniquePaths.length === 0) {
+    return { ok: false, hash: "", message: "No paths to commit." };
+  }
+  const addResult = await execReadOnly(repoRoot, "git", ["add", "--", ...uniquePaths], 120000);
+  commandsRun.push({
+    command: `git add -- ${uniquePaths.join(" ")}`,
+    ok: addResult.ok,
+    status: addResult.status,
+    blocked: false,
+    stdout_tail: stdoutTail(addResult.stdout, 20),
+    stderr_tail: stdoutTail(addResult.stderr, 20)
+  });
+  if (!addResult.ok) return { ok: false, hash: "", message: addResult.stderr || "git add failed" };
+
+  const commitResult = await execReadOnly(repoRoot, "git", ["commit", "-m", message], 120000);
+  commandsRun.push({
+    command: `git commit -m "${message}"`,
+    ok: commitResult.ok,
+    status: commitResult.status,
+    blocked: false,
+    stdout_tail: stdoutTail(commitResult.stdout, 40),
+    stderr_tail: stdoutTail(commitResult.stderr, 40)
+  });
+  const hash = commitResult.ok ? await execGit(repoRoot, ["rev-parse", "HEAD"]) : "";
+  return { ok: commitResult.ok, hash, message: commitResult.stderr || commitResult.stdout };
 }
 
 function globalContextSummary(bundle) {
@@ -2769,6 +3057,7 @@ function buildAutopilotRunnerRun({
   gate,
   internalTask,
   runPlan,
+  executionResult,
   commandsRun,
   changedFiles,
   validationResult,
@@ -2790,11 +3079,14 @@ function buildAutopilotRunnerRun({
     execution_gate: gate,
     internal_task: internalTask,
     executor_run_plan: runPlan,
+    execution_result: executionResult,
     commands_run: commandsRun,
     changed_files: changedFiles,
     validation_result: validationResult,
     commit_hash: commitHash,
-    commit_hash_note: "Autopilot Runner planning mode does not create commits; implementation commits are created by the caller after validation.",
+    commit_hash_note: commitHash
+      ? "Commit hash for the local repository implementation created by Autopilot Executor."
+      : "No implementation commit was created.",
     next_recommendation: nextRecommendationValue,
     safety: {
       agent_execution: "disabled",
@@ -2862,6 +3154,12 @@ function autopilotRunnerMarkdown(run) {
 - expected_files: ${(run.selected_action.expected_files ?? []).join(", ")}
 - validation_commands: ${(run.selected_action.validation_commands ?? []).join(", ")}
 
+## Execution Result
+
+- executed: ${run.execution_result.executed ? "yes" : "no"}
+- implementation: ${run.execution_result.implementation}
+- summary: ${run.execution_result.summary}
+
 ## Commands Run
 
 ${commands}
@@ -2922,6 +3220,8 @@ function printAutopilotRunner(run, files = null) {
   console.log(`target_package: ${run.selected_action.target_package}`);
   console.log(`risk: ${run.selected_action.risk}`);
   console.log(`gate: ${run.execution_gate.reason}`);
+  console.log(`executed: ${run.execution_result.executed ? "yes" : "no"}`);
+  console.log(`implementation: ${run.execution_result.implementation}`);
   console.log(`validation: ${run.validation_result.status}`);
   console.log(`commit_hash: ${run.commit_hash ?? "none"}`);
   console.log("");
@@ -3043,6 +3343,11 @@ function completedV4Milestones(planningOutput, context) {
       id: "autopilot-runner",
       title: "V4-J Autopilot Runner",
       completed: Boolean(stage.autopilot_runner_completed || context.autopilot_runs.autopilot_runner_completed)
+    },
+    {
+      id: "console-read-only",
+      title: "V4-K Console Read-Only MVP",
+      completed: Boolean(stage.console_read_only_completed || context.packages.console_read_only_mvp_exists)
     }
   ];
 }
@@ -3433,7 +3738,7 @@ async function autopilotRunner(args) {
   const route = await loadSkillRoute(`${selectedAction.title} ${selectedAction.reason}`);
   const internalTask = internalTaskFromAction(goal, selectedAction, route);
   const runPlan = executorRunPlan(goal, selectedAction, internalTask);
-  const commandsRun = [
+  let commandsRun = [
     {
       command: "read runtime/global/*",
       ok: true,
@@ -3456,9 +3761,19 @@ async function autopilotRunner(args) {
     command_count: commandsRun.length,
     failed_commands: []
   };
-  const baseRecommendation = planningOnlyNextRecommendation(goal, selectedAction, gate);
+  const dryRunExecution = {
+    executed: false,
+    implementation: gate.allowed ? "planned-local-repository-execution" : "proposal-only",
+    summary: gate.allowed
+      ? "Dry-run only. Autopilot Executor would apply the safe local repository action."
+      : "Dry-run only. Action is outside the safe execution gate.",
+    files: []
+  };
+  const baseRecommendation = gate.allowed
+    ? executorNextRecommendation(goal, output)
+    : planningOnlyNextRecommendation(goal, selectedAction, gate);
 
-  const run = buildAutopilotRunnerRun({
+  let run = buildAutopilotRunnerRun({
     goal,
     context,
     globalContext,
@@ -3469,6 +3784,7 @@ async function autopilotRunner(args) {
     gate,
     internalTask,
     runPlan,
+    executionResult: dryRunExecution,
     commandsRun,
     changedFiles: [],
     validationResult: baseValidation,
@@ -3484,7 +3800,80 @@ async function autopilotRunner(args) {
     return;
   }
 
+  let executionResult = dryRunExecution;
+  let validationResult = { status: "PROPOSAL_ONLY", command_count: commandsRun.length, failed_commands: [] };
+  let implementationChangedFiles = [];
+  let implementationCommitHash = null;
+  let postExecutionPlanningOutput = output;
+
+  if (gate.allowed) {
+    executionResult = await executeLocalRepoAction(selectedAction, globalContext, output);
+    commandsRun.push({
+      command: `Autopilot Executor ${executionResult.implementation}`,
+      ok: executionResult.executed,
+      status: executionResult.executed ? 0 : 1,
+      blocked: false,
+      stdout_tail: executionResult.summary,
+      stderr_tail: executionResult.executed ? "" : "No local executor handled this action."
+    });
+
+    for (const command of ["pnpm typecheck", "pnpm lint:check", "git diff --check"]) {
+      commandsRun.push(await runAllowedCommand(command));
+    }
+
+    validationResult = validationSummary(commandsRun.filter((command) =>
+      ["pnpm typecheck", "pnpm lint:check", "git diff --check"].includes(command.command)
+    ));
+    implementationChangedFiles = await currentChangedFiles();
+
+    if (validationResult.status === "PASS" && executionResult.executed) {
+      const implementationCommit = await commitPaths(
+        implementationChangedFiles,
+        commitMessageForAction(selectedAction),
+        commandsRun
+      );
+      implementationCommitHash = implementationCommit.hash || null;
+      if (!implementationCommit.ok) {
+        validationResult = {
+          status: "FAIL",
+          command_count: commandsRun.length,
+          failed_commands: ["git commit implementation"]
+        };
+      } else {
+        postExecutionPlanningOutput = (await runPlanningCenter(goal)).output;
+      }
+    }
+  }
+
+  const nextRecommendationValue = validationResult.status === "PASS" && implementationCommitHash
+    ? executorNextRecommendation(goal, postExecutionPlanningOutput)
+    : planningOnlyNextRecommendation(goal, selectedAction, gate);
+
+  run = buildAutopilotRunnerRun({
+    goal,
+    context,
+    globalContext,
+    planningOutput: output,
+    selectedAction,
+    mode: "apply",
+    maxSteps: args.maxSteps,
+    gate,
+    internalTask,
+    runPlan,
+    executionResult,
+    commandsRun,
+    changedFiles: unique([...implementationChangedFiles, "pending-run-record"]).sort(),
+    validationResult,
+    commitHash: implementationCommitHash,
+    nextRecommendationValue
+  });
+  run.changed_files = unique([...implementationChangedFiles, ...autopilotRunnerRunFiles(run)]).sort();
+
   const files = await writeAutopilotRunnerRun(run);
+  if (validationResult.status === "PASS" && implementationCommitHash) {
+    const runRecordCommit = await commitPaths(autopilotRunnerRunFiles(run), "chore(autopilot): record executor run", commandsRun);
+    run.run_record_commit_hash = runRecordCommit.hash || null;
+  }
   printAutopilotRunner(run, files);
 }
 

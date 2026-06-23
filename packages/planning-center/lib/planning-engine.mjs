@@ -29,14 +29,21 @@ function autopilotRunnerReady(inputs) {
   return Boolean(inputs.autopilot_runs?.autopilot_runner_completed);
 }
 
+function consoleReadOnlyReady(inputs) {
+  return Boolean(inputs.packages?.console_read_only_mvp_exists);
+}
+
 function currentStage(inputs) {
   const extractionCompleted = Boolean(inputs.closure_report?.extraction_completed);
   const remoteExecuteCompleted = Boolean(inputs.closure_report?.remote_execute_completed);
   const runtimeCenterBootstrapped = runtimeCenterReady(inputs);
   const credentialVaultCompleted = credentialVaultReady(inputs);
   const autopilotRunnerCompleted = autopilotRunnerReady(inputs);
+  const consoleReadOnlyCompleted = consoleReadOnlyReady(inputs);
   return {
-    stage_name: autopilotRunnerCompleted
+    stage_name: consoleReadOnlyCompleted
+      ? "V4-L Multi-Project Workspace preparation"
+      : autopilotRunnerCompleted
       ? "V4-K Console Read-Only preparation"
       : credentialVaultCompleted
         ? "V4-J Autopilot Runner"
@@ -45,7 +52,9 @@ function currentStage(inputs) {
           : "Post-extraction V4 bootstrap",
     extraction_completed: extractionCompleted,
     remote_execute_completed: remoteExecuteCompleted,
-    next_stage: autopilotRunnerCompleted
+    next_stage: consoleReadOnlyCompleted
+      ? "V4-L Multi-Project Workspace"
+      : autopilotRunnerCompleted
       ? "V4-K Console Read-Only MVP"
       : credentialVaultCompleted
         ? "V4-J Autopilot Runner"
@@ -55,6 +64,7 @@ function currentStage(inputs) {
     runtime_center_bootstrapped: runtimeCenterBootstrapped,
     credential_vault_completed: credentialVaultCompleted,
     autopilot_runner_completed: autopilotRunnerCompleted,
+    console_read_only_completed: consoleReadOnlyCompleted,
     planning_center_exists: Boolean(inputs.packages?.planning_center_exists),
     managed_project_doctor: inputs.runtime_memory?.project_state?.doctor_status ?? "unknown"
   };
@@ -189,6 +199,29 @@ function consoleReadOnlyAction() {
   };
 }
 
+function multiProjectWorkspaceAction() {
+  return {
+    title: "Prepare V4-L Multi-Project Workspace",
+    reason: "The read-only Console MVP exists; the next safe V4 step is to prepare multi-project context and connector views without adding mutation paths.",
+    target_project: "anksen-agent-studio",
+    target_package: "packages/project-connector",
+    expected_files: [
+      "packages/project-connector/src/index.ts",
+      "runtime/global/codex-context-index.json",
+      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs context summary",
+      "git diff --check"
+    ],
+    risk: "MEDIUM",
+    approval_required: false,
+    execution_mode: "proposal_only"
+  };
+}
+
 export function buildPlanningOutput(request) {
   const stage = currentStage(request.inputs ?? {});
   const action = !stage.runtime_center_bootstrapped
@@ -197,7 +230,9 @@ export function buildPlanningOutput(request) {
       ? credentialVaultAction()
       : !stage.autopilot_runner_completed
         ? autopilotRunnerAction()
-        : consoleReadOnlyAction();
+        : !stage.console_read_only_completed
+          ? consoleReadOnlyAction()
+          : multiProjectWorkspaceAction();
   const stopCondition = "STOP: Planning Center generated one next action. Autopilot max_steps=1; no Agent, deploy, production operation, credential read, or managed-project write is allowed.";
 
   return {
