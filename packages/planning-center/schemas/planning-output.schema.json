@@ -72,14 +72,14 @@
     },
     "risk": {
       "type": "string",
-      "enum": ["LOW", "MEDIUM", "HIGH"]
+      "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     },
     "approval_required": {
       "type": "boolean"
     },
     "execution_mode": {
       "type": "string",
-      "enum": ["proposal_only", "approval_gate", "blocked"]
+      "enum": ["local_repo_execute", "proposal_only", "approval_gate", "blocked", "human_approval_required"]
     },
     "stop_condition": {
       "type": "string",

@@ -2247,6 +2247,7 @@ async function collectAutopilotContext(goal) {
   const runtimeProviders = await readJsonIfExists(resolveFromRoot("packages/runtime-center/examples/runtime-providers.example.json"));
   const runtimeProfiles = await readJsonIfExists(resolveFromRoot("packages/runtime-center/examples/runtime-profiles.example.json"));
   const credentialReferences = await readJsonIfExists(resolveFromRoot("packages/credential-vault/examples/credential-references.example.json"));
+  const v5Roadmap = await readJsonIfExists(resolveFromRoot("runtime/global/v5-roadmap.json"));
   const runEvidence = await autopilotRunEvidence(autopilotRunFiles);
 
   const releaseDocNames = summarizeFiles(releaseDocs);
@@ -2274,8 +2275,10 @@ async function collectAutopilotContext(goal) {
       production_operations_center_dry_run_mvp_present: releaseDocNames.includes("docs/release/PRODUCTION_OPERATIONS_CENTER_DRY_RUN_MVP.md"),
       autopilot_continuous_mode_mvp_present: releaseDocNames.includes("docs/release/AUTOPILOT_CONTINUOUS_MODE_MVP.md"),
       real_worker_runtime_smoke_proposal_present: releaseDocNames.includes("docs/release/REAL_WORKER_RUNTIME_SMOKE_PROPOSAL.md"),
-      console_operable_read_only_mvp_present: releaseDocNames.includes("docs/release/CONSOLE_OPERABLE_READ_ONLY_MVP.md")
+      console_operable_read_only_mvp_present: releaseDocNames.includes("docs/release/CONSOLE_OPERABLE_READ_ONLY_MVP.md"),
+      v5_master_plan_present: releaseDocNames.includes("docs/release/AGENT_STUDIO_V5_MASTER_PLAN.md")
     },
+    v5_roadmap: v5Roadmap,
     autopilot_runs: runEvidence,
     managed_project: {
       runtime_memory_files: summarizeFiles(runtimeMemoryFiles),
@@ -2324,7 +2327,8 @@ async function collectAutopilotContext(goal) {
         && existsSync(resolveFromRoot("packages/production-ops/examples/server-registry.example.json"))
         && existsSync(resolveFromRoot("packages/production-ops/lib/production-ops-utils.mjs")),
       console_operable_mvp_exists: existsSync(resolveFromRoot("apps/console/src/actions.ts"))
-        && existsSync(resolveFromRoot("docs/release/CONSOLE_OPERABLE_READ_ONLY_MVP.md"))
+        && existsSync(resolveFromRoot("docs/release/CONSOLE_OPERABLE_READ_ONLY_MVP.md")),
+      v5_master_plan_schema_exists: existsSync(resolveFromRoot("packages/planning-center/schemas/v5-master-plan.schema.json"))
     },
     stage: {
       extraction_completed: extractionCompleted,
@@ -2382,6 +2386,8 @@ function buildPlanningRequest(goal, context) {
       runtime_memory: context.managed_project,
       roadmap: {
         v4_roadmap_present: context.docs.v4_roadmap_present,
+        v5_roadmap_present: Boolean(context.v5_roadmap),
+        v5_roadmap: context.v5_roadmap,
         next_stage: context.stage.next_stage
       },
       autopilot_runs: context.autopilot_runs,
@@ -4698,6 +4704,7 @@ function globalContextFiles() {
   return [
     "runtime/global/platform-state.json",
     "runtime/global/roadmap-memory.json",
+    "runtime/global/v5-roadmap.json",
     "runtime/global/decision-log.json",
     "runtime/global/codex-context-index.json",
     "runtime/global/codex-startup.md",
@@ -4732,6 +4739,7 @@ async function loadGlobalContextBundle() {
     files,
     platform_state: files["runtime/global/platform-state.json"].data,
     roadmap_memory: files["runtime/global/roadmap-memory.json"].data,
+    v5_roadmap: files["runtime/global/v5-roadmap.json"].data,
     decision_log: files["runtime/global/decision-log.json"].data,
     context_index: files["runtime/global/codex-context-index.json"].data
   };

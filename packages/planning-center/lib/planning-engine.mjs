@@ -68,6 +68,144 @@ function consoleOperableReady(inputs) {
     && Boolean(inputs.packages?.console_operable_mvp_exists);
 }
 
+function goalTargetsV5(request) {
+  return /\bV5\b/i.test(String(request.goal ?? ""));
+}
+
+function v5Roadmap(inputs) {
+  const roadmap = inputs.roadmap?.v5_roadmap;
+  return roadmap && Array.isArray(roadmap.stages) ? roadmap : null;
+}
+
+function v5MasterPlanReady(inputs) {
+  return Boolean(inputs.docs?.v5_master_plan_present)
+    && Boolean(inputs.packages?.v5_master_plan_schema_exists)
+    && Boolean(v5Roadmap(inputs));
+}
+
+function highOrCritical(risk) {
+  return risk === "HIGH" || risk === "CRITICAL";
+}
+
+function v5StageCompleted(stage) {
+  return stage.status === "completed" || stage.completed === true;
+}
+
+function nextV5Stage(inputs) {
+  const roadmap = v5Roadmap(inputs);
+  if (!roadmap) return null;
+  return [...roadmap.stages]
+    .sort((left, right) => Number(left.order ?? 999) - Number(right.order ?? 999))
+    .find((stage) => !v5StageCompleted(stage)) ?? null;
+}
+
+function v5CurrentStage(inputs) {
+  const stage = nextV5Stage(inputs);
+  const roadmap = v5Roadmap(inputs);
+  return {
+    stage_name: stage ? `${stage.id} ${stage.title}` : "V5 Master Plan complete",
+    next_stage: stage ? `${stage.id} ${stage.title}` : "V5 review and portfolio planning",
+    extraction_completed: Boolean(inputs.closure_report?.extraction_completed),
+    remote_execute_completed: Boolean(inputs.closure_report?.remote_execute_completed),
+    v5_master_plan_ready: v5MasterPlanReady(inputs),
+    v5_roadmap_present: Boolean(roadmap),
+    v5_plan_id: roadmap?.plan_id ?? "",
+    v5_current_stage_id: stage?.id ?? "",
+    v5_current_stage_order: stage?.order ?? null,
+    high_critical_policy: roadmap?.safety_policy?.high_critical_policy ?? "proposal_only",
+    managed_project_doctor: inputs.runtime_memory?.project_state?.doctor_status ?? "unknown"
+  };
+}
+
+function v5MasterPlanAction() {
+  return {
+    title: "Add V5 Master Plan",
+    reason: "V4 continuous mode is complete; Planning Center needs a machine-readable V5 roadmap before Autopilot can continue productization work.",
+    target_project: "anksen-agent-studio",
+    target_package: "packages/planning-center",
+    expected_files: [
+      "docs/release/AGENT_STUDIO_V5_MASTER_PLAN.md",
+      "runtime/global/v5-roadmap.json",
+      "packages/planning-center/schemas/v5-master-plan.schema.json"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs autopilot run --goal \"继续推进 V5\" --dry-run",
+      "git diff --check"
+    ],
+    risk: "MEDIUM",
+    approval_required: false,
+    execution_mode: "local_repo_execute"
+  };
+}
+
+function v5ActionFromStage(stage) {
+  const risk = stage.risk_level ?? "CRITICAL";
+  const executionMode = highOrCritical(risk) ? "proposal_only" : stage.execution_mode ?? "local_repo_execute";
+  return {
+    title: `Prepare ${stage.id} ${stage.title}`,
+    reason: highOrCritical(risk)
+      ? `${stage.id} is ${risk} risk in the V5 roadmap, so Planning Center must stop at proposal-only and require review before any execution.`
+      : `${stage.id} is the next V5 stage and is within the safe local repository automation band for schemas, examples, docs, and dry-run planning.`,
+    target_project: stage.target_project ?? "anksen-agent-studio",
+    target_package: stage.target_package ?? "docs/release",
+    expected_files: stage.expected_files ?? [],
+    validation_commands: stage.validation_commands ?? [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "git diff --check"
+    ],
+    risk,
+    approval_required: Boolean(stage.approval_required || highOrCritical(risk)),
+    execution_mode: executionMode,
+    v5_stage_id: stage.id,
+    automation_level: highOrCritical(risk) ? "proposal_only" : stage.automation_level ?? "autopilot_execute"
+  };
+}
+
+function buildV5PlanningOutput(request) {
+  const inputs = request.inputs ?? {};
+  const stage = v5CurrentStage(inputs);
+  const nextStage = nextV5Stage(inputs);
+  const action = nextStage ? v5ActionFromStage(nextStage) : {
+    title: "Review V5 Master Plan",
+    reason: "Every V5 stage is marked complete in the roadmap; the next step is roadmap review rather than automatic execution.",
+    target_project: "anksen-agent-studio",
+    target_package: "docs/release",
+    expected_files: [
+      "docs/release/AGENT_STUDIO_V5_MASTER_PLAN.md",
+      "runtime/global/v5-roadmap.json"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "git diff --check"
+    ],
+    risk: "LOW",
+    approval_required: false,
+    execution_mode: "proposal_only"
+  };
+  const selectedAction = v5MasterPlanReady(inputs) ? action : v5MasterPlanAction();
+  return {
+    schema_version: 1,
+    planning_output_id: outputId(request),
+    source_request_id: request.request_id,
+    goal: request.goal,
+    current_stage: stage,
+    next_action: selectedAction,
+    reason: selectedAction.reason,
+    target_project: selectedAction.target_project,
+    target_package: selectedAction.target_package,
+    expected_files: selectedAction.expected_files,
+    validation_commands: selectedAction.validation_commands,
+    risk: selectedAction.risk,
+    approval_required: selectedAction.approval_required,
+    execution_mode: highOrCritical(selectedAction.risk) ? "proposal_only" : selectedAction.execution_mode,
+    stop_condition: "STOP: Planning Center generated one V5 next action. HIGH/CRITICAL stages are proposal-only; no Worker, deploy, production operation, credential value, or managed-project write is allowed."
+  };
+}
+
 function currentStage(inputs) {
   const extractionCompleted = Boolean(inputs.closure_report?.extraction_completed);
   const remoteExecuteCompleted = Boolean(inputs.closure_report?.remote_execute_completed);
@@ -513,6 +651,10 @@ function v4ContinuousCompleteAction() {
 }
 
 export function buildPlanningOutput(request) {
+  if (goalTargetsV5(request)) {
+    return buildV5PlanningOutput(request);
+  }
+
   const stage = currentStage(request.inputs ?? {});
   const action = stage.console_operable_completed
     ? v4ContinuousCompleteAction()

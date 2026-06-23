@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "plan_id": "agent-studio-v5-master-plan",
+  "generated_at": "2026-06-24T00:00:00.000+08:00",
+  "source_doc": "docs/release/AGENT_STUDIO_V5_MASTER_PLAN.md",
+  "current_phase": "V5-A Enterprise Runtime",
+  "safety_policy": {
+    "worker_execution": "disabled",
+    "credential_values": "reference_only",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "managed_project_writes": "disabled",
+    "high_critical_policy": "proposal_only"
+  },
+  "stages": [
+    {
+      "id": "V5-A",
+      "title": "Enterprise Runtime",
+      "order": 1,
+      "objective": "Turn Runtime Center and Runtime Adapter Marketplace into an enterprise runtime control plane with tenant-safe routing, capability scoring, dry-run invocation plans, and audit-ready runtime metadata.",
+      "milestones": [
+        "Define enterprise runtime profile schema and capability score model.",
+        "Add adapter policy metadata for network, workspace, credential reference, and concurrency boundaries.",
+        "Expose dry-run runtime selection and invoke-plan evidence for Autopilot.",
+        "Keep real Worker execution disabled until a separate smoke proposal is approved."
+      ],
+      "dependencies": [
+        "V4-I Runtime Center",
+        "V4-K Runtime Adapter Marketplace",
+        "V4-M Governance and Release Gates",
+        "V4-P Autopilot Continuous Mode"
+      ],
+      "risk_level": "MEDIUM",
+      "automation_level": "autopilot_execute",
+      "approval_required": false,
+      "execution_mode": "local_repo_execute",
+      "target_project": "anksen-agent-studio",
+      "target_package": "packages/runtime-adapters",
+      "expected_files": [
+        "packages/runtime-adapters/schemas/enterprise-runtime-profile.schema.json",
+        "packages/runtime-adapters/examples/enterprise-runtime-profiles.example.json",
+        "docs/release/V5_ENTERPRISE_RUNTIME_MVP.md"
+      ],
+      "validation_commands": [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs adapter health --dry-run",
+        "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+        "git diff --check"
+      ]
+    },
+    {
+      "id": "V5-B",
+      "title": "Enterprise Credential Vault",
+      "order": 2,
+      "objective": "Expand Credential Vault from reference presence into enterprise-grade credential lifecycle policy, approval trails, rotation planning, provider mapping, and secretless runtime contracts.",
+      "milestones": [
+        "Define enterprise vault tenancy, rotation, expiration, and audit schemas.",
+        "Model provider-specific credential references without reading secret values.",
+        "Add proposal-only rotation and access review plans.",
+        "Keep credential value reads and writes disabled."
+      ],
+      "dependencies": [
+        "V4-J Credential Vault MVP",
+        "V5-A Enterprise Runtime"
+      ],
+      "risk_level": "HIGH",
+      "automation_level": "proposal_only",
+      "approval_required": true,
+      "execution_mode": "proposal_only",
+      "target_project": "anksen-agent-studio",
+      "target_package": "packages/credential-vault",
+      "expected_files": [
+        "docs/release/V5_ENTERPRISE_CREDENTIAL_VAULT_PROPOSAL.md"
+      ],
+      "validation_commands": [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs credential validate --dry-run",
+        "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+        "git diff --check"
+      ]
+    },
+    {
+      "id": "V5-C",
+      "title": "Multi Project Operations",
+      "order": 3,
+      "objective": "Upgrade project connectors into a multi-project operations layer that can plan, compare, and queue safe work across repositories while keeping managed project writes disabled by default.",
+      "milestones": [
+        "Define workspace-level project operation schema and queue metadata.",
+        "Add read-only portfolio health and command readiness views.",
+        "Generate proposal-only managed project write plans.",
+        "Preserve jinhu-smart-park as read-only unless an explicit proposal is approved."
+      ],
+      "dependencies": [
+        "V4-A/B/C Project Connector, Stack Detector, Debug Specialist",
+        "V4-L Multi-Project Workspace",
+        "V5-A Enterprise Runtime"
+      ],
+      "risk_level": "MEDIUM",
+      "automation_level": "autopilot_execute",
+      "approval_required": false,
+      "execution_mode": "local_repo_execute",
+      "target_project": "anksen-agent-studio",
+      "target_package": "packages/project-connector",
+      "expected_files": [
+        "packages/project-connector/schemas/multi-project-operations.schema.json",
+        "packages/project-connector/examples/multi-project-operations.example.json",
+        "docs/release/V5_MULTI_PROJECT_OPERATIONS_MVP.md"
+      ],
+      "validation_commands": [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs project commands --config examples/jinhu-smart-park/project.config.example.json --dry-run",
+        "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+        "git diff --check"
+      ]
+    },
+    {
+      "id": "V5-D",
+      "title": "Production Operations",
+      "order": 4,
+      "objective": "Move Production Operations Center from dry-run packages into a governed production operation proposal framework for deploy, backup, rollback, hardening, monitoring, and incident readiness.",
+      "milestones": [
+        "Define production readiness and emergency approval proposal models.",
+        "Keep all real server, SSH, deploy, backup, rollback, and production commands disabled.",
+        "Require CRITICAL approval for any future real production operation.",
+        "Record audit evidence for every production proposal."
+      ],
+      "dependencies": [
+        "V4-O Production Operations Center Dry-Run",
+        "V5-B Enterprise Credential Vault",
+        "V5-C Multi Project Operations"
+      ],
+      "risk_level": "CRITICAL",
+      "automation_level": "human_approval_required",
+      "approval_required": true,
+      "execution_mode": "proposal_only",
+      "target_project": "anksen-agent-studio",
+      "target_package": "packages/production-ops",
+      "expected_files": [
+        "docs/release/V5_PRODUCTION_OPERATIONS_PROPOSAL.md"
+      ],
+      "validation_commands": [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs production safety-check --dry-run",
+        "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+        "git diff --check"
+      ]
+    },
+    {
+      "id": "V5-E",
+      "title": "Enterprise Console",
+      "order": 5,
+      "objective": "Turn the read-only Console into an enterprise operator console for policy-aware previews, approvals, audits, project portfolios, runtime health, and proposal queues without direct mutation.",
+      "milestones": [
+        "Add enterprise console information architecture and action registry.",
+        "Display V5 roadmap, risk gates, proposal queues, and audit evidence.",
+        "Keep command descriptors dry-run or proposal-only.",
+        "Prepare UI contracts for future approval workflows without executing production operations."
+      ],
+      "dependencies": [
+        "V4-R Console operable read-only controls",
+        "V5-A Enterprise Runtime",
+        "V5-C Multi Project Operations"
+      ],
+      "risk_level": "MEDIUM",
+      "automation_level": "autopilot_execute",
+      "approval_required": false,
+      "execution_mode": "local_repo_execute",
+      "target_project": "anksen-agent-studio",
+      "target_package": "apps/console",
+      "expected_files": [
+        "apps/console/src/v5-roadmap.ts",
+        "docs/release/V5_ENTERPRISE_CONSOLE_MVP.md"
+      ],
+      "validation_commands": [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "git diff --check"
+      ]
+    },
+    {
+      "id": "V5-F",
+      "title": "Autonomous Software Factory",
+      "order": 6,
+      "objective": "Define the fully autonomous software factory target state: continuous planning, governed execution, audit trails, portfolio operations, worker orchestration, and production handoff under strict approval gates.",
+      "milestones": [
+        "Define autonomous factory governance and kill-switch model.",
+        "Create proposal-only worker orchestration and approval workflows.",
+        "Define audit, replay, rollback, and operator override requirements.",
+        "Keep real autonomous production execution disabled until separately approved."
+      ],
+      "dependencies": [
+        "V5-A Enterprise Runtime",
+        "V5-B Enterprise Credential Vault",
+        "V5-C Multi Project Operations",
+        "V5-D Production Operations",
+        "V5-E Enterprise Console"
+      ],
+      "risk_level": "CRITICAL",
+      "automation_level": "human_approval_required",
+      "approval_required": true,
+      "execution_mode": "proposal_only",
+      "target_project": "anksen-agent-studio",
+      "target_package": "docs/release",
+      "expected_files": [
+        "docs/release/V5_AUTONOMOUS_SOFTWARE_FACTORY_PROPOSAL.md"
+      ],
+      "validation_commands": [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+        "git diff --check"
+      ]
+    }
+  ]
+}
