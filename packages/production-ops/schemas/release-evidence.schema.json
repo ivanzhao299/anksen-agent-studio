@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/production-ops/release-evidence.schema.json",
+  "title": "Release Evidence",
+  "type": "object",
+  "required": [
+    "evidence_id",
+    "evidence_type",
+    "source_path",
+    "status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "evidence_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_type": {
+      "enum": [
+        "proposal",
+        "validation",
+        "approval",
+        "audit",
+        "policy"
+      ]
+    },
+    "source_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "present",
+        "missing",
+        "not_required"
+      ]
+    }
+  }
+}

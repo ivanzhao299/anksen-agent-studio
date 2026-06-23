@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "policy_id": "governance-policy-v4-m",
+  "mode": "dry_run_only",
+  "forbidden_operations": [
+    "agent_execution",
+    "managed_project_write",
+    "deploy",
+    "production_operation",
+    "credential_value_access"
+  ],
+  "approval_required_for": [
+    "managed_project_write",
+    "deploy",
+    "production_operation",
+    "credential_value_access"
+  ],
+  "audit_required": true,
+  "credential_values": "forbidden",
+  "deploy_execution": "forbidden",
+  "production_operations": "forbidden",
+  "managed_project_writes": "approval_required",
+  "safety_boundaries": [
+    "No deploy execution is available in this MVP.",
+    "No production operation execution is available in this MVP.",
+    "No credential value may be read or stored.",
+    "No managed project write may occur without a separate explicit approval.",
+    "All commands are dry-run evidence commands."
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/production-ops/release-gate.schema.json",
+  "title": "Release Gate Bundle",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "bundle_id",
+    "release_gates"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "bundle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "release_gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "gate_id",
+          "title",
+          "operation_category",
+          "requires_approval",
+          "approval_status",
+          "decision",
+          "evidence"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "gate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_category": {
+            "enum": [
+              "documentation_only",
+              "local_repo_change",
+              "agent_execution",
+              "managed_project_write",
+              "deploy",
+              "production_operation",
+              "credential_value_access"
+            ]
+          },
+          "requires_approval": {
+            "type": "boolean"
+          },
+          "approval_status": {
+            "enum": [
+              "not_required",
+              "required",
+              "approved",
+              "rejected"
+            ]
+          },
+          "decision": {
+            "enum": [
+              "PASS",
+              "BLOCK",
+              "REVIEW"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "release-evidence.schema.json"
+            }
+          }
+        }
+      }
+    }
+  }
+}

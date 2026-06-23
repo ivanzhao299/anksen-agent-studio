@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "bundle_id": "release-gates-v4-m",
+  "release_gates": [
+    {
+      "gate_id": "governance-policy-defined",
+      "title": "Governance policy is defined",
+      "operation_category": "documentation_only",
+      "requires_approval": false,
+      "approval_status": "not_required",
+      "decision": "PASS",
+      "evidence": [
+        {
+          "evidence_id": "governance-policy-example",
+          "evidence_type": "policy",
+          "source_path": "packages/production-ops/examples/governance-policy.example.json",
+          "status": "present"
+        }
+      ]
+    },
+    {
+      "gate_id": "validation-evidence-present",
+      "title": "Validation evidence command set is present",
+      "operation_category": "local_repo_change",
+      "requires_approval": false,
+      "approval_status": "not_required",
+      "decision": "PASS",
+      "evidence": [
+        {
+          "evidence_id": "validation-command-set",
+          "evidence_type": "validation",
+          "source_path": "docs/release/GOVERNANCE_RELEASE_GATES_MVP.md",
+          "status": "present"
+        }
+      ]
+    },
+    {
+      "gate_id": "deploy-execution-blocked",
+      "title": "Deploy execution remains blocked",
+      "operation_category": "deploy",
+      "requires_approval": true,
+      "approval_status": "required",
+      "decision": "BLOCK",
+      "evidence": [
+        {
+          "evidence_id": "deploy-disabled-policy",
+          "evidence_type": "policy",
+          "source_path": "packages/production-ops/examples/governance-policy.example.json",
+          "status": "present"
+        }
+      ]
+    },
+    {
+      "gate_id": "production-operations-blocked",
+      "title": "Production operations remain blocked",
+      "operation_category": "production_operation",
+      "requires_approval": true,
+      "approval_status": "required",
+      "decision": "BLOCK",
+      "evidence": [
+        {
+          "evidence_id": "production-ops-disabled-policy",
+          "evidence_type": "policy",
+          "source_path": "packages/production-ops/examples/governance-policy.example.json",
+          "status": "present"
+        }
+      ]
+    },
+    {
+      "gate_id": "credential-values-blocked",
+      "title": "Credential values remain blocked",
+      "operation_category": "credential_value_access",
+      "requires_approval": true,
+      "approval_status": "required",
+      "decision": "BLOCK",
+      "evidence": [
+        {
+          "evidence_id": "credential-values-disabled-policy",
+          "evidence_type": "policy",
+          "source_path": "packages/production-ops/examples/governance-policy.example.json",
+          "status": "present"
+        }
+      ]
+    },
+    {
+      "gate_id": "managed-project-writes-blocked",
+      "title": "Managed project writes remain blocked",
+      "operation_category": "managed_project_write",
+      "requires_approval": true,
+      "approval_status": "required",
+      "decision": "BLOCK",
+      "evidence": [
+        {
+          "evidence_id": "managed-project-write-policy",
+          "evidence_type": "policy",
+          "source_path": "packages/production-ops/examples/governance-policy.example.json",
+          "status": "present"
+        }
+      ]
+    }
+  ]
+}

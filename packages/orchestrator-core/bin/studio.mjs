@@ -31,6 +31,9 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs credential list --dry-run
   node packages/orchestrator-core/bin/studio.mjs credential validate --dry-run
   node packages/orchestrator-core/bin/studio.mjs credential policy --dry-run
+  node packages/orchestrator-core/bin/studio.mjs production-ops policy --dry-run
+  node packages/orchestrator-core/bin/studio.mjs production-ops gates --dry-run
+  node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run
   node packages/orchestrator-core/bin/studio.mjs context bootstrap --apply
   node packages/orchestrator-core/bin/studio.mjs context summary
   node packages/orchestrator-core/bin/studio.mjs context project --project <project_id>
@@ -52,7 +55,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "context", "autopilot"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "production-ops", "context", "autopilot"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -2274,7 +2277,11 @@ async function collectAutopilotContext(goal) {
         && existsSync(resolveFromRoot("apps/console/src/fixtures.ts"))
         && existsSync(resolveFromRoot("apps/console/src/navigation.ts")),
       multi_project_workspace_exists: existsSync(resolveFromRoot("packages/project-connector/src/workspace.ts"))
-        && existsSync(resolveFromRoot("packages/project-connector/examples/multi-project-workspace.example.json"))
+        && existsSync(resolveFromRoot("packages/project-connector/examples/multi-project-workspace.example.json")),
+      governance_release_gates_exists: existsSync(resolveFromRoot("packages/production-ops/schemas/governance-policy.schema.json"))
+        && existsSync(resolveFromRoot("packages/production-ops/schemas/release-gate.schema.json"))
+        && existsSync(resolveFromRoot("packages/production-ops/examples/governance-policy.example.json"))
+        && existsSync(resolveFromRoot("packages/production-ops/examples/release-gates.example.json"))
     },
     stage: {
       extraction_completed: extractionCompleted,
@@ -2301,6 +2308,10 @@ function runtimeCenterUtilsUrl() {
 
 function credentialVaultUtilsUrl() {
   return pathToFileURL(resolve(packageDir, "../credential-vault/lib/credential-vault-utils.mjs")).href;
+}
+
+function productionOpsUtilsUrl() {
+  return pathToFileURL(resolve(packageDir, "../production-ops/lib/production-ops-utils.mjs")).href;
 }
 
 function buildPlanningRequest(goal, context) {
@@ -2583,6 +2594,7 @@ function commandSpec(command) {
     ["pnpm lint:check", ["pnpm", ["lint:check"], 120000]],
     ["git diff --check", ["git", ["diff", "--check"], 120000]],
     ["git status", ["git", ["status", "--short", "--branch"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "production-ops", "validate", "--dry-run"], 120000]],
     ["node packages/runtime-center/bin/runtime-health-check.mjs --dry-run", ["node", ["packages/runtime-center/bin/runtime-health-check.mjs", "--dry-run"], 120000]],
     ["node packages/orchestrator-core/bin/studio.mjs runtime select --skill code_development --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "runtime", "select", "--skill", "code_development", "--dry-run"], 120000]]
   ]);
@@ -3585,6 +3597,16 @@ function completedV4Milestones(planningOutput, context) {
       id: "console-read-only",
       title: "V4-K Console Read-Only MVP",
       completed: Boolean(stage.console_read_only_completed || context.packages.console_read_only_mvp_exists)
+    },
+    {
+      id: "multi-project-workspace",
+      title: "V4-L Multi-Project Workspace",
+      completed: Boolean(stage.multi_project_workspace_completed || context.packages.multi_project_workspace_exists)
+    },
+    {
+      id: "governance-release-gates",
+      title: "V4-M Governance and Release Gates",
+      completed: Boolean(stage.governance_release_gates_completed || context.packages.governance_release_gates_exists)
     }
   ];
 }
@@ -4188,6 +4210,12 @@ async function loadCredentialVaultApi() {
   return { api, vault };
 }
 
+async function loadProductionOpsApi() {
+  const api = await import(productionOpsUtilsUrl());
+  const bundle = await api.loadProductionOps();
+  return { api, bundle };
+}
+
 function assertDryRun(args, commandName) {
   if (!args.dryRun) {
     throw new Error(`${commandName} currently supports --dry-run only.`);
@@ -4255,6 +4283,75 @@ async function credentialPolicy(args) {
   console.log("");
   console.log("forbidden_fields:");
   for (const field of policy.forbidden_fields) console.log(`- ${field}`);
+}
+
+async function productionOpsPolicy(args) {
+  assertDryRun(args, "production-ops policy");
+  const { api, bundle } = await loadProductionOpsApi();
+  const policy = api.policySummary(bundle);
+  console.log("# Production Ops Policy dry-run");
+  console.log("");
+  console.log(`policy_id: ${policy.policy_id}`);
+  console.log(`mode: ${policy.mode}`);
+  console.log(`audit_required: ${policy.audit_required ? "yes" : "no"}`);
+  console.log(`deploy_execution: ${policy.deploy_execution}`);
+  console.log(`production_operations: ${policy.production_operations}`);
+  console.log(`credential_values: ${policy.credential_values}`);
+  console.log(`managed_project_writes: ${policy.managed_project_writes}`);
+  console.log("server_connections: disabled");
+  console.log("");
+  console.log("forbidden_operations:");
+  for (const operation of policy.forbidden_operations) console.log(`- ${operation}`);
+  console.log("");
+  console.log("approval_required_for:");
+  for (const operation of policy.approval_required_for) console.log(`- ${operation}`);
+}
+
+async function productionOpsGates(args) {
+  assertDryRun(args, "production-ops gates");
+  const { api, bundle } = await loadProductionOpsApi();
+  const readiness = api.evaluateReleaseReadiness(bundle);
+  const gates = api.gateInventory(bundle);
+  console.log("# Production Ops Release Gates dry-run");
+  console.log("");
+  console.log(`status: ${readiness.status}`);
+  console.log(`gate_count: ${readiness.gate_count}`);
+  console.log(`blocked_gate_count: ${readiness.blocked_gate_count}`);
+  console.log(`deploy_enabled: ${readiness.deploy_enabled ? "yes" : "no"}`);
+  console.log(`production_operations_enabled: ${readiness.production_operations_enabled ? "yes" : "no"}`);
+  console.log(`credential_values_read: ${readiness.credential_values_read ? "yes" : "no"}`);
+  console.log("");
+  console.log("| Gate | Operation | Decision | Approval | Evaluation |");
+  console.log("| --- | --- | --- | --- | --- |");
+  for (const gate of gates) {
+    console.log(`| ${gate.gate_id} | ${gate.operation_category} | ${gate.decision} | ${gate.approval_status} | ${gate.evaluation_status} |`);
+  }
+}
+
+async function productionOpsValidate(args) {
+  assertDryRun(args, "production-ops validate");
+  const { api, bundle } = await loadProductionOpsApi();
+  const result = api.validateProductionOps(bundle);
+  console.log("# Production Ops Validate dry-run");
+  console.log("");
+  console.log(`status: ${result.status}`);
+  console.log(`policy_id: ${result.policy_id}`);
+  console.log(`gate_count: ${result.gate_count}`);
+  console.log(`blocked_gate_count: ${result.blocked_gate_count}`);
+  console.log(`deploy_enabled: ${result.deploy_enabled ? "yes" : "no"}`);
+  console.log(`production_operations_enabled: ${result.production_operations_enabled ? "yes" : "no"}`);
+  console.log(`credential_values_read: ${result.credential_values_read ? "yes" : "no"}`);
+  console.log(`server_connections: ${result.server_connections}`);
+  console.log("");
+  console.log("findings:");
+  if (result.findings.length === 0) {
+    console.log("- none");
+  } else {
+    for (const finding of result.findings) {
+      console.log(`- ${finding.severity}: ${finding.message}`);
+    }
+  }
+  if (result.status !== "PASS") process.exitCode = 1;
 }
 
 async function runtimeList() {
@@ -4351,6 +4448,9 @@ async function main() {
   if (args.command === "credential" && args.subcommand === "list") return credentialList(args);
   if (args.command === "credential" && args.subcommand === "validate") return credentialValidate(args);
   if (args.command === "credential" && args.subcommand === "policy") return credentialPolicy(args);
+  if (args.command === "production-ops" && args.subcommand === "policy") return productionOpsPolicy(args);
+  if (args.command === "production-ops" && args.subcommand === "gates") return productionOpsGates(args);
+  if (args.command === "production-ops" && args.subcommand === "validate") return productionOpsValidate(args);
   if (args.command === "context" && args.subcommand === "bootstrap") return contextBootstrap(args);
   if (args.command === "context" && args.subcommand === "summary") return contextSummary();
   if (args.command === "context" && args.subcommand === "project") return contextProject(args);

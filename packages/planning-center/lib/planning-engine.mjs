@@ -37,6 +37,10 @@ function multiProjectWorkspaceReady(inputs) {
   return Boolean(inputs.packages?.multi_project_workspace_exists);
 }
 
+function governanceReleaseGatesReady(inputs) {
+  return Boolean(inputs.packages?.governance_release_gates_exists);
+}
+
 function currentStage(inputs) {
   const extractionCompleted = Boolean(inputs.closure_report?.extraction_completed);
   const remoteExecuteCompleted = Boolean(inputs.closure_report?.remote_execute_completed);
@@ -45,8 +49,11 @@ function currentStage(inputs) {
   const autopilotRunnerCompleted = autopilotRunnerReady(inputs);
   const consoleReadOnlyCompleted = consoleReadOnlyReady(inputs);
   const multiProjectWorkspaceCompleted = multiProjectWorkspaceReady(inputs);
+  const governanceReleaseGatesCompleted = governanceReleaseGatesReady(inputs);
   return {
-    stage_name: multiProjectWorkspaceCompleted
+    stage_name: governanceReleaseGatesCompleted
+      ? "V4-N Platform Hardening preparation"
+      : multiProjectWorkspaceCompleted
       ? "V4-M Governance and Release Gates preparation"
       : consoleReadOnlyCompleted
       ? "V4-L Multi-Project Workspace preparation"
@@ -59,7 +66,9 @@ function currentStage(inputs) {
           : "Post-extraction V4 bootstrap",
     extraction_completed: extractionCompleted,
     remote_execute_completed: remoteExecuteCompleted,
-    next_stage: multiProjectWorkspaceCompleted
+    next_stage: governanceReleaseGatesCompleted
+      ? "V4-N Platform Hardening Review"
+      : multiProjectWorkspaceCompleted
       ? "V4-M Governance and Release Gates"
       : consoleReadOnlyCompleted
       ? "V4-L Multi-Project Workspace"
@@ -75,6 +84,7 @@ function currentStage(inputs) {
     autopilot_runner_completed: autopilotRunnerCompleted,
     console_read_only_completed: consoleReadOnlyCompleted,
     multi_project_workspace_completed: multiProjectWorkspaceCompleted,
+    governance_release_gates_completed: governanceReleaseGatesCompleted,
     planning_center_exists: Boolean(inputs.packages?.planning_center_exists),
     managed_project_doctor: inputs.runtime_memory?.project_state?.doctor_status ?? "unknown"
   };
@@ -245,10 +255,32 @@ function governanceReleaseGatesAction() {
     validation_commands: [
       "pnpm typecheck",
       "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run",
       "node packages/orchestrator-core/bin/studio.mjs context summary",
       "git diff --check"
     ],
     risk: "MEDIUM",
+    approval_required: false,
+    execution_mode: "proposal_only"
+  };
+}
+
+function platformHardeningReviewAction() {
+  return {
+    title: "Prepare V4-N Platform Hardening Review",
+    reason: "Governance and release gates exist; the next safe V4 step is a review proposal for platform hardening, keeping runtime execution, deploy, production operations, and credential values disabled.",
+    target_project: "anksen-agent-studio",
+    target_package: "docs/release",
+    expected_files: [
+      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run",
+      "git diff --check"
+    ],
+    risk: "LOW",
     approval_required: false,
     execution_mode: "proposal_only"
   };
@@ -266,7 +298,9 @@ export function buildPlanningOutput(request) {
           ? consoleReadOnlyAction()
           : !stage.multi_project_workspace_completed
             ? multiProjectWorkspaceAction()
-            : governanceReleaseGatesAction();
+            : !stage.governance_release_gates_completed
+              ? governanceReleaseGatesAction()
+              : platformHardeningReviewAction();
   const stopCondition = "STOP: Planning Center generated one next action. Autopilot max_steps=1; no Agent, deploy, production operation, credential read, or managed-project write is allowed.";
 
   return {
