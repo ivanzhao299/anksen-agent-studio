@@ -1,12 +1,15 @@
 #!/usr/bin/env node
+import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 const binDir = dirname(fileURLToPath(import.meta.url));
 const packageDir = dirname(binDir);
 const repoRoot = resolve(packageDir, "../..");
+const execFileAsync = promisify(execFile);
 
 const DEFAULT_PROJECT = "examples/jinhu-smart-park/project.config.example.json";
 
@@ -15,6 +18,7 @@ function usage() {
 
 Usage:
   node packages/orchestrator-core/bin/studio.mjs doctor [--project <file>] --dry-run
+  node packages/orchestrator-core/bin/studio.mjs project inspect --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs skill-route --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
@@ -28,12 +32,15 @@ All apply/execution flows are intentionally disabled in the extraction-stage CLI
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
+  const subcommand = command === "project" ? rest[0] : "";
   const args = {
     command,
+    subcommand,
     dryRun: rest.includes("--dry-run"),
     summary: rest.includes("--summary"),
     text: "",
     project: DEFAULT_PROJECT,
+    config: "",
     target: ""
   };
 
@@ -44,6 +51,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--project") {
       args.project = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--config") {
+      args.config = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--target") {
       args.target = rest[index + 1] ?? "";
@@ -58,8 +68,28 @@ function resolveFromRoot(path) {
   return resolve(repoRoot, path);
 }
 
+function resolveMaybeFromRoot(path) {
+  if (!path) return "";
+  return resolve(repoRoot, path);
+}
+
+function resolveProjectPath(configPath, projectRoot) {
+  const fromRepoRoot = resolve(repoRoot, projectRoot);
+  if (existsSync(fromRepoRoot)) return fromRepoRoot;
+  return resolve(dirname(configPath), projectRoot);
+}
+
 async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
+}
+
+async function execGit(cwd, args) {
+  try {
+    const { stdout } = await execFileAsync("git", args, { cwd });
+    return stdout.trim();
+  } catch {
+    return "";
+  }
 }
 
 async function countFiles(path) {
@@ -184,6 +214,146 @@ async function doctor(args) {
   if (failed.length > 0) process.exitCode = 1;
 }
 
+async function readPackageScripts(projectPath) {
+  const packageJsonPath = join(projectPath, "package.json");
+  if (!existsSync(packageJsonPath)) return [];
+  const packageJson = await readJson(packageJsonPath);
+  return Object.keys(packageJson.scripts ?? {}).map((script) => `pnpm ${script}`).sort();
+}
+
+async function repoStatus(projectPath) {
+  const branch = await execGit(projectPath, ["branch", "--show-current"]);
+  const head = await execGit(projectPath, ["log", "--oneline", "-1"]);
+  const statusShort = await execGit(projectPath, ["status", "--short"]);
+  const aheadBehind = await execGit(projectPath, ["rev-list", "--left-right", "--count", "@{upstream}...HEAD"]);
+  return {
+    branch: branch || "unknown",
+    head: head || "unknown",
+    clean: statusShort ? "no" : "yes",
+    dirty_files: statusShort ? statusShort.split("\n") : [],
+    ahead_behind: aheadBehind || "unknown"
+  };
+}
+
+function detectStack(projectPath, config) {
+  const detected = new Set(config.detected_stack_hints ?? []);
+  const probes = [
+    ["pnpm-workspace.yaml", "pnpm workspace"],
+    ["apps/web", "Next.js web app"],
+    ["apps/api", "NestJS API"],
+    ["packages/shared", "shared package"],
+    ["database/migrations", "database migrations"],
+    ["database/seeds", "database seeds"],
+    ["ops/agent-orchestrator", "project-local Agent Orchestrator state"],
+    ["docs/release", "release documentation"],
+    ["scripts/e2e", "e2e smoke scripts"]
+  ];
+  for (const [path, label] of probes) {
+    if (existsSync(join(projectPath, path))) detected.add(label);
+  }
+  return [...detected].sort();
+}
+
+async function runtimeMemoryStatus(projectPath, config) {
+  const runtimeConfig = config.runtime_memory ?? {};
+  const runtimeDir = join(projectPath, runtimeConfig.directory ?? join(config.state_dir ?? "ops/agent-orchestrator", "runtime"));
+  const summaryPath = join(runtimeDir, runtimeConfig.summary_file ?? "handoff-summary.md");
+  const platformStatePath = join(runtimeDir, runtimeConfig.platform_state_file ?? "platform-state.json");
+  const status = {
+    directory: runtimeDir,
+    exists: existsSync(runtimeDir) ? "yes" : "no",
+    summary: existsSync(summaryPath) ? "present" : "missing",
+    platform_state: existsSync(platformStatePath) ? "present" : "missing",
+    generated_at: "unknown",
+    head_summary: "unknown",
+    event_count: "unknown"
+  };
+  if (existsSync(platformStatePath)) {
+    try {
+      const platformState = await readJson(platformStatePath);
+      status.generated_at = platformState.generated_at ?? "unknown";
+      status.head_summary = platformState.head_summary ?? "unknown";
+      status.event_count = String(platformState.event_store?.event_count ?? "unknown");
+    } catch {
+      status.platform_state = "invalid";
+    }
+  }
+  return status;
+}
+
+async function projectInspect(args) {
+  if (!args.dryRun) {
+    throw new Error("project inspect is dry-run only in the extraction-stage CLI. Pass --dry-run.");
+  }
+  const configPath = resolveMaybeFromRoot(args.config || args.project || DEFAULT_PROJECT);
+  if (!existsSync(configPath)) {
+    throw new Error(`Project config not found: ${configPath}`);
+  }
+  const config = await readJson(configPath);
+  const projectPath = resolveProjectPath(configPath, config.project_root);
+  const projectExists = existsSync(projectPath);
+  const repo = projectExists ? await repoStatus(projectPath) : {
+    branch: "missing",
+    head: "missing",
+    clean: "unknown",
+    dirty_files: [],
+    ahead_behind: "unknown"
+  };
+  const packageScripts = projectExists ? await readPackageScripts(projectPath) : [];
+  const availableCommands = [...new Set([...(config.available_commands ?? []), ...packageScripts])];
+  const guardedPaths = config.guarded_paths ?? config.frozen_paths ?? [];
+  const memory = projectExists ? await runtimeMemoryStatus(projectPath, config) : {
+    directory: "unknown",
+    exists: "no",
+    summary: "missing",
+    platform_state: "missing",
+    generated_at: "unknown",
+    head_summary: "unknown",
+    event_count: "unknown"
+  };
+  const detectedStack = projectExists ? detectStack(projectPath, config) : (config.detected_stack_hints ?? []);
+
+  console.log("# Project Inspect dry-run");
+  console.log("");
+  console.log(`project_id: ${config.project_id}`);
+  console.log(`project_name: ${config.project_name}`);
+  console.log(`project_path: ${projectPath}`);
+  console.log(`project_exists: ${projectExists ? "yes" : "no"}`);
+  console.log("");
+  console.log("repo_status:");
+  console.log(`- branch: ${repo.branch}`);
+  console.log(`- head: ${repo.head}`);
+  console.log(`- clean: ${repo.clean}`);
+  console.log(`- ahead_behind: ${repo.ahead_behind}`);
+  if (repo.dirty_files.length > 0) {
+    for (const dirtyFile of repo.dirty_files) console.log(`- dirty: ${dirtyFile}`);
+  }
+  console.log("");
+  console.log("detected_stack:");
+  for (const item of detectedStack) console.log(`- ${item}`);
+  console.log("");
+  console.log("available_commands:");
+  for (const command of availableCommands) console.log(`- ${command}`);
+  console.log("");
+  console.log("guarded_paths:");
+  for (const path of guardedPaths) console.log(`- ${path}`);
+  console.log("");
+  console.log("runtime_memory_status:");
+  console.log(`- directory: ${memory.directory}`);
+  console.log(`- exists: ${memory.exists}`);
+  console.log(`- summary: ${memory.summary}`);
+  console.log(`- platform_state: ${memory.platform_state}`);
+  console.log(`- generated_at: ${memory.generated_at}`);
+  console.log(`- head_summary: ${memory.head_summary}`);
+  console.log(`- event_count: ${memory.event_count}`);
+  console.log("");
+  console.log("recommended_next_actions:");
+  console.log("- Keep project adapter read-only until core parity tests are implemented.");
+  console.log("- Run the project runtime memory validate command from the business repository before any apply flow.");
+  console.log("- Port reusable core logic into anksen-agent-studio before deprecating project-local scripts.");
+  console.log("- Do not execute Agent tasks, deploy, or production operations from project inspect.");
+}
+
 async function runtimeMemory() {
   const docs = await countFiles(resolveFromRoot("docs/release"));
   const schemas = await countFiles(resolveFromRoot("packages"));
@@ -252,6 +422,7 @@ async function main() {
   }
 
   if (args.command === "doctor") return doctor(args);
+  if (args.command === "project" && args.subcommand === "inspect") return projectInspect(args);
   if (args.command === "skill-route") {
     if (!args.text.trim()) throw new Error("Missing --text for skill-route.");
     console.log(JSON.stringify(await loadSkillRoute(args.text), null, 2));
@@ -278,4 +449,3 @@ try {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
-
