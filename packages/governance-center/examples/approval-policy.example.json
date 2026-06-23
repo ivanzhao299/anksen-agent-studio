@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "policy_id": "approval-policy-v4-m",
+  "approval_matrix": [
+    {
+      "risk": "LOW",
+      "automation_mode": "automatic_execute",
+      "executor": "automation",
+      "approval_required": false,
+      "proposal_required": false,
+      "human_approval_required": false
+    },
+    {
+      "risk": "MEDIUM",
+      "automation_mode": "autopilot_execute",
+      "executor": "autopilot",
+      "approval_required": false,
+      "proposal_required": false,
+      "human_approval_required": false
+    },
+    {
+      "risk": "HIGH",
+      "automation_mode": "proposal_only",
+      "executor": "proposal",
+      "approval_required": false,
+      "proposal_required": true,
+      "human_approval_required": false
+    },
+    {
+      "risk": "CRITICAL",
+      "automation_mode": "human_approval_required",
+      "executor": "human",
+      "approval_required": true,
+      "proposal_required": true,
+      "human_approval_required": true
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/governance-center/approval-policy.schema.json",
+  "title": "Approval Policy",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "policy_id",
+    "approval_matrix"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approval_matrix": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "risk",
+          "automation_mode",
+          "executor",
+          "approval_required",
+          "proposal_required",
+          "human_approval_required"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "risk": {
+            "$ref": "risk-policy.schema.json#/$defs/risk_level"
+          },
+          "automation_mode": {
+            "enum": [
+              "automatic_execute",
+              "autopilot_execute",
+              "proposal_only",
+              "human_approval_required"
+            ]
+          },
+          "executor": {
+            "enum": [
+              "automation",
+              "autopilot",
+              "proposal",
+              "human"
+            ]
+          },
+          "approval_required": {
+            "type": "boolean"
+          },
+          "proposal_required": {
+            "type": "boolean"
+          },
+          "human_approval_required": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

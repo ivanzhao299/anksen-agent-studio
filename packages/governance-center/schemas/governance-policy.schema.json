@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/governance-center/governance-policy.schema.json",
+  "title": "Governance Policy",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "policy_id",
+    "mode",
+    "scope",
+    "enforcement_order",
+    "safety_boundaries"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "const": "dry_run_only"
+    },
+    "scope": {
+      "const": "local_repository_only"
+    },
+    "enforcement_order": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "governance_check" },
+        { "const": "approval_policy" },
+        { "const": "release_gate" },
+        { "const": "execution_decision" }
+      ],
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "safety_boundaries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

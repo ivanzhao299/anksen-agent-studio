@@ -38,7 +38,8 @@ function multiProjectWorkspaceReady(inputs) {
 }
 
 function governanceReleaseGatesReady(inputs) {
-  return Boolean(inputs.packages?.governance_release_gates_exists);
+  return Boolean(inputs.packages?.governance_release_gates_exists)
+    && Boolean(inputs.packages?.governance_center_exists);
 }
 
 function currentStage(inputs) {
@@ -245,17 +246,21 @@ function multiProjectWorkspaceAction() {
 function governanceReleaseGatesAction() {
   return {
     title: "Prepare V4-M Governance and Release Gates",
-    reason: "The multi-project workspace contracts exist; the next safe V4 step is to define approval, audit, and release gate policy bundles without enabling deploy or production operations.",
+    reason: "The multi-project workspace contracts exist; the next safe V4 step is to define unified governance, approval, risk, audit, and release gate policy bundles without enabling deploy or production operations.",
     target_project: "anksen-agent-studio",
-    target_package: "packages/production-ops",
+    target_package: "packages/governance-center",
     expected_files: [
-      "packages/production-ops/src/index.ts",
+      "packages/governance-center/schemas/governance-policy.schema.json",
+      "packages/governance-center/schemas/approval-policy.schema.json",
+      "packages/governance-center/schemas/release-gate.schema.json",
+      "packages/governance-center/schemas/risk-policy.schema.json",
       "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
     ],
     validation_commands: [
       "pnpm typecheck",
       "pnpm lint:check",
-      "node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run",
       "node packages/orchestrator-core/bin/studio.mjs context summary",
       "git diff --check"
     ],
@@ -277,7 +282,8 @@ function platformHardeningReviewAction() {
     validation_commands: [
       "pnpm typecheck",
       "pnpm lint:check",
-      "node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run",
       "git diff --check"
     ],
     risk: "LOW",

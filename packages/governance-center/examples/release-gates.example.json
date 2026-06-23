@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "gate_bundle_id": "release-gates-v4-m-unified",
+  "release_gates": [
+    {
+      "gate_id": "governance-check-required",
+      "title": "Governance check must run before execution",
+      "category": "governance_check",
+      "decision": "PASS",
+      "expected_block": false
+    },
+    {
+      "gate_id": "approval-policy-required",
+      "title": "Approval policy must be evaluated before execution",
+      "category": "approval_policy",
+      "decision": "PASS",
+      "expected_block": false
+    },
+    {
+      "gate_id": "local-repo-change-allowed-after-checks",
+      "title": "Local repository changes may proceed after governance checks",
+      "category": "local_repo_change",
+      "decision": "PASS",
+      "expected_block": false
+    },
+    {
+      "gate_id": "managed-project-write-blocked",
+      "title": "Managed project writes remain blocked",
+      "category": "managed_project_write",
+      "decision": "BLOCK",
+      "expected_block": true
+    },
+    {
+      "gate_id": "deploy-blocked",
+      "title": "Deploy remains blocked",
+      "category": "deploy",
+      "decision": "BLOCK",
+      "expected_block": true
+    },
+    {
+      "gate_id": "production-operation-blocked",
+      "title": "Production operations remain blocked",
+      "category": "production_operation",
+      "decision": "BLOCK",
+      "expected_block": true
+    },
+    {
+      "gate_id": "server-access-blocked",
+      "title": "Server access remains blocked",
+      "category": "server_access",
+      "decision": "BLOCK",
+      "expected_block": true
+    },
+    {
+      "gate_id": "credential-value-access-blocked",
+      "title": "Credential value access remains blocked",
+      "category": "credential_value_access",
+      "decision": "BLOCK",
+      "expected_block": true
+    }
+  ]
+}

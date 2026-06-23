@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/governance-center/release-gate.schema.json",
+  "title": "Release Gate Policy",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "gate_bundle_id",
+    "release_gates"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "gate_bundle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "release_gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "gate_id",
+          "title",
+          "category",
+          "decision",
+          "expected_block"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "gate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "enum": [
+              "governance_check",
+              "approval_policy",
+              "local_repo_change",
+              "managed_project_write",
+              "deploy",
+              "production_operation",
+              "server_access",
+              "credential_value_access"
+            ]
+          },
+          "decision": {
+            "enum": [
+              "PASS",
+              "BLOCK",
+              "REVIEW"
+            ]
+          },
+          "expected_block": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

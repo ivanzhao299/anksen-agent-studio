@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "policy_id": "risk-policy-v4-m",
+  "risk_levels": [
+    {
+      "risk": "LOW",
+      "rank": 1,
+      "automation_mode": "automatic_execute",
+      "summary": "Safe local repository or documentation task; automation may execute after governance checks."
+    },
+    {
+      "risk": "MEDIUM",
+      "rank": 2,
+      "automation_mode": "autopilot_execute",
+      "summary": "Bounded local repository task; Autopilot may execute one step after governance, approval policy, and release gate checks."
+    },
+    {
+      "risk": "HIGH",
+      "rank": 3,
+      "automation_mode": "proposal_only",
+      "summary": "Higher impact or ambiguous task; must stop at proposal-only mode."
+    },
+    {
+      "risk": "CRITICAL",
+      "rank": 4,
+      "automation_mode": "human_approval_required",
+      "summary": "Critical task; requires explicit human approval before any execution path."
+    }
+  ]
+}

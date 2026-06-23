@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "policy_id": "governance-policy-v4-m-unified",
+  "mode": "dry_run_only",
+  "scope": "local_repository_only",
+  "enforcement_order": [
+    "governance_check",
+    "approval_policy",
+    "release_gate",
+    "execution_decision"
+  ],
+  "safety_boundaries": [
+    "No deploy execution is available through Governance Center.",
+    "No production operation is available through Governance Center.",
+    "No server access is available through Governance Center.",
+    "No credential values may be stored, read, or printed.",
+    "No managed project writes may occur without a separate explicit approval.",
+    "Autopilot must stop after one bounded step."
+  ]
+}

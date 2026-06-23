@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/governance-center/risk-policy.schema.json",
+  "title": "Risk Policy",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "policy_id",
+    "risk_levels"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "risk_levels": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "risk",
+          "rank",
+          "automation_mode",
+          "summary"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "risk": {
+            "$ref": "#/$defs/risk_level"
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "automation_mode": {
+            "enum": [
+              "automatic_execute",
+              "autopilot_execute",
+              "proposal_only",
+              "human_approval_required"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "risk_level": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    }
+  }
+}

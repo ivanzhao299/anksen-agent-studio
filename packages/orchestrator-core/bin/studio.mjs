@@ -31,6 +31,9 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs credential list --dry-run
   node packages/orchestrator-core/bin/studio.mjs credential validate --dry-run
   node packages/orchestrator-core/bin/studio.mjs credential policy --dry-run
+  node packages/orchestrator-core/bin/studio.mjs governance check --dry-run
+  node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run
+  node packages/orchestrator-core/bin/studio.mjs approval-policy --dry-run
   node packages/orchestrator-core/bin/studio.mjs production-ops policy --dry-run
   node packages/orchestrator-core/bin/studio.mjs production-ops gates --dry-run
   node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run
@@ -55,7 +58,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "production-ops", "context", "autopilot"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "production-ops", "context", "autopilot"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -2278,10 +2281,20 @@ async function collectAutopilotContext(goal) {
         && existsSync(resolveFromRoot("apps/console/src/navigation.ts")),
       multi_project_workspace_exists: existsSync(resolveFromRoot("packages/project-connector/src/workspace.ts"))
         && existsSync(resolveFromRoot("packages/project-connector/examples/multi-project-workspace.example.json")),
-      governance_release_gates_exists: existsSync(resolveFromRoot("packages/production-ops/schemas/governance-policy.schema.json"))
+      production_ops_governance_exists: existsSync(resolveFromRoot("packages/production-ops/schemas/governance-policy.schema.json"))
         && existsSync(resolveFromRoot("packages/production-ops/schemas/release-gate.schema.json"))
         && existsSync(resolveFromRoot("packages/production-ops/examples/governance-policy.example.json"))
-        && existsSync(resolveFromRoot("packages/production-ops/examples/release-gates.example.json"))
+        && existsSync(resolveFromRoot("packages/production-ops/examples/release-gates.example.json")),
+      governance_center_exists: existsSync(resolveFromRoot("packages/governance-center/schemas/governance-policy.schema.json"))
+        && existsSync(resolveFromRoot("packages/governance-center/schemas/approval-policy.schema.json"))
+        && existsSync(resolveFromRoot("packages/governance-center/schemas/release-gate.schema.json"))
+        && existsSync(resolveFromRoot("packages/governance-center/schemas/risk-policy.schema.json")),
+      governance_release_gates_exists: existsSync(resolveFromRoot("packages/production-ops/schemas/governance-policy.schema.json"))
+        && existsSync(resolveFromRoot("packages/production-ops/schemas/release-gate.schema.json"))
+        && existsSync(resolveFromRoot("packages/governance-center/schemas/governance-policy.schema.json"))
+        && existsSync(resolveFromRoot("packages/governance-center/schemas/approval-policy.schema.json"))
+        && existsSync(resolveFromRoot("packages/governance-center/schemas/release-gate.schema.json"))
+        && existsSync(resolveFromRoot("packages/governance-center/schemas/risk-policy.schema.json"))
     },
     stage: {
       extraction_completed: extractionCompleted,
@@ -2308,6 +2321,10 @@ function runtimeCenterUtilsUrl() {
 
 function credentialVaultUtilsUrl() {
   return pathToFileURL(resolve(packageDir, "../credential-vault/lib/credential-vault-utils.mjs")).href;
+}
+
+function governanceCenterUtilsUrl() {
+  return pathToFileURL(resolve(packageDir, "../governance-center/lib/governance-center-utils.mjs")).href;
 }
 
 function productionOpsUtilsUrl() {
@@ -2518,65 +2535,22 @@ function printAutopilot(run, files = null) {
   console.log("production_operations: disabled");
 }
 
-function riskRank(risk) {
-  return { LOW: 1, MEDIUM: 2, HIGH: 3 }[risk] ?? 3;
-}
-
-function actionText(action) {
-  return [
-    action.title,
-    action.reason,
-    action.target_project,
-    action.target_package,
-    ...(action.expected_files ?? []),
-    ...(action.validation_commands ?? [])
-  ].join(" ").toLowerCase();
-}
-
-function containsForbiddenAutomation(action) {
-  const text = actionText(action);
-  return [
-    "deploy",
-    "production",
-    "migration",
-    "seed",
-    "reset",
-    "cleanup",
-    "prod:",
-    "api key",
-    "private key",
-    "ssh key",
-    "secret value",
-    "credential value"
-  ].some((token) => text.includes(token));
-}
-
-function localExecutionGate(action) {
+async function localExecutionGate(action) {
+  const { api, bundle } = await loadGovernanceCenterApi();
+  const governance = api.evaluateActionGovernance(bundle, action);
   if (action.target_project !== "anksen-agent-studio") {
     return {
       allowed: false,
       execution_mode: "proposal_only",
-      reason: "Action targets a managed or external project, so Autopilot Runner may only generate a proposal."
-    };
-  }
-  if (riskRank(action.risk) > riskRank("MEDIUM")) {
-    return {
-      allowed: false,
-      execution_mode: "proposal_only",
-      reason: "HIGH risk actions require approval and cannot be executed by Autopilot Runner."
-    };
-  }
-  if (containsForbiddenAutomation(action)) {
-    return {
-      allowed: false,
-      execution_mode: "proposal_only",
-      reason: "Action text references deploy, production, destructive data operations, or secret values."
+      reason: "Action targets a managed or external project, so Autopilot Runner may only generate a proposal.",
+      governance
     };
   }
   return {
-    allowed: true,
-    execution_mode: "local_repo_execute",
-    reason: "Action targets anksen-agent-studio and is LOW/MEDIUM risk with no forbidden operation."
+    allowed: Boolean(governance.execution_allowed),
+    execution_mode: governance.execution_mode,
+    reason: governance.reason,
+    governance
   };
 }
 
@@ -2594,6 +2568,9 @@ function commandSpec(command) {
     ["pnpm lint:check", ["pnpm", ["lint:check"], 120000]],
     ["git diff --check", ["git", ["diff", "--check"], 120000]],
     ["git status", ["git", ["status", "--short", "--branch"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs governance check --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "governance", "check", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "release-gate", "check", "--dry-run"], 120000]],
+    ["node packages/orchestrator-core/bin/studio.mjs approval-policy --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "approval-policy", "--dry-run"], 120000]],
     ["node packages/orchestrator-core/bin/studio.mjs production-ops validate --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "production-ops", "validate", "--dry-run"], 120000]],
     ["node packages/runtime-center/bin/runtime-health-check.mjs --dry-run", ["node", ["packages/runtime-center/bin/runtime-health-check.mjs", "--dry-run"], 120000]],
     ["node packages/orchestrator-core/bin/studio.mjs runtime select --skill code_development --dry-run", ["node", ["packages/orchestrator-core/bin/studio.mjs", "runtime", "select", "--skill", "code_development", "--dry-run"], 120000]]
@@ -3993,7 +3970,7 @@ async function autopilotRunner(args) {
   const globalContext = await loadGlobalContextBundle();
   const { context, output } = await runPlanningCenter(goal);
   const selectedAction = actionFromPlanningOutput(output);
-  const gate = localExecutionGate(selectedAction);
+  const gate = await localExecutionGate(selectedAction);
   const route = await loadSkillRoute(`${selectedAction.title} ${selectedAction.reason}`);
   const internalTask = internalTaskFromAction(goal, selectedAction, route);
   const runPlan = executorRunPlan(goal, selectedAction, internalTask);
@@ -4013,6 +3990,30 @@ async function autopilotRunner(args) {
       blocked: false,
       stdout_tail: `planning_output_id=${output.planning_output_id}; next_action=${selectedAction.title}`,
       stderr_tail: ""
+    },
+    {
+      command: "governance check",
+      ok: gate.governance?.governance_check === "PASS",
+      status: gate.governance?.governance_check === "PASS" ? 0 : 1,
+      blocked: false,
+      stdout_tail: `status=${gate.governance?.governance_check ?? "unknown"}; risk=${gate.governance?.risk ?? selectedAction.risk}`,
+      stderr_tail: ""
+    },
+    {
+      command: "approval policy",
+      ok: gate.governance?.approval_policy === "PASS",
+      status: gate.governance?.approval_policy === "PASS" ? 0 : 1,
+      blocked: false,
+      stdout_tail: `automation_mode=${gate.governance?.automation_mode ?? "unknown"}; execution_mode=${gate.execution_mode}`,
+      stderr_tail: ""
+    },
+    {
+      command: "release gate",
+      ok: Boolean(gate.governance?.release_gate),
+      status: gate.governance?.release_gate ? 0 : 1,
+      blocked: gate.governance?.release_gate !== "PASS",
+      stdout_tail: `status=${gate.governance?.release_gate ?? "unknown"}; categories=${(gate.governance?.categories ?? []).join(", ")}`,
+      stderr_tail: gate.governance?.release_gate === "PASS" ? "" : gate.reason
     }
   ];
   const baseValidation = {
@@ -4210,6 +4211,12 @@ async function loadCredentialVaultApi() {
   return { api, vault };
 }
 
+async function loadGovernanceCenterApi() {
+  const api = await import(governanceCenterUtilsUrl());
+  const bundle = await api.loadGovernanceCenter();
+  return { api, bundle };
+}
+
 async function loadProductionOpsApi() {
   const api = await import(productionOpsUtilsUrl());
   const bundle = await api.loadProductionOps();
@@ -4283,6 +4290,75 @@ async function credentialPolicy(args) {
   console.log("");
   console.log("forbidden_fields:");
   for (const field of policy.forbidden_fields) console.log(`- ${field}`);
+}
+
+async function governanceCheck(args) {
+  assertDryRun(args, "governance check");
+  const { api, bundle } = await loadGovernanceCenterApi();
+  const result = api.validateGovernanceCenter(bundle);
+  console.log("# Governance Center Check dry-run");
+  console.log("");
+  console.log(`status: ${result.status}`);
+  console.log(`policy_id: ${result.policy_id}`);
+  console.log(`risk_level_count: ${result.risk_level_count}`);
+  console.log(`approval_rule_count: ${result.approval_rule_count}`);
+  console.log(`release_gate_count: ${result.release_gate_count}`);
+  console.log(`deploy_enabled: ${result.deploy_enabled ? "yes" : "no"}`);
+  console.log(`production_operations_enabled: ${result.production_operations_enabled ? "yes" : "no"}`);
+  console.log(`server_access_enabled: ${result.server_access_enabled ? "yes" : "no"}`);
+  console.log(`credential_values_read: ${result.credential_values_read ? "yes" : "no"}`);
+  console.log(`managed_project_writes: ${result.managed_project_writes}`);
+  console.log("");
+  console.log("findings:");
+  if (result.findings.length === 0) {
+    console.log("- none");
+  } else {
+    for (const finding of result.findings) {
+      console.log(`- ${finding.severity}: ${finding.message}`);
+    }
+  }
+  if (result.status !== "PASS") process.exitCode = 1;
+}
+
+async function approvalPolicy(args) {
+  assertDryRun(args, "approval-policy");
+  const { api, bundle } = await loadGovernanceCenterApi();
+  const matrix = api.approvalMatrix(bundle);
+  console.log("# Approval Policy dry-run");
+  console.log("");
+  console.log("| Risk | Automation Mode | Executor | Proposal Required | Human Approval |");
+  console.log("| --- | --- | --- | --- | --- |");
+  for (const rule of matrix) {
+    console.log(`| ${rule.risk} | ${rule.automation_mode} | ${rule.executor} | ${rule.proposal_required ? "yes" : "no"} | ${rule.human_approval_required ? "yes" : "no"} |`);
+  }
+  console.log("");
+  console.log("matrix:");
+  console.log("- LOW: automatic execution allowed");
+  console.log("- MEDIUM: Autopilot automatic execution allowed");
+  console.log("- HIGH: proposal required");
+  console.log("- CRITICAL: human approval required");
+}
+
+async function releaseGateCheck(args) {
+  assertDryRun(args, "release-gate check");
+  const { api, bundle } = await loadGovernanceCenterApi();
+  const result = api.releaseGateSummary(bundle);
+  console.log("# Release Gate Check dry-run");
+  console.log("");
+  console.log(`status: ${result.status}`);
+  console.log(`gate_count: ${result.gate_count}`);
+  console.log(`blocked_gate_count: ${result.blocked_gate_count}`);
+  console.log(`deploy_enabled: ${result.deploy_enabled ? "yes" : "no"}`);
+  console.log(`production_operations_enabled: ${result.production_operations_enabled ? "yes" : "no"}`);
+  console.log(`server_access_enabled: ${result.server_access_enabled ? "yes" : "no"}`);
+  console.log(`credential_values_read: ${result.credential_values_read ? "yes" : "no"}`);
+  console.log("");
+  console.log("| Gate | Category | Decision | Status |");
+  console.log("| --- | --- | --- | --- |");
+  for (const gate of result.gates) {
+    console.log(`| ${gate.gate_id} | ${gate.category} | ${gate.decision} | ${gate.status} |`);
+  }
+  if (result.status !== "PASS") process.exitCode = 1;
 }
 
 async function productionOpsPolicy(args) {
@@ -4448,6 +4524,9 @@ async function main() {
   if (args.command === "credential" && args.subcommand === "list") return credentialList(args);
   if (args.command === "credential" && args.subcommand === "validate") return credentialValidate(args);
   if (args.command === "credential" && args.subcommand === "policy") return credentialPolicy(args);
+  if (args.command === "governance" && args.subcommand === "check") return governanceCheck(args);
+  if (args.command === "release-gate" && args.subcommand === "check") return releaseGateCheck(args);
+  if (args.command === "approval-policy") return approvalPolicy(args);
   if (args.command === "production-ops" && args.subcommand === "policy") return productionOpsPolicy(args);
   if (args.command === "production-ops" && args.subcommand === "gates") return productionOpsGates(args);
   if (args.command === "production-ops" && args.subcommand === "validate") return productionOpsValidate(args);
