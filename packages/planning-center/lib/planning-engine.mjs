@@ -46,6 +46,10 @@ function platformHardeningReviewReady(inputs) {
   return Boolean(inputs.docs?.platform_hardening_review_present);
 }
 
+function productionOperationsCenterProposalReady(inputs) {
+  return Boolean(inputs.docs?.production_operations_center_proposal_present);
+}
+
 function currentStage(inputs) {
   const extractionCompleted = Boolean(inputs.closure_report?.extraction_completed);
   const remoteExecuteCompleted = Boolean(inputs.closure_report?.remote_execute_completed);
@@ -56,8 +60,11 @@ function currentStage(inputs) {
   const multiProjectWorkspaceCompleted = multiProjectWorkspaceReady(inputs);
   const governanceReleaseGatesCompleted = governanceReleaseGatesReady(inputs);
   const platformHardeningReviewCompleted = platformHardeningReviewReady(inputs);
+  const productionOperationsCenterProposalPrepared = productionOperationsCenterProposalReady(inputs);
   return {
-    stage_name: platformHardeningReviewCompleted
+    stage_name: productionOperationsCenterProposalPrepared
+      ? "V4-O Production Operations Center approval gate"
+      : platformHardeningReviewCompleted
       ? "V4-O Production Operations Center proposal preparation"
       : governanceReleaseGatesCompleted
       ? "V4-N Platform Hardening preparation"
@@ -74,7 +81,9 @@ function currentStage(inputs) {
           : "Post-extraction V4 bootstrap",
     extraction_completed: extractionCompleted,
     remote_execute_completed: remoteExecuteCompleted,
-    next_stage: platformHardeningReviewCompleted
+    next_stage: productionOperationsCenterProposalPrepared
+      ? "Await explicit approval for V4-O Production Operations Center implementation"
+      : platformHardeningReviewCompleted
       ? "V4-O Production Operations Center Proposal"
       : governanceReleaseGatesCompleted
       ? "V4-N Platform Hardening Review"
@@ -96,6 +105,7 @@ function currentStage(inputs) {
     multi_project_workspace_completed: multiProjectWorkspaceCompleted,
     governance_release_gates_completed: governanceReleaseGatesCompleted,
     platform_hardening_review_completed: platformHardeningReviewCompleted,
+    production_operations_center_proposal_prepared: productionOperationsCenterProposalPrepared,
     planning_center_exists: Boolean(inputs.packages?.planning_center_exists),
     managed_project_doctor: inputs.runtime_memory?.project_state?.doctor_status ?? "unknown"
   };
@@ -325,9 +335,34 @@ function productionOperationsCenterProposalAction() {
   };
 }
 
+function productionOperationsCenterApprovalGateAction() {
+  return {
+    title: "Await explicit approval for V4-O Production Operations Center implementation",
+    reason: "The Production Operations Center proposal exists, but the capability touches deploy, production operation, server access, credential value, and managed-project write semantics. It must remain blocked until a separate explicit approval defines an implementation boundary.",
+    target_project: "anksen-agent-studio",
+    target_package: "docs/release",
+    expected_files: [
+      "docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md",
+      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run",
+      "git diff --check"
+    ],
+    risk: "HIGH",
+    approval_required: true,
+    execution_mode: "blocked"
+  };
+}
+
 export function buildPlanningOutput(request) {
   const stage = currentStage(request.inputs ?? {});
-  const action = !stage.runtime_center_bootstrapped
+  const action = stage.production_operations_center_proposal_prepared
+    ? productionOperationsCenterApprovalGateAction()
+    : !stage.runtime_center_bootstrapped
     ? bootstrapRuntimeCenterAction()
     : !stage.credential_vault_completed
       ? credentialVaultAction()

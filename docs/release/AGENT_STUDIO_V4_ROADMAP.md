@@ -15,6 +15,7 @@ V4 should turn ANKSEN Agent Studio from a project-local orchestrator extraction 
 | V4-E Multi-Project Workspace | Support multiple project connectors in one console. | MVP complete as read-only workspace contracts under `packages/project-connector`. |
 | V4-F Governance and Release Gates | Add approvals, audit trail, policy bundles, risk matrix, and release readiness gates. | MVP complete as dry-run-only Governance Center under `packages/governance-center`, with Production Ops gates still blocked. |
 | V4-N Platform Hardening Review | Review platform safety and readiness after Governance, Credential Vault, Runtime Adapters, Console, and Workspace MVPs. | Complete as documentation-only hardening review under `docs/release/PLATFORM_HARDENING_REVIEW.md`. |
+| V4-O Production Operations Center | Prepare a production-operations proposal without enabling production execution. | Proposal prepared under `docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md`; implementation remains blocked pending explicit approval. |
 
 ## Multi-Project Workspace MVP
 
@@ -61,6 +62,20 @@ The first hardening review is documentation-only:
 - Validation matrix covers typecheck, lint, governance, release gates, adapter health, runtime health, diff check, and git status.
 - Next recommendation: prepare Production Operations Center as proposal-only until separately approved.
 - Deploy, production operations, server access, credential values, managed project writes, and business project modifications remain disabled.
+
+## Production Operations Center Proposal
+
+The first V4-O artifact is proposal-only:
+
+- Source of truth: `docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md`.
+- Current execution mode: blocked/proposal-only.
+- Required next state: explicit human approval before any implementation beyond schemas, dry-run CLI, and audit documentation.
+- Deploy execution: forbidden.
+- Production operations: forbidden.
+- Server access: forbidden.
+- Credential values: not read or stored.
+- Managed project writes: disabled.
+- `jinhu-smart-park` modifications: forbidden.
 
 ## Safety Boundary
 

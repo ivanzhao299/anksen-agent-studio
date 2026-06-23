@@ -1,53 +1,60 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-23T12:56:30.821Z",
+  "generated_at": "2026-06-23T15:59:16.528Z",
   "source": "context bootstrap",
   "platform_id": "anksen-agent-studio",
   "workspace_root": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio",
   "repo_status": {
     "branch": "main",
-    "head": "c35b96b chore: add autopilot runner",
+    "head": "89d0bdf chore(project-connector): add stack detector and debug specialist mvp",
     "clean": "no",
     "dirty_files": [
-      "M README.md",
+      "M docs/release/AGENT_STUDIO_V4_ROADMAP.md",
       " M packages/orchestrator-core/bin/studio.mjs",
-      "?? runtime/"
+      " M packages/planning-center/lib/planning-engine.mjs",
+      "?? autopilot-runs/autopilot-run-2026-06-23T155807637Z-53456a6a.json",
+      "?? autopilot-runs/autopilot-run-2026-06-23T155807637Z-53456a6a.md",
+      "?? docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md"
     ],
     "ahead_behind": "unknown"
   },
   "current_platform_status": "GO",
   "current_v4_stage": {
-    "stage_name": "V4-K Console Read-Only preparation",
+    "stage_name": "V4-O Production Operations Center approval gate",
     "extraction_completed": true,
     "remote_execute_completed": true,
-    "next_stage": "V4-K Console Read-Only MVP",
+    "next_stage": "Await explicit approval for V4-O Production Operations Center implementation",
     "runtime_center_bootstrapped": true,
     "credential_vault_completed": true,
     "autopilot_runner_completed": true,
+    "console_read_only_completed": true,
+    "multi_project_workspace_completed": true,
+    "governance_release_gates_completed": true,
+    "platform_hardening_review_completed": true,
+    "production_operations_center_proposal_prepared": true,
     "planning_center_exists": true,
     "managed_project_doctor": "GO"
   },
-  "planning_output_id": "planning-output-35ce9e2a98",
+  "planning_output_id": "planning-output-1c106655dd",
   "next_recommended_action": {
-    "title": "Prepare V4-K Console Read-Only MVP",
-    "reason": "Autopilot Runner is available; the next safe V4 step is to prepare a read-only console implementation plan before adding mutation paths.",
+    "title": "Await explicit approval for V4-O Production Operations Center implementation",
+    "reason": "The Production Operations Center proposal exists, but the capability touches deploy, production operation, server access, credential value, and managed-project write semantics. It must remain blocked until a separate explicit approval defines an implementation boundary.",
     "target_project": "anksen-agent-studio",
-    "target_package": "apps/console",
+    "target_package": "docs/release",
     "expected_files": [
-      "apps/console/src/index.ts",
-      "docs/release/AGENT_STUDIO_CONSOLE_PRD.md",
-      "docs/release/AGENT_STUDIO_CONSOLE_ARCHITECTURE.md",
+      "docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md",
       "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
     ],
     "validation_commands": [
       "pnpm typecheck",
       "pnpm lint:check",
-      "node packages/orchestrator-core/bin/studio.mjs autopilot run --goal \"继续推进 V4\" --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run",
       "git diff --check"
     ],
-    "risk": "MEDIUM",
-    "approval_required": false,
-    "execution_mode": "local_repo_execute"
+    "risk": "HIGH",
+    "approval_required": true,
+    "execution_mode": "blocked"
   },
   "managed_projects": [
     {
@@ -81,7 +88,7 @@
       "local-agent"
     ],
     "credential_reference_count": 6,
-    "schema_or_example_count": 46
+    "schema_or_example_count": 75
   },
   "safety_boundaries": [
     "Do not modify jinhu-smart-park unless an explicit proposal is approved.",

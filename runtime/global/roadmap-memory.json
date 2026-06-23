@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-23T12:56:30.821Z",
+  "generated_at": "2026-06-23T15:59:16.528Z",
   "goal": "继续推进 V4",
-  "current_stage": "V4-K Console Read-Only preparation",
-  "next_stage": "V4-K Console Read-Only MVP",
+  "current_stage": "V4-O Production Operations Center approval gate",
+  "next_stage": "Await explicit approval for V4-O Production Operations Center implementation",
   "milestones": [
     {
       "id": "extraction",
@@ -29,28 +29,42 @@
       "id": "autopilot-runner",
       "title": "V4-J Autopilot Runner",
       "completed": true
+    },
+    {
+      "id": "console-read-only",
+      "title": "V4-K Console Read-Only MVP",
+      "completed": true
+    },
+    {
+      "id": "multi-project-workspace",
+      "title": "V4-L Multi-Project Workspace",
+      "completed": true
+    },
+    {
+      "id": "governance-release-gates",
+      "title": "V4-M Governance and Release Gates",
+      "completed": true
     }
   ],
   "next_recommended_action": {
-    "title": "Prepare V4-K Console Read-Only MVP",
-    "reason": "Autopilot Runner is available; the next safe V4 step is to prepare a read-only console implementation plan before adding mutation paths.",
+    "title": "Await explicit approval for V4-O Production Operations Center implementation",
+    "reason": "The Production Operations Center proposal exists, but the capability touches deploy, production operation, server access, credential value, and managed-project write semantics. It must remain blocked until a separate explicit approval defines an implementation boundary.",
     "target_project": "anksen-agent-studio",
-    "target_package": "apps/console",
+    "target_package": "docs/release",
     "expected_files": [
-      "apps/console/src/index.ts",
-      "docs/release/AGENT_STUDIO_CONSOLE_PRD.md",
-      "docs/release/AGENT_STUDIO_CONSOLE_ARCHITECTURE.md",
+      "docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md",
       "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
     ],
     "validation_commands": [
       "pnpm typecheck",
       "pnpm lint:check",
-      "node packages/orchestrator-core/bin/studio.mjs autopilot run --goal \"继续推进 V4\" --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run",
       "git diff --check"
     ],
-    "risk": "MEDIUM",
-    "approval_required": false,
-    "execution_mode": "local_repo_execute"
+    "risk": "HIGH",
+    "approval_required": true,
+    "execution_mode": "blocked"
   },
   "validation_commands": [
     "pnpm typecheck",

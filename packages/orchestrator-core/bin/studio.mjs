@@ -2265,7 +2265,8 @@ async function collectAutopilotContext(goal) {
       runtime_center_prd_present: releaseDocNames.includes("docs/release/AGENT_RUNTIME_CENTER_PRD.md"),
       credential_vault_mvp_present: releaseDocNames.includes("docs/release/CREDENTIAL_VAULT_MVP.md"),
       autopilot_runner_mvp_present: releaseDocNames.includes("docs/release/AUTOPILOT_RUNNER_MVP.md"),
-      platform_hardening_review_present: releaseDocNames.includes("docs/release/PLATFORM_HARDENING_REVIEW.md")
+      platform_hardening_review_present: releaseDocNames.includes("docs/release/PLATFORM_HARDENING_REVIEW.md"),
+      production_operations_center_proposal_present: releaseDocNames.includes("docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md")
     },
     autopilot_runs: runEvidence,
     managed_project: {
