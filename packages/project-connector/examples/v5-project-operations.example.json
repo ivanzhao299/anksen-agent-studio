@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-464dac0c47",
+  "workspace_id": "anksen-agent-studio-v5-local",
+  "mode": "read_only",
+  "projects": [
+    {
+      "project_id": "jinhu-smart-park",
+      "operation_policy": "read_only",
+      "write_policy": "disabled",
+      "source": "runtime/projects/jinhu-smart-park"
+    }
+  ],
+  "safety": {
+    "managed_project_writes": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read"
+  }
+}

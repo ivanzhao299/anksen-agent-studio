@@ -3370,7 +3370,7 @@ function buildAutopilotRunnerRun({
     executor_run_plan: runPlan,
     execution_result: executionResult,
     commands_run: commandsRun,
-    changed_files: changedFiles,
+    changed_files: unique([...changedFiles, workspaceFile]).sort(),
     validation_result: validationResult,
     commit_hash: commitHash,
     commit_hash_note: commitHash
@@ -4885,6 +4885,511 @@ async function evaluateBatchTasks(tasks) {
   return results;
 }
 
+function globToRegExp(pattern) {
+  const globstar = "__GLOBSTAR__";
+  const escaped = String(pattern)
+    .replaceAll("**", globstar)
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replaceAll("*", "[^/]*")
+    .replaceAll(globstar, ".*");
+  return new RegExp(`^${escaped}$`);
+}
+
+function pathMatchesPattern(path, pattern) {
+  const normalizedPath = String(path).replaceAll("\\", "/");
+  const normalizedPattern = String(pattern).replaceAll("\\", "/");
+  if (normalizedPattern.endsWith("/**")) {
+    return normalizedPath.startsWith(normalizedPattern.slice(0, -3));
+  }
+  if (normalizedPattern.includes("*")) {
+    return globToRegExp(normalizedPattern).test(normalizedPath);
+  }
+  return normalizedPath === normalizedPattern || normalizedPath.startsWith(`${normalizedPattern}/`);
+}
+
+function assertBatchTaskPaths(task, files) {
+  const violations = [];
+  for (const file of files) {
+    const allowed = (task.allowed_paths ?? []).some((pattern) => pathMatchesPattern(file, pattern));
+    const forbidden = (task.forbidden_paths ?? []).some((pattern) => pathMatchesPattern(file, pattern));
+    if (!allowed || forbidden) {
+      violations.push(`${file} (allowed=${allowed ? "yes" : "no"}, forbidden=${forbidden ? "yes" : "no"})`);
+    }
+  }
+  if (violations.length > 0) {
+    throw new Error(`Batch task ${task.task_id} attempted writes outside its allowed paths: ${violations.join("; ")}`);
+  }
+}
+
+async function writeBatchFiles(files) {
+  for (const [relativeFile, content] of Object.entries(files)) {
+    const absoluteFile = resolveFromRoot(relativeFile);
+    await mkdir(dirname(absoluteFile), { recursive: true });
+    await writeFile(absoluteFile, content, "utf8");
+  }
+  return Object.keys(files).sort();
+}
+
+function v5OperatorManualFiles(task, batchId) {
+  return {
+    "docs/release/V5_OPERATOR_USER_MANUAL.md": `# V5 Operator User Manual
+
+- batch_id: ${batchId}
+- owner_agent: ${task.owner_agent}
+- execution_mode: local_repo_execute
+
+## Purpose
+
+This manual gives operators a safe V5 workflow for reading roadmap state, reviewing batch plans, and approving future work without starting real Workers or production operations.
+
+## Operator Workflow
+
+1. Review the V5 roadmap with \`node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal "继续推进 V5" --dry-run\`.
+2. Confirm LOW and MEDIUM tasks remain scoped to this repository.
+3. Keep HIGH and CRITICAL tasks in proposal-only mode.
+4. Review every batch run report before authorizing a future executor.
+
+## Hard Boundaries
+
+- Do not deploy.
+- Do not run production operations.
+- Do not connect to servers.
+- Do not read or store real credential values.
+- Do not modify managed projects, including jinhu-smart-park.
+`,
+    "docs/release/V5_CONSOLE_COPY_GUIDE.md": `# V5 Console Copy Guide
+
+- batch_id: ${batchId}
+- owner_agent: ${task.owner_agent}
+
+## Copy Principles
+
+- Use "Dry Run" for commands that inspect local metadata only.
+- Use "Proposal Only" for HIGH or CRITICAL work.
+- Use "Approval Required" when a future action would touch workers, credentials, production, deploy, or managed projects.
+
+## Console Labels
+
+- V5 Batch Planner
+- Batch Proposal
+- Governance Gate
+- Runtime Health
+- Project Portfolio
+- Production Safety Check
+`
+  };
+}
+
+function v5GovernanceValidationFiles(task, batchId) {
+  return {
+    "docs/release/V5_GOVERNANCE_VALIDATION_TEST_MATRIX.md": `# V5 Governance Validation Test Matrix
+
+- batch_id: ${batchId}
+- owner_agent: ${task.owner_agent}
+- execution_mode: local_repo_execute
+
+| Area | Command | Expected |
+| --- | --- | --- |
+| Typecheck | pnpm typecheck | PASS |
+| Lint | pnpm lint:check | PASS |
+| Governance | node packages/orchestrator-core/bin/studio.mjs governance check --dry-run | PASS |
+| Batch Planner | node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal "继续推进 V5" --dry-run | PASS |
+| Diff Hygiene | git diff --check | PASS |
+
+## Gate Policy
+
+- LOW: automatic local repository execution may be planned.
+- MEDIUM: Autopilot local repository execution may be planned.
+- HIGH: proposal-only.
+- CRITICAL: proposal-only with explicit human approval before any future execution.
+`,
+    "packages/governance-center/examples/v5-validation-matrix.example.json": `${JSON.stringify({
+      schema_version: 1,
+      batch_id: batchId,
+      owner_agent: task.owner_agent,
+      matrix_id: "v5-governance-validation-test-matrix",
+      safety: {
+        deploy: "disabled",
+        production_operations: "disabled",
+        credential_values: "disabled",
+        managed_project_writes: "disabled"
+      },
+      checks: [
+        { check_id: "typecheck", command: "pnpm typecheck", expected: "PASS" },
+        { check_id: "lint", command: "pnpm lint:check", expected: "PASS" },
+        { check_id: "governance", command: "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run", expected: "PASS" },
+        { check_id: "diff", command: "git diff --check", expected: "PASS" }
+      ]
+    }, null, 2)}\n`
+  };
+}
+
+function v5ProjectOperationsFiles(task, batchId) {
+  return {
+    "packages/project-connector/schemas/v5-project-operations.schema.json": `${JSON.stringify({
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://anksen.local/agent-studio/v5-project-operations.schema.json",
+      title: "V5 Project Operations",
+      type: "object",
+      additionalProperties: false,
+      required: ["schema_version", "workspace_id", "mode", "projects", "safety"],
+      properties: {
+        schema_version: { type: "integer", minimum: 1 },
+        workspace_id: { type: "string", minLength: 1 },
+        mode: { type: "string", enum: ["read_only", "proposal_only"] },
+        projects: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["project_id", "operation_policy", "write_policy"],
+            properties: {
+              project_id: { type: "string" },
+              operation_policy: { type: "string", enum: ["read_only", "proposal_only"] },
+              write_policy: { type: "string", enum: ["disabled", "approval_required"] }
+            }
+          }
+        },
+        safety: { type: "object", additionalProperties: true }
+      }
+    }, null, 2)}\n`,
+    "packages/project-connector/examples/v5-project-operations.example.json": `${JSON.stringify({
+      schema_version: 1,
+      batch_id: batchId,
+      workspace_id: "anksen-agent-studio-v5-local",
+      mode: "read_only",
+      projects: [
+        {
+          project_id: "jinhu-smart-park",
+          operation_policy: "read_only",
+          write_policy: "disabled",
+          source: "runtime/projects/jinhu-smart-park"
+        }
+      ],
+      safety: {
+        managed_project_writes: "disabled",
+        deploy: "disabled",
+        production_operations: "disabled",
+        credential_values: "not_read"
+      }
+    }, null, 2)}\n`,
+    "docs/release/V5_MULTI_PROJECT_OPERATIONS_BATCH_MVP.md": `# V5 Multi Project Operations Batch MVP
+
+- batch_id: ${batchId}
+- owner_agent: ${task.owner_agent}
+
+## Scope
+
+The V5 multi-project operations model remains read-only for managed project context. It prepares portfolio metadata and proposal-only write plans without modifying jinhu-smart-park.
+
+## Boundaries
+
+- Managed project writes: disabled.
+- Project command execution: dry-run only.
+- Deploy and production operations: disabled.
+- Credential values: not read.
+`
+  };
+}
+
+function v5ConsoleEntrypointFiles(task, batchId) {
+  return {
+    "apps/console/src/v5-roadmap.ts": `export interface ConsoleV5RoadmapEntry {
+  readonly id: string;
+  readonly label: string;
+  readonly risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  readonly executionMode: "local_repo_execute" | "proposal_only";
+  readonly ownerAgent: string;
+}
+
+export const consoleV5BatchEntries: readonly ConsoleV5RoadmapEntry[] = [
+  { id: "agent-1-docs", label: "Docs / Manual", risk: "LOW", executionMode: "local_repo_execute", ownerAgent: "agent-1" },
+  { id: "agent-2-governance", label: "Governance / Validation", risk: "MEDIUM", executionMode: "local_repo_execute", ownerAgent: "agent-2" },
+  { id: "agent-3-projects", label: "Project Operations", risk: "MEDIUM", executionMode: "local_repo_execute", ownerAgent: "agent-3" },
+  { id: "agent-4-console", label: "Console Entrypoints", risk: "MEDIUM", executionMode: "local_repo_execute", ownerAgent: "agent-4" },
+  { id: "agent-5-production", label: "Runtime / Production Proposal", risk: "HIGH", executionMode: "proposal_only", ownerAgent: "agent-5" }
+] as const;
+
+export const consoleV5BatchSafety = {
+  batch_id: "${batchId}",
+  real_worker_execution: "disabled",
+  deploy: "disabled",
+  production_operations: "disabled",
+  credential_values: "not_read",
+  managed_project_writes: "disabled"
+} as const;
+`,
+    "docs/release/V5_ENTERPRISE_CONSOLE_MVP.md": `# V5 Enterprise Console MVP
+
+- batch_id: ${batchId}
+- owner_agent: ${task.owner_agent}
+
+## Scope
+
+The Enterprise Console exposes V5 batch planning, governance state, and proposal queues as read-only view-model data. It does not execute commands from the UI.
+
+## Entry Points
+
+- V5 Batch Planner
+- Governance Gate Review
+- Runtime Health Preview
+- Project Portfolio Preview
+- Production Proposal Queue
+`
+  };
+}
+
+function v5ArchitectureProposalFiles(task, batchId) {
+  return {
+    "docs/release/V5_ARCHITECTURE_RUNTIME_PRODUCTION_OPS_PROPOSAL.md": `# V5 Architecture, Runtime, and Production Ops Proposal
+
+- batch_id: ${batchId}
+- owner_agent: ${task.owner_agent}
+- risk: HIGH
+- execution_mode: proposal_only
+
+## Proposal
+
+Agent-5 remains proposal-only because this lane touches runtime architecture and Production Operations semantics. Future execution must be separately approved before any real Worker, server, deploy, backup, rollback, or production operation is attempted.
+
+## Proposed Future Work
+
+- Enterprise Runtime architecture review.
+- Production Operations approval model.
+- Runtime/Production audit evidence schema.
+- Operator kill-switch and rollback proposal.
+
+## Hard Blocks
+
+- No real Worker execution.
+- No external model invocation.
+- No server access.
+- No deploy.
+- No production operation.
+- No credential value read or write.
+- No managed project write.
+`
+  };
+}
+
+async function writeBatchTaskImplementation(task, batchId) {
+  let files;
+  if (task.task_id === "v5-batch-agent-1-docs-console-manual") {
+    files = v5OperatorManualFiles(task, batchId);
+  } else if (task.task_id === "v5-batch-agent-2-governance-validation") {
+    files = v5GovernanceValidationFiles(task, batchId);
+  } else if (task.task_id === "v5-batch-agent-3-project-runtime-memory") {
+    files = v5ProjectOperationsFiles(task, batchId);
+  } else if (task.task_id === "v5-batch-agent-4-console-ui-entrypoints") {
+    files = v5ConsoleEntrypointFiles(task, batchId);
+  } else if (task.task_id === "v5-batch-agent-5-architecture-runtime-prodops") {
+    files = v5ArchitectureProposalFiles(task, batchId);
+  } else {
+    throw new Error(`No batch task writer is registered for ${task.task_id}.`);
+  }
+  const relativeFiles = Object.keys(files);
+  assertBatchTaskPaths(task, relativeFiles);
+  return writeBatchFiles(files);
+}
+
+function batchTaskReportFiles(batchId, task) {
+  return [
+    `autopilot-runs/${batchId}-${task.task_id}.json`,
+    `autopilot-runs/${batchId}-${task.task_id}.md`
+  ];
+}
+
+function batchTaskReportMarkdown(report) {
+  const commands = report.commands_run.length === 0
+    ? "- none"
+    : report.commands_run.map((command) => `- ${command.command}: ${command.ok ? "PASS" : "FAIL"} (exit ${command.status})`).join("\n");
+  const changedFiles = report.changed_files.length === 0
+    ? "- none"
+    : report.changed_files.map((file) => `- ${file}`).join("\n");
+  return `# Batch Task Run
+
+- batch_id: ${report.batch_id}
+- task_id: ${report.task_id}
+- owner_agent: ${report.owner_agent}
+- status: ${report.status}
+- execution_mode: ${report.execution_mode}
+- risk: ${report.risk}
+- task_workspace: ${report.task_workspace}
+
+## Validation
+
+- status: ${report.validation_result.status}
+- command_count: ${report.validation_result.command_count}
+- failed_commands: ${report.validation_result.failed_commands.length === 0 ? "none" : report.validation_result.failed_commands.join(", ")}
+
+## Changed Files
+
+${changedFiles}
+
+## Commands Run
+
+${commands}
+
+## Safety
+
+- deploy: disabled
+- production_operations: disabled
+- credential_values: disabled
+- managed_project_writes: disabled
+- real_worker_execution: disabled
+`;
+}
+
+async function writeBatchTaskReport(report) {
+  const dir = resolveFromRoot("autopilot-runs");
+  await mkdir(dir, { recursive: true });
+  const [jsonRelative, markdownRelative] = batchTaskReportFiles(report.batch_id, report);
+  await writeFile(resolveFromRoot(jsonRelative), `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  await writeFile(resolveFromRoot(markdownRelative), batchTaskReportMarkdown(report), "utf8");
+  return [jsonRelative, markdownRelative];
+}
+
+async function executeBatchTask(task, batchId, strategy) {
+  const taskCommands = [];
+  const taskWorkspace = `autopilot-runs/workspaces/${batchId}/${task.task_id}`;
+  const status = task.proposal_required ? "PROPOSAL_ONLY" : "EXECUTED";
+  await mkdir(resolveFromRoot(taskWorkspace), { recursive: true });
+  const workspaceFile = `${taskWorkspace}/workspace.json`;
+  await writeFile(resolveFromRoot(workspaceFile), `${JSON.stringify({
+    schema_version: 1,
+    batch_id: batchId,
+    task_id: task.task_id,
+    owner_agent: task.owner_agent,
+    execution_strategy: strategy,
+    target_package: task.target_package,
+    allowed_paths: task.allowed_paths,
+    forbidden_paths: task.forbidden_paths,
+    safety: {
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "disabled",
+      managed_project_writes: "disabled",
+      real_worker_execution: "disabled"
+    }
+  }, null, 2)}\n`, "utf8");
+  const changedFiles = await writeBatchTaskImplementation(task, batchId);
+  for (const command of task.validation_commands ?? []) {
+    taskCommands.push(await runAllowedCommand(command));
+  }
+  const validationResult = validationSummary(taskCommands);
+  const report = {
+    schema_version: 1,
+    batch_id: batchId,
+    task_id: task.task_id,
+    owner_agent: task.owner_agent,
+    target_package: task.target_package,
+    skill_type: task.skill_type,
+    runtime: task.runtime,
+    status,
+    execution_mode: task.effective_execution_mode,
+    execution_strategy: strategy,
+    risk: task.risk,
+    task_workspace: taskWorkspace,
+    allowed_paths: task.allowed_paths,
+    forbidden_paths: task.forbidden_paths,
+    dependencies: task.dependencies,
+    changed_files: changedFiles,
+    validation_result: validationResult,
+    commands_run: taskCommands,
+    safety: {
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "disabled",
+      managed_project_writes: "disabled",
+      real_worker_execution: "disabled"
+    }
+  };
+  const reportFiles = await writeBatchTaskReport(report);
+  return {
+    ...task,
+    status,
+    execution_strategy: strategy,
+    task_workspace: taskWorkspace,
+    changed_files: unique([...changedFiles, workspaceFile, ...reportFiles]).sort(),
+    validation_result: validationResult,
+    commands_run: taskCommands
+  };
+}
+
+async function executeBatchTasks(tasks, batchId, parallel) {
+  const strategy = `sequential_executor_with_parallel_plan_semantics_parallel_${parallel}`;
+  const results = [];
+  for (const task of tasks) {
+    if (task.automatic_execution_allowed || task.proposal_required) {
+      results.push(await executeBatchTask(task, batchId, strategy));
+    } else {
+      results.push({
+        ...task,
+        status: "SKIPPED",
+        execution_strategy: strategy,
+        task_workspace: `autopilot-runs/workspaces/${batchId}/${task.task_id}`,
+        changed_files: [],
+        validation_result: {
+          status: "SKIPPED",
+          command_count: 0,
+          failed_commands: []
+        },
+        commands_run: []
+      });
+    }
+  }
+  return { strategy, results };
+}
+
+function batchExecutionValidationSummary(results) {
+  const failed = results.filter((result) => result.validation_result.status === "FAIL");
+  return {
+    status: failed.length === 0 ? "PASS" : "FAIL",
+    task_count: results.length,
+    failed_tasks: failed.map((result) => result.task_id)
+  };
+}
+
+function batchSummaryMarkdown(summary) {
+  const rows = summary.tasks.map((task) =>
+    `| ${task.owner_agent} | ${task.task_id} | ${task.status} | ${task.risk} | ${task.effective_execution_mode} | ${task.validation_result.status} | ${(task.changed_files ?? []).join(", ")} |`
+  ).join("\n");
+  return `# Autopilot Batch Execution Summary
+
+- batch_id: ${summary.batch_id}
+- goal: ${summary.goal}
+- execution_strategy: ${summary.execution_strategy}
+- parallel_requested: ${summary.parallel_requested}
+- implementation_commit_hash: ${summary.implementation_commit_hash}
+- validation_status: ${summary.validation_result.status}
+
+## Agent Allocation
+
+| Agent | Task | Status | Risk | Mode | Validation | Changed Files |
+| --- | --- | --- | --- | --- | --- | --- |
+${rows}
+
+## Safety
+
+- deploy: disabled
+- production_operations: disabled
+- credential_values: disabled
+- managed_project_writes: disabled
+- real_worker_execution: disabled
+
+## Next Recommendation
+
+- title: ${summary.next_recommendation.title}
+- command: ${summary.next_recommendation.command}
+`;
+}
+
+async function writeBatchSummary(summary) {
+  const summaryFile = `autopilot-runs/${summary.batch_id}-summary.md`;
+  await mkdir(resolveFromRoot("autopilot-runs"), { recursive: true });
+  await writeFile(resolveFromRoot(summaryFile), batchSummaryMarkdown(summary), "utf8");
+  return summaryFile;
+}
+
 function autopilotBatchRunFiles(run) {
   return [
     `autopilot-runs/${run.run_id}.json`,
@@ -4894,7 +5399,7 @@ function autopilotBatchRunFiles(run) {
 
 function autopilotBatchMarkdown(run) {
   const rows = run.batch_plan.tasks.map((task) =>
-    `| ${task.owner_agent} | ${task.task_id} | ${task.target_package} | ${task.skill_type} | ${task.runtime} | ${task.risk} | ${task.effective_execution_mode} | ${task.execution_gate.reason} |`
+    `| ${task.owner_agent} | ${task.task_id} | ${task.status ?? "PLANNED"} | ${task.target_package} | ${task.skill_type} | ${task.runtime} | ${task.risk} | ${task.effective_execution_mode} | ${task.execution_gate.reason} |`
   ).join("\n");
   return `# Autopilot Batch Plan
 
@@ -4904,13 +5409,22 @@ function autopilotBatchMarkdown(run) {
 - goal: ${run.goal}
 - batch_id: ${run.batch_plan.batch_id}
 - parallel_requested: ${run.parallel_requested}
+- execution_strategy: ${run.execution_strategy}
+- implementation_commit_hash: ${run.commit_hash ?? "none"}
+- summary_file: ${run.batch_summary_file ?? "none"}
 - execution_result: ${run.execution_result.summary}
 
 ## Tasks
 
-| Agent | Task | Target Package | Skill | Runtime | Risk | Mode | Gate |
-| --- | --- | --- | --- | --- | --- | --- | --- |
+| Agent | Task | Status | Target Package | Skill | Runtime | Risk | Mode | Gate |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
 ${rows}
+
+## Validation
+
+- status: ${run.validation_result.status}
+- command_count: ${run.validation_result.command_count}
+- failed_commands: ${run.validation_result.failed_commands.length === 0 ? "none" : run.validation_result.failed_commands.join(", ")}
 
 ## Safety
 
@@ -4946,9 +5460,15 @@ function buildAutopilotBatchRun({
   batchPlan,
   tasks,
   commandsRun,
-  changedFiles
+  changedFiles,
+  executionStrategy = "proposal_only",
+  executionResult = null,
+  validationResult = null,
+  commitHash = null,
+  batchSummaryFile = null
 }) {
   const now = new Date().toISOString();
+  const failedCommands = commandsRun.filter((command) => !command.ok).map((command) => command.command);
   return {
     schema_version: 1,
     run_id: `autopilot-batch-${timestampForFile(now)}-${createHash("sha1").update(`${goal}:${now}:batch`).digest("hex").slice(0, 8)}`,
@@ -4962,8 +5482,9 @@ function buildAutopilotBatchRun({
       ...batchPlan,
       tasks
     },
-    execution_mode: "batch_proposal",
-    execution_result: {
+    execution_mode: mode === "apply" ? "batch_execute" : "batch_proposal",
+    execution_strategy: executionStrategy,
+    execution_result: executionResult ?? {
       executed: false,
       implementation: "parallel-batch-planner-proposal",
       summary: mode === "dry-run"
@@ -4972,14 +5493,18 @@ function buildAutopilotBatchRun({
     },
     commands_run: commandsRun,
     changed_files: changedFiles,
-    validation_result: {
+    validation_result: validationResult ?? {
       status: mode === "dry-run" ? "DRY_RUN" : "RECORDED",
       command_count: commandsRun.length,
-      failed_commands: commandsRun.filter((command) => !command.ok).map((command) => command.command)
+      failed_commands: failedCommands
     },
+    commit_hash: commitHash,
+    batch_summary_file: batchSummaryFile,
     next_recommendation: {
-      title: "Review batch plan before parallel execution",
-      reason: "Parallel Autopilot Planner currently produces a governed batch proposal; the next step is approving an executor implementation for selected LOW/MEDIUM tasks.",
+      title: mode === "apply" ? "Review batch execution summary" : "Review batch plan before parallel execution",
+      reason: mode === "apply"
+        ? "Batch Executor completed the safe local tasks and left HIGH risk work proposal-only."
+        : "Parallel Autopilot Planner currently produces a governed batch proposal; the next step is approving an executor implementation for selected LOW/MEDIUM tasks.",
       command: `node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal "${goal}" --dry-run`
     },
     safety: {
@@ -5001,12 +5526,16 @@ function printAutopilotBatch(run, files = null) {
   console.log(`batch_id: ${run.batch_plan.batch_id}`);
   console.log(`parallel_requested: ${run.parallel_requested}`);
   console.log(`task_count: ${run.batch_plan.tasks.length}`);
-  console.log("execution: proposal_only");
+  console.log(`execution_strategy: ${run.execution_strategy}`);
+  console.log(`execution: ${run.execution_result.executed ? "executed" : "proposal_only"}`);
+  console.log(`validation: ${run.validation_result.status}`);
+  console.log(`commit_hash: ${run.commit_hash ?? "none"}`);
+  console.log(`summary_file: ${run.batch_summary_file ?? "none"}`);
   console.log("");
-  console.log("| Agent | Task | Target Package | Skill | Runtime | Risk | Mode | Proposal |");
-  console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
+  console.log("| Agent | Task | Status | Target Package | Skill | Runtime | Risk | Mode | Proposal |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const task of run.batch_plan.tasks) {
-    console.log(`| ${task.owner_agent} | ${task.task_id} | ${task.target_package} | ${task.skill_type} | ${task.runtime} | ${task.risk} | ${task.effective_execution_mode} | ${task.proposal_required ? "yes" : "no"} |`);
+    console.log(`| ${task.owner_agent} | ${task.task_id} | ${task.status ?? "PLANNED"} | ${task.target_package} | ${task.skill_type} | ${task.runtime} | ${task.risk} | ${task.effective_execution_mode} | ${task.proposal_required ? "yes" : "no"} |`);
   }
   console.log("");
   console.log("automatic_execution_allowed:");
@@ -5031,8 +5560,7 @@ function printAutopilotBatch(run, files = null) {
   if (files) {
     console.log("");
     console.log("written_files:");
-    console.log(`- ${files.jsonPath}`);
-    console.log(`- ${files.markdownPath}`);
+    for (const file of Object.values(files).flat()) console.log(`- ${file}`);
   }
 }
 
@@ -5097,9 +5625,101 @@ async function autopilotBatch(args) {
     return;
   }
 
-  run.changed_files = autopilotBatchRunFiles(run);
-  const files = await writeAutopilotBatchRun(run);
-  printAutopilotBatch(run, files);
+  const execution = await executeBatchTasks(tasks, output.batch_plan.batch_id, args.parallel);
+  commandsRun.push(...execution.results.flatMap((result) =>
+    result.commands_run.map((command) => ({
+      ...command,
+      command: `${result.task_id}: ${command.command}`
+    }))
+  ));
+  const finalDiffCheck = await runAllowedCommand("git diff --check");
+  commandsRun.push(finalDiffCheck);
+
+  let validationResult = batchExecutionValidationSummary(execution.results);
+  if (!finalDiffCheck.ok) {
+    validationResult = {
+      status: "FAIL",
+      task_count: execution.results.length,
+      failed_tasks: unique([...validationResult.failed_tasks, "git diff --check"])
+    };
+  }
+
+  let implementationCommitHash = "";
+  let summaryFile = "";
+  let files = null;
+  if (validationResult.status === "PASS") {
+    const implementationChangedFiles = await currentChangedFiles();
+    const implementationCommit = await commitPaths(
+      implementationChangedFiles,
+      "chore(autopilot): execute parallel batch tasks",
+      commandsRun
+    );
+    implementationCommitHash = implementationCommit.hash;
+    if (!implementationCommit.ok) {
+      validationResult = {
+        status: "FAIL",
+        task_count: execution.results.length,
+        failed_tasks: unique([...validationResult.failed_tasks, "git commit batch implementation"])
+      };
+    }
+  }
+
+  const nextRecommendationValue = {
+    title: "Review V5 batch execution and approve the next executor increment",
+    reason: "The batch executor completed LOW/MEDIUM local tasks sequentially while preserving the parallel plan and leaving HIGH risk work proposal-only.",
+    command: `node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal "${goal}" --dry-run`
+  };
+  const summary = {
+    batch_id: output.batch_plan.batch_id,
+    goal,
+    execution_strategy: execution.strategy,
+    parallel_requested: args.parallel,
+    implementation_commit_hash: implementationCommitHash || "none",
+    tasks: execution.results,
+    validation_result: validationResult,
+    next_recommendation: nextRecommendationValue
+  };
+  summaryFile = await writeBatchSummary(summary);
+
+  const applyRun = buildAutopilotBatchRun({
+    goal,
+    mode: "apply",
+    parallel: args.parallel,
+    globalContext,
+    planningOutput: output,
+    batchPlan: output.batch_plan,
+    tasks: execution.results,
+    commandsRun,
+    changedFiles: unique([...execution.results.flatMap((result) => result.changed_files), summaryFile]).sort(),
+    executionStrategy: execution.strategy,
+    executionResult: {
+      executed: validationResult.status === "PASS",
+      implementation: "sequential-batch-executor-with-parallel-plan-semantics",
+      summary: "Executed LOW/MEDIUM local repository tasks sequentially with parallel plan semantics; HIGH risk tasks remained proposal-only."
+    },
+    validationResult: {
+      status: validationResult.status,
+      command_count: commandsRun.length,
+      failed_commands: validationResult.failed_tasks
+    },
+    commitHash: implementationCommitHash || null,
+    batchSummaryFile: summaryFile
+  });
+  files = await writeAutopilotBatchRun(applyRun);
+
+  if (validationResult.status === "PASS") {
+    const recordCommit = await commitPaths(
+      unique([summaryFile, ...autopilotBatchRunFiles(applyRun)]),
+      "chore(autopilot): record batch execution summary",
+      commandsRun
+    );
+    applyRun.summary_commit_hash = recordCommit.hash || null;
+  }
+  printAutopilotBatch(applyRun, {
+    jsonPath: files.jsonPath,
+    markdownPath: files.markdownPath,
+    summaryPath: summaryFile
+  });
 }
 
 async function autopilotRunner(args) {

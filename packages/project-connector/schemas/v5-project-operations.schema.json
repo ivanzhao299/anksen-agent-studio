@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/v5-project-operations.schema.json",
+  "title": "V5 Project Operations",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "workspace_id",
+    "mode",
+    "projects",
+    "safety"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "workspace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "read_only",
+        "proposal_only"
+      ]
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "project_id",
+          "operation_policy",
+          "write_policy"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "operation_policy": {
+            "type": "string",
+            "enum": [
+              "read_only",
+              "proposal_only"
+            ]
+          },
+          "write_policy": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "approval_required"
+            ]
+          }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

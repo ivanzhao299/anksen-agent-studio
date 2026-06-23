@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-464dac0c47",
+  "owner_agent": "agent-2",
+  "matrix_id": "v5-governance-validation-test-matrix",
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled"
+  },
+  "checks": [
+    {
+      "check_id": "typecheck",
+      "command": "pnpm typecheck",
+      "expected": "PASS"
+    },
+    {
+      "check_id": "lint",
+      "command": "pnpm lint:check",
+      "expected": "PASS"
+    },
+    {
+      "check_id": "governance",
+      "command": "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+      "expected": "PASS"
+    },
+    {
+      "check_id": "diff",
+      "command": "git diff --check",
+      "expected": "PASS"
+    }
+  ]
+}
