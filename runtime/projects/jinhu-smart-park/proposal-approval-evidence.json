@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-24T00:00:00.000+08:00",
+  "evidence_id": "jinhu-smart-park-proposal-approval-evidence",
+  "project_id": "jinhu-smart-park",
+  "status": "PASS",
+  "proposal": {
+    "task_id": "JINHU-SMART-PARK-TASK-2A48545294",
+    "text": "优化智慧园区仪表盘移动端样式",
+    "owner": "agent-4",
+    "skill_type": "code_development",
+    "runtime": "codex-cli",
+    "risk": "HIGH",
+    "approval_required": true,
+    "approval_status": "APPROVED",
+    "proposal_status": [
+      "PROPOSED",
+      "APPROVED",
+      "PROJECT_WRITES_DISABLED",
+      "AGENT_EXECUTION_DISABLED"
+    ],
+    "source_file": "examples/jinhu-smart-park/task-proposals/JINHU-SMART-PARK-TASK-2A48545294.json"
+  },
+  "approval": {
+    "status": "APPROVED",
+    "approved_at": "2026-06-23T07:22:04.307Z",
+    "approved_by": "anksen-agent-studio.project.approve-proposal",
+    "high_risk_gate": "approved_before_prior_remote_execute_smoke"
+  },
+  "execution_report": {
+    "status": "PASS",
+    "task_status": "AUDITED",
+    "result_status": "DONE",
+    "audit_status": "PASS",
+    "doctor_status": "GO",
+    "active_locks": 0,
+    "source_file": "examples/jinhu-smart-park/execution-reports/JINHU-SMART-PARK-TASK-2A48545294.md"
+  },
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read",
+    "real_model_calls": "disabled",
+    "agent_execution": "not_executed_in_this_validation"
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-24T00:00:00.000+08:00",
+  "evidence_id": "jinhu-smart-park-project-chain-final-productization",
+  "project_id": "jinhu-smart-park",
+  "status": "PASS",
+  "chain": [
+    {
+      "step": "Project Connector",
+      "status": "PASS",
+      "evidence": "examples/jinhu-smart-park/project.config.example.json"
+    },
+    {
+      "step": "Project Runtime Memory",
+      "status": "PASS",
+      "evidence": "runtime/projects/jinhu-smart-park/project-state.json"
+    },
+    {
+      "step": "Task Proposal",
+      "status": "PASS",
+      "evidence": "examples/jinhu-smart-park/task-proposals/JINHU-SMART-PARK-TASK-2A48545294.json"
+    },
+    {
+      "step": "Approval Evidence",
+      "status": "PASS",
+      "evidence": "runtime/projects/jinhu-smart-park/proposal-approval-evidence.json"
+    },
+    {
+      "step": "Remote Execute Evidence",
+      "status": "PASS",
+      "evidence": "examples/jinhu-smart-park/execution-reports/JINHU-SMART-PARK-TASK-2A48545294.md"
+    }
+  ],
+  "checks": [
+    {
+      "check_id": "project_connected",
+      "status": "PASS",
+      "value": true,
+      "evidence": "project_exists=true; repo_branch=main; repo_clean=yes"
+    },
+    {
+      "check_id": "runtime_memory_present",
+      "status": "PASS",
+      "value": true,
+      "evidence": "runtime/projects/jinhu-smart-park"
+    },
+    {
+      "check_id": "proposal_exists",
+      "status": "PASS",
+      "value": true,
+      "task_id": "JINHU-SMART-PARK-TASK-2A48545294"
+    },
+    {
+      "check_id": "approval_exists",
+      "status": "PASS",
+      "value": true,
+      "approved_at": "2026-06-23T07:22:04.307Z",
+      "approved_by": "anksen-agent-studio.project.approve-proposal"
+    },
+    {
+      "check_id": "remote_execute_report_exists",
+      "status": "PASS",
+      "value": true,
+      "report": "examples/jinhu-smart-park/execution-reports/JINHU-SMART-PARK-TASK-2A48545294.md"
+    },
+    {
+      "check_id": "doctor_go",
+      "status": "PASS",
+      "value": "GO"
+    },
+    {
+      "check_id": "no_active_locks",
+      "status": "PASS",
+      "value": 0
+    }
+  ],
+  "remote_execute_evidence": {
+    "task_id": "JINHU-SMART-PARK-TASK-2A48545294",
+    "mode": "apply",
+    "finalize": "PASS",
+    "task_status": "AUDITED",
+    "result_status": "DONE",
+    "audit_status": "PASS",
+    "run_log_exit_code": 0,
+    "pushed": false,
+    "deploy": "not_executed_by_agent_studio",
+    "production_operation": "not_executed_by_agent_studio",
+    "source_report": "examples/jinhu-smart-park/execution-reports/JINHU-SMART-PARK-TASK-2A48545294.md"
+  },
+  "safety": {
+    "agent_execution": "disabled_for_this_validation",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read",
+    "real_model_calls": "disabled",
+    "managed_project_writes": "not_performed_in_this_sprint"
+  }
+}

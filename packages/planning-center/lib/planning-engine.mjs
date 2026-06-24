@@ -245,6 +245,7 @@ function normalizeBatchTask(task) {
 function v5ProductizationBatchTasks(inputs) {
   const completion = v5CompletionState(inputs);
   const gaps = completion?.remaining_gaps ?? [];
+  if (gaps.length === 0) return [];
   const commonForbiddenPaths = [
     "jinhu-smart-park/**",
     "../jinhu-smart-park/**",

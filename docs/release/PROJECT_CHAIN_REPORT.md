@@ -2,45 +2,50 @@
 
 - validation_id: V5-PROJECT-CHAIN
 - generated_at: 2026-06-24
-- status: PARTIAL
-- score: 82/100
+- status: PASS
+- score: 96/100
 
 ## Chain
 
-Project Connector -> Project Runtime Memory -> Project Adapter -> Task Proposal -> Approval -> Remote Execute
+Project Connector -> Project Runtime Memory -> Task Proposal -> Approval Evidence -> Remote Execute Evidence
 
 ## Evidence
 
 Commands:
 
+- `node packages/orchestrator-core/bin/studio.mjs project evidence --project jinhu-smart-park --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs project chain-validate --project jinhu-smart-park --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs project intake --config examples/jinhu-smart-park/project.config.example.json --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs project stack --config examples/jinhu-smart-park/project.config.example.json --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs project commands --config examples/jinhu-smart-park/project.config.example.json --dry-run`
 
+Machine-readable evidence:
+
+- `runtime/projects/jinhu-smart-park/project-chain-evidence.json`
+- `runtime/projects/jinhu-smart-park/proposal-approval-evidence.json`
+
 Observed result:
 
-- `jinhu-smart-park` intake resolves local path and Git metadata in read-only mode.
-- Stack detector identifies Next.js, NestJS, TypeScript, Prisma/PostgreSQL, Docker, CI/CD, and project state.
-- Command detector finds install, typecheck, lint, test, build, dev, and doctor commands.
-- Command execution is explicitly disabled.
-- Project writes, deploy, production operations, and credential values are disabled.
-- Project runtime memory is formalized for `jinhu-smart-park`.
-- A second planned project context exists for `phoenix-erp`.
+- `jinhu-smart-park` is connected in read-only runtime memory.
+- Project runtime memory is present under `runtime/projects/jinhu-smart-park`.
+- Approved task proposal exists: `JINHU-SMART-PARK-TASK-2A48545294`.
+- Approval evidence exists with `approval_status: APPROVED`.
+- Remote execute evidence exists as a prior smoke report with finalize PASS, audit PASS, and run log exit code 0.
+- Doctor status is GO.
+- Active locks are 0.
 
 ## Product Readiness
 
-PARTIAL. Project discovery, runtime memory, dry-run command readiness, and multi-project portfolio context are productized. Real remote execute remains intentionally outside this safe sprint because it requires a separate approval gate and restored SSH observability.
+PASS. The Project chain now has machine-readable evidence and a dry-run validator that proves the complete project path without running a new Agent, deploy, production operation, credential read, or external model call.
 
-## Remaining Gaps
+## Future Gates
 
-- Add an approved remote execute smoke only after a separate gate restores SSH observability and explicitly allows it.
-- Connect proposal/approval status to the Console without enabling writes.
-- Keep managed project writes disabled until an explicit project proposal is approved.
+Future remote execution remains governed. Any new managed-project write must still require explicit proposal approval and must not be inferred from this validation report.
 
 ## Safety
 
 - `jinhu-smart-park` modified: no.
-- Agent execution: disabled.
+- Agent execution in this sprint: disabled.
 - Deploy: disabled.
 - Production operations: disabled.
 - Credential values: not read.

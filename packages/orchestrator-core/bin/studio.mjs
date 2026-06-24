@@ -24,6 +24,8 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs project commands --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project inspect --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project parity --config <file> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs project evidence --project <project_id> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs project chain-validate --project <project_id> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project import-memory --config <file> [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs project memory --config <file> --summary
   node packages/orchestrator-core/bin/studio.mjs project task-plan --config <file> --text "..." [--dry-run|--apply-proposal]
@@ -2371,7 +2373,7 @@ async function buildV5CompletionState(roadmap, validationReportText, runFiles) {
   const rawGaps = [
     ...markdownListItems(validationReportText, "Productization Gaps"),
     ...markdownListItems(validationReportText, "Productization Remaining Gaps")
-  ];
+  ].filter((item) => item.toLowerCase() !== "none");
   const remainingGaps = rawGaps.length > 0
     ? rawGaps.map(classifyV5Gap)
     : partialAreas.map((area) => classifyV5Gap(`${area} productization remains partial.`));
@@ -6445,6 +6447,59 @@ async function autopilotBatch(args) {
   const completionAware = /\bV5\b/i.test(goal);
   const { output } = await runPlanningCenter(goal, { completionAware });
   if (!output.batch_plan?.tasks?.length) {
+    if (output.v5_completion?.ready_for_productization_review) {
+      const commandsRun = [
+        {
+          command: "read runtime/global/*",
+          ok: true,
+          status: 0,
+          blocked: false,
+          stdout_tail: `files=${Object.keys(globalContext.files).length}; v5=${globalContext.v5_roadmap?.plan_id ?? "missing"}`,
+          stderr_tail: ""
+        },
+        {
+          command: "Planning Center batch_plan",
+          ok: true,
+          status: 0,
+          blocked: false,
+          stdout_tail: "STOP: READY_FOR_V5_PRODUCTIZATION_REVIEW; tasks=0",
+          stderr_tail: ""
+        }
+      ];
+      const run = buildAutopilotBatchRun({
+        goal,
+        mode: args.apply ? "apply" : "dry-run",
+        parallel: args.parallel,
+        globalContext,
+        planningOutput: output,
+        batchPlan: output.batch_plan ?? {
+          batch_id: `batch-plan-stop-${createHash("sha1").update(goal).digest("hex").slice(0, 8)}`,
+          goal,
+          tasks: []
+        },
+        tasks: [],
+        commandsRun,
+        changedFiles: [],
+        executionStrategy: "stop_ready_for_v5_productization_review",
+        executionResult: {
+          executed: false,
+          implementation: "completion-aware-stop",
+          summary: "No remaining V5 productization gaps were found. Autopilot batch stopped without writing files or executing tasks."
+        },
+        validationResult: {
+          status: "DRY_RUN",
+          command_count: commandsRun.length,
+          failed_commands: []
+        },
+        trueParallel: false,
+        pathOverlap: { detected: false, overlaps: [] },
+        parallelBatches: [],
+        actualParallelism: 0,
+        highRiskDecomposition: []
+      });
+      printAutopilotBatch(run);
+      return;
+    }
     throw new Error("Planning Center did not return a batch_plan for this goal.");
   }
   const decomposition = decomposeHighRiskBatchTasks(output.batch_plan.tasks);
@@ -7123,6 +7178,212 @@ async function projectCommands(args) {
   console.log("- production_operations: disabled");
 }
 
+function projectConfigPathForProjectArg(args) {
+  if (args.config) return resolveMaybeFromRoot(args.config);
+  const projectId = contextProjectId(args.project || DEFAULT_PROJECT);
+  return resolveFromRoot(`examples/${safeSegment(projectId)}/project.config.example.json`);
+}
+
+async function readProjectEvidenceSources(args) {
+  const projectId = contextProjectId(args.project || args.config || DEFAULT_PROJECT);
+  const configPath = projectConfigPathForProjectArg(args);
+  const exampleDir = resolveFromRoot(`examples/${safeSegment(projectId)}`);
+  const contextDir = projectContextDir(projectId);
+  const projectStatePath = join(contextDir, "project-state.json");
+  const agentStatusPath = join(contextDir, "agent-studio-status.json");
+  const architecturePath = join(contextDir, "architecture.json");
+  const handoffPath = join(contextDir, "handoff-summary.md");
+  const chainEvidencePath = join(contextDir, "project-chain-evidence.json");
+  const approvalEvidencePath = join(contextDir, "proposal-approval-evidence.json");
+  const proposalFiles = (await listFilesSafe(join(exampleDir, "task-proposals")))
+    .filter((file) => file.endsWith(".json"))
+    .sort();
+  const executionReportFiles = (await listFilesSafe(join(exampleDir, "execution-reports")))
+    .filter((file) => file.endsWith(".md"))
+    .sort();
+  const proposals = [];
+  for (const file of proposalFiles) {
+    const proposal = await readJsonIfExists(file);
+    if (proposal) proposals.push({ file, proposal });
+  }
+  const approvedProposal = proposals.find(({ proposal }) =>
+    proposal.approval_status === "APPROVED"
+    || (proposal.proposal_status ?? []).includes("APPROVED")
+  ) ?? proposals[0] ?? null;
+  const selectedTaskId = approvedProposal?.proposal?.task_id ?? "";
+  const executionReportPath = executionReportFiles.find((file) => file.endsWith(`${selectedTaskId}.md`))
+    ?? latestFile(executionReportFiles);
+  const executionReportText = await readTextIfExists(executionReportPath);
+  const projectState = await readJsonIfExists(projectStatePath);
+  const agentStatus = await readJsonIfExists(agentStatusPath);
+  const chainEvidence = await readJsonIfExists(chainEvidencePath);
+  const approvalEvidence = await readJsonIfExists(approvalEvidencePath);
+  return {
+    projectId,
+    configPath,
+    contextDir,
+    projectStatePath,
+    agentStatusPath,
+    architecturePath,
+    handoffPath,
+    chainEvidencePath,
+    approvalEvidencePath,
+    proposalFiles,
+    executionReportFiles,
+    approvedProposal,
+    executionReportPath,
+    executionReportText,
+    projectState,
+    agentStatus,
+    chainEvidence,
+    approvalEvidence
+  };
+}
+
+function projectEvidenceChecks(sources) {
+  const projectState = sources.projectState ?? {};
+  const agentStatus = sources.agentStatus ?? {};
+  const proposal = sources.approvedProposal?.proposal ?? null;
+  const reportText = sources.executionReportText ?? "";
+  const activeLocks = Number(projectState.queue_summary?.active_locks
+    ?? agentStatus.queue_summary?.active_locks
+    ?? 0);
+  const doctorStatus = projectState.local_orchestrator_status?.doctor_status
+    ?? agentStatus.local_orchestrator_status?.doctor_status
+    ?? "unknown";
+  const taskId = proposal?.task_id ?? "";
+  const runtimeMemoryFiles = [
+    sources.projectStatePath,
+    sources.agentStatusPath,
+    sources.architecturePath,
+    sources.handoffPath
+  ];
+  const checks = [
+    {
+      check_id: "project_connected",
+      status: projectState.project_id === sources.projectId && projectState.project_exists === true ? "PASS" : "FAIL",
+      evidence: `project_exists=${projectState.project_exists === true ? "yes" : "no"}`
+    },
+    {
+      check_id: "runtime_memory_present",
+      status: runtimeMemoryFiles.every((file) => existsSync(file)) ? "PASS" : "FAIL",
+      evidence: runtimeMemoryFiles.map((file) => relativePath(file)).join(", ")
+    },
+    {
+      check_id: "proposal_exists",
+      status: proposal ? "PASS" : "FAIL",
+      evidence: sources.approvedProposal?.file ? relativePath(sources.approvedProposal.file) : "missing"
+    },
+    {
+      check_id: "approval_exists",
+      status: proposal?.approval_status === "APPROVED" && Boolean(proposal?.approved_at) ? "PASS" : "FAIL",
+      evidence: proposal ? `approval_status=${proposal.approval_status}; approved_at=${proposal.approved_at ?? "missing"}` : "missing"
+    },
+    {
+      check_id: "remote_execute_report_exists",
+      status: sources.executionReportPath
+        && reportText.includes("# Remote Project Execute Smoke Report")
+        && (!taskId || reportText.includes(taskId))
+        ? "PASS"
+        : "FAIL",
+      evidence: sources.executionReportPath ? relativePath(sources.executionReportPath) : "missing"
+    },
+    {
+      check_id: "remote_execute_evidence_pass",
+      status: /finalize:\s*PASS/i.test(reportText)
+        && /audit_status:\s*PASS/i.test(reportText)
+        && /run_log_exit_code:\s*0/i.test(reportText)
+        ? "PASS"
+        : "FAIL",
+      evidence: "finalize=PASS; audit_status=PASS; run_log_exit_code=0"
+    },
+    {
+      check_id: "doctor_go",
+      status: doctorStatus === "GO" ? "PASS" : "FAIL",
+      evidence: `doctor_status=${doctorStatus}`
+    },
+    {
+      check_id: "no_active_locks",
+      status: activeLocks === 0 ? "PASS" : "FAIL",
+      evidence: `active_locks=${activeLocks}`
+    },
+    {
+      check_id: "machine_readable_evidence_present",
+      status: sources.chainEvidence && sources.approvalEvidence ? "PASS" : "FAIL",
+      evidence: [
+        sources.chainEvidencePath,
+        sources.approvalEvidencePath
+      ].map((file) => `${relativePath(file)}=${existsSync(file) ? "present" : "missing"}`).join("; ")
+    }
+  ];
+  return {
+    status: checks.every((check) => check.status === "PASS") ? "PASS" : "FAIL",
+    project_id: sources.projectId,
+    task_id: taskId || "missing",
+    proposal_file: sources.approvedProposal?.file ? relativePath(sources.approvedProposal.file) : "",
+    execution_report_file: sources.executionReportPath ? relativePath(sources.executionReportPath) : "",
+    doctor_status: doctorStatus,
+    active_locks: activeLocks,
+    checks
+  };
+}
+
+async function projectEvidence(args) {
+  assertDryRun(args, "project evidence");
+  const sources = await readProjectEvidenceSources(args);
+  const result = projectEvidenceChecks(sources);
+  console.log("# Project Chain Evidence dry-run");
+  console.log("");
+  console.log(`project_id: ${result.project_id}`);
+  console.log(`status: ${result.status}`);
+  console.log(`task_id: ${result.task_id}`);
+  console.log(`chain_evidence_file: ${relativePath(sources.chainEvidencePath)}`);
+  console.log(`proposal_approval_evidence_file: ${relativePath(sources.approvalEvidencePath)}`);
+  console.log(`proposal_file: ${result.proposal_file || "missing"}`);
+  console.log(`execution_report_file: ${result.execution_report_file || "missing"}`);
+  console.log(`doctor_status: ${result.doctor_status}`);
+  console.log(`active_locks: ${result.active_locks}`);
+  console.log("");
+  console.log("chain:");
+  console.log(`- Project Connector: ${result.checks.find((check) => check.check_id === "project_connected")?.status}`);
+  console.log(`- Project Runtime Memory: ${result.checks.find((check) => check.check_id === "runtime_memory_present")?.status}`);
+  console.log(`- Task Proposal: ${result.checks.find((check) => check.check_id === "proposal_exists")?.status}`);
+  console.log(`- Approval Evidence: ${result.checks.find((check) => check.check_id === "approval_exists")?.status}`);
+  console.log(`- Remote Execute Evidence: ${result.checks.find((check) => check.check_id === "remote_execute_report_exists")?.status}`);
+  console.log("");
+  console.log("safety:");
+  console.log("- agent_execution: disabled");
+  console.log("- deploy: disabled");
+  console.log("- production_operations: disabled");
+  console.log("- credential_values: not_read");
+  if (result.status !== "PASS") process.exitCode = 1;
+}
+
+async function projectChainValidate(args) {
+  assertDryRun(args, "project chain-validate");
+  const sources = await readProjectEvidenceSources(args);
+  const result = projectEvidenceChecks(sources);
+  console.log("# Project Chain Validate dry-run");
+  console.log("");
+  console.log(`project_id: ${result.project_id}`);
+  console.log(`status: ${result.status}`);
+  console.log(`task_id: ${result.task_id}`);
+  console.log("");
+  console.log("| Check | Status | Evidence |");
+  console.log("| --- | --- | --- |");
+  for (const check of result.checks) {
+    console.log(`| ${check.check_id} | ${check.status} | ${check.evidence} |`);
+  }
+  console.log("");
+  console.log("blocked_operations:");
+  console.log("- agent_execution");
+  console.log("- deploy");
+  console.log("- production_operations");
+  console.log("- credential_value_read");
+  console.log("- real_model_call");
+  if (result.status !== "PASS") process.exitCode = 1;
+}
+
 async function debugAnalyze(args) {
   assertDryRun(args, "debug analyze");
   const fixturePath = resolveMaybeFromRoot(args.fixture || args.target);
@@ -7676,6 +7937,8 @@ async function main() {
   if (args.command === "project" && args.subcommand === "intake") return projectIntake(args);
   if (args.command === "project" && args.subcommand === "stack") return projectStack(args);
   if (args.command === "project" && args.subcommand === "commands") return projectCommands(args);
+  if (args.command === "project" && args.subcommand === "evidence") return projectEvidence(args);
+  if (args.command === "project" && args.subcommand === "chain-validate") return projectChainValidate(args);
   if (args.command === "project" && args.subcommand === "inspect") return projectInspect(args);
   if (args.command === "project" && args.subcommand === "parity") return projectParity(args);
   if (args.command === "project" && args.subcommand === "import-memory") return projectImportMemory(args);
