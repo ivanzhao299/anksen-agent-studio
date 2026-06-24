@@ -14,7 +14,7 @@ function escapeHtml(value) {
 }
 
 function nav(activeId) {
-  return `<nav>${consoleWebRoutes.map((route) => {
+  return `<nav>${consoleWebRoutes.filter((route) => route.showInNav !== false).map((route) => {
     const active = route.id === activeId ? "active" : "";
     return `<a class="${active}" href="${route.navPath}">${escapeHtml(route.label)}</a>`;
   }).join("")}</nav>`;
@@ -107,7 +107,7 @@ function topStatusBar(model, data) {
     ${badge("平台状态", model.platform_status, "good")}
     ${badge("Pilot Production", "ENABLED", "good")}
     ${badge("当前项目", model.active_project, "neutral")}
-    ${badge("Worker", model.modules.workers, "neutral")}
+    ${badge("Agent", model.modules.workers, "neutral")}
     ${badge("风险闸门", "LOW/MEDIUM 直执", "good")}
     ${badge("最近运行", data.autopilot.latest_summary?.validation ?? "unknown", data.autopilot.latest_summary?.validation === "PASS" ? "good" : "warn")}
   </div>`;
@@ -116,10 +116,20 @@ function topStatusBar(model, data) {
 function actionWorkbench(data, title = "统一 AI 开发工作台") {
   const projectOptions = data.actionServer.projects.map((item) => formOption(item.project_id, projectDisplayLabel(item)));
   const flowSteps = [
-    ["Planning", "把目标拆成计划与风险判断"],
-    ["Agent 执行", "按模式选择 Codex CLI 或其他 Runtime Adapter"],
-    ["Validation", "运行本地验证与安全检查"],
-    ["Report", "生成结果摘要与 Action Log"]
+    ["规划", "把目标拆成任务、风险和执行策略"],
+    ["Agent 执行", "自动选择或指定 Codex / Claude / Gemini / OpenHands / Aider"],
+    ["验证 / CI", "运行本地验证、CI 准备和安全检查"],
+    ["报告", "生成结果摘要、阻断项和下一步建议"]
+  ];
+  const capabilities = [
+    "任务创建",
+    "Agent 调度",
+    "代码修改",
+    "重构",
+    "验证",
+    "CI/CD",
+    "服务器配置",
+    "生产配置治理"
   ];
   return `<section class="workspace-shell">
     <div class="ai-workspace">
@@ -127,10 +137,11 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
         <div>
           <span class="eyebrow">ANKSEN Agent Studio</span>
           <h2>${escapeHtml(title)}</h2>
-          <p>用户只需要选择项目、输入目标、选择模式和 Agent。Runtime、Worker、Credential、Governance、Autopilot 留在后台协同。</p>
+          <p>一个对话式入口统一接入 Codex、Claude Code、Gemini、OpenHands、Aider 和 Local Agent。当前优先服务 jinhu-smart-park 上线，后续接入 ERP 项目。</p>
         </div>
         <span class="pill">Pilot Production / 127.0.0.1</span>
       </div>
+      <div class="capability-strip">${capabilities.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
       <label for="action-goal">输入目标</label>
       <textarea id="action-goal" class="goal-box command-input" placeholder="输入目标，例如：生成 Smart Park 上线计划 / 检查项目阻断项 / 继续推进 Pilot">继续推进 Pilot</textarea>
       <div class="workspace-controls">
@@ -185,27 +196,27 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
     </div>
     <aside class="advanced-config">
       <div class="section-head small">
-        <h3>高级配置</h3>
+        <h3>必要配置</h3>
         <span class="pill">默认折叠</span>
       </div>
       <details>
-        <summary>Runtime</summary>
-        <p>默认 Runtime 为 codex-cli；其他 Agent 通过 Runtime Adapter 元数据选择，真实外部模型调用保持禁用。</p>
+        <summary>运行环境</summary>
+        <p>默认使用本地 codex-cli；其他 AI/Agent 通过后端适配器接入，真实外部模型调用保持关闭。</p>
       </details>
       <details>
-        <summary>Worker</summary>
-        <p>本地 Worker Pool 可执行 LOW/MEDIUM 安全任务；远程 Worker 保持 proposal_only。</p>
+        <summary>Agent 调度</summary>
+        <p>本地 Agent 可执行 LOW/MEDIUM 安全任务；远程或生产 Worker 仍需 Proposal 或人工审批。</p>
       </details>
       <details>
-        <summary>Credential Reference</summary>
-        <p>仅使用 reference_only，不读取、不展示、不保存真实凭证明文。</p>
+        <summary>认证与凭证</summary>
+        <p>仅配置凭证引用，不读取、不展示、不保存 API Key、SSH Key 或其他真实密钥。</p>
       </details>
       <details>
-        <summary>Governance</summary>
-        <p>LOW/MEDIUM 可本地执行，HIGH 生成 Proposal，CRITICAL 必须人工审批。</p>
+        <summary>安全审批</summary>
+        <p>LOW/MEDIUM 可本地执行，HIGH 生成 Proposal，CRITICAL 必须人工审批，不允许绕过生产闸门。</p>
       </details>
       <details>
-        <summary>Project Config</summary>
+        <summary>项目配置</summary>
         <p>jinhu-smart-park 已连接；phoenix-erp 等远程项目等待 GitHub Repo Connector 接入。</p>
       </details>
     </aside>
@@ -556,6 +567,8 @@ function shell(content, activeId, model, data) {
     .workspace-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
     .workspace-hero h2 { font-size: 30px; line-height: 1.15; margin: 4px 0 8px; }
     .eyebrow { color: var(--green); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+    .capability-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+    .capability-strip span { border: 1px solid #2b3b50; background: #0b1118; color: #c7d2df; border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 700; }
     .command-input { min-height: 150px; font-size: 16px; background: #090f16; border-color: #314258; }
     .workspace-controls { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.7fr) minmax(180px, 0.9fr) 120px; gap: 12px; align-items: end; margin-top: 12px; }
     .start-button { min-height: 42px; }

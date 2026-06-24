@@ -13,6 +13,33 @@ The Console reads local repository files only. It does not connect to a database
 
 Phoenix ERP is not connected in this pilot. It will be onboarded later through a GitHub Repo Connector instead of a presumed local path.
 
+## Product Direction
+
+ANKSEN Agent Studio Console is positioned as a unified AI development workspace, not a traditional backend administration page.
+
+The primary user workflow is:
+
+1. Select a project.
+2. Enter a goal in a conversational task box.
+3. Choose automatic planning, a specific AI/Agent, or plan-only mode.
+4. Let Studio coordinate planning, Agent execution, validation/CI preparation, and reporting.
+
+The homepage keeps only the user-facing controls needed for this workflow:
+
+- goal input
+- project selector
+- AI/Agent selector
+- execution timeline
+- result report
+- necessary configuration entry
+
+Runtime, Worker, Governance, Credential, Memory, and Autopilot internals remain implemented in the backend and internal routes, but they are not exposed as the main homepage product surface.
+
+Current priority projects:
+
+- `jinhu-smart-park`: connected; primary pilot and go-live readiness target
+- `phoenix-erp`: waiting for GitHub remote onboarding
+
 ## Language Policy
 
 The Pilot Console defaults to Simplified Chinese (`zh-CN`). Enterprise pilot usage prioritizes Chinese labels, navigation, module titles, status text, and risk hints.
@@ -53,17 +80,14 @@ pnpm --filter @anksen/console build
 
 ## Page Modules
 
-- 总览
+- AI 工作台
 - 项目
-- 运行时
-- Worker 节点
-- 凭证
-- 治理
-- 规划
-- 自动驾驶
-- 操作中心
-- 记忆中心
-- 试运行状态
+- Agent
+- 任务
+- 报告
+- 配置
+
+Internal diagnostic routes remain available for runtime, credentials, governance, planning, memory, and pilot status, but they are not the primary navigation.
 
 ## Local Data Sources
 
@@ -103,17 +127,14 @@ Smoke validates:
 
 ## Action Policy
 
-Console Actions remain dry-run or proposal-only:
+Console Actions follow Governance Gate:
 
-- Runtime health: dry-run plan
-- Project inspect: dry-run plan
-- Worker health: dry-run plan
-- Credential validate: dry-run plan
-- Governance check: dry-run plan
-- Autopilot run: dry-run plan
-- Proposal approve: proposal-only
+- LOW: local safe execution allowed
+- MEDIUM: local safe execution allowed
+- HIGH: proposal-only
+- CRITICAL: human approval required
 
-No write action is enabled from the Console in Pilot-5.
+Managed project writes, deploy, production operations, server access, external model calls, and credential value reads remain disabled unless a later approved governance flow explicitly enables them.
 
 ## GitHub Repo Connector Path
 

@@ -3,19 +3,19 @@ export const zhCN = {
   localeName: "简体中文",
   app: {
     title: "ANKSEN Agent Studio 控制台",
-    subtitle: "统一 AI 开发工作台。选择项目、输入目标、选择 Agent，由 Studio 负责规划、执行、验证和报告。"
+    subtitle: "统一 AI 开发工作台。用一个对话入口统一接入多种 AI/Agent，负责规划、修改、验证、报告和受控上线准备。"
   },
   nav: {
-    dashboard: "总览",
+    dashboard: "AI 工作台",
     projects: "项目",
     runtime: "运行时",
-    workers: "Worker 节点",
+    workers: "Agent",
     credentials: "凭证",
     governance: "治理",
     planning: "规划",
-    autopilot: "自动驾驶",
-    actions: "操作中心",
-    config: "配置中心",
+    autopilot: "报告",
+    actions: "任务",
+    config: "配置",
     memory: "记忆中心",
     pilotStatus: "试运行状态"
   },
