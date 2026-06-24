@@ -8,6 +8,10 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "lint:check": "node packages/orchestrator-core/bin/studio.mjs lint-check",
     "console:dev": "pnpm --filter @anksen/console dev",
+    "console:service:status": "node packages/orchestrator-core/bin/studio.mjs console service status",
+    "console:service:install": "node packages/orchestrator-core/bin/studio.mjs console service install --apply",
+    "console:service:start": "node packages/orchestrator-core/bin/studio.mjs console service start --apply",
+    "console:service:stop": "node packages/orchestrator-core/bin/studio.mjs console service stop --apply",
     "runtime-health-check": "node packages/runtime-center/bin/runtime-health-check.mjs --dry-run",
     "studio:doctor": "node packages/orchestrator-core/bin/studio.mjs doctor --project examples/jinhu-smart-park/project.config.example.json --dry-run"
   },

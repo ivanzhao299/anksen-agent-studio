@@ -2,7 +2,7 @@
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -78,6 +78,12 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs console actions --dry-run
   node packages/orchestrator-core/bin/studio.mjs console action-plan --action <action_id> --goal "..." --project <project_id> --dry-run
   node packages/orchestrator-core/bin/studio.mjs console action-server-smoke --dry-run
+  node packages/orchestrator-core/bin/studio.mjs console agent-status --dry-run
+  node packages/orchestrator-core/bin/studio.mjs console service status
+  node packages/orchestrator-core/bin/studio.mjs console service install [--dry-run|--apply] [--port 4317]
+  node packages/orchestrator-core/bin/studio.mjs console service start [--apply]
+  node packages/orchestrator-core/bin/studio.mjs console service stop [--apply]
+  node packages/orchestrator-core/bin/studio.mjs console service uninstall [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
   node packages/orchestrator-core/bin/studio.mjs observe [--dry-run]
@@ -114,7 +120,9 @@ function parseArgs(argv) {
     action: "",
     platform: "",
     capability: "",
+    serviceAction: command === "console" && subcommand === "service" ? rest[1] ?? "status" : "",
     region: "local",
+    port: 4317,
     budgetUsd: null,
     taskId: "",
     project: DEFAULT_PROJECT,
@@ -156,6 +164,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--capability") {
       args.capability = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--port") {
+      args.port = Number(rest[index + 1] ?? "4317");
       index += 1;
     } else if (arg === "--region") {
       args.region = rest[index + 1] ?? "";
@@ -7785,7 +7796,9 @@ function buildConsoleCliActionPlan(actionCenter, actionId, options = {}) {
       "Read Console action intent metadata.",
       "Apply Governance Gate before any command execution.",
       gate.requiresApproval ? "Generate/review proposal or approval evidence; do not execute this action." : "Allow the local Action Server to execute the mapped LOW/MEDIUM allowlist command.",
-      "Keep deploy, production operations, managed project writes, model calls, and credential value reads disabled."
+      action.id === "agent-real-plan"
+        ? "Allow only explicit user-selected local Codex/Claude CLI invocation; keep deploy, production operations, managed project writes, and credential value reads disabled."
+        : "Keep deploy, production operations, managed project writes, model calls, and credential value reads disabled."
     ],
     safety: {
       deploy: "disabled",
@@ -7793,7 +7806,7 @@ function buildConsoleCliActionPlan(actionCenter, actionId, options = {}) {
       server_access: "disabled",
       credential_values: "not_read",
       managed_project_writes: "disabled",
-      model_invocation: "disabled"
+      model_invocation: action.id === "agent-real-plan" ? "user_selected_local_cli_runtime" : "disabled"
     },
     blocked_reasons: [
       ...(action.disabledReason ? [action.disabledReason] : []),
@@ -7875,6 +7888,270 @@ async function consoleActionPlan(args) {
     for (const reason of plan.blocked_reasons) console.log(`- ${reason}`);
   }
   if (plan.not_registered) process.exitCode = 1;
+}
+
+const CONSOLE_SERVICE_LABEL = "com.anksen.agent-studio.console";
+
+function plistEscape(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+function consoleServicePaths(args) {
+  const home = process.env.HOME || "";
+  const launchAgentsDir = join(home, "Library/LaunchAgents");
+  const serviceLogDir = resolveFromRoot("runtime/local-services");
+  return {
+    label: CONSOLE_SERVICE_LABEL,
+    port: Number.isFinite(args.port) ? args.port : 4317,
+    launchAgentsDir,
+    plistPath: join(launchAgentsDir, `${CONSOLE_SERVICE_LABEL}.plist`),
+    serviceLogDir,
+    stdoutPath: join(serviceLogDir, "console.out.log"),
+    stderrPath: join(serviceLogDir, "console.err.log"),
+    serverPath: resolveFromRoot("apps/console/web/server.mjs"),
+    nodePath: process.execPath,
+    domain: process.platform === "darwin" && typeof process.getuid === "function" ? `gui/${process.getuid()}` : ""
+  };
+}
+
+function consoleServicePlist(args) {
+  const paths = consoleServicePaths(args);
+  const pathValue = [
+    dirname(paths.nodePath),
+    "/Users/mac/.local/bin",
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin",
+    "/usr/sbin",
+    "/sbin",
+    process.env.PATH || ""
+  ].filter(Boolean).join(":");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${plistEscape(paths.label)}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${plistEscape(paths.nodePath)}</string>
+    <string>${plistEscape(paths.serverPath)}</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>${plistEscape(repoRoot)}</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PORT</key>
+    <string>${plistEscape(paths.port)}</string>
+    <key>NODE_ENV</key>
+    <string>production</string>
+    <key>PATH</key>
+    <string>${plistEscape(pathValue)}</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>${plistEscape(paths.stdoutPath)}</string>
+  <key>StandardErrorPath</key>
+  <string>${plistEscape(paths.stderrPath)}</string>
+</dict>
+</plist>
+`;
+}
+
+async function runOptional(command, args, options = {}) {
+  try {
+    const result = await execFileAsync(command, args, {
+      cwd: repoRoot,
+      timeout: options.timeout ?? 30000,
+      maxBuffer: 1024 * 1024 * 4
+    });
+    return { ok: true, stdout: result.stdout, stderr: result.stderr };
+  } catch (error) {
+    return {
+      ok: false,
+      stdout: error?.stdout ?? "",
+      stderr: error?.stderr ?? error?.message ?? String(error)
+    };
+  }
+}
+
+async function listeningPids(port) {
+  const result = await runOptional("lsof", ["-tiTCP:" + port, "-sTCP:LISTEN"], { timeout: 10000 });
+  if (!result.ok && !result.stdout.trim()) return [];
+  return result.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+}
+
+async function stopManualConsoleProcesses(port) {
+  const pids = await listeningPids(port);
+  const stopped = [];
+  for (const pid of pids) {
+    const ps = await runOptional("ps", ["-p", pid, "-o", "command="], { timeout: 10000 });
+    const command = ps.stdout.trim();
+    if (!command.includes("apps/console/web/server.mjs") && !command.includes("web/server.mjs")) continue;
+    try {
+      process.kill(Number(pid), "SIGTERM");
+      stopped.push({ pid, command });
+    } catch {
+      // Best-effort cleanup only. launchd status will show if the port remains occupied.
+    }
+  }
+  return stopped;
+}
+
+async function consoleAgentStatus(args) {
+  assertDryRun(args, "console agent-status");
+  const actionServer = await import(pathToFileURL(resolveFromRoot("apps/console/web/action-server.mjs")).href);
+  const status = await actionServer.detectLocalAiRuntimes();
+  console.log("# Console Agent Runtime Status dry-run");
+  console.log("");
+  console.log(`checked_at: ${status.checked_at}`);
+  console.log("secret_values_read: no");
+  console.log("secret_values_stored: no");
+  console.log("model_invocation: not_called");
+  console.log("");
+  console.log("| Runtime | Installed | Path | Invocation | Credential Policy |");
+  console.log("| --- | --- | --- | --- | --- |");
+  for (const runtime of status.runtimes) {
+    console.log(`| ${runtime.runtime_id} | ${runtime.installed ? "yes" : "no"} | ${runtime.path || "missing"} | ${runtime.invocation_mode} | ${runtime.credential_policy} |`);
+  }
+  console.log("");
+  console.log("safety:");
+  console.log(`- console_reads_secret_values: ${status.safety.console_reads_secret_values ? "yes" : "no"}`);
+  console.log(`- console_stores_secret_values: ${status.safety.console_stores_secret_values ? "yes" : "no"}`);
+  console.log(`- default_invocation: ${status.safety.default_invocation}`);
+  console.log(`- codex_sandbox: ${status.safety.codex_sandbox}`);
+  console.log(`- claude_tools: ${status.safety.claude_tools}`);
+}
+
+async function consoleService(args) {
+  const action = args.serviceAction || "status";
+  const paths = consoleServicePaths(args);
+  if (process.platform !== "darwin") {
+    console.log("# Console Local Service");
+    console.log("");
+    console.log("status: UNSUPPORTED_PLATFORM");
+    console.log("reason: launchd service management is implemented for macOS.");
+    process.exitCode = 1;
+    return;
+  }
+
+  if (action === "status") {
+    const launchctl = paths.domain
+      ? await runOptional("launchctl", ["print", `${paths.domain}/${paths.label}`], { timeout: 10000 })
+      : { ok: false, stdout: "", stderr: "missing launchd domain" };
+    const pids = await listeningPids(paths.port);
+    console.log("# Console Local Service Status");
+    console.log("");
+    console.log(`label: ${paths.label}`);
+    console.log(`plist: ${paths.plistPath}`);
+    console.log(`url: http://127.0.0.1:${paths.port}`);
+    console.log(`launchd_loaded: ${launchctl.ok ? "yes" : "no"}`);
+    console.log(`listening_pids: ${pids.length ? pids.join(", ") : "none"}`);
+    console.log(`stdout_log: ${paths.stdoutPath}`);
+    console.log(`stderr_log: ${paths.stderrPath}`);
+    return;
+  }
+
+  if (action === "install") {
+    const plist = consoleServicePlist(args);
+    if (!args.apply) {
+      console.log("# Console Local Service Install dry-run");
+      console.log("");
+      console.log(`would_write_plist: ${paths.plistPath}`);
+      console.log(`would_create_log_dir: ${paths.serviceLogDir}`);
+      console.log(`would_bootstrap: ${paths.domain}/${paths.label}`);
+      console.log(`url: http://127.0.0.1:${paths.port}`);
+      console.log("bind_address: 127.0.0.1");
+      console.log("secret_values_read: no");
+      console.log("deploy: disabled");
+      console.log("");
+      console.log(plist);
+      return;
+    }
+    await mkdir(paths.launchAgentsDir, { recursive: true });
+    await mkdir(paths.serviceLogDir, { recursive: true });
+    await writeFile(paths.plistPath, plist, "utf8");
+    const stopped = await stopManualConsoleProcesses(paths.port);
+    await runOptional("launchctl", ["bootout", paths.domain, paths.plistPath], { timeout: 10000 });
+    const bootstrap = await runOptional("launchctl", ["bootstrap", paths.domain, paths.plistPath], { timeout: 30000 });
+    const kickstart = await runOptional("launchctl", ["kickstart", "-k", `${paths.domain}/${paths.label}`], { timeout: 30000 });
+    console.log("# Console Local Service Install apply");
+    console.log("");
+    console.log(`status: ${bootstrap.ok || kickstart.ok ? "PASS" : "FAIL"}`);
+    console.log(`plist: ${paths.plistPath}`);
+    console.log(`url: http://127.0.0.1:${paths.port}`);
+    console.log(`stopped_manual_pids: ${stopped.map((item) => item.pid).join(", ") || "none"}`);
+    console.log(`bootstrap: ${bootstrap.ok ? "PASS" : "FAIL"}`);
+    if (!bootstrap.ok) console.log(`bootstrap_error: ${bootstrap.stderr.trim()}`);
+    console.log(`kickstart: ${kickstart.ok ? "PASS" : "FAIL"}`);
+    if (!kickstart.ok) console.log(`kickstart_error: ${kickstart.stderr.trim()}`);
+    if (!bootstrap.ok && !kickstart.ok) process.exitCode = 1;
+    return;
+  }
+
+  if (action === "start") {
+    if (!args.apply) {
+      console.log("# Console Local Service Start dry-run");
+      console.log("");
+      console.log(`would_kickstart: ${paths.domain}/${paths.label}`);
+      return;
+    }
+    const stopped = await stopManualConsoleProcesses(paths.port);
+    const result = await runOptional("launchctl", ["kickstart", "-k", `${paths.domain}/${paths.label}`], { timeout: 30000 });
+    console.log("# Console Local Service Start apply");
+    console.log("");
+    console.log(`status: ${result.ok ? "PASS" : "FAIL"}`);
+    console.log(`stopped_manual_pids: ${stopped.map((item) => item.pid).join(", ") || "none"}`);
+    console.log(`url: http://127.0.0.1:${paths.port}`);
+    if (!result.ok) {
+      console.log(`error: ${result.stderr.trim()}`);
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (action === "stop") {
+    if (!args.apply) {
+      console.log("# Console Local Service Stop dry-run");
+      console.log("");
+      console.log(`would_bootout: ${paths.domain}/${paths.label}`);
+      return;
+    }
+    const result = await runOptional("launchctl", ["bootout", paths.domain, paths.plistPath], { timeout: 30000 });
+    console.log("# Console Local Service Stop apply");
+    console.log("");
+    console.log(`status: ${result.ok ? "PASS" : "FAIL"}`);
+    if (!result.ok) console.log(`note: ${result.stderr.trim()}`);
+    return;
+  }
+
+  if (action === "uninstall") {
+    if (!args.apply) {
+      console.log("# Console Local Service Uninstall dry-run");
+      console.log("");
+      console.log(`would_bootout: ${paths.domain}/${paths.label}`);
+      console.log(`would_remove_plist: ${paths.plistPath}`);
+      return;
+    }
+    await runOptional("launchctl", ["bootout", paths.domain, paths.plistPath], { timeout: 30000 });
+    if (existsSync(paths.plistPath)) await unlink(paths.plistPath);
+    console.log("# Console Local Service Uninstall apply");
+    console.log("");
+    console.log("status: PASS");
+    console.log(`removed_plist: ${paths.plistPath}`);
+    return;
+  }
+
+  throw new Error(`Unknown console service action: ${action}`);
 }
 
 async function consoleSmoke(args) {
@@ -8039,6 +8316,19 @@ async function consoleActionServerSmoke(args) {
     project_id: "jinhu-smart-park",
     goal: "生成 Smart Park 上线计划 Proposal"
   });
+  const aiRuntimeStatusPlan = await actionServer.createActionPlan({
+    action_id: "ai-runtime-status",
+    project_id: "jinhu-smart-park",
+    goal: "检查 Codex / Claude 接入状态"
+  });
+  const realAgentPlan = await actionServer.createActionPlan({
+    action_id: "workspace-goal",
+    project_id: "jinhu-smart-park",
+    goal: "让 Codex 生成一个只读任务计划",
+    workspace_mode: "agent",
+    agent: "codex-cli"
+  });
+  const aiRuntimeStatus = await actionServer.detectLocalAiRuntimes();
   const highPlan = await actionServer.createActionPlan({
     action_id: "proposal-approve-dry-run",
     project_id: "jinhu-smart-park",
@@ -8078,7 +8368,9 @@ async function consoleActionServerSmoke(args) {
   const localOnlyCheck = serverText.includes("127.0.0.1") && serverText.includes("localOnly");
   const registryCheck = Array.isArray(summary.actions)
     && summary.actions.some((action) => action.id === "smart-park-go-live-plan")
-    && summary.actions.some((action) => action.id === "worker-health");
+    && summary.actions.some((action) => action.id === "worker-health")
+    && summary.actions.some((action) => action.id === "ai-runtime-status")
+    && summary.actions.some((action) => action.id === "agent-real-plan");
   const logWriteCheck = [runtimePlan, smartParkPlan, highPlan].every((record) =>
     record.logs?.json
     && record.logs?.markdown
@@ -8090,7 +8382,14 @@ async function consoleActionServerSmoke(args) {
     && workspaceGoalPlan.plan.action_id === "goal-plan"
     && workspaceGoalPlan.plan.command.includes(" plan --goal ")
     && smartParkBlockerPlan.plan.action_id === "smart-park-blockers"
-    && smartParkBlockerPlan.plan.command.includes("project chain-validate --project jinhu-smart-park --dry-run");
+    && smartParkBlockerPlan.plan.command.includes("project chain-validate --project jinhu-smart-park --dry-run")
+    && aiRuntimeStatusPlan.plan.command.includes("console agent-status --dry-run")
+    && realAgentPlan.plan.action_id === "agent-real-plan"
+    && realAgentPlan.plan.command.includes("codex exec --sandbox read-only");
+  const aiRuntimeCheck = aiRuntimeStatus.runtimes.some((runtime) => runtime.runtime_id === "codex-cli")
+    && aiRuntimeStatus.runtimes.some((runtime) => runtime.runtime_id === "claude-code")
+    && aiRuntimeStatus.safety.console_reads_secret_values === false
+    && aiRuntimeStatus.safety.console_stores_secret_values === false;
   const governanceCheck = runtimePlan.plan.governance_gate === "ALLOW_DIRECT_EXECUTE"
     && smartParkPlan.plan.governance_gate === "ALLOW_DIRECT_EXECUTE"
     && highPlan.plan.governance_gate === "PROPOSAL_ONLY"
@@ -8110,6 +8409,7 @@ async function consoleActionServerSmoke(args) {
     && registryCheck
     && logWriteCheck
     && commandMappingCheck
+    && aiRuntimeCheck
     && governanceCheck
     && safetyCheck
     && asyncApiCheck
@@ -8124,6 +8424,7 @@ async function consoleActionServerSmoke(args) {
   console.log(`action_registry: ${registryCheck ? "PASS" : "FAIL"}`);
   console.log(`log_write: ${logWriteCheck ? "PASS" : "FAIL"}`);
   console.log(`command_mapping: ${commandMappingCheck ? "PASS" : "FAIL"}`);
+  console.log(`ai_runtime_status: ${aiRuntimeCheck ? "PASS" : "FAIL"}`);
   console.log(`governance_gate: ${governanceCheck ? "PASS" : "FAIL"}`);
   console.log(`safety_policy: ${safetyCheck ? "PASS" : "FAIL"}`);
   console.log(`async_action_api: ${asyncApiCheck ? "PASS" : "FAIL"}`);
@@ -10061,6 +10362,8 @@ async function main() {
   if (args.command === "console" && args.subcommand === "render") return consoleRender(args);
   if (args.command === "console" && args.subcommand === "smoke") return consoleSmoke(args);
   if (args.command === "console" && args.subcommand === "action-server-smoke") return consoleActionServerSmoke(args);
+  if (args.command === "console" && args.subcommand === "agent-status") return consoleAgentStatus(args);
+  if (args.command === "console" && args.subcommand === "service") return consoleService(args);
   if (args.command === "console" && args.subcommand === "actions") return consoleActionsDryRun(args);
   if (args.command === "console" && args.subcommand === "action-plan") return consoleActionPlan(args);
   if (args.command === "skill-route") {

@@ -34,6 +34,8 @@ const projects = {
 
 export const consoleActionOptions = [
   { id: "workspace-goal", label: "自然语言任务", risk: "MEDIUM" },
+  { id: "agent-real-plan", label: "真实 AI Agent 计划", risk: "MEDIUM" },
+  { id: "ai-runtime-status", label: "检查 Codex / Claude", risk: "LOW" },
   { id: "goal-plan", label: "生成任务计划", risk: "MEDIUM" },
   { id: "context-summary", label: "读取上下文", risk: "LOW" },
   { id: "project-inspect", label: "检查 Smart Park", risk: "MEDIUM" },
@@ -71,6 +73,8 @@ function safeGoal(goal) {
 function inferWorkspaceActionId(input = {}) {
   const goal = safeGoal(input.goal).toLowerCase();
   const mode = String(input.workspace_mode || input.mode || "auto");
+  const agent = String(input.agent || "auto");
+  if (mode === "agent" && ["codex-cli", "claude-code"].includes(agent)) return "agent-real-plan";
   if (goal.includes("阻断") || goal.includes("blocker") || goal.includes("blocked")) return "smart-park-blockers";
   if (goal.includes("上线") || goal.includes("go-live") || goal.includes("golive")) return "smart-park-go-live-plan";
   if (goal.includes("smart park") || goal.includes("智慧园区") || goal.includes("金湖")) return "project-inspect";
@@ -105,6 +109,16 @@ function commandFor(input) {
   const goal = safeGoal(input.goal);
   const project = projects[projectId];
 
+  if (actionId === "ai-runtime-status") {
+    return {
+      command: process.execPath,
+      args: [studioScript, "console", "agent-status", "--dry-run"],
+      display: `node ${studioScript} console agent-status --dry-run`
+    };
+  }
+  if (actionId === "agent-real-plan") {
+    return realAgentCommandFor(input);
+  }
   if (actionId === "context-summary") {
     return {
       command: process.execPath,
@@ -189,6 +203,56 @@ function commandFor(input) {
   };
 }
 
+function realAgentPromptFor(input) {
+  const goal = safeGoal(input.goal);
+  const projectId = normalizeProject(input.project_id);
+  return [
+    "你正在通过 ANKSEN Agent Studio Console 运行。",
+    "这是本地 Pilot Production 模式。",
+    "安全边界：只读分析和计划；不要修改文件；不要执行 deploy；不要进行 production operation；不要读取或输出真实凭证；不要写 jinhu-smart-park 业务代码。",
+    `项目：${projectId}`,
+    `目标：${goal}`,
+    "",
+    "请用中文输出：",
+    "1. 已理解目标",
+    "2. 建议计划",
+    "3. 风险等级",
+    "4. 下一步操作"
+  ].join("\n");
+}
+
+function realAgentCommandFor(input) {
+  const agent = String(input.agent || "codex-cli");
+  const prompt = realAgentPromptFor(input);
+  if (agent === "claude-code") {
+    return {
+      command: "claude",
+      args: [
+        "--print",
+        "--bare",
+        "--disallowedTools",
+        "Bash,Edit,Write,MultiEdit,NotebookEdit",
+        prompt
+      ],
+      display: `claude --print --bare --disallowedTools Bash,Edit,Write,MultiEdit,NotebookEdit "<prompt>"`
+    };
+  }
+  return {
+    command: "codex",
+    args: [
+      "exec",
+      "--sandbox",
+      "read-only",
+      "--cd",
+      repoRoot,
+      "--color",
+      "never",
+      prompt
+    ],
+    display: `codex exec --sandbox read-only --cd ${repoRoot} "<prompt>"`
+  };
+}
+
 function actionMeta(actionId) {
   return consoleActionOptions.find((action) => action.id === actionId) ?? consoleActionOptions[0];
 }
@@ -262,7 +326,74 @@ function buildPlan(input) {
       credential_values: "not_read",
       credential_storage: "disabled",
       managed_project_writes: "disabled",
-      external_model_call: "disabled"
+      external_model_call: actionId === "agent-real-plan" ? "user_selected_local_cli_runtime" : "disabled"
+    }
+  };
+}
+
+async function detectCommand(command) {
+  try {
+    const { stdout } = await execFileAsync("/bin/zsh", ["-lc", `command -v ${command}`], {
+      cwd: repoRoot,
+      timeout: 10000,
+      maxBuffer: 1024 * 256
+    });
+    const path = stdout.trim();
+    let version = "unknown";
+    try {
+      const versionResult = await execFileAsync(command, ["--version"], {
+        cwd: repoRoot,
+        timeout: 10000,
+        maxBuffer: 1024 * 256
+      });
+      version = summarizeStdout(versionResult.stdout || versionResult.stderr) || "unknown";
+    } catch {
+      version = "installed";
+    }
+    return { command, installed: Boolean(path), path, version };
+  } catch {
+    return { command, installed: false, path: "", version: "missing" };
+  }
+}
+
+export async function detectLocalAiRuntimes() {
+  const [codex, claude] = await Promise.all([
+    detectCommand("codex"),
+    detectCommand("claude")
+  ]);
+  return {
+    schema_version: 1,
+    checked_at: new Date().toISOString(),
+    runtimes: [
+      {
+        runtime_id: "codex-cli",
+        provider: "openai",
+        command: codex.command,
+        installed: codex.installed,
+        path: codex.path,
+        version: codex.version,
+        invocation_mode: "codex exec --sandbox read-only",
+        credential_policy: "external_cli_session",
+        secret_values_read_by_console: false
+      },
+      {
+        runtime_id: "claude-code",
+        provider: "anthropic",
+        command: claude.command,
+        installed: claude.installed,
+        path: claude.path,
+        version: claude.version,
+        invocation_mode: "claude --print --bare",
+        credential_policy: "external_cli_session_or_env",
+        secret_values_read_by_console: false
+      }
+    ],
+    safety: {
+      console_reads_secret_values: false,
+      console_stores_secret_values: false,
+      default_invocation: "user_selected_only",
+      codex_sandbox: "read-only",
+      claude_tools: "Bash/Edit/Write/MultiEdit/NotebookEdit disallowed"
     }
   };
 }
@@ -460,7 +591,7 @@ ${formatSmartParkGoLivePlan(record.smart_park.go_live_plan)}
 - production_operation: disabled
 - credential_values: not_read
 - managed_project_writes: disabled
-- external_model_call: disabled
+- external_model_call: ${record.plan.safety?.external_model_call ?? "disabled"}
 `;
 }
 

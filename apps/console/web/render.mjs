@@ -143,6 +143,7 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
         <button type="button" class="secondary" data-quick-action="smart-park-go-live-plan" data-goal="生成 Smart Park 上线计划 Proposal">Smart Park 上线入口</button>
         <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="查看待审批 Proposal">查看待审批 Proposal</button>
         <button type="button" class="secondary" data-quick-action="worker-health" data-goal="查看 Worker 状态">查看 Worker 状态</button>
+        <button type="button" class="secondary" data-quick-action="ai-runtime-status" data-goal="检查 Codex / Claude 接入状态">Codex / Claude</button>
       </div>
       <div class="execution-console">
         <div class="timeline-strip">
