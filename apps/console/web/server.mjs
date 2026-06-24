@@ -1,10 +1,15 @@
 import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { renderConsolePage } from "./render.mjs";
 import { consoleWebRoutes } from "./routes.mjs";
 import { createActionPlan, executeDryRunAction, latestActionLog } from "./action-server.mjs";
 
 const port = Number(process.env.PORT ?? 4317);
 const allowedPaths = new Set(consoleWebRoutes.map((route) => route.path));
+const webDir = dirname(fileURLToPath(import.meta.url));
+const logoPath = join(webDir, "assets", "anksen-logo.svg");
 
 function localOnly(request) {
   return ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.socket.remoteAddress ?? "");
@@ -43,6 +48,14 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === "GET" && pathname === "/api/action-log/latest") {
       sendJson(response, 200, await latestActionLog() ?? { status: "EMPTY", path: null });
+      return;
+    }
+    if ((request.method === "GET" || request.method === "HEAD") && pathname === "/assets/anksen-logo.svg") {
+      response.writeHead(200, {
+        "content-type": "image/svg+xml; charset=utf-8",
+        "cache-control": "no-store"
+      });
+      response.end(request.method === "HEAD" ? undefined : await readFile(logoPath));
       return;
     }
     if (!allowedPaths.has(pathname)) {

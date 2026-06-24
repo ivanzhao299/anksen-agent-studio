@@ -330,6 +330,11 @@ function shell(content, activeId, model, data) {
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
     header { padding: 18px 24px 12px; border-bottom: 1px solid var(--line); background: #0d1218; position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 28px var(--shadow); }
+    .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand-lockup { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .logo-frame { display: inline-flex; align-items: center; justify-content: center; width: 118px; height: 56px; flex: 0 0 auto; border: 1px solid #d9e6f4; border-radius: 8px; background: #f8fbff; padding: 7px 10px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72); }
+    .brand-logo { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .brand-copy { min-width: 0; }
     h1 { margin: 0 0 4px; font-size: 22px; font-weight: 700; letter-spacing: 0; }
     .subhead { color: var(--muted); font-size: 13px; }
     .top-status { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; margin-top: 14px; }
@@ -400,14 +405,21 @@ function shell(content, activeId, model, data) {
     .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
-    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } .top-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } .timeline { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .layout { grid-template-columns: 1fr; } .top-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } .timeline { grid-template-columns: 1fr; } }
     @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <header>
-    <h1>${escapeHtml(messages.app.title)}</h1>
-    <div class="subhead">${escapeHtml(messages.app.subtitle)}</div>
+    <div class="brand-row">
+      <div class="brand-lockup">
+        <span class="logo-frame"><img class="brand-logo" src="/assets/anksen-logo.svg" alt="ANKSEN Logo"></span>
+        <div class="brand-copy">
+          <h1>${escapeHtml(messages.app.title)}</h1>
+          <div class="subhead">${escapeHtml(messages.app.subtitle)}</div>
+        </div>
+      </div>
+    </div>
     ${topStatusBar(model, data)}
   </header>
   <div class="layout">

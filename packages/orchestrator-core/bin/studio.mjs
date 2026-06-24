@@ -7845,7 +7845,8 @@ async function consoleSmoke(args) {
     "runtime/global/platform-state.json",
     "runtime/global/roadmap-memory.json",
     "runtime/global/v5-roadmap.json",
-    "runtime/projects/jinhu-smart-park/project-state.json"
+    "runtime/projects/jinhu-smart-park/project-state.json",
+    "apps/console/web/assets/anksen-logo.svg"
   ];
   const requiredDirs = [
     "packages/runtime-center/examples",
@@ -7878,6 +7879,8 @@ async function consoleSmoke(args) {
   ].every((text) => actionsHtml.includes(text));
   const controlTowerPresent = [
     "企业级 AI 软件工厂控制塔",
+    "ANKSEN Logo",
+    "/assets/anksen-logo.svg",
     "任务工作台",
     "Smart Park 上线入口",
     "推荐动作区",
