@@ -1,0 +1,1611 @@
+{
+  "schema_version": 1,
+  "run_id": "autopilot-batch-2026-06-24T054415256Z-9010ec56",
+  "created_at": "2026-06-24T05:44:15.256Z",
+  "mode": "apply",
+  "goal": "继续推进 Pilot",
+  "parallel_requested": 4,
+  "global_context": {
+    "loaded_at": "2026-06-24T05:44:10.774Z",
+    "source_dir": "runtime/global",
+    "files": [
+      {
+        "path": "runtime/global/platform-state.json",
+        "kind": "json",
+        "bytes": 4266,
+        "sha256": "eead75dfb79d7494"
+      },
+      {
+        "path": "runtime/global/roadmap-memory.json",
+        "kind": "json",
+        "bytes": 2489,
+        "sha256": "06614248fefd9426"
+      },
+      {
+        "path": "runtime/global/v5-roadmap.json",
+        "kind": "json",
+        "bytes": 9476,
+        "sha256": "b80c3c3b7db0c730"
+      },
+      {
+        "path": "runtime/global/decision-log.json",
+        "kind": "json",
+        "bytes": 1039,
+        "sha256": "192daae2b2ceea7c"
+      },
+      {
+        "path": "runtime/global/codex-context-index.json",
+        "kind": "json",
+        "bytes": 1986,
+        "sha256": "fd5225ae21533c39"
+      },
+      {
+        "path": "runtime/global/codex-startup.md",
+        "kind": "markdown",
+        "bytes": 1218,
+        "sha256": "88dd510357074d2e"
+      },
+      {
+        "path": "runtime/global/handoff-summary.md",
+        "kind": "markdown",
+        "bytes": 1413,
+        "sha256": "ff3fbee749b893b8"
+      }
+    ],
+    "platform_status": "GO",
+    "current_v4_stage": "V4-O Production Operations Center approval gate",
+    "next_recommended_action": "Await explicit approval for V4-O Production Operations Center implementation",
+    "managed_projects": [
+      "jinhu-smart-park",
+      "phoenix-erp"
+    ]
+  },
+  "planning_output": {
+    "schema_version": 1,
+    "planning_output_id": "planning-output-8a3210f1e8",
+    "source_request_id": "planning-2026-06-24T054410812Z-7a076d03",
+    "goal": "继续推进 Pilot",
+    "current_stage": {
+      "stage_name": "Pilot Productization",
+      "next_stage": "Use real parallel Worker executor in Autopilot Batch",
+      "extraction_completed": true,
+      "remote_execute_completed": true,
+      "pilot_runtime_smoke_completed": true,
+      "pilot_worker_pool_completed": true,
+      "high_critical_policy": "proposal_only"
+    },
+    "next_action": {
+      "title": "Use real parallel Worker executor in Autopilot Batch",
+      "reason": "Pilot mode has validated worker parallel-smoke; the next safe step is to wire the same local child_process evidence into formal Autopilot Batch without enabling remote workers, deploy, production operations, secrets, or managed-project writes.",
+      "target_project": "anksen-agent-studio",
+      "target_package": "packages/orchestrator-core",
+      "expected_files": [
+        "packages/orchestrator-core/bin/studio.mjs",
+        "packages/planning-center/lib/planning-engine.mjs",
+        "autopilot-runs/*"
+      ],
+      "validation_commands": [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal \"继续推进 Pilot\" --dry-run",
+        "git diff --check"
+      ],
+      "risk": "MEDIUM",
+      "approval_required": false,
+      "execution_mode": "local_repo_execute",
+      "automation_level": "autopilot_execute"
+    },
+    "reason": "Pilot mode has validated worker parallel-smoke; the next safe step is to wire the same local child_process evidence into formal Autopilot Batch without enabling remote workers, deploy, production operations, secrets, or managed-project writes.",
+    "target_project": "anksen-agent-studio",
+    "target_package": "packages/orchestrator-core",
+    "expected_files": [
+      "packages/orchestrator-core/bin/studio.mjs",
+      "packages/planning-center/lib/planning-engine.mjs",
+      "autopilot-runs/*"
+    ],
+    "validation_commands": [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal \"继续推进 Pilot\" --dry-run",
+      "git diff --check"
+    ],
+    "risk": "MEDIUM",
+    "approval_required": false,
+    "execution_mode": "local_repo_execute",
+    "batch_plan": {
+      "batch_id": "batch-plan-f761fb471d",
+      "goal": "继续推进 Pilot",
+      "source_planning_output_id": "planning-output-8a3210f1e8",
+      "source_action_title": "Use real parallel Worker executor in Autopilot Batch",
+      "strategy": "pilot_real_parallel_worker_executor",
+      "remaining_gap_ids": [
+        "formal-autopilot-batch-real-child-process-evidence"
+      ],
+      "parallelism": {
+        "min_tasks": 4,
+        "max_tasks": 5,
+        "recommended_parallel": 4,
+        "max_parallel": 5
+      },
+      "execution_policy": {
+        "low_medium": "local_repo_execute_allowed",
+        "high_critical": "proposal_only_or_safe_decomposition",
+        "deploy": "disabled",
+        "production_operations": "disabled",
+        "credential_values": "disabled",
+        "managed_project_writes": "disabled",
+        "external_model_calls": "disabled",
+        "remote_workers": "disabled"
+      },
+      "tasks": [
+        {
+          "task_id": "pilot-batch-agent-1-runtime-chain-evidence",
+          "title": "Pilot runtime chain evidence",
+          "owner_agent": "agent-1",
+          "target_project": "anksen-agent-studio",
+          "target_package": "packages/runtime-center",
+          "skill_type": "runtime_validation",
+          "runtime": "codex-cli",
+          "allowed_paths": [
+            "runtime/pilot/**",
+            "docs/release/PILOT_RUNTIME_CHAIN_PARALLEL_EVIDENCE.md"
+          ],
+          "forbidden_paths": [
+            "jinhu-smart-park/**",
+            "../jinhu-smart-park/**",
+            "examples/jinhu-smart-park/**",
+            "runtime/projects/jinhu-smart-park/**",
+            "**/.env*",
+            "**/*secret*",
+            "**/*private_key*",
+            "**/*ssh_key*"
+          ],
+          "risk": "LOW",
+          "dependencies": [],
+          "validation_commands": [
+            "pnpm typecheck",
+            "pnpm lint:check",
+            "git diff --check"
+          ],
+          "execution_mode": "local_repo_execute",
+          "objective": "Record read-only Pilot runtime chain evidence while keeping credential values, model calls, deploy, and production operations disabled.",
+          "approval_required": false,
+          "proposal_required": false
+        },
+        {
+          "task_id": "pilot-batch-agent-2-worker-pool-evidence",
+          "title": "Pilot worker pool evidence",
+          "owner_agent": "agent-2",
+          "target_project": "anksen-agent-studio",
+          "target_package": "packages/worker-pool",
+          "skill_type": "worker_validation",
+          "runtime": "codex-cli",
+          "allowed_paths": [
+            "packages/worker-pool/examples/pilot-worker-pool-parallel.example.json",
+            "docs/release/PILOT_WORKER_POOL_PARALLEL_EVIDENCE.md"
+          ],
+          "forbidden_paths": [
+            "jinhu-smart-park/**",
+            "../jinhu-smart-park/**",
+            "examples/jinhu-smart-park/**",
+            "runtime/projects/jinhu-smart-park/**",
+            "**/.env*",
+            "**/*secret*",
+            "**/*private_key*",
+            "**/*ssh_key*"
+          ],
+          "risk": "MEDIUM",
+          "dependencies": [],
+          "validation_commands": [
+            "pnpm typecheck",
+            "pnpm lint:check",
+            "node packages/orchestrator-core/bin/studio.mjs worker health --dry-run",
+            "git diff --check"
+          ],
+          "execution_mode": "local_repo_execute",
+          "objective": "Record local Worker Pool parallel evidence using child_process-only workers and no remote connectivity.",
+          "approval_required": false,
+          "proposal_required": false
+        },
+        {
+          "task_id": "pilot-batch-agent-3-credential-policy-evidence",
+          "title": "Pilot credential policy evidence",
+          "owner_agent": "agent-3",
+          "target_project": "anksen-agent-studio",
+          "target_package": "packages/credential-vault",
+          "skill_type": "credential_policy",
+          "runtime": "codex-cli",
+          "allowed_paths": [
+            "packages/credential-vault/examples/pilot-credential-backend-policy.example.json",
+            "docs/release/PILOT_CREDENTIAL_POLICY_PARALLEL_EVIDENCE.md"
+          ],
+          "forbidden_paths": [
+            "jinhu-smart-park/**",
+            "../jinhu-smart-park/**",
+            "examples/jinhu-smart-park/**",
+            "runtime/projects/jinhu-smart-park/**",
+            "**/.env*",
+            "**/*secret*",
+            "**/*private_key*",
+            "**/*ssh_key*"
+          ],
+          "risk": "MEDIUM",
+          "dependencies": [],
+          "validation_commands": [
+            "pnpm typecheck",
+            "pnpm lint:check",
+            "node packages/orchestrator-core/bin/studio.mjs credential audit-policy --dry-run",
+            "git diff --check"
+          ],
+          "execution_mode": "local_repo_execute",
+          "objective": "Record credential backend policy evidence as reference-only metadata without reading or storing secret values.",
+          "approval_required": false,
+          "proposal_required": false
+        },
+        {
+          "task_id": "pilot-batch-agent-4-console-action-evidence",
+          "title": "Pilot console action evidence",
+          "owner_agent": "agent-4",
+          "target_project": "anksen-agent-studio",
+          "target_package": "apps/console",
+          "skill_type": "console_validation",
+          "runtime": "codex-cli",
+          "allowed_paths": [
+            "apps/console/examples/pilot-console-action-flow.example.json",
+            "docs/release/PILOT_CONSOLE_ACTION_PARALLEL_EVIDENCE.md"
+          ],
+          "forbidden_paths": [
+            "jinhu-smart-park/**",
+            "../jinhu-smart-park/**",
+            "examples/jinhu-smart-park/**",
+            "runtime/projects/jinhu-smart-park/**",
+            "**/.env*",
+            "**/*secret*",
+            "**/*private_key*",
+            "**/*ssh_key*"
+          ],
+          "risk": "MEDIUM",
+          "dependencies": [],
+          "validation_commands": [
+            "pnpm typecheck",
+            "pnpm lint:check",
+            "node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run",
+            "git diff --check"
+          ],
+          "execution_mode": "local_repo_execute",
+          "objective": "Record Console pilot action evidence while all Console actions remain read-only, dry-run, or proposal-only.",
+          "approval_required": false,
+          "proposal_required": false
+        },
+        {
+          "task_id": "pilot-batch-agent-5-remote-worker-production-readiness",
+          "title": "Pilot remote worker and production readiness proposal",
+          "owner_agent": "agent-5",
+          "target_project": "anksen-agent-studio",
+          "target_package": "docs/release",
+          "skill_type": "architecture_planning",
+          "runtime": "codex-cli",
+          "allowed_paths": [
+            "docs/release/PILOT_REMOTE_WORKER_PRODUCTION_PROPOSAL.md",
+            "docs/release/PILOT_REMOTE_WORKER_READINESS_READONLY.md",
+            "packages/worker-pool/examples/pilot-remote-worker-readiness.example.json"
+          ],
+          "forbidden_paths": [
+            "jinhu-smart-park/**",
+            "../jinhu-smart-park/**",
+            "examples/jinhu-smart-park/**",
+            "runtime/projects/jinhu-smart-park/**",
+            "**/.env*",
+            "**/*secret*",
+            "**/*private_key*",
+            "**/*ssh_key*"
+          ],
+          "risk": "HIGH",
+          "dependencies": [
+            "pilot-batch-agent-2-worker-pool-evidence"
+          ],
+          "validation_commands": [
+            "pnpm typecheck",
+            "pnpm lint:check",
+            "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+            "git diff --check"
+          ],
+          "execution_mode": "proposal_only",
+          "approval_required": true,
+          "proposal_required": true,
+          "objective": "Keep remote worker and production readiness in proposal-only mode unless it is decomposed into local read-only evidence."
+        }
+      ]
+    },
+    "stop_condition": "STOP: Planning Center generated one Pilot batch plan. Only LOW/MEDIUM local repository tasks may execute; HIGH/CRITICAL work remains proposal-only or safe-decomposed."
+  },
+  "batch_plan": {
+    "batch_id": "batch-plan-f761fb471d",
+    "goal": "继续推进 Pilot",
+    "source_planning_output_id": "planning-output-8a3210f1e8",
+    "source_action_title": "Use real parallel Worker executor in Autopilot Batch",
+    "strategy": "pilot_real_parallel_worker_executor",
+    "remaining_gap_ids": [
+      "formal-autopilot-batch-real-child-process-evidence"
+    ],
+    "parallelism": {
+      "min_tasks": 4,
+      "max_tasks": 5,
+      "recommended_parallel": 4,
+      "max_parallel": 5
+    },
+    "execution_policy": {
+      "low_medium": "local_repo_execute_allowed",
+      "high_critical": "proposal_only_or_safe_decomposition",
+      "deploy": "disabled",
+      "production_operations": "disabled",
+      "credential_values": "disabled",
+      "managed_project_writes": "disabled",
+      "external_model_calls": "disabled",
+      "remote_workers": "disabled"
+    },
+    "tasks": [
+      {
+        "task_id": "pilot-batch-agent-1-runtime-chain-evidence",
+        "title": "Pilot runtime chain evidence",
+        "owner_agent": "agent-1",
+        "target_project": "anksen-agent-studio",
+        "target_package": "packages/runtime-center",
+        "skill_type": "runtime_validation",
+        "runtime": "codex-cli",
+        "allowed_paths": [
+          "runtime/pilot/**",
+          "docs/release/PILOT_RUNTIME_CHAIN_PARALLEL_EVIDENCE.md"
+        ],
+        "forbidden_paths": [
+          "jinhu-smart-park/**",
+          "../jinhu-smart-park/**",
+          "examples/jinhu-smart-park/**",
+          "runtime/projects/jinhu-smart-park/**",
+          "**/.env*",
+          "**/*secret*",
+          "**/*private_key*",
+          "**/*ssh_key*"
+        ],
+        "risk": "LOW",
+        "dependencies": [],
+        "validation_commands": [
+          "pnpm typecheck",
+          "pnpm lint:check",
+          "git diff --check"
+        ],
+        "execution_mode": "local_repo_execute",
+        "objective": "Record read-only Pilot runtime chain evidence while keeping credential values, model calls, deploy, and production operations disabled.",
+        "approval_required": false,
+        "proposal_required": false,
+        "execution_gate": {
+          "allowed": true,
+          "execution_mode": "local_repo_execute",
+          "reason": "LOW risk is allowed by governance, approval policy, and release gates.",
+          "governance": {
+            "status": "PASS",
+            "decision": "ALLOW",
+            "execution_allowed": true,
+            "execution_mode": "local_repo_execute",
+            "risk": "LOW",
+            "categories": [
+              "local_repo_change"
+            ],
+            "governance_check": "PASS",
+            "approval_policy": "PASS",
+            "release_gate": "PASS",
+            "automation_mode": "automatic_execute",
+            "approval_required": false,
+            "proposal_required": false,
+            "human_approval_required": false,
+            "reason": "LOW risk is allowed by governance, approval policy, and release gates."
+          }
+        },
+        "automatic_execution_allowed": true,
+        "effective_execution_mode": "local_repo_execute",
+        "batch_id": "batch-plan-f761fb471d",
+        "status": "EXECUTED",
+        "execution_strategy": "true_parallel_executor_parallel_4",
+        "task_workspace": "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-1-runtime-chain-evidence",
+        "changed_files": [
+          "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-1-runtime-chain-evidence.json",
+          "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-1-runtime-chain-evidence.md",
+          "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.json",
+          "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.md",
+          "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-1-runtime-chain-evidence/workspace.json",
+          "docs/release/PILOT_RUNTIME_CHAIN_PARALLEL_EVIDENCE.md",
+          "runtime/pilot/pilot-batch-runtime-chain-evidence.json"
+        ],
+        "validation_result": {
+          "status": "PASS",
+          "command_count": 5,
+          "failed_commands": []
+        },
+        "commands_run": [
+          {
+            "command": "pnpm typecheck",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "> anksen-agent-studio@0.1.0 typecheck /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> pnpm -r --if-present typecheck\n\nScope: 15 of 16 workspace projects\napps/console typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck: Done\npackages/governance-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck: Done\npackages/mobile-stack-pack typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck: Done\npackages/orchestrator-core typecheck$ tsc -p tsconfig.json --noEmit\napps/console typecheck: Done\npackages/planning-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/mobile-stack-pack typecheck: Done\npackages/production-ops typecheck$ tsc -p tsconfig.json --noEmit\npackages/governance-center typecheck: Done\npackages/project-connector typecheck$ tsc -p tsconfig.json --noEmit\npackages/orchestrator-core typecheck: Done\npackages/runtime-adapters typecheck$ tsc -p tsconfig.json --noEmit\npackages/planning-center typecheck: Done\npackages/runtime-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-adapters typecheck: Done\npackages/runtime-memory typecheck$ tsc -p tsconfig.json --noEmit\npackages/project-connector typecheck: Done\npackages/skill-router typecheck$ tsc -p tsconfig.json --noEmit\npackages/production-ops typecheck: Done\npackages/worker-pool typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-center typecheck: Done\npackages/runtime-memory typecheck: Done\npackages/skill-router typecheck: Done\npackages/worker-pool typecheck: Done",
+            "stderr_tail": ""
+          },
+          {
+            "command": "pnpm lint:check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "> anksen-agent-studio@0.1.0 lint:check /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> node packages/orchestrator-core/bin/studio.mjs lint-check\n\nlint:check: no ESLint configuration is enabled in the extraction-stage skeleton.\nstatus: PASS",
+            "stderr_tail": ""
+          },
+          {
+            "command": "git diff --check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          {
+            "command": "git diff --check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          }
+        ],
+        "child_process_evidence": {
+          "agent": "agent-1",
+          "task_id": "pilot-batch-agent-1-runtime-chain-evidence",
+          "run_id": "batch-plan-f761fb471d-agent-1-pilot-batch-agent-1-runtime-chain-evidence",
+          "pid": 58173,
+          "observed_child_pid": 58173,
+          "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence",
+          "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.json",
+          "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.md",
+          "started_at": "2026-06-24T05:44:10.843Z",
+          "completed_at": "2026-06-24T05:44:11.695Z",
+          "duration_ms": 852,
+          "status": "PASS",
+          "exit_code": 0,
+          "source_path": "packages/runtime-center/examples/runtime-health.example.json",
+          "bytes_read": 965
+        }
+      },
+      {
+        "task_id": "pilot-batch-agent-2-worker-pool-evidence",
+        "title": "Pilot worker pool evidence",
+        "owner_agent": "agent-2",
+        "target_project": "anksen-agent-studio",
+        "target_package": "packages/worker-pool",
+        "skill_type": "worker_validation",
+        "runtime": "codex-cli",
+        "allowed_paths": [
+          "packages/worker-pool/examples/pilot-worker-pool-parallel.example.json",
+          "docs/release/PILOT_WORKER_POOL_PARALLEL_EVIDENCE.md"
+        ],
+        "forbidden_paths": [
+          "jinhu-smart-park/**",
+          "../jinhu-smart-park/**",
+          "examples/jinhu-smart-park/**",
+          "runtime/projects/jinhu-smart-park/**",
+          "**/.env*",
+          "**/*secret*",
+          "**/*private_key*",
+          "**/*ssh_key*"
+        ],
+        "risk": "MEDIUM",
+        "dependencies": [],
+        "validation_commands": [
+          "pnpm typecheck",
+          "pnpm lint:check",
+          "node packages/orchestrator-core/bin/studio.mjs worker health --dry-run",
+          "git diff --check"
+        ],
+        "execution_mode": "local_repo_execute",
+        "objective": "Record local Worker Pool parallel evidence using child_process-only workers and no remote connectivity.",
+        "approval_required": false,
+        "proposal_required": false,
+        "execution_gate": {
+          "allowed": true,
+          "execution_mode": "local_repo_execute",
+          "reason": "MEDIUM risk is allowed by governance, approval policy, and release gates.",
+          "governance": {
+            "status": "PASS",
+            "decision": "ALLOW",
+            "execution_allowed": true,
+            "execution_mode": "local_repo_execute",
+            "risk": "MEDIUM",
+            "categories": [
+              "local_repo_change"
+            ],
+            "governance_check": "PASS",
+            "approval_policy": "PASS",
+            "release_gate": "PASS",
+            "automation_mode": "autopilot_execute",
+            "approval_required": false,
+            "proposal_required": false,
+            "human_approval_required": false,
+            "reason": "MEDIUM risk is allowed by governance, approval policy, and release gates."
+          }
+        },
+        "automatic_execution_allowed": true,
+        "effective_execution_mode": "local_repo_execute",
+        "batch_id": "batch-plan-f761fb471d",
+        "status": "EXECUTED",
+        "execution_strategy": "true_parallel_executor_parallel_4",
+        "task_workspace": "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-2-worker-pool-evidence",
+        "changed_files": [
+          "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-2-worker-pool-evidence.json",
+          "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-2-worker-pool-evidence.md",
+          "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.json",
+          "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.md",
+          "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-2-worker-pool-evidence/workspace.json",
+          "docs/release/PILOT_WORKER_POOL_PARALLEL_EVIDENCE.md",
+          "packages/worker-pool/examples/pilot-worker-pool-parallel.example.json"
+        ],
+        "validation_result": {
+          "status": "PASS",
+          "command_count": 5,
+          "failed_commands": []
+        },
+        "commands_run": [
+          {
+            "command": "pnpm typecheck",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "> anksen-agent-studio@0.1.0 typecheck /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> pnpm -r --if-present typecheck\n\nScope: 15 of 16 workspace projects\napps/console typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck: Done\npackages/governance-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck: Done\npackages/mobile-stack-pack typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck: Done\npackages/orchestrator-core typecheck$ tsc -p tsconfig.json --noEmit\napps/console typecheck: Done\npackages/planning-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/mobile-stack-pack typecheck: Done\npackages/production-ops typecheck$ tsc -p tsconfig.json --noEmit\npackages/governance-center typecheck: Done\npackages/project-connector typecheck$ tsc -p tsconfig.json --noEmit\npackages/orchestrator-core typecheck: Done\npackages/runtime-adapters typecheck$ tsc -p tsconfig.json --noEmit\npackages/planning-center typecheck: Done\npackages/runtime-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-adapters typecheck: Done\npackages/runtime-memory typecheck$ tsc -p tsconfig.json --noEmit\npackages/project-connector typecheck: Done\npackages/skill-router typecheck$ tsc -p tsconfig.json --noEmit\npackages/production-ops typecheck: Done\npackages/worker-pool typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-center typecheck: Done\npackages/runtime-memory typecheck: Done\npackages/skill-router typecheck: Done\npackages/worker-pool typecheck: Done",
+            "stderr_tail": ""
+          },
+          {
+            "command": "pnpm lint:check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "> anksen-agent-studio@0.1.0 lint:check /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> node packages/orchestrator-core/bin/studio.mjs lint-check\n\nlint:check: no ESLint configuration is enabled in the extraction-stage skeleton.\nstatus: PASS",
+            "stderr_tail": ""
+          },
+          {
+            "command": "git diff --check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          {
+            "command": "git diff --check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          }
+        ],
+        "child_process_evidence": {
+          "agent": "agent-2",
+          "task_id": "pilot-batch-agent-2-worker-pool-evidence",
+          "run_id": "batch-plan-f761fb471d-agent-2-pilot-batch-agent-2-worker-pool-evidence",
+          "pid": 58175,
+          "observed_child_pid": 58175,
+          "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence",
+          "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.json",
+          "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.md",
+          "started_at": "2026-06-24T05:44:10.841Z",
+          "completed_at": "2026-06-24T05:44:11.819Z",
+          "duration_ms": 978,
+          "status": "PASS",
+          "exit_code": 0,
+          "source_path": "packages/worker-pool/examples/worker-registry.example.json",
+          "bytes_read": 2280
+        }
+      },
+      {
+        "task_id": "pilot-batch-agent-3-credential-policy-evidence",
+        "title": "Pilot credential policy evidence",
+        "owner_agent": "agent-3",
+        "target_project": "anksen-agent-studio",
+        "target_package": "packages/credential-vault",
+        "skill_type": "credential_policy",
+        "runtime": "codex-cli",
+        "allowed_paths": [
+          "packages/credential-vault/examples/pilot-credential-backend-policy.example.json",
+          "docs/release/PILOT_CREDENTIAL_POLICY_PARALLEL_EVIDENCE.md"
+        ],
+        "forbidden_paths": [
+          "jinhu-smart-park/**",
+          "../jinhu-smart-park/**",
+          "examples/jinhu-smart-park/**",
+          "runtime/projects/jinhu-smart-park/**",
+          "**/.env*",
+          "**/*secret*",
+          "**/*private_key*",
+          "**/*ssh_key*"
+        ],
+        "risk": "MEDIUM",
+        "dependencies": [],
+        "validation_commands": [
+          "pnpm typecheck",
+          "pnpm lint:check",
+          "node packages/orchestrator-core/bin/studio.mjs credential audit-policy --dry-run",
+          "git diff --check"
+        ],
+        "execution_mode": "local_repo_execute",
+        "objective": "Record credential backend policy evidence as reference-only metadata without reading or storing secret values.",
+        "approval_required": false,
+        "proposal_required": false,
+        "execution_gate": {
+          "allowed": true,
+          "execution_mode": "local_repo_execute",
+          "reason": "MEDIUM risk is allowed by governance, approval policy, and release gates.",
+          "governance": {
+            "status": "PASS",
+            "decision": "ALLOW",
+            "execution_allowed": true,
+            "execution_mode": "local_repo_execute",
+            "risk": "MEDIUM",
+            "categories": [
+              "local_repo_change"
+            ],
+            "governance_check": "PASS",
+            "approval_policy": "PASS",
+            "release_gate": "PASS",
+            "automation_mode": "autopilot_execute",
+            "approval_required": false,
+            "proposal_required": false,
+            "human_approval_required": false,
+            "reason": "MEDIUM risk is allowed by governance, approval policy, and release gates."
+          }
+        },
+        "automatic_execution_allowed": true,
+        "effective_execution_mode": "local_repo_execute",
+        "batch_id": "batch-plan-f761fb471d",
+        "status": "EXECUTED",
+        "execution_strategy": "true_parallel_executor_parallel_4",
+        "task_workspace": "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-3-credential-policy-evidence",
+        "changed_files": [
+          "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-3-credential-policy-evidence.json",
+          "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-3-credential-policy-evidence.md",
+          "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.json",
+          "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.md",
+          "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-3-credential-policy-evidence/workspace.json",
+          "docs/release/PILOT_CREDENTIAL_POLICY_PARALLEL_EVIDENCE.md",
+          "packages/credential-vault/examples/pilot-credential-backend-policy.example.json"
+        ],
+        "validation_result": {
+          "status": "PASS",
+          "command_count": 5,
+          "failed_commands": []
+        },
+        "commands_run": [
+          {
+            "command": "pnpm typecheck",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "> anksen-agent-studio@0.1.0 typecheck /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> pnpm -r --if-present typecheck\n\nScope: 15 of 16 workspace projects\napps/console typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck: Done\npackages/governance-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck: Done\npackages/mobile-stack-pack typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck: Done\npackages/orchestrator-core typecheck$ tsc -p tsconfig.json --noEmit\napps/console typecheck: Done\npackages/planning-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/mobile-stack-pack typecheck: Done\npackages/production-ops typecheck$ tsc -p tsconfig.json --noEmit\npackages/governance-center typecheck: Done\npackages/project-connector typecheck$ tsc -p tsconfig.json --noEmit\npackages/orchestrator-core typecheck: Done\npackages/runtime-adapters typecheck$ tsc -p tsconfig.json --noEmit\npackages/planning-center typecheck: Done\npackages/runtime-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-adapters typecheck: Done\npackages/runtime-memory typecheck$ tsc -p tsconfig.json --noEmit\npackages/project-connector typecheck: Done\npackages/skill-router typecheck$ tsc -p tsconfig.json --noEmit\npackages/production-ops typecheck: Done\npackages/worker-pool typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-center typecheck: Done\npackages/runtime-memory typecheck: Done\npackages/skill-router typecheck: Done\npackages/worker-pool typecheck: Done",
+            "stderr_tail": ""
+          },
+          {
+            "command": "pnpm lint:check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "> anksen-agent-studio@0.1.0 lint:check /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> node packages/orchestrator-core/bin/studio.mjs lint-check\n\nlint:check: no ESLint configuration is enabled in the extraction-stage skeleton.\nstatus: PASS",
+            "stderr_tail": ""
+          },
+          {
+            "command": "git diff --check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          {
+            "command": "git diff --check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          }
+        ],
+        "child_process_evidence": {
+          "agent": "agent-3",
+          "task_id": "pilot-batch-agent-3-credential-policy-evidence",
+          "run_id": "batch-plan-f761fb471d-agent-3-pilot-batch-agent-3-credential-policy-evidence",
+          "pid": 58174,
+          "observed_child_pid": 58174,
+          "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence",
+          "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.json",
+          "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.md",
+          "started_at": "2026-06-24T05:44:10.843Z",
+          "completed_at": "2026-06-24T05:44:11.945Z",
+          "duration_ms": 1102,
+          "status": "PASS",
+          "exit_code": 0,
+          "source_path": "packages/credential-vault/examples/credential-references.example.json",
+          "bytes_read": 2395
+        }
+      },
+      {
+        "task_id": "pilot-batch-agent-4-console-action-evidence",
+        "title": "Pilot console action evidence",
+        "owner_agent": "agent-4",
+        "target_project": "anksen-agent-studio",
+        "target_package": "apps/console",
+        "skill_type": "console_validation",
+        "runtime": "codex-cli",
+        "allowed_paths": [
+          "apps/console/examples/pilot-console-action-flow.example.json",
+          "docs/release/PILOT_CONSOLE_ACTION_PARALLEL_EVIDENCE.md"
+        ],
+        "forbidden_paths": [
+          "jinhu-smart-park/**",
+          "../jinhu-smart-park/**",
+          "examples/jinhu-smart-park/**",
+          "runtime/projects/jinhu-smart-park/**",
+          "**/.env*",
+          "**/*secret*",
+          "**/*private_key*",
+          "**/*ssh_key*"
+        ],
+        "risk": "MEDIUM",
+        "dependencies": [],
+        "validation_commands": [
+          "pnpm typecheck",
+          "pnpm lint:check",
+          "node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run",
+          "git diff --check"
+        ],
+        "execution_mode": "local_repo_execute",
+        "objective": "Record Console pilot action evidence while all Console actions remain read-only, dry-run, or proposal-only.",
+        "approval_required": false,
+        "proposal_required": false,
+        "execution_gate": {
+          "allowed": true,
+          "execution_mode": "local_repo_execute",
+          "reason": "MEDIUM risk is allowed by governance, approval policy, and release gates.",
+          "governance": {
+            "status": "PASS",
+            "decision": "ALLOW",
+            "execution_allowed": true,
+            "execution_mode": "local_repo_execute",
+            "risk": "MEDIUM",
+            "categories": [
+              "local_repo_change"
+            ],
+            "governance_check": "PASS",
+            "approval_policy": "PASS",
+            "release_gate": "PASS",
+            "automation_mode": "autopilot_execute",
+            "approval_required": false,
+            "proposal_required": false,
+            "human_approval_required": false,
+            "reason": "MEDIUM risk is allowed by governance, approval policy, and release gates."
+          }
+        },
+        "automatic_execution_allowed": true,
+        "effective_execution_mode": "local_repo_execute",
+        "batch_id": "batch-plan-f761fb471d",
+        "status": "EXECUTED",
+        "execution_strategy": "true_parallel_executor_parallel_4",
+        "task_workspace": "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-4-console-action-evidence",
+        "changed_files": [
+          "apps/console/examples/pilot-console-action-flow.example.json",
+          "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-4-console-action-evidence.json",
+          "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-4-console-action-evidence.md",
+          "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.json",
+          "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.md",
+          "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-4-console-action-evidence/workspace.json",
+          "docs/release/PILOT_CONSOLE_ACTION_PARALLEL_EVIDENCE.md"
+        ],
+        "validation_result": {
+          "status": "PASS",
+          "command_count": 5,
+          "failed_commands": []
+        },
+        "commands_run": [
+          {
+            "command": "pnpm typecheck",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "> anksen-agent-studio@0.1.0 typecheck /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> pnpm -r --if-present typecheck\n\nScope: 15 of 16 workspace projects\napps/console typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck: Done\npackages/governance-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck: Done\npackages/mobile-stack-pack typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck: Done\npackages/orchestrator-core typecheck$ tsc -p tsconfig.json --noEmit\napps/console typecheck: Done\npackages/planning-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/mobile-stack-pack typecheck: Done\npackages/production-ops typecheck$ tsc -p tsconfig.json --noEmit\npackages/governance-center typecheck: Done\npackages/project-connector typecheck$ tsc -p tsconfig.json --noEmit\npackages/orchestrator-core typecheck: Done\npackages/runtime-adapters typecheck$ tsc -p tsconfig.json --noEmit\npackages/planning-center typecheck: Done\npackages/runtime-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-adapters typecheck: Done\npackages/runtime-memory typecheck$ tsc -p tsconfig.json --noEmit\npackages/project-connector typecheck: Done\npackages/skill-router typecheck$ tsc -p tsconfig.json --noEmit\npackages/production-ops typecheck: Done\npackages/worker-pool typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-center typecheck: Done\npackages/runtime-memory typecheck: Done\npackages/skill-router typecheck: Done\npackages/worker-pool typecheck: Done",
+            "stderr_tail": ""
+          },
+          {
+            "command": "pnpm lint:check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "> anksen-agent-studio@0.1.0 lint:check /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> node packages/orchestrator-core/bin/studio.mjs lint-check\n\nlint:check: no ESLint configuration is enabled in the extraction-stage skeleton.\nstatus: PASS",
+            "stderr_tail": ""
+          },
+          {
+            "command": "git diff --check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          {
+            "command": "git diff --check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          }
+        ],
+        "child_process_evidence": {
+          "agent": "agent-4",
+          "task_id": "pilot-batch-agent-4-console-action-evidence",
+          "run_id": "batch-plan-f761fb471d-agent-4-pilot-batch-agent-4-console-action-evidence",
+          "pid": 58176,
+          "observed_child_pid": 58176,
+          "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence",
+          "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.json",
+          "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.md",
+          "started_at": "2026-06-24T05:44:10.841Z",
+          "completed_at": "2026-06-24T05:44:12.069Z",
+          "duration_ms": 1228,
+          "status": "PASS",
+          "exit_code": 0,
+          "source_path": "apps/console/src/view-model.ts",
+          "bytes_read": 5023
+        }
+      },
+      {
+        "task_id": "pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "title": "Pilot remote worker readiness read-only evidence",
+        "owner_agent": "agent-5",
+        "target_project": "anksen-agent-studio",
+        "target_package": "packages/worker-pool",
+        "skill_type": "architecture_planning",
+        "runtime": "codex-cli",
+        "allowed_paths": [
+          "docs/release/PILOT_REMOTE_WORKER_READINESS_READONLY.md",
+          "packages/worker-pool/examples/pilot-remote-worker-readiness.example.json"
+        ],
+        "forbidden_paths": [
+          "jinhu-smart-park/**",
+          "../jinhu-smart-park/**",
+          "examples/jinhu-smart-park/**",
+          "runtime/projects/jinhu-smart-park/**",
+          "**/.env*",
+          "**/*secret*",
+          "**/*private_key*",
+          "**/*ssh_key*"
+        ],
+        "risk": "MEDIUM",
+        "dependencies": [
+          "pilot-batch-agent-2-worker-pool-evidence"
+        ],
+        "validation_commands": [
+          "pnpm typecheck",
+          "pnpm lint:check",
+          "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+          "git diff --check"
+        ],
+        "execution_mode": "local_repo_execute",
+        "approval_required": false,
+        "proposal_required": false,
+        "split_from": "pilot-batch-agent-5-remote-worker-production-readiness",
+        "parent_risk": "HIGH",
+        "split_strategy": "high_risk_safe_decomposition",
+        "objective": "Record local read-only readiness evidence for future remote workers while remote connectivity, deploys, production operations, credentials, and external model calls stay disabled.",
+        "execution_gate": {
+          "allowed": true,
+          "execution_mode": "local_repo_execute",
+          "reason": "MEDIUM risk is allowed by governance, approval policy, and release gates.",
+          "governance": {
+            "status": "PASS",
+            "decision": "ALLOW",
+            "execution_allowed": true,
+            "execution_mode": "local_repo_execute",
+            "risk": "MEDIUM",
+            "categories": [
+              "local_repo_change"
+            ],
+            "governance_check": "PASS",
+            "approval_policy": "PASS",
+            "release_gate": "PASS",
+            "automation_mode": "autopilot_execute",
+            "approval_required": false,
+            "proposal_required": false,
+            "human_approval_required": false,
+            "reason": "MEDIUM risk is allowed by governance, approval policy, and release gates."
+          }
+        },
+        "automatic_execution_allowed": true,
+        "effective_execution_mode": "local_repo_execute",
+        "batch_id": "batch-plan-f761fb471d",
+        "status": "EXECUTED",
+        "execution_strategy": "true_parallel_executor_parallel_4",
+        "task_workspace": "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "changed_files": [
+          "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-5-remote-worker-readiness-readonly.json",
+          "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-5-remote-worker-readiness-readonly.md",
+          "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.json",
+          "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.md",
+          "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-5-remote-worker-readiness-readonly/workspace.json",
+          "docs/release/PILOT_REMOTE_WORKER_READINESS_READONLY.md",
+          "packages/worker-pool/examples/pilot-remote-worker-readiness.example.json"
+        ],
+        "validation_result": {
+          "status": "PASS",
+          "command_count": 5,
+          "failed_commands": []
+        },
+        "commands_run": [
+          {
+            "command": "pnpm typecheck",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "> anksen-agent-studio@0.1.0 typecheck /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> pnpm -r --if-present typecheck\n\nScope: 15 of 16 workspace projects\napps/console typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck: Done\npackages/governance-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck: Done\npackages/mobile-stack-pack typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck: Done\npackages/orchestrator-core typecheck$ tsc -p tsconfig.json --noEmit\napps/console typecheck: Done\npackages/planning-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/mobile-stack-pack typecheck: Done\npackages/production-ops typecheck$ tsc -p tsconfig.json --noEmit\npackages/governance-center typecheck: Done\npackages/project-connector typecheck$ tsc -p tsconfig.json --noEmit\npackages/orchestrator-core typecheck: Done\npackages/runtime-adapters typecheck$ tsc -p tsconfig.json --noEmit\npackages/planning-center typecheck: Done\npackages/runtime-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-adapters typecheck: Done\npackages/runtime-memory typecheck$ tsc -p tsconfig.json --noEmit\npackages/project-connector typecheck: Done\npackages/skill-router typecheck$ tsc -p tsconfig.json --noEmit\npackages/production-ops typecheck: Done\npackages/worker-pool typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-center typecheck: Done\npackages/runtime-memory typecheck: Done\npackages/skill-router typecheck: Done\npackages/worker-pool typecheck: Done",
+            "stderr_tail": ""
+          },
+          {
+            "command": "pnpm lint:check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "> anksen-agent-studio@0.1.0 lint:check /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> node packages/orchestrator-core/bin/studio.mjs lint-check\n\nlint:check: no ESLint configuration is enabled in the extraction-stage skeleton.\nstatus: PASS",
+            "stderr_tail": ""
+          },
+          {
+            "command": "git diff --check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          {
+            "command": "git diff --check",
+            "ok": true,
+            "status": 0,
+            "blocked": false,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          }
+        ],
+        "child_process_evidence": {
+          "agent": "agent-5",
+          "task_id": "pilot-batch-agent-5-remote-worker-readiness-readonly",
+          "run_id": "batch-plan-f761fb471d-agent-5-pilot-batch-agent-5-remote-worker-readiness-readonly",
+          "pid": 58264,
+          "observed_child_pid": 58264,
+          "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly",
+          "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.json",
+          "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.md",
+          "started_at": "2026-06-24T05:44:12.102Z",
+          "completed_at": "2026-06-24T05:44:13.455Z",
+          "duration_ms": 1353,
+          "status": "PASS",
+          "exit_code": 0,
+          "source_path": "packages/worker-pool/examples/worker-registry.example.json",
+          "bytes_read": 2280
+        }
+      }
+    ]
+  },
+  "execution_mode": "batch_execute",
+  "execution_strategy": "true_parallel_executor_parallel_4",
+  "true_parallel": true,
+  "actual_parallelism": 4,
+  "parallel_mode": "real_child_process",
+  "parallel_evidence": {
+    "parallel_mode": "real_child_process",
+    "agent_pids": {
+      "agent-1": 58173,
+      "agent-2": 58175,
+      "agent-3": 58174,
+      "agent-4": 58176,
+      "agent-5": 58264
+    },
+    "observed_child_pids": {
+      "agent-1": 58173,
+      "agent-2": 58175,
+      "agent-3": 58174,
+      "agent-4": 58176,
+      "agent-5": 58264
+    },
+    "time_overlap_matrix": {
+      "agents": [
+        "agent-1",
+        "agent-2",
+        "agent-3",
+        "agent-4",
+        "agent-5"
+      ],
+      "matrix": {
+        "agent-1": {
+          "agent-1": "self",
+          "agent-2": true,
+          "agent-3": true,
+          "agent-4": true,
+          "agent-5": false
+        },
+        "agent-2": {
+          "agent-1": true,
+          "agent-2": "self",
+          "agent-3": true,
+          "agent-4": true,
+          "agent-5": false
+        },
+        "agent-3": {
+          "agent-1": true,
+          "agent-2": true,
+          "agent-3": "self",
+          "agent-4": true,
+          "agent-5": false
+        },
+        "agent-4": {
+          "agent-1": true,
+          "agent-2": true,
+          "agent-3": true,
+          "agent-4": "self",
+          "agent-5": false
+        },
+        "agent-5": {
+          "agent-1": false,
+          "agent-2": false,
+          "agent-3": false,
+          "agent-4": false,
+          "agent-5": "self"
+        }
+      },
+      "overlap_pairs": [
+        [
+          "agent-1",
+          "agent-2"
+        ],
+        [
+          "agent-1",
+          "agent-3"
+        ],
+        [
+          "agent-1",
+          "agent-4"
+        ],
+        [
+          "agent-2",
+          "agent-3"
+        ],
+        [
+          "agent-2",
+          "agent-4"
+        ],
+        [
+          "agent-3",
+          "agent-4"
+        ]
+      ]
+    },
+    "independent_workspaces": true,
+    "independent_run_logs": true,
+    "independent_processes": true,
+    "time_overlap_detected": true,
+    "sequential_simulation_detected": false,
+    "workspaces": {
+      "agent-1": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence",
+      "agent-2": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence",
+      "agent-3": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence",
+      "agent-4": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence",
+      "agent-5": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly"
+    },
+    "run_logs": {
+      "agent-1": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.json",
+      "agent-2": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.json",
+      "agent-3": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.json",
+      "agent-4": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.json",
+      "agent-5": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.json"
+    },
+    "log_markdown": {
+      "agent-1": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.md",
+      "agent-2": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.md",
+      "agent-3": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.md",
+      "agent-4": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.md",
+      "agent-5": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.md"
+    },
+    "agents": [
+      {
+        "agent": "agent-1",
+        "task_id": "pilot-batch-agent-1-runtime-chain-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-1-pilot-batch-agent-1-runtime-chain-evidence",
+        "pid": 58173,
+        "observed_child_pid": 58173,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence",
+        "log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.json",
+        "log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.843Z",
+        "completed_at": "2026-06-24T05:44:11.695Z",
+        "duration_ms": 852,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/runtime-center/examples/runtime-health.example.json",
+        "bytes_read": 965
+      },
+      {
+        "agent": "agent-2",
+        "task_id": "pilot-batch-agent-2-worker-pool-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-2-pilot-batch-agent-2-worker-pool-evidence",
+        "pid": 58175,
+        "observed_child_pid": 58175,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence",
+        "log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.json",
+        "log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.841Z",
+        "completed_at": "2026-06-24T05:44:11.819Z",
+        "duration_ms": 978,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/worker-pool/examples/worker-registry.example.json",
+        "bytes_read": 2280
+      },
+      {
+        "agent": "agent-3",
+        "task_id": "pilot-batch-agent-3-credential-policy-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-3-pilot-batch-agent-3-credential-policy-evidence",
+        "pid": 58174,
+        "observed_child_pid": 58174,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence",
+        "log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.json",
+        "log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.843Z",
+        "completed_at": "2026-06-24T05:44:11.945Z",
+        "duration_ms": 1102,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/credential-vault/examples/credential-references.example.json",
+        "bytes_read": 2395
+      },
+      {
+        "agent": "agent-4",
+        "task_id": "pilot-batch-agent-4-console-action-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-4-pilot-batch-agent-4-console-action-evidence",
+        "pid": 58176,
+        "observed_child_pid": 58176,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence",
+        "log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.json",
+        "log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.841Z",
+        "completed_at": "2026-06-24T05:44:12.069Z",
+        "duration_ms": 1228,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "apps/console/src/view-model.ts",
+        "bytes_read": 5023
+      },
+      {
+        "agent": "agent-5",
+        "task_id": "pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "run_id": "batch-plan-f761fb471d-agent-5-pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "pid": 58264,
+        "observed_child_pid": 58264,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.json",
+        "log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.md",
+        "started_at": "2026-06-24T05:44:12.102Z",
+        "completed_at": "2026-06-24T05:44:13.455Z",
+        "duration_ms": 1353,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/worker-pool/examples/worker-registry.example.json",
+        "bytes_read": 2280
+      }
+    ],
+    "run_root": "autopilot-runs/parallel-batch/batch-plan-f761fb471d",
+    "by_task_id": {
+      "pilot-batch-agent-1-runtime-chain-evidence": {
+        "agent": "agent-1",
+        "task_id": "pilot-batch-agent-1-runtime-chain-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-1-pilot-batch-agent-1-runtime-chain-evidence",
+        "pid": 58173,
+        "observed_child_pid": 58173,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence",
+        "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.json",
+        "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.843Z",
+        "completed_at": "2026-06-24T05:44:11.695Z",
+        "duration_ms": 852,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/runtime-center/examples/runtime-health.example.json",
+        "bytes_read": 965
+      },
+      "pilot-batch-agent-2-worker-pool-evidence": {
+        "agent": "agent-2",
+        "task_id": "pilot-batch-agent-2-worker-pool-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-2-pilot-batch-agent-2-worker-pool-evidence",
+        "pid": 58175,
+        "observed_child_pid": 58175,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence",
+        "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.json",
+        "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.841Z",
+        "completed_at": "2026-06-24T05:44:11.819Z",
+        "duration_ms": 978,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/worker-pool/examples/worker-registry.example.json",
+        "bytes_read": 2280
+      },
+      "pilot-batch-agent-3-credential-policy-evidence": {
+        "agent": "agent-3",
+        "task_id": "pilot-batch-agent-3-credential-policy-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-3-pilot-batch-agent-3-credential-policy-evidence",
+        "pid": 58174,
+        "observed_child_pid": 58174,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence",
+        "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.json",
+        "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.843Z",
+        "completed_at": "2026-06-24T05:44:11.945Z",
+        "duration_ms": 1102,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/credential-vault/examples/credential-references.example.json",
+        "bytes_read": 2395
+      },
+      "pilot-batch-agent-4-console-action-evidence": {
+        "agent": "agent-4",
+        "task_id": "pilot-batch-agent-4-console-action-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-4-pilot-batch-agent-4-console-action-evidence",
+        "pid": 58176,
+        "observed_child_pid": 58176,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence",
+        "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.json",
+        "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.841Z",
+        "completed_at": "2026-06-24T05:44:12.069Z",
+        "duration_ms": 1228,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "apps/console/src/view-model.ts",
+        "bytes_read": 5023
+      },
+      "pilot-batch-agent-5-remote-worker-readiness-readonly": {
+        "agent": "agent-5",
+        "task_id": "pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "run_id": "batch-plan-f761fb471d-agent-5-pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "pid": 58264,
+        "observed_child_pid": 58264,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.json",
+        "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.md",
+        "started_at": "2026-06-24T05:44:12.102Z",
+        "completed_at": "2026-06-24T05:44:13.455Z",
+        "duration_ms": 1353,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/worker-pool/examples/worker-registry.example.json",
+        "bytes_read": 2280
+      }
+    }
+  },
+  "agent_pids": {
+    "agent-1": 58173,
+    "agent-2": 58175,
+    "agent-3": 58174,
+    "agent-4": 58176,
+    "agent-5": 58264
+  },
+  "time_overlap_matrix": {
+    "agents": [
+      "agent-1",
+      "agent-2",
+      "agent-3",
+      "agent-4",
+      "agent-5"
+    ],
+    "matrix": {
+      "agent-1": {
+        "agent-1": "self",
+        "agent-2": true,
+        "agent-3": true,
+        "agent-4": true,
+        "agent-5": false
+      },
+      "agent-2": {
+        "agent-1": true,
+        "agent-2": "self",
+        "agent-3": true,
+        "agent-4": true,
+        "agent-5": false
+      },
+      "agent-3": {
+        "agent-1": true,
+        "agent-2": true,
+        "agent-3": "self",
+        "agent-4": true,
+        "agent-5": false
+      },
+      "agent-4": {
+        "agent-1": true,
+        "agent-2": true,
+        "agent-3": true,
+        "agent-4": "self",
+        "agent-5": false
+      },
+      "agent-5": {
+        "agent-1": false,
+        "agent-2": false,
+        "agent-3": false,
+        "agent-4": false,
+        "agent-5": "self"
+      }
+    },
+    "overlap_pairs": [
+      [
+        "agent-1",
+        "agent-2"
+      ],
+      [
+        "agent-1",
+        "agent-3"
+      ],
+      [
+        "agent-1",
+        "agent-4"
+      ],
+      [
+        "agent-2",
+        "agent-3"
+      ],
+      [
+        "agent-2",
+        "agent-4"
+      ],
+      [
+        "agent-3",
+        "agent-4"
+      ]
+    ]
+  },
+  "independent_workspaces": true,
+  "independent_run_logs": true,
+  "path_overlap": {
+    "detected": false,
+    "overlaps": [],
+    "degraded_task_ids": [],
+    "unaffected_task_ids": [
+      "pilot-batch-agent-1-runtime-chain-evidence",
+      "pilot-batch-agent-2-worker-pool-evidence",
+      "pilot-batch-agent-3-credential-policy-evidence",
+      "pilot-batch-agent-4-console-action-evidence",
+      "pilot-batch-agent-5-remote-worker-readiness-readonly"
+    ]
+  },
+  "parallel_batches": [
+    [
+      "pilot-batch-agent-1-runtime-chain-evidence",
+      "pilot-batch-agent-2-worker-pool-evidence",
+      "pilot-batch-agent-3-credential-policy-evidence",
+      "pilot-batch-agent-4-console-action-evidence"
+    ],
+    [
+      "pilot-batch-agent-5-remote-worker-readiness-readonly"
+    ]
+  ],
+  "high_risk_decomposition": [
+    {
+      "parent_task_id": "pilot-batch-agent-5-remote-worker-production-readiness",
+      "owner_agent": "agent-5",
+      "parent_risk": "HIGH",
+      "status": "SPLIT_TO_SAFE_SUBTASKS",
+      "child_task_ids": [
+        "pilot-batch-agent-5-remote-worker-readiness-readonly"
+      ],
+      "direct_execution": false
+    }
+  ],
+  "execution_result": {
+    "executed": true,
+    "implementation": "real-child-process-parallel-batch-executor",
+    "summary": "Executed LOW/MEDIUM local repository tasks with actual_parallelism=4, parallel=4, and parallel_mode=real_child_process; HIGH risk was decomposed into safe subtasks when possible."
+  },
+  "commands_run": [
+    {
+      "command": "read runtime/global/*",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "files=7; v5=agent-studio-v5-master-plan",
+      "stderr_tail": ""
+    },
+    {
+      "command": "Planning Center batch_plan",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "batch_id=batch-plan-f761fb471d; tasks=5",
+      "stderr_tail": ""
+    },
+    {
+      "command": "autopilot anti-repeat review",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "completion_aware=no; repeated=no; selected_gap=none",
+      "stderr_tail": ""
+    },
+    {
+      "command": "high risk safe decomposition",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "parents=1; expanded_tasks=5",
+      "stderr_tail": ""
+    },
+    {
+      "command": "governance gate pilot-batch-agent-1-runtime-chain-evidence",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "agent=agent-1; risk=LOW; mode=local_repo_execute; reason=LOW risk is allowed by governance, approval policy, and release gates.",
+      "stderr_tail": ""
+    },
+    {
+      "command": "governance gate pilot-batch-agent-2-worker-pool-evidence",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "agent=agent-2; risk=MEDIUM; mode=local_repo_execute; reason=MEDIUM risk is allowed by governance, approval policy, and release gates.",
+      "stderr_tail": ""
+    },
+    {
+      "command": "governance gate pilot-batch-agent-3-credential-policy-evidence",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "agent=agent-3; risk=MEDIUM; mode=local_repo_execute; reason=MEDIUM risk is allowed by governance, approval policy, and release gates.",
+      "stderr_tail": ""
+    },
+    {
+      "command": "governance gate pilot-batch-agent-4-console-action-evidence",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "agent=agent-4; risk=MEDIUM; mode=local_repo_execute; reason=MEDIUM risk is allowed by governance, approval policy, and release gates.",
+      "stderr_tail": ""
+    },
+    {
+      "command": "governance gate pilot-batch-agent-5-remote-worker-readiness-readonly",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "agent=agent-5; risk=MEDIUM; mode=local_repo_execute; reason=MEDIUM risk is allowed by governance, approval policy, and release gates.",
+      "stderr_tail": ""
+    },
+    {
+      "command": "autopilot batch real child_process executor",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "parallel_mode=real_child_process; pids=agent-1:58173,agent-2:58175,agent-3:58174,agent-4:58176,agent-5:58264; overlap=yes",
+      "stderr_tail": ""
+    },
+    {
+      "command": "pnpm typecheck",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "> anksen-agent-studio@0.1.0 typecheck /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> pnpm -r --if-present typecheck\n\nScope: 15 of 16 workspace projects\napps/console typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck: Done\npackages/governance-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck: Done\npackages/mobile-stack-pack typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck: Done\npackages/orchestrator-core typecheck$ tsc -p tsconfig.json --noEmit\napps/console typecheck: Done\npackages/planning-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/mobile-stack-pack typecheck: Done\npackages/production-ops typecheck$ tsc -p tsconfig.json --noEmit\npackages/governance-center typecheck: Done\npackages/project-connector typecheck$ tsc -p tsconfig.json --noEmit\npackages/orchestrator-core typecheck: Done\npackages/runtime-adapters typecheck$ tsc -p tsconfig.json --noEmit\npackages/planning-center typecheck: Done\npackages/runtime-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-adapters typecheck: Done\npackages/runtime-memory typecheck$ tsc -p tsconfig.json --noEmit\npackages/project-connector typecheck: Done\npackages/skill-router typecheck$ tsc -p tsconfig.json --noEmit\npackages/production-ops typecheck: Done\npackages/worker-pool typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-center typecheck: Done\npackages/runtime-memory typecheck: Done\npackages/skill-router typecheck: Done\npackages/worker-pool typecheck: Done",
+      "stderr_tail": ""
+    },
+    {
+      "command": "pnpm lint:check",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "> anksen-agent-studio@0.1.0 lint:check /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> node packages/orchestrator-core/bin/studio.mjs lint-check\n\nlint:check: no ESLint configuration is enabled in the extraction-stage skeleton.\nstatus: PASS",
+      "stderr_tail": ""
+    },
+    {
+      "command": "git diff --check",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "command": "git diff --check",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "command": "git add -- apps/console/examples/pilot-console-action-flow.example.json autopilot-runs/batch-plan-f761fb471d-efficiency.json autopilot-runs/batch-plan-f761fb471d-efficiency.md autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-1-runtime-chain-evidence.json autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-1-runtime-chain-evidence.md autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-2-worker-pool-evidence.json autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-2-worker-pool-evidence.md autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-3-credential-policy-evidence.json autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-3-credential-policy-evidence.md autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-4-console-action-evidence.json autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-4-console-action-evidence.md autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-5-remote-worker-readiness-readonly.json autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-5-remote-worker-readiness-readonly.md autopilot-runs/parallel-batch/batch-plan-f761fb471d/ autopilot-runs/workspaces/batch-plan-f761fb471d/ docs/release/PILOT_CONSOLE_ACTION_PARALLEL_EVIDENCE.md docs/release/PILOT_CREDENTIAL_POLICY_PARALLEL_EVIDENCE.md docs/release/PILOT_REMOTE_WORKER_READINESS_READONLY.md docs/release/PILOT_RUNTIME_CHAIN_PARALLEL_EVIDENCE.md docs/release/PILOT_WORKER_POOL_PARALLEL_EVIDENCE.md packages/credential-vault/examples/pilot-credential-backend-policy.example.json packages/worker-pool/examples/pilot-remote-worker-readiness.example.json packages/worker-pool/examples/pilot-worker-pool-parallel.example.json runtime/pilot/pilot-batch-runtime-chain-evidence.json",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "command": "git commit -m \"chore(autopilot): use real parallel worker executor\"",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "[main 302131f] chore(autopilot): use real parallel worker executor\n 37 files changed, 1663 insertions(+), 10 deletions(-)\n create mode 100644 autopilot-runs/batch-plan-f761fb471d-efficiency.json\n create mode 100644 autopilot-runs/batch-plan-f761fb471d-efficiency.md\n create mode 100644 autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-1-runtime-chain-evidence.json\n create mode 100644 autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-1-runtime-chain-evidence.md\n create mode 100644 autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-2-worker-pool-evidence.json\n create mode 100644 autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-2-worker-pool-evidence.md\n create mode 100644 autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-3-credential-policy-evidence.json\n create mode 100644 autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-3-credential-policy-evidence.md\n create mode 100644 autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-4-console-action-evidence.json\n create mode 100644 autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-4-console-action-evidence.md\n create mode 100644 autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-5-remote-worker-readiness-readonly.json\n create mode 100644 autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-5-remote-worker-readiness-readonly.md\n create mode 100644 autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.json\n create mode 100644 autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.md\n create mode 100644 autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.json\n create mode 100644 autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.md\n create mode 100644 autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.json\n create mode 100644 autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.md\n create mode 100644 autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.json\n create mode 100644 autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.md\n create mode 100644 autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.json\n create mode 100644 autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.md\n create mode 100644 autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-1-runtime-chain-evidence/workspace.json\n create mode 100644 autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-2-worker-pool-evidence/workspace.json\n create mode 100644 autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-3-credential-policy-evidence/workspace.json\n create mode 100644 autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-4-console-action-evidence/workspace.json\n create mode 100644 autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-5-remote-worker-readiness-readonly/workspace.json",
+      "stderr_tail": ""
+    }
+  ],
+  "changed_files": [
+    "apps/console/examples/pilot-console-action-flow.example.json",
+    "autopilot-runs/batch-plan-f761fb471d-efficiency.json",
+    "autopilot-runs/batch-plan-f761fb471d-efficiency.md",
+    "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-1-runtime-chain-evidence.json",
+    "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-1-runtime-chain-evidence.md",
+    "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-2-worker-pool-evidence.json",
+    "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-2-worker-pool-evidence.md",
+    "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-3-credential-policy-evidence.json",
+    "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-3-credential-policy-evidence.md",
+    "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-4-console-action-evidence.json",
+    "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-4-console-action-evidence.md",
+    "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-5-remote-worker-readiness-readonly.json",
+    "autopilot-runs/batch-plan-f761fb471d-pilot-batch-agent-5-remote-worker-readiness-readonly.md",
+    "autopilot-runs/batch-plan-f761fb471d-summary.md",
+    "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.json",
+    "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.md",
+    "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.json",
+    "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.md",
+    "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.json",
+    "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.md",
+    "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.json",
+    "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.md",
+    "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.json",
+    "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.md",
+    "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-1-runtime-chain-evidence/workspace.json",
+    "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-2-worker-pool-evidence/workspace.json",
+    "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-3-credential-policy-evidence/workspace.json",
+    "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-4-console-action-evidence/workspace.json",
+    "autopilot-runs/workspaces/batch-plan-f761fb471d/pilot-batch-agent-5-remote-worker-readiness-readonly/workspace.json",
+    "docs/release/PILOT_CONSOLE_ACTION_PARALLEL_EVIDENCE.md",
+    "docs/release/PILOT_CREDENTIAL_POLICY_PARALLEL_EVIDENCE.md",
+    "docs/release/PILOT_REMOTE_WORKER_READINESS_READONLY.md",
+    "docs/release/PILOT_RUNTIME_CHAIN_PARALLEL_EVIDENCE.md",
+    "docs/release/PILOT_WORKER_POOL_PARALLEL_EVIDENCE.md",
+    "packages/credential-vault/examples/pilot-credential-backend-policy.example.json",
+    "packages/worker-pool/examples/pilot-remote-worker-readiness.example.json",
+    "packages/worker-pool/examples/pilot-worker-pool-parallel.example.json",
+    "runtime/pilot/pilot-batch-runtime-chain-evidence.json"
+  ],
+  "validation_result": {
+    "status": "PASS",
+    "command_count": 16,
+    "failed_commands": []
+  },
+  "commit_hash": "302131f2a1ce22c45a209afe58fe04cf04c66cf2",
+  "batch_summary_file": "autopilot-runs/batch-plan-f761fb471d-summary.md",
+  "batch_efficiency_files": [
+    "autopilot-runs/batch-plan-f761fb471d-efficiency.json",
+    "autopilot-runs/batch-plan-f761fb471d-efficiency.md"
+  ],
+  "next_recommendation": {
+    "title": "Review batch execution summary",
+    "reason": "Batch Executor completed the safe local tasks and left HIGH risk work proposal-only.",
+    "command": "node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal \"继续推进 Pilot\" --dry-run"
+  },
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled",
+    "local_child_process_worker": "enabled",
+    "remote_worker_execution": "disabled",
+    "external_model_call": "disabled",
+    "high_critical_policy": "proposal_only"
+  }
+}
