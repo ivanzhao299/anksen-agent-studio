@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-24T00:00:00.000+08:00",
+  "project_id": "phoenix-erp",
+  "status": "PLANNED",
+  "connection_status": "NOT_CONNECTED",
+  "studio_mode": "read_only_placeholder",
+  "connector_status": "planned_project",
+  "runtime_memory": "runtime/projects/phoenix-erp",
+  "commands": {
+    "intake": "planned_only",
+    "stack": "not_connected",
+    "commands": "not_connected",
+    "debug": "fixture_only",
+    "agent_execution": "disabled"
+  },
+  "governance": {
+    "risk": "MEDIUM",
+    "managed_project_writes": "disabled",
+    "approval_required_for_connection": true
+  },
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read",
+    "real_model_calls": "disabled"
+  }
+}

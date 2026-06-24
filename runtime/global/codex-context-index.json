@@ -20,6 +20,15 @@
         "runtime/projects/jinhu-smart-park/agent-studio-status.json",
         "runtime/projects/jinhu-smart-park/handoff-summary.md"
       ]
+    },
+    {
+      "project_id": "phoenix-erp",
+      "files": [
+        "runtime/projects/phoenix-erp/project-state.json",
+        "runtime/projects/phoenix-erp/architecture.json",
+        "runtime/projects/phoenix-erp/agent-studio-status.json",
+        "runtime/projects/phoenix-erp/handoff-summary.md"
+      ]
     }
   ],
   "required_reading": [
@@ -28,6 +37,7 @@
     "runtime/global/platform-state.json",
     "runtime/global/roadmap-memory.json",
     "runtime/projects/jinhu-smart-park/handoff-summary.md",
+    "runtime/projects/phoenix-erp/handoff-summary.md",
     "README.md"
   ],
   "safety_boundaries": [

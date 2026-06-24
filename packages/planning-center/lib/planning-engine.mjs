@@ -100,6 +100,10 @@ function highOrCritical(risk) {
   return risk === "HIGH" || risk === "CRITICAL";
 }
 
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
 function v5StageCompleted(stage) {
   return stage.status === "completed" || stage.completed === true;
 }
@@ -177,6 +181,57 @@ function v5ActionFromStage(stage) {
   };
 }
 
+function v5CompletionState(inputs) {
+  return inputs.v5_completion?.completion_aware ? inputs.v5_completion : null;
+}
+
+function v5CompletionAwareAction(inputs) {
+  const completion = v5CompletionState(inputs);
+  const gap = completion?.selected_gap ?? completion?.remaining_gaps?.[0] ?? null;
+  if (!gap) {
+    return {
+      title: "READY_FOR_V5_PRODUCTIZATION_REVIEW",
+      reason: "Completion-aware Planning Center found no remaining V5 productization gaps. Stop batch generation and run a human productization review.",
+      target_project: "anksen-agent-studio",
+      target_package: "docs/release",
+      expected_files: [
+        "docs/release/V5_INTEGRATION_VALIDATION_REPORT.md"
+      ],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "git diff --check"
+      ],
+      risk: "LOW",
+      approval_required: false,
+      execution_mode: "proposal_only",
+      automation_level: "stop"
+    };
+  }
+  const risk = gap.risk ?? "MEDIUM";
+  return {
+    title: gap.title ?? "Productize remaining V5 validation gap",
+    reason: `Completion-aware Planning Center skipped completed V5 roadmap stages and selected remaining productization gap: ${gap.summary ?? gap.gap_id}.`,
+    target_project: "anksen-agent-studio",
+    target_package: gap.target_package ?? "docs/release",
+    expected_files: gap.expected_files ?? [
+      "docs/release/V5_INTEGRATION_VALIDATION_REPORT.md"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs plan --goal \"继续推进 V5\" --completion-aware --dry-run",
+      "node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal \"继续推进 V5\" --dry-run",
+      "git diff --check"
+    ],
+    risk,
+    approval_required: highOrCritical(risk),
+    execution_mode: highOrCritical(risk) ? "proposal_only" : "local_repo_execute",
+    v5_productization_gap_id: gap.gap_id ?? "remaining-gap",
+    automation_level: highOrCritical(risk) ? "proposal_only" : "autopilot_execute"
+  };
+}
+
 function normalizeBatchTask(task) {
   const risk = task.risk ?? "CRITICAL";
   return {
@@ -185,6 +240,158 @@ function normalizeBatchTask(task) {
     approval_required: Boolean(task.approval_required || highOrCritical(risk)),
     proposal_required: Boolean(task.proposal_required || highOrCritical(risk))
   };
+}
+
+function v5ProductizationBatchTasks(inputs) {
+  const completion = v5CompletionState(inputs);
+  const gaps = completion?.remaining_gaps ?? [];
+  const commonForbiddenPaths = [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "examples/jinhu-smart-park/**",
+    "runtime/projects/jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ];
+  const taskByArea = {
+    Planning: normalizeBatchTask({
+      task_id: "v5-productization-planning-completion-aware",
+      title: "Completion-aware Planning Center",
+      owner_agent: "agent-1",
+      target_project: "anksen-agent-studio",
+      target_package: "packages/planning-center",
+      skill_type: "planning_engineering",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "packages/planning-center/**",
+        "packages/orchestrator-core/bin/studio.mjs",
+        "docs/release/PLANNING_CHAIN_REPORT.md",
+        "docs/release/V5_INTEGRATION_VALIDATION_REPORT.md"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs plan --goal \"继续推进 V5\" --completion-aware --dry-run",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Compute completed, partial, and remaining V5 state and select only remaining productization gaps."
+    }),
+    MultiProject: normalizeBatchTask({
+      task_id: "v5-productization-phoenix-project-context",
+      title: "Second planned project context",
+      owner_agent: "agent-2",
+      target_project: "anksen-agent-studio",
+      target_package: "packages/project-connector",
+      skill_type: "project_context",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "runtime/global/**",
+        "runtime/projects/phoenix-erp/**",
+        "examples/phoenix-erp/**",
+        "apps/console/src/fixtures.ts",
+        "docs/release/MULTI_PROJECT_READINESS_REPORT.md"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs context summary",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Bootstrap phoenix-erp as a planned/not_connected second project without writing an external repository."
+    }),
+    Console: normalizeBatchTask({
+      task_id: "v5-productization-console-render-dry-run",
+      title: "Console route render dry-run",
+      owner_agent: "agent-3",
+      target_project: "anksen-agent-studio",
+      target_package: "apps/console",
+      skill_type: "console_validation",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "apps/console/**",
+        "packages/orchestrator-core/bin/studio.mjs",
+        "docs/release/CONSOLE_CHAIN_REPORT.md",
+        "docs/release/V5_INTEGRATION_VALIDATION_REPORT.md"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs console render --dry-run",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Validate the read-only Console routes without database, external service, Agent, or production operation access."
+    }),
+    Autopilot: normalizeBatchTask({
+      task_id: "v5-productization-autopilot-anti-repeat",
+      title: "Autopilot anti-repeat target mode",
+      owner_agent: "agent-4",
+      target_project: "anksen-agent-studio",
+      target_package: "packages/orchestrator-core",
+      skill_type: "autopilot_validation",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "packages/orchestrator-core/bin/studio.mjs",
+        "packages/planning-center/**",
+        "docs/release/PLANNING_CHAIN_REPORT.md",
+        "docs/release/V5_INTEGRATION_VALIDATION_REPORT.md"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [
+        "v5-productization-planning-completion-aware"
+      ],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal \"继续推进 V5\" --dry-run",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Detect recent repeated V5 batch signatures and switch to remaining-gap productization tasks."
+    }),
+    Project: normalizeBatchTask({
+      task_id: "v5-productization-project-chain-evidence",
+      title: "Project chain proposal and approval evidence",
+      owner_agent: "agent-5",
+      target_project: "anksen-agent-studio",
+      target_package: "packages/project-connector",
+      skill_type: "project_validation",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "packages/project-connector/**",
+        "docs/release/PROJECT_CHAIN_REPORT.md",
+        "docs/release/V5_INTEGRATION_VALIDATION_REPORT.md"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs project commands --config examples/jinhu-smart-park/project.config.example.json --dry-run",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Document and validate the safe project-chain boundary while remote execute remains gated."
+    })
+  };
+  const areas = gaps.map((gap) => gap.area).filter((area) => taskByArea[area]);
+  const selectedAreas = areas.length > 0 ? unique(areas) : ["Project"];
+  return selectedAreas.map((area) => taskByArea[area]);
 }
 
 function v5BatchTasks() {
@@ -335,14 +542,21 @@ function v5BatchTasks() {
 }
 
 function buildV5BatchPlan(request, selectedAction) {
-  const tasks = v5BatchTasks();
+  const completionAware = Boolean(v5CompletionState(request.inputs ?? {}));
+  const tasks = completionAware
+    ? v5ProductizationBatchTasks(request.inputs ?? {})
+    : v5BatchTasks();
   return {
     batch_id: batchId(request),
     goal: request.goal,
     source_planning_output_id: outputId(request),
     source_action_title: selectedAction.title,
+    strategy: completionAware ? "completion_aware_productization" : "parallel_batch_template",
+    remaining_gap_ids: completionAware
+      ? (request.inputs?.v5_completion?.remaining_gaps ?? []).map((gap) => gap.gap_id)
+      : [],
     parallelism: {
-      min_tasks: 3,
+      min_tasks: completionAware ? Math.min(tasks.length, 3) : 3,
       max_tasks: 5,
       recommended_parallel: 2,
       max_parallel: 5
@@ -361,9 +575,17 @@ function buildV5BatchPlan(request, selectedAction) {
 
 function buildV5PlanningOutput(request) {
   const inputs = request.inputs ?? {};
-  const stage = v5CurrentStage(inputs);
+  const completion = v5CompletionState(inputs);
+  const stage = completion ? {
+    ...v5CurrentStage(inputs),
+    stage_name: "V5 Productization",
+    next_stage: completion.selected_gap?.title ?? "READY_FOR_V5_PRODUCTIZATION_REVIEW",
+    completed_stage_ids: completion.completed_stages ?? [],
+    partial_areas: completion.partial_areas ?? [],
+    remaining_gap_count: completion.remaining_gaps?.length ?? 0
+  } : v5CurrentStage(inputs);
   const nextStage = nextV5Stage(inputs);
-  const action = nextStage ? v5ActionFromStage(nextStage) : {
+  const action = completion ? v5CompletionAwareAction(inputs) : nextStage ? v5ActionFromStage(nextStage) : {
     title: "Review V5 Master Plan",
     reason: "Every V5 stage is marked complete in the roadmap; the next step is roadmap review rather than automatic execution.",
     target_project: "anksen-agent-studio",
@@ -398,8 +620,11 @@ function buildV5PlanningOutput(request) {
     risk: selectedAction.risk,
     approval_required: selectedAction.approval_required,
     execution_mode: highOrCritical(selectedAction.risk) ? "proposal_only" : selectedAction.execution_mode,
+    v5_completion: completion,
     batch_plan: batchPlan,
-    stop_condition: "STOP: Planning Center generated one V5 next action. HIGH/CRITICAL stages are proposal-only; no Worker, deploy, production operation, credential value, or managed-project write is allowed."
+    stop_condition: completion?.ready_for_productization_review
+      ? "STOP: READY_FOR_V5_PRODUCTIZATION_REVIEW. No remaining V5 productization gaps were found."
+      : "STOP: Planning Center generated one V5 next action. HIGH/CRITICAL stages are proposal-only; no Worker, deploy, production operation, credential value, or managed-project write is allowed."
   };
 }
 

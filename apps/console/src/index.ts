@@ -3,6 +3,13 @@ export { consoleActions, getConsoleAction, listConsoleActions, type ConsoleActio
 export { consoleFixture, type ConsoleFixture } from "./fixtures.js";
 export { consoleNavigation, type ConsoleNavigationItem, type ConsolePageId } from "./navigation.js";
 export {
+  consoleRenderRequiredRoutes,
+  consoleRouteManifest,
+  renderConsoleRoutesDryRun,
+  type ConsoleRouteManifestItem,
+  type ConsoleRouteRenderDryRun
+} from "./route-manifest.js";
+export {
   consoleV5BatchEntries,
   consoleV5BatchSafety,
   consoleV5CompletionSummary,

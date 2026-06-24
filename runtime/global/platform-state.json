@@ -61,6 +61,8 @@
       "project_id": "jinhu-smart-park",
       "memory_dir": "runtime/projects/jinhu-smart-park",
       "source_memory_dir": "examples/jinhu-smart-park/runtime-memory",
+      "status": "CONNECTED",
+      "connection_status": "CONNECTED",
       "doctor_status": "GO",
       "repo_clean": "yes",
       "queue_status_counts": {
@@ -68,6 +70,17 @@
         "BLOCKED": 4
       },
       "event_file_count": 180
+    },
+    {
+      "project_id": "phoenix-erp",
+      "memory_dir": "runtime/projects/phoenix-erp",
+      "source_memory_dir": "planned_project",
+      "status": "PLANNED",
+      "connection_status": "NOT_CONNECTED",
+      "doctor_status": "NOT_CONNECTED",
+      "repo_clean": "not_connected",
+      "queue_status_counts": {},
+      "event_file_count": 0
     }
   ],
   "packages": {

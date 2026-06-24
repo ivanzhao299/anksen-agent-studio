@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-24T00:00:00.000+08:00",
+  "project_id": "phoenix-erp",
+  "status": "PLANNED",
+  "connection_status": "NOT_CONNECTED",
+  "architecture_status": "placeholder_only",
+  "stack": [],
+  "systems": [],
+  "runtime_adapters": [],
+  "external_services": [],
+  "notes": [
+    "No real repository has been connected.",
+    "This file exists only to validate V5 multi-project context isolation."
+  ],
+  "safety": {
+    "agent_execution": "disabled",
+    "project_writes": "disabled",
+    "server_access": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read"
+  }
+}

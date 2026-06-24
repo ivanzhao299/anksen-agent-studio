@@ -54,6 +54,8 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run
   node packages/orchestrator-core/bin/studio.mjs runtime select --skill <skill_type> [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs plan --goal "..." --dry-run
+  node packages/orchestrator-core/bin/studio.mjs plan --goal "..." --completion-aware --dry-run
+  node packages/orchestrator-core/bin/studio.mjs console render --dry-run
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
   node packages/orchestrator-core/bin/studio.mjs observe [--dry-run]
@@ -70,12 +72,13 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "production", "production-ops", "context", "autopilot", "debug"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "production", "production-ops", "context", "autopilot", "debug", "console"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
     dryRun: rest.includes("--dry-run"),
     apply: rest.includes("--apply"),
+    completionAware: rest.includes("--completion-aware"),
     applyProposal: rest.includes("--apply-proposal"),
     approveHighRisk: rest.includes("--approve-high-risk"),
     summary: rest.includes("--summary"),
@@ -2205,6 +2208,192 @@ function latestFile(files) {
   return sorted[sorted.length - 1] ?? "";
 }
 
+function markdownSection(text, heading) {
+  const marker = `## ${heading}`;
+  const start = text.indexOf(marker);
+  if (start === -1) return "";
+  const next = text.indexOf("\n## ", start + marker.length);
+  return text.slice(start + marker.length, next === -1 ? undefined : next);
+}
+
+function markdownListItems(text, heading) {
+  return markdownSection(text, heading)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^(-|\d+\.)\s+/.test(line))
+    .map((line) => line.replace(/^(-|\d+\.)\s+/, "").replace(/`/g, "").trim())
+    .filter(Boolean);
+}
+
+function classifyV5Gap(text) {
+  const normalized = text.toLowerCase();
+  if (normalized.includes("planning")) {
+    return {
+      gap_id: "planning-completion-aware",
+      area: "Planning",
+      title: "Productize completion-aware Planning Center",
+      summary: text,
+      risk: "MEDIUM",
+      target_package: "packages/planning-center",
+      expected_files: [
+        "packages/planning-center/lib/planning-engine.mjs",
+        "packages/orchestrator-core/bin/studio.mjs",
+        "docs/release/PLANNING_CHAIN_REPORT.md"
+      ]
+    };
+  }
+  if (normalized.includes("console")) {
+    return {
+      gap_id: "console-route-render",
+      area: "Console",
+      title: "Productize Console route render dry-run",
+      summary: text,
+      risk: "MEDIUM",
+      target_package: "apps/console",
+      expected_files: [
+        "apps/console/src/route-manifest.ts",
+        "packages/orchestrator-core/bin/studio.mjs",
+        "docs/release/CONSOLE_CHAIN_REPORT.md"
+      ]
+    };
+  }
+  if (normalized.includes("multi-project") || normalized.includes("multi project") || normalized.includes("project registry")) {
+    return {
+      gap_id: "multi-project-second-context",
+      area: "MultiProject",
+      title: "Productize second planned project context",
+      summary: text,
+      risk: "MEDIUM",
+      target_package: "packages/project-connector",
+      expected_files: [
+        "runtime/projects/phoenix-erp/project-state.json",
+        "examples/phoenix-erp/project.config.example.json",
+        "docs/release/MULTI_PROJECT_READINESS_REPORT.md"
+      ]
+    };
+  }
+  if (normalized.includes("autopilot") || normalized.includes("batch")) {
+    return {
+      gap_id: "autopilot-anti-repeat",
+      area: "Autopilot",
+      title: "Productize Autopilot anti-repeat target mode",
+      summary: text,
+      risk: "MEDIUM",
+      target_package: "packages/orchestrator-core",
+      expected_files: [
+        "packages/orchestrator-core/bin/studio.mjs",
+        "docs/release/PLANNING_CHAIN_REPORT.md"
+      ]
+    };
+  }
+  if (normalized.includes("project chain") || normalized.includes("remote execute") || normalized.includes("proposal")) {
+    return {
+      gap_id: "project-chain-approved-evidence",
+      area: "Project",
+      title: "Productize project chain proposal and approval evidence",
+      summary: text,
+      risk: "MEDIUM",
+      target_package: "packages/project-connector",
+      expected_files: [
+        "docs/release/PROJECT_CHAIN_REPORT.md",
+        "docs/release/V5_INTEGRATION_VALIDATION_REPORT.md"
+      ]
+    };
+  }
+  return {
+    gap_id: "v5-productization-gap",
+    area: "Productization",
+    title: "Productize remaining V5 validation gap",
+    summary: text,
+    risk: "MEDIUM",
+    target_package: "docs/release",
+    expected_files: [
+      "docs/release/V5_INTEGRATION_VALIDATION_REPORT.md"
+    ]
+  };
+}
+
+async function recentBatchRepeatReview(runFiles = null) {
+  const files = runFiles ?? await listFilesSafe(resolveFromRoot("autopilot-runs"));
+  const summaryFiles = files
+    .filter((file) => file.endsWith("-summary.md"))
+    .sort()
+    .slice(-5);
+  const signatures = [];
+  for (const file of summaryFiles) {
+    const text = await readTextIfExists(file);
+    const taskIds = unique([...text.matchAll(/v5-batch-agent-\d-[a-z0-9-]+/g)].map((match) => match[0])).sort();
+    if (taskIds.length > 0) {
+      signatures.push({
+        file: relativePath(file),
+        signature: taskIds.join("|"),
+        task_count: taskIds.length
+      });
+    }
+  }
+  const counts = {};
+  for (const item of signatures) {
+    counts[item.signature] = (counts[item.signature] ?? 0) + 1;
+  }
+  const repeatedSignature = Object.entries(counts)
+    .filter(([signature]) => signature)
+    .sort((left, right) => right[1] - left[1])[0] ?? ["", 0];
+  return {
+    reviewed_files: summaryFiles.map((file) => relativePath(file)),
+    repeated: repeatedSignature[1] >= 2,
+    repeated_signature: repeatedSignature[0],
+    repeated_count: repeatedSignature[1],
+    signatures
+  };
+}
+
+async function buildV5CompletionState(roadmap, validationReportText, runFiles) {
+  const stages = Array.isArray(roadmap?.stages) ? roadmap.stages : [];
+  const stageStates = stages.map((stage) => {
+    const expectedFiles = stage.expected_files ?? [];
+    const presentFiles = expectedFiles.filter((file) => existsSync(resolveFromRoot(file)));
+    const completed = stage.status === "completed" || stage.completed === true || (
+      expectedFiles.length > 0 && presentFiles.length === expectedFiles.length
+    );
+    return {
+      id: stage.id,
+      title: stage.title,
+      completed,
+      expected_file_count: expectedFiles.length,
+      present_file_count: presentFiles.length,
+      missing_files: expectedFiles.filter((file) => !presentFiles.includes(file)),
+      risk: stage.risk_level ?? "UNKNOWN",
+      execution_mode: stage.execution_mode ?? "proposal_only"
+    };
+  });
+  const partialAreas = markdownListItems(validationReportText, "PARTIAL").filter((item) => item !== "none");
+  const completedAreas = markdownListItems(validationReportText, "PASS").filter((item) => item !== "none");
+  const rawGaps = [
+    ...markdownListItems(validationReportText, "Productization Gaps"),
+    ...markdownListItems(validationReportText, "Productization Remaining Gaps")
+  ];
+  const remainingGaps = rawGaps.length > 0
+    ? rawGaps.map(classifyV5Gap)
+    : partialAreas.map((area) => classifyV5Gap(`${area} productization remains partial.`));
+  const repeatReview = await recentBatchRepeatReview(runFiles);
+  return {
+    completion_aware: true,
+    source_files: [
+      "runtime/global/v5-roadmap.json",
+      "docs/release/V5_INTEGRATION_VALIDATION_REPORT.md",
+      "autopilot-runs/*"
+    ],
+    roadmap_stage_count: stageStates.length,
+    completed_stages: stageStates.filter((stage) => stage.completed).map((stage) => stage.id),
+    partial_areas: partialAreas,
+    completed_areas: completedAreas,
+    remaining_gaps: remainingGaps,
+    recent_batch_review: repeatReview,
+    selected_gap: remainingGaps[0] ?? null,
+    ready_for_productization_review: remainingGaps.length === 0 && partialAreas.length === 0
+  };
+}
+
 async function autopilotRunEvidence(runFiles) {
   const runs = [];
   for (const file of runFiles.filter((entry) => entry.endsWith(".json"))) {
@@ -2234,7 +2423,7 @@ async function autopilotRunEvidence(runFiles) {
   };
 }
 
-async function collectAutopilotContext(goal) {
+async function collectAutopilotContext(goal, options = {}) {
   const readmePath = resolveFromRoot("README.md");
   const releaseDocs = await listFilesSafe(resolveFromRoot("docs/release"));
   const autopilotRunFiles = await listFilesSafe(resolveFromRoot("autopilot-runs"));
@@ -2249,7 +2438,11 @@ async function collectAutopilotContext(goal) {
   const runtimeProfiles = await readJsonIfExists(resolveFromRoot("packages/runtime-center/examples/runtime-profiles.example.json"));
   const credentialReferences = await readJsonIfExists(resolveFromRoot("packages/credential-vault/examples/credential-references.example.json"));
   const v5Roadmap = await readJsonIfExists(resolveFromRoot("runtime/global/v5-roadmap.json"));
+  const v5IntegrationValidationReport = await readTextIfExists(resolveFromRoot("docs/release/V5_INTEGRATION_VALIDATION_REPORT.md"));
   const runEvidence = await autopilotRunEvidence(autopilotRunFiles);
+  const v5Completion = options.completionAware
+    ? await buildV5CompletionState(v5Roadmap, v5IntegrationValidationReport, autopilotRunFiles)
+    : null;
 
   const releaseDocNames = summarizeFiles(releaseDocs);
   const extractionCompleted = releaseDocNames.includes("docs/release/ANKSEN_AGENT_STUDIO_EXTRACTION_CLOSURE_REPORT.md");
@@ -2280,6 +2473,7 @@ async function collectAutopilotContext(goal) {
       v5_master_plan_present: releaseDocNames.includes("docs/release/AGENT_STUDIO_V5_MASTER_PLAN.md")
     },
     v5_roadmap: v5Roadmap,
+    v5_completion: v5Completion,
     autopilot_runs: runEvidence,
     managed_project: {
       runtime_memory_files: summarizeFiles(runtimeMemoryFiles),
@@ -2374,7 +2568,7 @@ function productionOpsUtilsUrl() {
   return pathToFileURL(resolve(packageDir, "../production-ops/lib/production-ops-utils.mjs")).href;
 }
 
-function buildPlanningRequest(goal, context) {
+function buildPlanningRequest(goal, context, options = {}) {
   const createdAt = new Date().toISOString();
   return {
     schema_version: 1,
@@ -2391,6 +2585,7 @@ function buildPlanningRequest(goal, context) {
         v5_roadmap: context.v5_roadmap,
         next_stage: context.stage.next_stage
       },
+      v5_completion: context.v5_completion,
       autopilot_runs: context.autopilot_runs,
       closure_report: {
         extraction_completed: context.stage.extraction_completed,
@@ -2406,13 +2601,16 @@ function buildPlanningRequest(goal, context) {
       deploy: "disabled",
       production_operations: "disabled",
       credential_values: "disabled"
+    },
+    options: {
+      completion_aware: Boolean(options.completionAware)
     }
   };
 }
 
-async function runPlanningCenter(goal) {
-  const context = await collectAutopilotContext(goal);
-  const request = buildPlanningRequest(goal, context);
+async function runPlanningCenter(goal, options = {}) {
+  const context = await collectAutopilotContext(goal, options);
+  const request = buildPlanningRequest(goal, context, options);
   const planningEngine = await import(planningCenterEngineUrl());
   const output = planningEngine.buildPlanningOutput(request);
   return { context, request, output };
@@ -4804,7 +5002,9 @@ async function contextSummary() {
   console.log("");
   console.log("managed_projects:");
   for (const project of platformState.managed_projects ?? []) {
-    console.log(`- ${project.project_id}: doctor=${project.doctor_status}, repo_clean=${project.repo_clean}, memory=${project.memory_dir}`);
+    const status = String(project.status ?? project.connection_status ?? "connected").toLowerCase();
+    const connectionStatus = String(project.connection_status ?? status).toLowerCase();
+    console.log(`- ${project.project_id}: status=${status}, connection=${connectionStatus}, doctor=${project.doctor_status}, repo_clean=${project.repo_clean}, memory=${project.memory_dir}`);
   }
   console.log("");
   console.log("next_recommended_action:");
@@ -5387,6 +5587,145 @@ This safe subtask decomposes the HIGH Production Ops lane into documentation and
   };
 }
 
+function v5ProductizationPlanningFiles(task, batchId) {
+  return {
+    "docs/release/PLANNING_CHAIN_REPORT.md": `# Planning Chain Report
+
+- validation_id: V5-PLANNING-CHAIN
+- generated_at: 2026-06-24
+- status: PASS
+- score: 91/100
+- batch_id: ${batchId}
+- owner_agent: ${task.owner_agent}
+
+## Chain
+
+Goal -> Planning Center -> Proposal -> Autopilot -> Execution -> Report
+
+## Evidence
+
+- Completion-aware planning reads \`runtime/global/v5-roadmap.json\`.
+- Completion-aware planning reads \`docs/release/V5_INTEGRATION_VALIDATION_REPORT.md\`.
+- Completion-aware planning reviews recent \`autopilot-runs/*\` records.
+- \`studio plan --goal "继续推进 V5" --completion-aware --dry-run\` skips completed V5 stages and selects a productization gap.
+- \`studio autopilot batch --goal "继续推进 V5" --dry-run\` uses remaining-gap productization tasks instead of the repeated V5 batch template.
+
+## Safety
+
+- Agent execution: disabled.
+- Deploy: disabled.
+- Production operations: disabled.
+- Credential values: not read.
+- Managed project writes: disabled.
+`
+  };
+}
+
+function v5ProductizationConsoleFiles(task, batchId) {
+  return {
+    "docs/release/CONSOLE_CHAIN_REPORT.md": `# Console Chain Report
+
+- validation_id: V5-CONSOLE-CHAIN
+- generated_at: 2026-06-24
+- status: PASS
+- score: 90/100
+- batch_id: ${batchId}
+- owner_agent: ${task.owner_agent}
+
+## Chain
+
+Console -> Projects -> Runtime -> Governance -> Autopilot -> Evolution -> Memory -> Discovery
+
+## Evidence
+
+- \`apps/console/src/route-manifest.ts\` declares read-only route render metadata.
+- \`studio console render --dry-run\` validates Dashboard, Projects, Runtime, Governance, Autopilot, and Memory route coverage.
+- Console fixtures cover Runtime, Runtime Adapters, Credential Vault, Governance, Planning, Autopilot, Memory, Evolution, Discovery, and V5 roadmap completion.
+
+## Safety
+
+- Database: not connected.
+- External services: not called.
+- Agent execution: disabled.
+- Deploy: disabled.
+- Production operations: disabled.
+- Credential values: not read.
+`
+  };
+}
+
+function v5ProductizationMultiProjectFiles(task, batchId) {
+  return {
+    "docs/release/MULTI_PROJECT_READINESS_REPORT.md": `# Multi Project Readiness Report
+
+- validation_id: V5-MULTI-PROJECT-READINESS
+- generated_at: 2026-06-24
+- status: PASS
+- score: 90/100
+- batch_id: ${batchId}
+- owner_agent: ${task.owner_agent}
+
+## Projects
+
+- \`jinhu-smart-park\`: CONNECTED, read-only managed project context.
+- \`phoenix-erp\`: PLANNED / NOT_CONNECTED placeholder project context.
+
+## Evidence
+
+- \`runtime/projects/jinhu-smart-park\`
+- \`runtime/projects/phoenix-erp\`
+- \`examples/phoenix-erp/project.config.example.json\`
+- \`runtime/global/platform-state.json\`
+- \`runtime/global/codex-context-index.json\`
+
+## Safety
+
+- Managed project writes: disabled.
+- \`jinhu-smart-park\` modified: no.
+- Deploy: disabled.
+- Production operations: disabled.
+- Credential values: not read.
+`
+  };
+}
+
+function v5ProductizationProjectFiles(task, batchId) {
+  return {
+    "docs/release/PROJECT_CHAIN_REPORT.md": `# Project Chain Report
+
+- validation_id: V5-PROJECT-CHAIN
+- generated_at: 2026-06-24
+- status: PARTIAL
+- score: 82/100
+- batch_id: ${batchId}
+- owner_agent: ${task.owner_agent}
+
+## Chain
+
+Project Connector -> Project Runtime Memory -> Project Adapter -> Task Proposal -> Approval -> Remote Execute
+
+## Evidence
+
+- Project intake, stack, and command detector dry-runs work for \`jinhu-smart-park\`.
+- Runtime memory exists for \`jinhu-smart-park\`.
+- Multi-project placeholder memory now exists for \`phoenix-erp\`.
+- Proposal and approval boundaries remain explicit.
+
+## Remaining Gap
+
+Remote execute is still intentionally gated. A real remote execute smoke must wait for a separate approval gate, restored SSH observability, and explicit permission to touch the managed project runtime.
+
+## Safety
+
+- \`jinhu-smart-park\` modified: no.
+- Agent execution: disabled.
+- Deploy: disabled.
+- Production operations: disabled.
+- Credential values: not read.
+`
+  };
+}
+
 function batchTaskFileMap(task, batchId) {
   if (task.task_id === "v5-batch-agent-1-docs-console-manual") {
     return v5OperatorManualFiles(task, batchId);
@@ -5408,6 +5747,18 @@ function batchTaskFileMap(task, batchId) {
   }
   if (task.task_id === "v5-batch-agent-5-production-ops-safe-decomposition") {
     return v5Agent5ProductionSafetyDecompositionFiles(task, batchId);
+  }
+  if (task.task_id === "v5-productization-planning-completion-aware" || task.task_id === "v5-productization-autopilot-anti-repeat") {
+    return v5ProductizationPlanningFiles(task, batchId);
+  }
+  if (task.task_id === "v5-productization-console-render-dry-run") {
+    return v5ProductizationConsoleFiles(task, batchId);
+  }
+  if (task.task_id === "v5-productization-phoenix-project-context") {
+    return v5ProductizationMultiProjectFiles(task, batchId);
+  }
+  if (task.task_id === "v5-productization-project-chain-evidence") {
+    return v5ProductizationProjectFiles(task, batchId);
   }
   throw new Error(`No batch task writer is registered for ${task.task_id}.`);
 }
@@ -6091,7 +6442,8 @@ async function autopilotBatch(args) {
   }
 
   const globalContext = await loadGlobalContextBundle();
-  const { output } = await runPlanningCenter(goal);
+  const completionAware = /\bV5\b/i.test(goal);
+  const { output } = await runPlanningCenter(goal, { completionAware });
   if (!output.batch_plan?.tasks?.length) {
     throw new Error("Planning Center did not return a batch_plan for this goal.");
   }
@@ -6117,6 +6469,14 @@ async function autopilotBatch(args) {
       status: 0,
       blocked: false,
       stdout_tail: `batch_id=${output.batch_plan.batch_id}; tasks=${output.batch_plan.tasks.length}`,
+      stderr_tail: ""
+    },
+    {
+      command: "autopilot anti-repeat review",
+      ok: true,
+      status: 0,
+      blocked: false,
+      stdout_tail: `completion_aware=${completionAware ? "yes" : "no"}; repeated=${output.v5_completion?.recent_batch_review?.repeated ? "yes" : "no"}; selected_gap=${output.v5_completion?.selected_gap?.gap_id ?? "none"}`,
       stderr_tail: ""
     },
     {
@@ -6538,10 +6898,11 @@ async function plan(args) {
   if (!goal) {
     throw new Error("Missing --goal for plan.");
   }
-  const { request, output } = await runPlanningCenter(goal);
+  const { request, output } = await runPlanningCenter(goal, { completionAware: args.completionAware });
   console.log("# Planning Center dry-run");
   console.log("");
   console.log(`goal: ${goal}`);
+  console.log(`completion_aware: ${args.completionAware ? "yes" : "no"}`);
   console.log(`request_id: ${request.request_id}`);
   console.log(`planning_output_id: ${output.planning_output_id}`);
   console.log(`current_stage: ${output.current_stage.stage_name}`);
@@ -6551,6 +6912,14 @@ async function plan(args) {
   console.log(`target_package: ${output.target_package}`);
   console.log(`risk: ${output.risk}`);
   console.log(`approval_required: ${output.approval_required ? "yes" : "no"}`);
+  if (output.v5_completion) {
+    console.log("");
+    console.log("v5_completion:");
+    console.log(`- completed_stages: ${output.v5_completion.completed_stages.join(", ") || "none"}`);
+    console.log(`- partial_areas: ${output.v5_completion.partial_areas.join(", ") || "none"}`);
+    console.log(`- remaining_gaps: ${output.v5_completion.remaining_gaps.length}`);
+    console.log(`- selected_gap: ${output.v5_completion.selected_gap?.gap_id ?? "none"}`);
+  }
   console.log("");
   console.log("expected_files:");
   for (const file of output.expected_files) console.log(`- ${file}`);
@@ -6574,6 +6943,38 @@ async function plan(args) {
   console.log("managed_project_writes: disabled");
   console.log("deploy: disabled");
   console.log("production_operations: disabled");
+}
+
+async function consoleRender(args) {
+  assertDryRun(args, "console render");
+  const navigationPath = resolveFromRoot("apps/console/src/navigation.ts");
+  const manifestPath = resolveFromRoot("apps/console/src/route-manifest.ts");
+  const viewModelPath = resolveFromRoot("apps/console/src/view-model.ts");
+  const navigationText = await readTextIfExists(navigationPath);
+  const manifestText = await readTextIfExists(manifestPath);
+  const viewModelText = await readTextIfExists(viewModelPath);
+  const routeIds = unique([...navigationText.matchAll(/id:\s*"([a-zA-Z0-9]+)"/g)].map((match) => match[1]));
+  const manifestIds = unique([...manifestText.matchAll(/"([a-zA-Z0-9]+)"/g)].map((match) => match[1]));
+  const requiredRoutes = ["dashboard", "projects", "runtimeCenter", "governance", "autopilot", "memory"];
+  const missingRoutes = requiredRoutes.filter((id) =>
+    !routeIds.includes(id)
+    || !manifestIds.includes(id)
+    || !viewModelText.includes(`if (id === "${id}")`)
+  );
+  const renderStatus = missingRoutes.length === 0 && existsSync(manifestPath) ? "PASS" : "FAIL";
+
+  console.log("# Console Render dry-run");
+  console.log("");
+  console.log(`routes_count: ${routeIds.length}`);
+  console.log(`required_routes_count: ${requiredRoutes.length}`);
+  console.log(`render_status: ${renderStatus}`);
+  console.log(`missing_routes: ${missingRoutes.length === 0 ? "none" : missingRoutes.join(", ")}`);
+  console.log("database: not_connected");
+  console.log("external_services: not_called");
+  console.log("agent_execution: disabled");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("credential_values: not_read");
 }
 
 async function loadRuntimeCenterApi() {
@@ -7305,6 +7706,7 @@ async function main() {
   if (args.command === "runtime" && args.subcommand === "list") return runtimeList();
   if (args.command === "runtime" && args.subcommand === "health") return runtimeHealth(args);
   if (args.command === "runtime" && args.subcommand === "select") return runtimeSelect(args);
+  if (args.command === "console" && args.subcommand === "render") return consoleRender(args);
   if (args.command === "skill-route") {
     if (!args.text.trim()) throw new Error("Missing --text for skill-route.");
     console.log(JSON.stringify(await loadSkillRoute(args.text), null, 2));

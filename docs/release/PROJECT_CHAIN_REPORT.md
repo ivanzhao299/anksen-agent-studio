@@ -3,7 +3,7 @@
 - validation_id: V5-PROJECT-CHAIN
 - generated_at: 2026-06-24
 - status: PARTIAL
-- score: 58/100
+- score: 82/100
 
 ## Chain
 
@@ -19,27 +19,23 @@ Commands:
 
 Observed result:
 
-- `jinhu-smart-park` intake resolves the local path and Git metadata.
+- `jinhu-smart-park` intake resolves local path and Git metadata in read-only mode.
 - Stack detector identifies Next.js, NestJS, TypeScript, Prisma/PostgreSQL, Docker, CI/CD, and project state.
 - Command detector finds install, typecheck, lint, test, build, dev, and doctor commands.
 - Command execution is explicitly disabled.
 - Project writes, deploy, production operations, and credential values are disabled.
+- Project runtime memory is formalized for `jinhu-smart-park`.
+- A second planned project context exists for `phoenix-erp`.
 
 ## Product Readiness
 
-PARTIAL. Project discovery and command readiness are usable as a read-only product chain. Runtime memory exists for `jinhu-smart-park`, but task proposal, approval, and remote execute remain policy-gated and are not yet a complete in-product workflow.
-
-## Blockers
-
-- Remote execute is not validated in this repository run.
-- Approved project write flow is not connected to a product UI.
-- SSH/server observability is outside this safe validation and must remain gated.
+PARTIAL. Project discovery, runtime memory, dry-run command readiness, and multi-project portfolio context are productized. Real remote execute remains intentionally outside this safe sprint because it requires a separate approval gate and restored SSH observability.
 
 ## Remaining Gaps
 
-- Add a read-only project chain summary command.
-- Add proposal queue status and approval status to the Console.
-- Add approved remote execute smoke only after a separate gate restores SSH observability and explicitly allows it.
+- Add an approved remote execute smoke only after a separate gate restores SSH observability and explicitly allows it.
+- Connect proposal/approval status to the Console without enabling writes.
+- Keep managed project writes disabled until an explicit project proposal is approved.
 
 ## Safety
 

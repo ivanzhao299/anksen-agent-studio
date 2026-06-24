@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "project_id": "phoenix-erp",
+  "project_name": "Phoenix ERP",
+  "project_type": "planned-business-repository",
+  "description": "Placeholder project adapter for V5 multi-project readiness validation.",
+  "project_root": "../phoenix-erp-planned",
+  "local_path": "../phoenix-erp-planned",
+  "git_url": "planned://phoenix-erp",
+  "state_dir": "ops/agent-orchestrator",
+  "mode": "planned_project_not_connected",
+  "status": "PLANNED",
+  "connection_status": "NOT_CONNECTED",
+  "default_branch": "main",
+  "package_manager": "unknown",
+  "repo_metadata": {
+    "repository_exists": false,
+    "connection_required": true,
+    "placeholder_only": true
+  },
+  "detected_stack_hints": [],
+  "available_commands": [],
+  "read_paths": [],
+  "write_paths": [],
+  "frozen_paths": [
+    "**"
+  ],
+  "guarded_paths": [
+    "**",
+    ".env",
+    ".env.*"
+  ],
+  "runtime_memory": {
+    "directory": "runtime/projects/phoenix-erp",
+    "summary_file": "handoff-summary.md",
+    "platform_state_file": "project-state.json",
+    "validate_command": ""
+  },
+  "inspection": {
+    "dry_run_only": true,
+    "allow_agent_execution": false,
+    "allow_project_writes": false,
+    "allow_deploy": false,
+    "allow_production_operations": false
+  },
+  "production_operations": {
+    "deploy": "forbidden",
+    "migration": "forbidden",
+    "seed": "forbidden",
+    "reset": "forbidden",
+    "cleanup": "forbidden"
+  }
+}

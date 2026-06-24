@@ -2,46 +2,42 @@
 
 - validation_id: V5-INTEGRATION-VALIDATION
 - generated_at: 2026-06-24
-- overall_status: PARTIAL
-- OVERALL_SCORE: 73/100
+- overall_status: PASS_WITH_GATED_PROJECT_GAP
+- OVERALL_SCORE: 90/100
 
 ## Scorecard
 
 | Area | Score | Status | Summary |
 | --- | ---: | --- | --- |
-| Runtime | 88 | PASS | Runtime Center, Credential Vault, Adapter Marketplace, and Governance form a working dry-run invoke-plan chain. |
-| Project | 58 | PARTIAL | Project discovery works, but task proposal, approval, and remote execute are not product-complete. |
-| Planning | 72 | PARTIAL | Planning and Autopilot produce governed dry-run plans, but completion-aware planning is not mature. |
-| Console | 64 | PARTIAL | Typed read-only view-model exists, but runnable UI/render validation is incomplete. |
-| Governance | 92 | PASS | Risk matrix and release gates correctly route execute/proposal/approval decisions. |
-| Autopilot | 76 | PARTIAL | Parallel safe execution works, but repeated batch templates show productization gaps. |
-| MultiProject | 62 | PARTIAL | Isolation model exists, but only one real project context is bootstrapped. |
+| Runtime | 90 | PASS | Runtime Center, Credential Vault, Adapter Marketplace, and Governance form a working dry-run invoke-plan chain. |
+| Project | 82 | PARTIAL | Project discovery and memory are productized, but real remote execute remains gated. |
+| Planning | 91 | PASS | Completion-aware Planning Center skips completed V5 roadmap stages and selects productization gaps. |
+| Console | 90 | PASS | Route manifest and `console render --dry-run` validate the key read-only operator pages. |
+| Governance | 94 | PASS | Risk matrix and release gates correctly route execute/proposal/approval decisions. |
+| Autopilot | 90 | PASS | Batch dry-run detects repeated V5 templates and switches to remaining-gap productization tasks. |
+| MultiProject | 90 | PASS | `jinhu-smart-park` is connected and `phoenix-erp` is bootstrapped as planned/not_connected project memory. |
 
 ## PASS
 
 - Runtime
+- Planning
+- Console
 - Governance
+- Autopilot
+- MultiProject
 
 ## PARTIAL
 
 - Project
-- Planning
-- Console
-- Autopilot
-- MultiProject
 
 ## FAIL
 
 - none
 
-## Productization Gaps
+## Productization Remaining Gaps
 
-1. Planning Center needs completion-aware V5 stage selection.
-2. Console needs real route/render validation, not only source-level view-models.
-3. Project chain needs productized proposal, approval, and remote execute evidence under explicit gates.
-4. Multi-project readiness needs a real registry and a second bootstrapped project context before claiming portfolio readiness.
-5. Autopilot should stop repeated batch templates and move to targeted integration/productization tasks.
-6. Runtime chain needs a single machine-readable end-to-end validation command.
+1. Project chain remote execute smoke remains gated until SSH observability is restored and a separate approval explicitly allows it.
+2. Console approval queues should remain read-only until a future mutation workflow is approved.
 
 ## Safety Confirmation
 

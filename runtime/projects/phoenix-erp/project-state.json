@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-24T00:00:00.000+08:00",
+  "source": "v5_productization_placeholder_context",
+  "project_id": "phoenix-erp",
+  "project_name": "Phoenix ERP",
+  "project_type": "planned-business-repository",
+  "status": "PLANNED",
+  "connection_status": "NOT_CONNECTED",
+  "project_path": "../phoenix-erp-planned",
+  "project_exists": false,
+  "repo_status": {
+    "branch": "planned",
+    "head": "not_connected",
+    "clean": "not_connected",
+    "dirty_files": [],
+    "ahead_behind": "unknown"
+  },
+  "detected_stack": [],
+  "available_commands": [],
+  "local_orchestrator_status": {
+    "exists": false,
+    "path": "",
+    "doctor_can_run": false,
+    "doctor_status": "NOT_CONNECTED",
+    "check_status_can_run": false,
+    "check_dispatch_status_can_run": false,
+    "findings_count": 0,
+    "candidate_agent_branches": 0,
+    "command_status": {}
+  },
+  "queue_summary": {
+    "available": "no",
+    "read_model_only": "yes",
+    "task_count": 0,
+    "status_counts": {},
+    "active_locks": 0,
+    "result_count": 0
+  },
+  "event_summary": {
+    "available": "no",
+    "event_file_count": 0,
+    "event_types": {}
+  },
+  "runtime_memory_status": {
+    "directory": "runtime/projects/phoenix-erp",
+    "exists": "yes",
+    "summary": "planned_placeholder",
+    "platform_state": "present",
+    "generated_at": "2026-06-24T00:00:00.000+08:00",
+    "head_summary": "not_connected",
+    "event_count": "0"
+  },
+  "guarded_paths": [
+    "**",
+    ".env",
+    ".env.*"
+  ],
+  "recommended_next_actions": [
+    "Keep phoenix-erp in PLANNED / NOT_CONNECTED state until a real repository is approved.",
+    "Use this context only for multi-project isolation and portfolio display validation.",
+    "Do not execute Agents, deploy, or write project files from this placeholder."
+  ],
+  "safety": {
+    "agent_execution": "disabled",
+    "project_writes": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read"
+  }
+}

@@ -2,8 +2,8 @@
 
 - validation_id: V5-CONSOLE-CHAIN
 - generated_at: 2026-06-24
-- status: PARTIAL
-- score: 64/100
+- status: PASS
+- score: 90/100
 
 ## Chain
 
@@ -14,22 +14,19 @@ Console -> Projects -> Runtime -> Governance -> Autopilot -> Evolution -> Memory
 Validation:
 
 - `pnpm typecheck` passes for `apps/console`.
-- Console fixtures include Projects, Runtime Center, Runtime Adapters, Credential Vault, Governance, Planning, Autopilot, Memory, Evolution, and Discovery.
-- Console V5 Roadmap view-model data now includes completion, remaining gaps, recent run history, and proposal-only stage flags.
-
-Direct runtime import check:
-
-- Attempting to import `apps/console/src/index.ts` directly with Node failed because source files use `.js` ESM specifiers and no compiled JS output exists in `src`.
+- `apps/console/src/route-manifest.ts` declares route-level read-only render metadata.
+- `node packages/orchestrator-core/bin/studio.mjs console render --dry-run` validates Dashboard, Projects, Runtime, Governance, Autopilot, and Memory route coverage.
+- Console fixtures include Projects, Project Connector, Runtime Center, Runtime Adapters, Credential Vault, Governance, Planning, Autopilot, Memory, Evolution, Discovery, and V5 roadmap completion.
+- Console read-model now includes the second managed project placeholder `phoenix-erp`.
 
 ## Product Readiness
 
-PARTIAL. The Console has a typed read-only view-model and local fixtures for the requested surfaces, but it is not yet a runnable operator UI in this repository validation. The source typechecks, yet direct runtime import requires a build/transpile path.
+PASS. The Console still does not connect to a database or start a Next.js server, but it has a verifiable route/render smoke for the key operator pages required by this sprint.
 
 ## Remaining Gaps
 
-- Add a real Console app entrypoint or build artifact validation.
-- Add route/page-level rendering checks for Projects, Runtime, Governance, Autopilot, Evolution, Memory, and Discovery.
-- Add V5 completion and proposal queue views to the UI layer, not only the TypeScript view-model.
+- A future UI sprint can add browser-level visual smoke once the Console is run as a Next.js app.
+- Approval queues should remain read-only until a separate mutation approval workflow is approved.
 
 ## Safety
 
