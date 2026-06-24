@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/console-action-plan.schema.json",
+  "title": "Console Action Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "plan_id", "action_id", "status", "risk", "execution_mode", "mode", "write_enabled", "production_enabled", "dry_run", "steps", "safety"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "action_id": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["PLANNED_DRY_RUN", "PROPOSAL_ONLY", "BLOCKED"] },
+    "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    "execution_mode": { "type": "string", "enum": ["dry_run_only", "proposal_only"] },
+    "mode": { "type": "string", "enum": ["read_only", "dry_run"] },
+    "write_enabled": { "type": "boolean", "const": false },
+    "production_enabled": { "type": "boolean", "const": false },
+    "dry_run": { "type": "boolean", "const": true },
+    "command": { "type": "string" },
+    "steps": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "safety": { "type": "object", "additionalProperties": true },
+    "blocked_reasons": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

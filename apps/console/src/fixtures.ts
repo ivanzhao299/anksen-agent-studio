@@ -131,6 +131,19 @@ export const consoleFixture = {
       ]
     },
     {
+      id: "actionCenter",
+      title: "Action Center",
+      status: "ready",
+      risk: "MEDIUM",
+      source: "apps/console/examples/console-actions.example.json",
+      summary: "Lists Pilot-4 action intents as read-only or dry-run plans; HIGH actions remain proposal-only.",
+      metrics: [
+        { label: "Actions", value: "9" },
+        { label: "Write enabled", value: "false" },
+        { label: "Proposal-only", value: "1" }
+      ]
+    },
+    {
       id: "planning",
       title: "Planning Center",
       status: "ready",
@@ -277,6 +290,29 @@ export const consoleFixture = {
       error_class: "type",
       severity: "MEDIUM",
       execution_mode: "proposal_only"
+    }
+  },
+  action_center: {
+    default_mode: "read_only",
+    write_enabled: false,
+    production_enabled: false,
+    action_count: 9,
+    proposal_only_actions: ["proposal-approve"],
+    dry_run_actions: [
+      "runtime-health",
+      "project-inspect",
+      "worker-health",
+      "credential-validate",
+      "governance-check",
+      "autopilot-run"
+    ],
+    safety: {
+      deploy: "disabled",
+      production_operations: "disabled",
+      server_access: "disabled",
+      credential_values: "not_read",
+      managed_project_writes: "disabled",
+      model_invocation: "disabled"
     }
   },
   runtime_center: {

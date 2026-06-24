@@ -1,5 +1,5 @@
 import { consoleApp, consoleSafety } from "./app.js";
-import { consoleActions } from "./actions.js";
+import { consoleActionCenter, consoleActions } from "./actions.js";
 import { consoleFixture } from "./fixtures.js";
 import { consoleNavigation, type ConsolePageId } from "./navigation.js";
 import {
@@ -79,6 +79,7 @@ export function getConsoleModuleDetails(id: ConsolePageId) {
   if (id === "runtimeAdapters") return consoleFixture.runtime_adapters;
   if (id === "credentialVault") return consoleFixture.credential_vault;
   if (id === "governance") return consoleFixture.governance;
+  if (id === "actionCenter") return consoleFixture.action_center;
   if (id === "planning") return consoleFixture.planning;
   if (id === "v5Roadmap") return consoleFixture.v5_roadmap;
   if (id === "autopilot") return consoleFixture.autopilot;
@@ -94,6 +95,7 @@ export function getConsoleViewModel() {
     navigation: consoleNavigation,
     panels: consolePanels,
     actions: consoleActions,
+    action_center: consoleActionCenter,
     fixture: consoleFixture,
     details: {
       dashboard: consoleFixture.dashboard,
@@ -103,6 +105,11 @@ export function getConsoleViewModel() {
       runtime_adapters: consoleFixture.runtime_adapters,
       credential_vault: consoleFixture.credential_vault,
       governance: consoleFixture.governance,
+      action_center: {
+        fixture: consoleFixture.action_center,
+        center: consoleActionCenter,
+        actions: consoleActions
+      },
       planning: consoleFixture.planning,
       v5_roadmap: {
         fixture: consoleFixture.v5_roadmap,

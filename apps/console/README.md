@@ -35,6 +35,9 @@ The current implementation uses local fixtures and runtime memory snapshots:
 - `getConsolePanel(id)`
 - `getConsoleModuleDetails(id)`
 - `getConsoleViewModel()`
+- `consoleActionCenter`
+- `consoleActions`
+- `buildConsoleActionPlan(id)`
 
 ## Data Policy
 
@@ -52,8 +55,11 @@ The current implementation uses local fixtures and runtime memory snapshots:
 The Console exposes command descriptors for dry-run and proposal-only actions. These descriptors are view-model data only; they do not execute commands, call external services, deploy, connect to servers, read credential values, or write managed projects.
 
 - Context Summary
-- Planning Dry Run
 - Runtime Health
+- Project Inspect
+- Worker Health
+- Credential Validate
 - Governance Check
-- Production Safety Check
 - Autopilot Dry Run
+- Proposal Review
+- Proposal Approve (proposal-only)

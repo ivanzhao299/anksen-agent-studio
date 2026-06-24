@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/console-action.schema.json",
+  "title": "Console Action Intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "label", "intent", "scope", "command", "risk", "mode", "executionMode", "requiresApproval", "readOnly", "write_enabled", "production_enabled", "governance_gate"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "label": { "type": "string", "minLength": 1 },
+    "intent": { "type": "string", "minLength": 1 },
+    "scope": { "type": "string", "enum": ["context", "runtime", "project", "worker", "credential", "governance", "autopilot", "proposal"] },
+    "command": { "type": "string" },
+    "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    "mode": { "type": "string", "enum": ["read_only", "dry_run"] },
+    "executionMode": { "type": "string", "enum": ["dry_run_only", "proposal_only"] },
+    "requiresApproval": { "type": "boolean" },
+    "readOnly": { "type": "boolean", "const": true },
+    "write_enabled": { "type": "boolean", "const": false },
+    "production_enabled": { "type": "boolean", "const": false },
+    "source": { "type": "string" },
+    "governance_gate": { "type": "string", "enum": ["ALLOW_DRY_RUN", "PROPOSAL_ONLY", "HUMAN_APPROVAL_REQUIRED"] },
+    "disabledReason": { "type": "string" }
+  }
+}

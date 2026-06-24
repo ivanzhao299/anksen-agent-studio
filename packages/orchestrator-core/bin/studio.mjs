@@ -72,6 +72,8 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs plan --goal "..." --dry-run
   node packages/orchestrator-core/bin/studio.mjs plan --goal "..." --completion-aware --dry-run
   node packages/orchestrator-core/bin/studio.mjs console render --dry-run
+  node packages/orchestrator-core/bin/studio.mjs console actions --dry-run
+  node packages/orchestrator-core/bin/studio.mjs console action-plan --action <action_id> --dry-run
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
   node packages/orchestrator-core/bin/studio.mjs observe [--dry-run]
@@ -104,6 +106,7 @@ function parseArgs(argv) {
     runtime: "",
     worker: "",
     backend: "",
+    action: "",
     platform: "",
     capability: "",
     region: "local",
@@ -133,6 +136,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--backend") {
       args.backend = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--action") {
+      args.action = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--platform") {
       args.platform = rest[index + 1] ?? "";
@@ -7066,6 +7072,146 @@ async function consoleRender(args) {
   console.log("credential_values: not_read");
 }
 
+async function loadConsoleActionCenter() {
+  return readJson(resolveFromRoot("apps/console/examples/console-actions.example.json"));
+}
+
+function buildConsoleCliActionPlan(actionCenter, actionId) {
+  const action = (actionCenter.actions ?? []).find((item) => item.id === actionId) ?? null;
+  if (!action) {
+    return {
+      schema_version: 1,
+      plan_id: `console-action-plan-${createHash("sha1").update(actionId || "missing").digest("hex").slice(0, 10)}`,
+      action_id: actionId,
+      status: "BLOCKED",
+      risk: "CRITICAL",
+      execution_mode: "proposal_only",
+      mode: "read_only",
+      write_enabled: false,
+      production_enabled: false,
+      dry_run: true,
+      command: "",
+      requires_approval: true,
+      governance_gate: "HUMAN_APPROVAL_REQUIRED",
+      steps: ["Stop because the requested Console action is not registered."],
+      safety: {
+        deploy: "disabled",
+        production_operations: "disabled",
+        server_access: "disabled",
+        credential_values: "not_read",
+        managed_project_writes: "disabled",
+        model_invocation: "disabled"
+      },
+      blocked_reasons: [`Unknown Console action: ${actionId}`]
+    };
+  }
+  const proposalOnly = action.executionMode === "proposal_only" || action.risk === "HIGH" || action.risk === "CRITICAL";
+  return {
+    schema_version: 1,
+    plan_id: `console-action-plan-${action.id}`,
+    action_id: action.id,
+    label: action.label,
+    intent: action.intent,
+    status: proposalOnly ? "PROPOSAL_ONLY" : "PLANNED_DRY_RUN",
+    risk: action.risk,
+    execution_mode: action.executionMode,
+    mode: action.mode,
+    write_enabled: false,
+    production_enabled: false,
+    dry_run: true,
+    command: action.command,
+    requires_approval: action.requiresApproval,
+    governance_gate: action.governance_gate,
+    steps: [
+      "Read Console action intent metadata.",
+      "Verify action remains read-only or dry-run with writes disabled.",
+      "Apply governance gate before any future execution.",
+      proposalOnly ? "Generate or review a proposal; do not execute the action." : "Return a local dry-run command plan; do not execute from the Console."
+    ],
+    safety: {
+      deploy: "disabled",
+      production_operations: "disabled",
+      server_access: "disabled",
+      credential_values: "not_read",
+      managed_project_writes: "disabled",
+      model_invocation: "disabled"
+    },
+    blocked_reasons: [
+      ...(action.disabledReason ? [action.disabledReason] : []),
+      ...(proposalOnly ? ["HIGH/CRITICAL or approval actions stay proposal-only from the Console."] : [])
+    ]
+  };
+}
+
+async function consoleActionsDryRun(args) {
+  assertDryRun(args, "console actions");
+  const actionCenter = await loadConsoleActionCenter();
+  const actions = actionCenter.actions ?? [];
+  const proposalOnlyCount = actions.filter((action) => action.executionMode === "proposal_only" || ["HIGH", "CRITICAL"].includes(action.risk)).length;
+  console.log("# Console Action Center dry-run");
+  console.log("");
+  console.log(`action_center_id: ${actionCenter.action_center_id}`);
+  console.log(`actions: ${actions.length}`);
+  console.log(`default_mode: ${actionCenter.default_mode}`);
+  console.log(`write_enabled: ${actionCenter.write_enabled ? "yes" : "no"}`);
+  console.log(`production_enabled: ${actionCenter.production_enabled ? "yes" : "no"}`);
+  console.log(`proposal_only_actions: ${proposalOnlyCount}`);
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("server_access: disabled");
+  console.log("credential_values: not_read");
+  console.log("model_invocation: disabled");
+  console.log("");
+  console.log("| Action | Intent | Scope | Mode | Risk | Gate | Write | Production |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
+  for (const action of actions) {
+    console.log(`| ${action.id} | ${action.intent} | ${action.scope} | ${action.mode}/${action.executionMode} | ${action.risk} | ${action.governance_gate} | ${action.write_enabled ? "yes" : "no"} | ${action.production_enabled ? "yes" : "no"} |`);
+  }
+}
+
+async function consoleActionPlan(args) {
+  assertDryRun(args, "console action-plan");
+  if (!args.action.trim()) {
+    throw new Error("Missing --action for console action-plan.");
+  }
+  const actionCenter = await loadConsoleActionCenter();
+  const plan = buildConsoleCliActionPlan(actionCenter, args.action.trim());
+  console.log("# Console Action Plan dry-run");
+  console.log("");
+  console.log(`plan_id: ${plan.plan_id}`);
+  console.log(`action_id: ${plan.action_id}`);
+  if (plan.label) console.log(`label: ${plan.label}`);
+  if (plan.intent) console.log(`intent: ${plan.intent}`);
+  console.log(`status: ${plan.status}`);
+  console.log(`risk: ${plan.risk}`);
+  console.log(`mode: ${plan.mode}`);
+  console.log(`execution_mode: ${plan.execution_mode}`);
+  console.log(`governance_gate: ${plan.governance_gate}`);
+  console.log(`requires_approval: ${plan.requires_approval ? "yes" : "no"}`);
+  console.log(`write_enabled: ${plan.write_enabled ? "yes" : "no"}`);
+  console.log(`production_enabled: ${plan.production_enabled ? "yes" : "no"}`);
+  console.log(`command: ${plan.command || "none"}`);
+  console.log("");
+  console.log("steps:");
+  for (const step of plan.steps) console.log(`- ${step}`);
+  console.log("");
+  console.log("safety:");
+  console.log(`- deploy: ${plan.safety.deploy}`);
+  console.log(`- production_operations: ${plan.safety.production_operations}`);
+  console.log(`- server_access: ${plan.safety.server_access}`);
+  console.log(`- credential_values: ${plan.safety.credential_values}`);
+  console.log(`- managed_project_writes: ${plan.safety.managed_project_writes}`);
+  console.log(`- model_invocation: ${plan.safety.model_invocation}`);
+  console.log("");
+  console.log("blocked_reasons:");
+  if (plan.blocked_reasons.length === 0) {
+    console.log("- none");
+  } else {
+    for (const reason of plan.blocked_reasons) console.log(`- ${reason}`);
+  }
+  if (plan.status === "BLOCKED") process.exitCode = 1;
+}
+
 async function loadRuntimeCenterApi() {
   const api = await import(runtimeCenterUtilsUrl());
   const center = await api.loadRuntimeCenter();
@@ -8704,6 +8850,8 @@ async function main() {
   if (args.command === "runtime" && args.subcommand === "select") return runtimeSelect(args);
   if (args.command === "pilot" && args.subcommand === "runtime-smoke") return pilotRuntimeSmoke(args);
   if (args.command === "console" && args.subcommand === "render") return consoleRender(args);
+  if (args.command === "console" && args.subcommand === "actions") return consoleActionsDryRun(args);
+  if (args.command === "console" && args.subcommand === "action-plan") return consoleActionPlan(args);
   if (args.command === "skill-route") {
     if (!args.text.trim()) throw new Error("Missing --text for skill-route.");
     console.log(JSON.stringify(await loadSkillRoute(args.text), null, 2));

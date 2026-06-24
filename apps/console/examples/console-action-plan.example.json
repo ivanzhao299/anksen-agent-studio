@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "plan_id": "console-action-plan-runtime-health-example",
+  "action_id": "runtime-health",
+  "status": "PLANNED_DRY_RUN",
+  "risk": "LOW",
+  "execution_mode": "dry_run_only",
+  "mode": "dry_run",
+  "write_enabled": false,
+  "production_enabled": false,
+  "dry_run": true,
+  "command": "node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run",
+  "steps": [
+    "Read Console action intent metadata.",
+    "Verify action remains read-only or dry-run.",
+    "Return the command plan without executing it from the Console."
+  ],
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "server_access": "disabled",
+    "credential_values": "not_read",
+    "managed_project_writes": "disabled",
+    "model_invocation": "disabled"
+  },
+  "blocked_reasons": []
+}
