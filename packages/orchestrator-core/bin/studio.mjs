@@ -42,6 +42,10 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs adapter list --dry-run
   node packages/orchestrator-core/bin/studio.mjs adapter health --dry-run
   node packages/orchestrator-core/bin/studio.mjs adapter invoke-plan --runtime <runtime_id> --skill <skill_type> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs worker list --dry-run
+  node packages/orchestrator-core/bin/studio.mjs worker health --dry-run
+  node packages/orchestrator-core/bin/studio.mjs worker assign --runtime <runtime_id> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs worker cancel --worker <worker_id> --dry-run
   node packages/orchestrator-core/bin/studio.mjs production server-list --dry-run
   node packages/orchestrator-core/bin/studio.mjs production deploy-plan --dry-run
   node packages/orchestrator-core/bin/studio.mjs production safety-check --dry-run
@@ -75,7 +79,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "production", "production-ops", "context", "autopilot", "debug", "console", "pilot"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "worker", "production", "production-ops", "context", "autopilot", "debug", "console", "pilot"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -89,6 +93,7 @@ function parseArgs(argv) {
     goal: "",
     skill: "",
     runtime: "",
+    worker: "",
     capability: "",
     region: "local",
     budgetUsd: null,
@@ -111,6 +116,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--runtime") {
       args.runtime = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--worker") {
+      args.worker = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--skill") {
       args.skill = rest[index + 1] ?? "";
@@ -2569,6 +2577,10 @@ function governanceCenterUtilsUrl() {
 
 function productionOpsUtilsUrl() {
   return pathToFileURL(resolve(packageDir, "../production-ops/lib/production-ops-utils.mjs")).href;
+}
+
+function workerPoolUtilsUrl() {
+  return pathToFileURL(resolve(packageDir, "../worker-pool/lib/worker-pool-utils.mjs")).href;
 }
 
 function buildPlanningRequest(goal, context, options = {}) {
@@ -7067,6 +7079,12 @@ async function loadProductionOpsApi() {
   return { api, bundle };
 }
 
+async function loadWorkerPoolApi() {
+  const api = await import(workerPoolUtilsUrl());
+  const bundle = await api.loadWorkerPool();
+  return { api, bundle };
+}
+
 function assertDryRun(args, commandName) {
   if (!args.dryRun) {
     throw new Error(`${commandName} currently supports --dry-run only.`);
@@ -7634,6 +7652,117 @@ async function adapterInvokePlan(args) {
     for (const reason of plan.blocked_reasons) console.log(`- ${reason}`);
   }
   if (plan.execution_status !== "planned") process.exitCode = 1;
+}
+
+async function workerList(args) {
+  assertDryRun(args, "worker list");
+  const { api, bundle } = await loadWorkerPoolApi();
+  const validation = api.validateWorkerPool(bundle);
+  const inventory = api.workerInventory(bundle);
+  console.log("# Worker Pool List dry-run");
+  console.log("");
+  console.log(`status: ${validation.status}`);
+  console.log(`workers: ${inventory.length}`);
+  console.log(`local_workers: ${validation.local_worker_count}`);
+  console.log(`remote_worker_policy: ${validation.remote_worker_policy}`);
+  console.log(`production_worker_policy: ${validation.production_worker_policy}`);
+  console.log("server_connections: disabled");
+  console.log("ssh: disabled");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("credential_values_read: no");
+  console.log("");
+  console.log("| Worker | Kind | Runtime | Adapter | Status | Parallel | Risk | Mode | Proposal | Approval |");
+  console.log("| --- | --- | --- | --- | --- | ---: | --- | --- | --- | --- |");
+  for (const worker of inventory) {
+    console.log(`| ${worker.worker_id} | ${worker.worker_kind} | ${worker.runtime_id} | ${worker.adapter_id} | ${worker.status} | ${worker.max_parallel_tasks} | ${worker.governance.risk} | ${worker.governance.execution_mode} | ${worker.governance.proposal_required ? "yes" : "no"} | ${worker.governance.human_approval_required ? "yes" : "no"} |`);
+  }
+  if (validation.status !== "PASS") process.exitCode = 1;
+}
+
+async function workerHealth(args) {
+  assertDryRun(args, "worker health");
+  const { api, bundle } = await loadWorkerPoolApi();
+  const health = api.workerHealth(bundle);
+  console.log("# Worker Pool Health dry-run");
+  console.log("");
+  console.log(`workers: ${health.workers.length}`);
+  console.log("active_process_probe: disabled");
+  console.log("server_connections: disabled");
+  console.log("ssh: disabled");
+  console.log("credential_values_read: no");
+  console.log("");
+  console.log("| Worker | Runtime | Status | Health | Risk | Mode |");
+  console.log("| --- | --- | --- | --- | --- | --- |");
+  for (const worker of health.workers) {
+    console.log(`| ${worker.worker_id} | ${worker.runtime_id} | ${worker.status} | ${worker.health_status} | ${worker.risk} | ${worker.execution_mode} |`);
+  }
+}
+
+async function workerAssign(args) {
+  assertDryRun(args, "worker assign");
+  if (!args.runtime.trim()) {
+    throw new Error("Missing --runtime for worker assign.");
+  }
+  const { api, bundle } = await loadWorkerPoolApi();
+  const assignment = api.assignWorker(bundle, args.runtime);
+  console.log("# Worker Pool Assign dry-run");
+  console.log("");
+  console.log(`assignment_id: ${assignment.assignment_id}`);
+  console.log(`status: ${assignment.status}`);
+  console.log(`runtime_id: ${assignment.runtime_id}`);
+  console.log(`worker_id: ${assignment.worker_id || "none"}`);
+  console.log(`risk: ${assignment.governance.risk}`);
+  console.log(`execution_mode: ${assignment.governance.execution_mode}`);
+  console.log(`proposal_required: ${assignment.governance.proposal_required ? "yes" : "no"}`);
+  console.log(`human_approval_required: ${assignment.governance.human_approval_required ? "yes" : "no"}`);
+  console.log(`isolation_policy: ${assignment.isolation_policy.policy_id}`);
+  console.log(`workspace_scope: ${assignment.isolation_policy.workspace_scope}`);
+  console.log(`credential_values: ${assignment.isolation_policy.credential_values}`);
+  console.log(`managed_project_writes: ${assignment.isolation_policy.managed_project_writes}`);
+  console.log("server_connections: disabled");
+  console.log("ssh: disabled");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("");
+  console.log("blocked_reasons:");
+  if (assignment.blocked_reasons.length === 0) {
+    console.log("- none");
+  } else {
+    for (const reason of assignment.blocked_reasons) console.log(`- ${reason}`);
+  }
+  if (assignment.status !== "ASSIGNED") process.exitCode = 1;
+}
+
+async function workerCancel(args) {
+  assertDryRun(args, "worker cancel");
+  if (!args.worker.trim()) {
+    throw new Error("Missing --worker for worker cancel.");
+  }
+  const { api, bundle } = await loadWorkerPoolApi();
+  const cancellation = api.cancelWorker(bundle, args.worker);
+  console.log("# Worker Pool Cancel dry-run");
+  console.log("");
+  console.log(`cancel_id: ${cancellation.cancel_id}`);
+  console.log(`worker_id: ${cancellation.worker_id}`);
+  console.log(`runtime_id: ${cancellation.runtime_id || "none"}`);
+  console.log(`kill_switch_status: ${cancellation.kill_switch.status}`);
+  console.log(`would_cancel_active_tasks: ${cancellation.kill_switch.would_cancel_active_tasks ? "yes" : "no"}`);
+  console.log(`would_stop_worker_process: ${cancellation.kill_switch.would_stop_worker_process ? "yes" : "no"}`);
+  console.log(`reason: ${cancellation.kill_switch.reason}`);
+  console.log("server_connections: disabled");
+  console.log("ssh: disabled");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("credential_values_read: no");
+  console.log("");
+  console.log("blocked_reasons:");
+  if (cancellation.blocked_reasons.length === 0) {
+    console.log("- none");
+  } else {
+    for (const reason of cancellation.blocked_reasons) console.log(`- ${reason}`);
+  }
+  if (cancellation.blocked_reasons.length > 0) process.exitCode = 1;
 }
 
 async function productionServerList(args) {
@@ -8301,6 +8430,10 @@ async function main() {
   if (args.command === "adapter" && args.subcommand === "list") return adapterList(args);
   if (args.command === "adapter" && args.subcommand === "health") return adapterHealth(args);
   if (args.command === "adapter" && args.subcommand === "invoke-plan") return adapterInvokePlan(args);
+  if (args.command === "worker" && args.subcommand === "list") return workerList(args);
+  if (args.command === "worker" && args.subcommand === "health") return workerHealth(args);
+  if (args.command === "worker" && args.subcommand === "assign") return workerAssign(args);
+  if (args.command === "worker" && args.subcommand === "cancel") return workerCancel(args);
   if (args.command === "production" && args.subcommand === "server-list") return productionServerList(args);
   if (args.command === "production" && args.subcommand === "deploy-plan") return productionDeployPlan(args);
   if (args.command === "production" && args.subcommand === "safety-check") return productionSafetyCheck(args);

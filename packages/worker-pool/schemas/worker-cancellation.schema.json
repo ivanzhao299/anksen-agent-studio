@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/worker-cancellation.schema.json",
+  "title": "Worker Cancellation and Kill Switch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "cancel_id", "created_at", "worker_id", "dry_run", "kill_switch"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "cancel_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "minLength": 1 },
+    "worker_id": { "type": "string", "minLength": 1 },
+    "dry_run": { "type": "boolean" },
+    "kill_switch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "would_cancel_active_tasks", "would_stop_worker_process"],
+      "properties": {
+        "status": { "type": "string", "enum": ["ARMED_DRY_RUN", "EXECUTION_DISABLED"] },
+        "would_cancel_active_tasks": { "type": "boolean" },
+        "would_stop_worker_process": { "type": "boolean" },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}

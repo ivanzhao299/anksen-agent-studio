@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "policy_id": "local-repo-worker-isolation",
+  "workspace_scope": "local_repository_only",
+  "allowed_paths": [
+    "docs/release/**",
+    "runtime/pilot/**",
+    "packages/worker-pool/**"
+  ],
+  "forbidden_paths": [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ],
+  "network": "metadata_only",
+  "credential_values": "not_read",
+  "managed_project_writes": "disabled"
+}

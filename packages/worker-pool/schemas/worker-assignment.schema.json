@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/worker-assignment.schema.json",
+  "title": "Worker Assignment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "assignment_id", "created_at", "runtime_id", "worker_id", "status", "dry_run", "governance"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "assignment_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "minLength": 1 },
+    "runtime_id": { "type": "string", "minLength": 1 },
+    "worker_id": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["ASSIGNED", "BLOCKED"] },
+    "dry_run": { "type": "boolean" },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["risk", "execution_mode", "proposal_required", "human_approval_required"],
+      "properties": {
+        "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+        "execution_mode": { "type": "string" },
+        "proposal_required": { "type": "boolean" },
+        "human_approval_required": { "type": "boolean" }
+      }
+    },
+    "blocked_reasons": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

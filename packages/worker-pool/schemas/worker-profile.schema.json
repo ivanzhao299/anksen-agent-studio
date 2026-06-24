@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/worker-profile.schema.json",
+  "title": "Worker Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["worker_id", "display_name", "worker_kind", "runtime_id", "adapter_id", "status", "supported_skills", "max_parallel_tasks", "risk", "execution_mode", "isolation_policy_id"],
+  "properties": {
+    "worker_id": { "type": "string", "minLength": 1 },
+    "display_name": { "type": "string", "minLength": 1 },
+    "worker_kind": { "type": "string", "enum": ["local", "remote", "production"] },
+    "runtime_id": { "type": "string", "minLength": 1 },
+    "adapter_id": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["available", "unavailable", "disabled"] },
+    "supported_skills": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "max_parallel_tasks": { "type": "integer", "minimum": 1 },
+    "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    "execution_mode": { "type": "string", "enum": ["local_repo_execute", "proposal_only", "human_approval_required"] },
+    "isolation_policy_id": { "type": "string", "minLength": 1 },
+    "notes": { "type": "string" }
+  }
+}

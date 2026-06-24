@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "cancel_id": "cancel-local-codex-1-example",
+  "created_at": "2026-06-24T00:00:00.000+08:00",
+  "worker_id": "local-codex-1",
+  "dry_run": true,
+  "kill_switch": {
+    "status": "ARMED_DRY_RUN",
+    "would_cancel_active_tasks": true,
+    "would_stop_worker_process": false,
+    "reason": "Pilot-2 has no long-running worker process; cancellation remains an auditable dry-run plan."
+  }
+}

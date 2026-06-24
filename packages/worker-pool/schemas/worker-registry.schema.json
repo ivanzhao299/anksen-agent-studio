@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/worker-registry.schema.json",
+  "title": "Worker Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "registry_id", "updated_at", "workers"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "registry_id": { "type": "string", "minLength": 1 },
+    "updated_at": { "type": "string", "minLength": 1 },
+    "workers": {
+      "type": "array",
+      "items": { "$ref": "worker-profile.schema.json" }
+    }
+  }
+}

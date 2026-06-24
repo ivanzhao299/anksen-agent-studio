@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "registry_id": "pilot-2-local-worker-pool",
+  "updated_at": "2026-06-24T00:00:00.000+08:00",
+  "workers": [
+    {
+      "worker_id": "local-codex-1",
+      "display_name": "Local Codex Worker 1",
+      "worker_kind": "local",
+      "runtime_id": "codex-cli",
+      "adapter_id": "codex-cli",
+      "status": "available",
+      "supported_skills": ["code_development", "validation_testing", "data_integration"],
+      "max_parallel_tasks": 1,
+      "risk": "MEDIUM",
+      "execution_mode": "local_repo_execute",
+      "isolation_policy_id": "local-repo-worker-isolation",
+      "notes": "Pilot-2 local worker only. No remote server, SSH, deploy, production operation, or credential value access."
+    }
+  ],
+  "future_worker_classes": [
+    {
+      "worker_kind": "remote",
+      "default_risk": "HIGH",
+      "default_execution_mode": "proposal_only"
+    },
+    {
+      "worker_kind": "production",
+      "default_risk": "CRITICAL",
+      "default_execution_mode": "human_approval_required"
+    }
+  ]
+}

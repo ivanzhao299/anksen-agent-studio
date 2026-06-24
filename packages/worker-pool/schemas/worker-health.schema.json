@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/worker-health.schema.json",
+  "title": "Worker Health",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "checked_at", "dry_run", "workers"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "checked_at": { "type": "string", "minLength": 1 },
+    "dry_run": { "type": "boolean" },
+    "workers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["worker_id", "runtime_id", "status", "health_status", "risk", "execution_mode"],
+        "properties": {
+          "worker_id": { "type": "string" },
+          "runtime_id": { "type": "string" },
+          "status": { "type": "string" },
+          "health_status": { "type": "string", "enum": ["healthy", "unknown", "blocked"] },
+          "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          "execution_mode": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

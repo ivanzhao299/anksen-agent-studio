@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/worker-isolation-policy.schema.json",
+  "title": "Worker Isolation Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy_id", "workspace_scope", "allowed_paths", "forbidden_paths", "network", "credential_values", "managed_project_writes"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "policy_id": { "type": "string", "minLength": 1 },
+    "workspace_scope": { "type": "string", "enum": ["local_repository_only", "proposal_only", "production_approval_required"] },
+    "allowed_paths": { "type": "array", "items": { "type": "string" } },
+    "forbidden_paths": { "type": "array", "items": { "type": "string" } },
+    "network": { "type": "string", "enum": ["disabled", "metadata_only", "approval_required"] },
+    "credential_values": { "type": "string", "enum": ["not_read", "approval_required"] },
+    "managed_project_writes": { "type": "string", "enum": ["disabled", "approval_required"] }
+  }
+}
