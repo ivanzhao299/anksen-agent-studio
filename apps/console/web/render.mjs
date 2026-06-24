@@ -1,5 +1,8 @@
 import { consoleWebRoutes } from "./routes.mjs";
 import { buildConsoleDashboardModel, loadConsoleLocalData } from "./data.mjs";
+import { getConsoleMessages } from "./i18n/index.mjs";
+
+const messages = getConsoleMessages();
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -36,11 +39,11 @@ function jsonBlock(value) {
 function shell(content, activeId, model) {
   const route = consoleWebRoutes.find((item) => item.id === activeId) ?? consoleWebRoutes[0];
   return `<!doctype html>
-<html lang="en">
+<html lang="${messages.locale}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(route.label)} - Agent Studio Console</title>
+  <title>${escapeHtml(route.label)} - ${escapeHtml(messages.app.title)}</title>
   <style>
     :root { color-scheme: light; --bg: #f7f8fa; --panel: #ffffff; --text: #1f2933; --muted: #52606d; --line: #d9e2ec; --blue: #1261a6; --green: #1f7a4d; --red: #b42318; }
     * { box-sizing: border-box; }
@@ -72,8 +75,8 @@ function shell(content, activeId, model) {
 </head>
 <body>
   <header>
-    <h1>ANKSEN Agent Studio Console</h1>
-    <div class="subhead">Local pilot console. Data loaded from repository files. Writes, deploy, production operations, external calls, model calls, and secret reads are disabled.</div>
+    <h1>${escapeHtml(messages.app.title)}</h1>
+    <div class="subhead">${escapeHtml(messages.app.subtitle)}</div>
   </header>
   <div class="layout">
     ${nav(activeId)}
@@ -84,36 +87,36 @@ function shell(content, activeId, model) {
 }
 
 function pageDashboard(model, data) {
-  return `<section><h2>Dashboard</h2><div class="grid">
-    ${metric("Platform", model.platform_status)}
+  return `<section><h2>${messages.pages.dashboard.title}</h2><div class="grid">
+    ${metric(messages.pages.dashboard.platform, model.platform_status)}
     ${metric("V5", model.v5_status)}
-    ${metric("Active project", model.active_project)}
-    ${metric("Latest autopilot", model.modules.latest_autopilot_run)}
+    ${metric(messages.pages.dashboard.activeProject, model.active_project)}
+    ${metric(messages.pages.dashboard.latestAutopilot, model.modules.latest_autopilot_run)}
   </div></section>
-  <section><h2>Module Counts</h2><div class="grid">
-    ${metric("Runtime profiles", model.modules.runtime_profiles)}
-    ${metric("Workers", model.modules.workers)}
-    ${metric("Credential refs", model.modules.credential_references)}
-    ${metric("Credential backends", model.modules.credential_backends)}
-    ${metric("Governance gates", model.modules.governance_release_gates)}
+  <section><h2>${messages.pages.dashboard.moduleCounts}</h2><div class="grid">
+    ${metric(messages.pages.dashboard.runtimeProfiles, model.modules.runtime_profiles)}
+    ${metric(messages.pages.dashboard.workers, model.modules.workers)}
+    ${metric(messages.pages.dashboard.credentialRefs, model.modules.credential_references)}
+    ${metric(messages.pages.dashboard.credentialBackends, model.modules.credential_backends)}
+    ${metric(messages.pages.dashboard.governanceGates, model.modules.governance_release_gates)}
   </div></section>
-  <section><h2>Safety</h2><div class="panel">${list(Object.entries(data.safety).map(([key, value]) => `${key}: ${value}`))}</div></section>`;
+  <section><h2>${messages.common.safety}</h2><div class="panel">${list(Object.entries(data.safety).map(([key, value]) => `${key}: ${value}`))}</div></section>`;
 }
 
 function pageProjects(data) {
   const project = data.jinhuProjectState ?? {};
-  return `<section><h2>Projects</h2><div class="grid">
-    ${metric("Connected project", "jinhu-smart-park")}
-    ${metric("Phoenix ERP", "not connected in Pilot-5")}
-    ${metric("Writes", data.safety.managed_project_writes)}
+  return `<section><h2>${messages.pages.projects.title}</h2><div class="grid">
+    ${metric(messages.pages.projects.connectedProject, "jinhu-smart-park")}
+    ${metric(messages.pages.projects.phoenixErp, messages.pages.projects.phoenixStatus)}
+    ${metric(messages.pages.projects.writes, data.safety.managed_project_writes)}
   </div></section>
-  <section><h2>jinhu-smart-park Runtime Memory</h2>${jsonBlock(project)}</section>`;
+  <section><h2>${messages.pages.projects.runtimeMemory}</h2>${jsonBlock(project)}</section>`;
 }
 
 function pageRuntime(data) {
-  const rows = data.runtime.examples.map((item) => ({ path: item.path, keys: Object.keys(item.data ?? {}).join(", ") || "none" }));
-  return `<section><h2>Runtime</h2><div class="grid">${metric("Profiles", data.runtime.profile_count)}${metric("Providers", data.runtime.provider_count)}${metric("External calls", data.safety.external_calls)}</div></section>
-  <section>${table(rows, [{ key: "path", label: "File" }, { key: "keys", label: "Top-level keys" }])}</section>`;
+  const rows = data.runtime.examples.map((item) => ({ path: item.path, keys: Object.keys(item.data ?? {}).join(", ") || messages.common.notFound }));
+  return `<section><h2>${messages.pages.runtime.title}</h2><div class="grid">${metric(messages.pages.runtime.profiles, data.runtime.profile_count)}${metric(messages.pages.runtime.providers, data.runtime.provider_count)}${metric(messages.pages.runtime.externalCalls, data.safety.external_calls)}</div></section>
+  <section>${table(rows, [{ key: "path", label: messages.common.file }, { key: "keys", label: messages.common.keys }])}</section>`;
 }
 
 function pageWorkers(data) {
@@ -126,65 +129,65 @@ function pageWorkers(data) {
     risk: worker.risk,
     status: worker.status
   }));
-  return `<section><h2>Workers</h2><div class="grid">${metric("Workers", rows.length)}${metric("Server access", data.safety.server_access)}${metric("Model calls", data.safety.model_invocation)}</div></section>
-  <section>${table(rows, [{ key: "worker_id", label: "Worker" }, { key: "kind", label: "Kind" }, { key: "os", label: "OS" }, { key: "capabilities", label: "Capabilities" }, { key: "risk", label: "Risk" }, { key: "status", label: "Status" }])}</section>`;
+  return `<section><h2>${messages.pages.workers.title}</h2><div class="grid">${metric(messages.pages.dashboard.workers, rows.length)}${metric(messages.pages.workers.serverAccess, data.safety.server_access)}${metric(messages.pages.workers.modelCalls, data.safety.model_invocation)}</div></section>
+  <section>${table(rows, [{ key: "worker_id", label: messages.pages.workers.worker }, { key: "kind", label: messages.pages.workers.kind }, { key: "os", label: messages.pages.workers.os }, { key: "capabilities", label: messages.pages.workers.capabilities }, { key: "risk", label: messages.common.risk }, { key: "status", label: messages.common.status }])}</section>`;
 }
 
 function pageCredentials(data) {
-  return `<section><h2>Credentials</h2><div class="grid">
-    ${metric("References", data.credentials.reference_count)}
-    ${metric("Backends", data.credentials.backend_count)}
-    ${metric("Secret values", data.safety.credential_values)}
+  return `<section><h2>${messages.pages.credentials.title}</h2><div class="grid">
+    ${metric(messages.pages.credentials.references, data.credentials.reference_count)}
+    ${metric(messages.pages.credentials.backends, data.credentials.backend_count)}
+    ${metric(messages.pages.credentials.secretValues, data.safety.credential_values)}
   </div></section>
-  <section><h2>Credential Files</h2>${table(data.credentials.examples.map((item) => ({ path: item.path, keys: Object.keys(item.data ?? {}).join(", ") })), [{ key: "path", label: "File" }, { key: "keys", label: "Top-level keys" }])}</section>`;
+  <section><h2>${messages.pages.credentials.files}</h2>${table(data.credentials.examples.map((item) => ({ path: item.path, keys: Object.keys(item.data ?? {}).join(", ") })), [{ key: "path", label: messages.common.file }, { key: "keys", label: messages.common.keys }])}</section>`;
 }
 
 function pageGovernance(data) {
-  return `<section><h2>Governance</h2><div class="grid">
-    ${metric("Policy", data.governance.policy_id)}
-    ${metric("Release gates", data.governance.release_gate_count)}
-    ${metric("Production ops", data.safety.production_operations)}
+  return `<section><h2>${messages.pages.governance.title}</h2><div class="grid">
+    ${metric(messages.pages.governance.policy, data.governance.policy_id)}
+    ${metric(messages.pages.governance.releaseGates, data.governance.release_gate_count)}
+    ${metric(messages.pages.governance.productionOps, data.safety.production_operations)}
   </div></section>
-  <section><h2>Governance Sources</h2>${table(data.governance.examples.map((item) => ({ path: item.path, keys: Object.keys(item.data ?? {}).join(", ") })), [{ key: "path", label: "File" }, { key: "keys", label: "Top-level keys" }])}</section>`;
+  <section><h2>${messages.pages.governance.sources}</h2>${table(data.governance.examples.map((item) => ({ path: item.path, keys: Object.keys(item.data ?? {}).join(", ") })), [{ key: "path", label: messages.common.file }, { key: "keys", label: messages.common.keys }])}</section>`;
 }
 
 function pagePlanning(data) {
-  return `<section><h2>Planning</h2><div class="grid">
-    ${metric("Roadmap memory", "loaded")}
-    ${metric("V5 roadmap", Array.isArray(data.v5Roadmap?.stages) ? `${data.v5Roadmap.stages.length} stages` : "loaded")}
-    ${metric("External calls", data.safety.external_calls)}
+  return `<section><h2>${messages.pages.planning.title}</h2><div class="grid">
+    ${metric(messages.pages.planning.roadmapMemory, messages.common.loaded)}
+    ${metric(messages.pages.planning.v5Roadmap, Array.isArray(data.v5Roadmap?.stages) ? `${data.v5Roadmap.stages.length} stages` : messages.common.loaded)}
+    ${metric(messages.pages.planning.externalCalls, data.safety.external_calls)}
   </div></section>
-  <section><h2>Roadmap Memory</h2>${jsonBlock(data.roadmapMemory)}</section>`;
+  <section><h2>${messages.pages.planning.roadmapMemory}</h2>${jsonBlock(data.roadmapMemory)}</section>`;
 }
 
 function pageAutopilot(data) {
-  return `<section><h2>Autopilot</h2><div class="grid">
-    ${metric("Latest run", data.autopilot.latest?.path ?? "not found")}
-    ${metric("Execution mode", data.autopilot.latest_summary?.execution_mode ?? "unknown")}
-    ${metric("Writes from Console", data.safety.managed_project_writes)}
+  return `<section><h2>${messages.pages.autopilot.title}</h2><div class="grid">
+    ${metric(messages.pages.autopilot.latestRun, data.autopilot.latest?.path ?? messages.common.notFound)}
+    ${metric(messages.pages.autopilot.executionMode, data.autopilot.latest_summary?.execution_mode ?? messages.common.unknown)}
+    ${metric(messages.pages.autopilot.writesFromConsole, data.safety.managed_project_writes)}
   </div></section>
-  <section><h2>Latest Run Summary</h2>${jsonBlock(data.autopilot.latest_summary ?? {})}</section>`;
+  <section><h2>${messages.pages.autopilot.latestRunSummary}</h2>${jsonBlock(data.autopilot.latest_summary ?? {})}</section>`;
 }
 
 function pageActions(data) {
   const actions = data.consoleActions?.actions ?? [];
-  return `<section><h2>Console Actions</h2><div class="grid">${metric("Actions", actions.length)}${metric("Default", "read_only")}${metric("Writes", "false")}</div></section>
+  return `<section><h2>${messages.pages.actions.title}</h2><div class="grid">${metric(messages.pages.actions.actions, actions.length)}${metric(messages.pages.actions.defaultMode, "read_only")}${metric(messages.pages.actions.writes, messages.common.falseValue)}</div></section>
   <section>${table(actions.map((action) => ({
     id: action.id,
     intent: action.intent,
     risk: action.risk,
     mode: `${action.mode}/${action.executionMode}`,
     gate: action.governance_gate
-  })), [{ key: "id", label: "Action" }, { key: "intent", label: "Intent" }, { key: "risk", label: "Risk" }, { key: "mode", label: "Mode" }, { key: "gate", label: "Gate" }])}</section>`;
+  })), [{ key: "id", label: messages.pages.actions.action }, { key: "intent", label: messages.pages.actions.intent }, { key: "risk", label: messages.common.risk }, { key: "mode", label: messages.common.mode }, { key: "gate", label: messages.common.gate }])}</section>`;
 }
 
 function pageMemory(data) {
-  return `<section><h2>Memory</h2><div class="grid">
-    ${metric("Platform state", "loaded")}
-    ${metric("Context index", Object.keys(data.codexContextIndex ?? {}).length)}
-    ${metric("Project memory", "jinhu-smart-park")}
+  return `<section><h2>${messages.pages.memory.title}</h2><div class="grid">
+    ${metric(messages.pages.memory.platformState, messages.common.loaded)}
+    ${metric(messages.pages.memory.contextIndex, Object.keys(data.codexContextIndex ?? {}).length)}
+    ${metric(messages.pages.memory.projectMemory, "jinhu-smart-park")}
   </div></section>
-  <section><h2>Data Sources</h2>${list([...data.data_sources.files, ...data.data_sources.directories, data.data_sources.autopilot_latest])}</section>`;
+  <section><h2>${messages.common.dataSources}</h2>${list([...data.data_sources.files, ...data.data_sources.directories, data.data_sources.autopilot_latest])}</section>`;
 }
 
 function pagePilotStatus(data) {
@@ -195,8 +198,8 @@ function pagePilotStatus(data) {
     { pilot: "Pilot-4 Console Pilot Scope", status: "PASS" },
     { pilot: "Pilot-5 Console Productization", status: "IN_PROGRESS" }
   ];
-  return `<section><h2>Pilot Status</h2>${table(pilots, [{ key: "pilot", label: "Pilot" }, { key: "status", label: "Status" }])}</section>
-  <section><h2>Safety Boundary</h2><div class="panel"><span class="safe">No external calls, no secret reads, no deploy, no production operations.</span></div></section>`;
+  return `<section><h2>${messages.pages.pilotStatus.title}</h2>${table(pilots, [{ key: "pilot", label: messages.pages.pilotStatus.pilot }, { key: "status", label: messages.common.status }])}</section>
+  <section><h2>${messages.pages.pilotStatus.safetyBoundary}</h2><div class="panel"><span class="safe">${escapeHtml(messages.common.noExternalCalls)}</span></div></section>`;
 }
 
 export async function renderConsolePage(pathname = "/") {

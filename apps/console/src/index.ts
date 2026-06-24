@@ -35,6 +35,12 @@ export {
   type ConsoleV5StageCompletion
 } from "./v5-roadmap.js";
 export {
+  consoleMessages,
+  defaultConsoleLocale,
+  getConsoleMessages,
+  type ConsoleLocale
+} from "./i18n/index.js";
+export {
   consolePanels,
   consoleReadOnlySummary,
   getConsoleModuleDetails,

@@ -16,20 +16,24 @@ Static build:
 pnpm --filter @anksen/console build
 ```
 
+## Language
+
+The Pilot Console defaults to `zh-CN` for enterprise internal testing. The i18n structure is available under `src/i18n/`; `en-US` is currently a placeholder package for later bilingual support.
+
 ## Views
 
-- Dashboard
-- Projects
-- Project Connector / Stack Detector / Debug Specialist
-- Runtime Center
-- Runtime Adapters
-- Credential Vault
-- Governance Center
-- Planning Center
-- Autopilot Runs
-- Memory / Context
-- Evolution / Discovery
-- Pilot Status
+- 总览
+- 项目
+- 项目接入 / 技术栈检测 / 调试专家
+- 运行时
+- 运行适配器
+- 凭证
+- 治理
+- 规划
+- 自动驾驶
+- 记忆中心
+- 演进 / 发现
+- 试运行状态
 
 ## Data Sources
 

@@ -13,6 +13,18 @@ The Console reads local repository files only. It does not connect to a database
 
 Phoenix ERP is not connected in this pilot. It will be onboarded later through a GitHub Repo Connector instead of a presumed local path.
 
+## Language Policy
+
+The Pilot Console defaults to Simplified Chinese (`zh-CN`). Enterprise pilot usage prioritizes Chinese labels, navigation, module titles, status text, and risk hints.
+
+The i18n structure is in place for later bilingual support:
+
+- `apps/console/src/i18n/zh-CN.ts`
+- `apps/console/src/i18n/en-US.ts`
+- `apps/console/src/i18n/index.ts`
+
+The current `en-US` package is a placeholder structure only. Full English translation is deferred until the enterprise pilot language requirements settle.
+
 ## Start Console
 
 Preferred command:
@@ -41,17 +53,17 @@ pnpm --filter @anksen/console build
 
 ## Page Modules
 
-- Dashboard
-- Projects
-- Runtime
-- Workers
-- Credentials
-- Governance
-- Planning
-- Autopilot
-- Console Actions
-- Memory
-- Pilot Status
+- 总览
+- 项目
+- 运行时
+- Worker 节点
+- 凭证
+- 治理
+- 规划
+- 自动驾驶
+- 操作中心
+- 记忆中心
+- 试运行状态
 
 ## Local Data Sources
 
