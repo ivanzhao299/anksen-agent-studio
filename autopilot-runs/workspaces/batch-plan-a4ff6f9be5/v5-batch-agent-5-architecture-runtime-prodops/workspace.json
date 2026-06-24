@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-a4ff6f9be5",
+  "task_id": "v5-batch-agent-5-architecture-runtime-prodops",
+  "owner_agent": "agent-5",
+  "execution_strategy": "proposal_only_after_parallel_gate",
+  "target_package": "docs/release",
+  "allowed_paths": [
+    "docs/release/V5_*ARCHITECTURE*",
+    "docs/release/V5_*RUNTIME*",
+    "docs/release/V5_*PRODUCTION*",
+    "packages/runtime-adapters/**",
+    "packages/production-ops/**"
+  ],
+  "forbidden_paths": [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "examples/jinhu-smart-park/**",
+    "runtime/projects/jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ],
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled",
+    "real_worker_execution": "disabled"
+  }
+}

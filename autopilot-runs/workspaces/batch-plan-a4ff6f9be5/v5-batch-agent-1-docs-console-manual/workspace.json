@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-a4ff6f9be5",
+  "task_id": "v5-batch-agent-1-docs-console-manual",
+  "owner_agent": "agent-1",
+  "execution_strategy": "true_parallel_executor_parallel_2",
+  "target_package": "docs/release",
+  "allowed_paths": [
+    "docs/release/AGENT_STUDIO_V5_MASTER_PLAN.md",
+    "docs/release/V5_*",
+    "apps/console/README.md"
+  ],
+  "forbidden_paths": [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "examples/jinhu-smart-park/**",
+    "runtime/projects/jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ],
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled",
+    "real_worker_execution": "disabled"
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-a4ff6f9be5",
+  "task_id": "v5-batch-agent-2-governance-validation",
+  "owner_agent": "agent-2",
+  "target_package": "packages/governance-center",
+  "skill_type": "validation_testing",
+  "runtime": "codex-cli",
+  "status": "EXECUTED",
+  "execution_mode": "local_repo_execute",
+  "execution_strategy": "true_parallel_executor_parallel_2",
+  "risk": "MEDIUM",
+  "task_workspace": "autopilot-runs/workspaces/batch-plan-a4ff6f9be5/v5-batch-agent-2-governance-validation",
+  "allowed_paths": [
+    "packages/governance-center/**",
+    "packages/planning-center/schemas/**",
+    "docs/release/V5_*GOVERNANCE*",
+    "docs/release/V5_*TEST*"
+  ],
+  "forbidden_paths": [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "examples/jinhu-smart-park/**",
+    "runtime/projects/jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ],
+  "dependencies": [],
+  "changed_files": [
+    "autopilot-runs/batch-plan-a4ff6f9be5-v5-batch-agent-2-governance-validation.json",
+    "autopilot-runs/batch-plan-a4ff6f9be5-v5-batch-agent-2-governance-validation.md",
+    "autopilot-runs/workspaces/batch-plan-a4ff6f9be5/v5-batch-agent-2-governance-validation/workspace.json",
+    "docs/release/V5_GOVERNANCE_VALIDATION_TEST_MATRIX.md",
+    "packages/governance-center/examples/v5-validation-matrix.example.json"
+  ],
+  "validation_result": {
+    "status": "PASS",
+    "command_count": 4,
+    "failed_commands": []
+  },
+  "commands_run": [
+    {
+      "command": "pnpm typecheck",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "> anksen-agent-studio@0.1.0 typecheck /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> pnpm -r --if-present typecheck\n\nScope: 13 of 14 workspace projects\napps/console typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck: Done\npackages/governance-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck: Done\npackages/credential-vault typecheck: Done\npackages/orchestrator-core typecheck$ tsc -p tsconfig.json --noEmit\npackages/planning-center typecheck$ tsc -p tsconfig.json --noEmit\napps/console typecheck: Done\npackages/production-ops typecheck$ tsc -p tsconfig.json --noEmit\npackages/orchestrator-core typecheck: Done\npackages/project-connector typecheck$ tsc -p tsconfig.json --noEmit\npackages/planning-center typecheck: Done\npackages/runtime-adapters typecheck$ tsc -p tsconfig.json --noEmit\npackages/governance-center typecheck: Done\npackages/runtime-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/production-ops typecheck: Done\npackages/runtime-memory typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-center typecheck: Done\npackages/skill-router typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-adapters typecheck: Done\npackages/project-connector typecheck: Done\npackages/runtime-memory typecheck: Done\npackages/skill-router typecheck: Done",
+      "stderr_tail": ""
+    },
+    {
+      "command": "pnpm lint:check",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "> anksen-agent-studio@0.1.0 lint:check /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> node packages/orchestrator-core/bin/studio.mjs lint-check\n\nlint:check: no ESLint configuration is enabled in the extraction-stage skeleton.\nstatus: PASS",
+      "stderr_tail": ""
+    },
+    {
+      "command": "git diff --check",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "command": "git diff --check",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    }
+  ],
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled",
+    "real_worker_execution": "disabled"
+  }
+}
