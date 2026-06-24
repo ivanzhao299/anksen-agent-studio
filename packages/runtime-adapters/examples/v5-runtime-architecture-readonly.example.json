@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-a3914edecb",
+  "owner_agent": "agent-5",
+  "split_from": "v5-batch-agent-5-architecture-runtime-prodops",
+  "evidence_id": "v5-runtime-architecture-readonly",
+  "mode": "read_only",
+  "allowed_operations": [
+    "describe_adapter_metadata",
+    "describe_worker_boundaries",
+    "generate_invoke_plan"
+  ],
+  "blocked_operations": [
+    "invoke_real_model",
+    "read_secret_value",
+    "connect_remote_worker",
+    "deploy",
+    "production_operation"
+  ],
+  "credential_policy": "reference_presence_only"
+}

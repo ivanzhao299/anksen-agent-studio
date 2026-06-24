@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-a3914edecb",
+  "owner_agent": "agent-5",
+  "split_from": "v5-batch-agent-5-architecture-runtime-prodops",
+  "decomposition_id": "v5-production-ops-safety-decomposition",
+  "mode": "dry_run_only",
+  "safe_subtasks": [
+    "document_release_gate_inputs",
+    "document_production_action_risks",
+    "record_proposal_only_blocks"
+  ],
+  "blocked_operations": [
+    "ssh",
+    "server_connect",
+    "deploy",
+    "backup_execute",
+    "rollback_execute",
+    "production_mutation",
+    "credential_value_read"
+  ],
+  "approval_gate_for_real_execution": "CRITICAL"
+}

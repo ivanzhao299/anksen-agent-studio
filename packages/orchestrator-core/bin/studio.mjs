@@ -4867,6 +4867,108 @@ function batchTaskAction(task) {
   };
 }
 
+function v5Agent5SafeSubtasks(task) {
+  if (task.task_id !== "v5-batch-agent-5-architecture-runtime-prodops") return [];
+  const forbiddenPaths = task.forbidden_paths ?? [];
+  return [
+    {
+      task_id: "v5-batch-agent-5-runtime-architecture-readonly",
+      title: "V5 runtime architecture read-only evidence",
+      owner_agent: "agent-5",
+      target_project: "anksen-agent-studio",
+      target_package: "packages/runtime-adapters",
+      skill_type: "architecture_documentation",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "docs/release/V5_RUNTIME_ARCHITECTURE_READONLY_EVIDENCE.md",
+        "packages/runtime-adapters/examples/v5-runtime-architecture-readonly.example.json"
+      ],
+      forbidden_paths: forbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [
+        "v5-batch-agent-2-governance-validation"
+      ],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      approval_required: false,
+      proposal_required: false,
+      split_from: task.task_id,
+      parent_risk: task.risk,
+      split_strategy: "high_risk_safe_decomposition",
+      objective: "Record read-only runtime architecture evidence and adapter boundary metadata without live Worker or external model activity."
+    },
+    {
+      task_id: "v5-batch-agent-5-production-ops-safe-decomposition",
+      title: "V5 production operations dry-run safety decomposition",
+      owner_agent: "agent-5",
+      target_project: "anksen-agent-studio",
+      target_package: "packages/production-ops",
+      skill_type: "safety_planning",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "docs/release/V5_PRODUCTION_OPS_SAFE_DECOMPOSITION.md",
+        "packages/production-ops/examples/v5-production-ops-safety-decomposition.example.json"
+      ],
+      forbidden_paths: forbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [
+        "v5-batch-agent-2-governance-validation"
+      ],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      approval_required: false,
+      proposal_required: false,
+      split_from: task.task_id,
+      parent_risk: task.risk,
+      split_strategy: "high_risk_safe_decomposition",
+      objective: "Record dry-run production operations safety decomposition as local docs and examples only."
+    }
+  ];
+}
+
+function decomposeHighRiskBatchTasks(tasks) {
+  const expandedTasks = [];
+  const decompositions = [];
+  for (const task of tasks) {
+    if (["HIGH", "CRITICAL"].includes(task.risk)) {
+      const childTasks = v5Agent5SafeSubtasks(task);
+      if (childTasks.length > 0) {
+        expandedTasks.push(...childTasks);
+        decompositions.push({
+          parent_task_id: task.task_id,
+          owner_agent: task.owner_agent,
+          parent_risk: task.risk,
+          status: "SPLIT_TO_SAFE_SUBTASKS",
+          child_task_ids: childTasks.map((child) => child.task_id),
+          direct_execution: false
+        });
+        continue;
+      }
+      decompositions.push({
+        parent_task_id: task.task_id,
+        owner_agent: task.owner_agent,
+        parent_risk: task.risk,
+        status: "PROPOSAL_ONLY_UNSPLIT",
+        child_task_ids: [],
+        direct_execution: false
+      });
+    }
+    expandedTasks.push(task);
+  }
+  return {
+    tasks: expandedTasks,
+    decompositions
+  };
+}
+
 async function evaluateBatchTasks(tasks) {
   const results = [];
   for (const task of tasks) {
@@ -5175,6 +5277,116 @@ Agent-5 remains proposal-only because this lane touches runtime architecture and
   };
 }
 
+function v5Agent5RuntimeArchitectureFiles(task, batchId) {
+  return {
+    "docs/release/V5_RUNTIME_ARCHITECTURE_READONLY_EVIDENCE.md": `# V5 Runtime Architecture Read-Only Evidence
+
+- batch_id: ${batchId}
+- owner_agent: ${task.owner_agent}
+- split_from: ${task.split_from ?? "none"}
+- risk: ${task.risk}
+- execution_mode: local_repo_execute
+
+## Scope
+
+This safe subtask decomposes the HIGH agent-5 runtime lane into read-only architecture evidence. It documents adapter and worker boundaries without invoking a real Worker or external model.
+
+## Evidence Model
+
+- Runtime adapter metadata remains declarative.
+- Worker execution remains disabled.
+- Credential values are never read.
+- Network execution is not performed.
+- Production operations remain proposal-only.
+
+## Safety Boundary
+
+- No real Worker execution.
+- No external model invocation.
+- No server access.
+- No deploy.
+- No production operation.
+- No credential value read or write.
+`,
+    "packages/runtime-adapters/examples/v5-runtime-architecture-readonly.example.json": `${JSON.stringify({
+      schema_version: 1,
+      batch_id: batchId,
+      owner_agent: task.owner_agent,
+      split_from: task.split_from ?? null,
+      evidence_id: "v5-runtime-architecture-readonly",
+      mode: "read_only",
+      allowed_operations: [
+        "describe_adapter_metadata",
+        "describe_worker_boundaries",
+        "generate_invoke_plan"
+      ],
+      blocked_operations: [
+        "invoke_real_model",
+        "read_secret_value",
+        "connect_remote_worker",
+        "deploy",
+        "production_operation"
+      ],
+      credential_policy: "reference_presence_only"
+    }, null, 2)}\n`
+  };
+}
+
+function v5Agent5ProductionSafetyDecompositionFiles(task, batchId) {
+  return {
+    "docs/release/V5_PRODUCTION_OPS_SAFE_DECOMPOSITION.md": `# V5 Production Ops Safe Decomposition
+
+- batch_id: ${batchId}
+- owner_agent: ${task.owner_agent}
+- split_from: ${task.split_from ?? "none"}
+- risk: ${task.risk}
+- execution_mode: local_repo_execute
+
+## Scope
+
+This safe subtask decomposes the HIGH Production Ops lane into documentation and dry-run safety evidence only. It does not run deploy, backup, rollback, server, or production commands.
+
+## Safe Work Units
+
+- Define dry-run safety evidence.
+- Keep production execution behind CRITICAL approval.
+- Record blocked operation classes.
+- Preserve proposal-only semantics for live operations.
+
+## Hard Blocks
+
+- No SSH or server connection.
+- No deploy.
+- No production operation.
+- No credential value read or write.
+- No managed project write.
+`,
+    "packages/production-ops/examples/v5-production-ops-safety-decomposition.example.json": `${JSON.stringify({
+      schema_version: 1,
+      batch_id: batchId,
+      owner_agent: task.owner_agent,
+      split_from: task.split_from ?? null,
+      decomposition_id: "v5-production-ops-safety-decomposition",
+      mode: "dry_run_only",
+      safe_subtasks: [
+        "document_release_gate_inputs",
+        "document_production_action_risks",
+        "record_proposal_only_blocks"
+      ],
+      blocked_operations: [
+        "ssh",
+        "server_connect",
+        "deploy",
+        "backup_execute",
+        "rollback_execute",
+        "production_mutation",
+        "credential_value_read"
+      ],
+      approval_gate_for_real_execution: "CRITICAL"
+    }, null, 2)}\n`
+  };
+}
+
 function batchTaskFileMap(task, batchId) {
   if (task.task_id === "v5-batch-agent-1-docs-console-manual") {
     return v5OperatorManualFiles(task, batchId);
@@ -5190,6 +5402,12 @@ function batchTaskFileMap(task, batchId) {
   }
   if (task.task_id === "v5-batch-agent-5-architecture-runtime-prodops") {
     return v5ArchitectureProposalFiles(task, batchId);
+  }
+  if (task.task_id === "v5-batch-agent-5-runtime-architecture-readonly") {
+    return v5Agent5RuntimeArchitectureFiles(task, batchId);
+  }
+  if (task.task_id === "v5-batch-agent-5-production-ops-safe-decomposition") {
+    return v5Agent5ProductionSafetyDecompositionFiles(task, batchId);
   }
   throw new Error(`No batch task writer is registered for ${task.task_id}.`);
 }
@@ -5240,6 +5458,38 @@ function chunkTasks(tasks, size) {
     chunks.push(tasks.slice(index, index + size));
   }
   return chunks;
+}
+
+function buildBatchExecutionSchedule(executableTasks, batchId, parallel) {
+  const pathOverlapBase = detectBatchPathOverlaps(executableTasks, batchId);
+  const degradedTaskIds = unique(pathOverlapBase.overlaps.flatMap((overlap) => overlap.task_ids));
+  const degradedTaskSet = new Set(degradedTaskIds);
+  const concurrentTasks = executableTasks.filter((task) => !degradedTaskSet.has(task.task_id));
+  const degradedTasks = executableTasks.filter((task) => degradedTaskSet.has(task.task_id));
+  const concurrentBatches = chunkTasks(concurrentTasks, parallel);
+  const degradedBatches = degradedTasks.map((task) => [task]);
+  const parallelBatches = [...concurrentBatches, ...degradedBatches];
+  const actualParallelism = Math.max(0, ...parallelBatches.map((batch) => batch.length));
+  const trueParallel = actualParallelism > 1;
+  const strategy = trueParallel
+    ? pathOverlapBase.detected
+      ? `partial_parallel_executor_parallel_${parallel}_with_path_overlap_isolation`
+      : `true_parallel_executor_parallel_${parallel}`
+    : pathOverlapBase.detected
+      ? `sequential_executor_for_conflicting_tasks_parallel_${parallel}`
+      : `sequential_executor_parallel_${parallel}`;
+  return {
+    strategy,
+    true_parallel: trueParallel,
+    actual_parallelism: actualParallelism,
+    path_overlap: {
+      ...pathOverlapBase,
+      degraded_task_ids: degradedTaskIds,
+      unaffected_task_ids: concurrentTasks.map((task) => task.task_id)
+    },
+    parallel_batches: parallelBatches,
+    degraded_batches: degradedBatches
+  };
 }
 
 function batchTaskReportFiles(batchId, task) {
@@ -5310,6 +5560,9 @@ async function executeBatchTask(task, batchId, strategy) {
     task_id: task.task_id,
     owner_agent: task.owner_agent,
     execution_strategy: strategy,
+    split_from: task.split_from ?? null,
+    parent_risk: task.parent_risk ?? null,
+    split_strategy: task.split_strategy ?? null,
     target_package: task.target_package,
     allowed_paths: task.allowed_paths,
     forbidden_paths: task.forbidden_paths,
@@ -5372,6 +5625,9 @@ async function writeBatchTaskReports(results, validationResult, commandsRun) {
       target_package: result.target_package,
       skill_type: result.skill_type,
       runtime: result.runtime,
+      split_from: result.split_from ?? null,
+      parent_risk: result.parent_risk ?? null,
+      split_strategy: result.split_strategy ?? null,
       status: result.status,
       execution_mode: result.effective_execution_mode,
       execution_strategy: result.execution_strategy,
@@ -5417,22 +5673,13 @@ async function executeBatchTasks(tasks, batchId, parallel) {
   const executableTasks = tasks.filter((task) => task.automatic_execution_allowed);
   const proposalTasks = tasks.filter((task) => !task.automatic_execution_allowed && task.proposal_required);
   const skippedTasks = tasks.filter((task) => !task.automatic_execution_allowed && !task.proposal_required);
-  const pathOverlap = detectBatchPathOverlaps(executableTasks, batchId);
-  const trueParallel = parallel > 1 && executableTasks.length > 1 && !pathOverlap.detected;
-  const strategy = trueParallel
-    ? `true_parallel_executor_parallel_${parallel}`
-    : pathOverlap.detected
-      ? `sequential_executor_due_to_path_overlap_parallel_${parallel}`
-      : `sequential_executor_parallel_${parallel}`;
-  const parallelBatches = trueParallel
-    ? chunkTasks(executableTasks, parallel)
-    : executableTasks.map((task) => [task]);
+  const schedule = buildBatchExecutionSchedule(executableTasks, batchId, parallel);
   const resultMap = new Map();
 
-  for (const batch of parallelBatches) {
-    const batchResults = trueParallel
-      ? await Promise.all(batch.map((task) => executeBatchTask(task, batchId, strategy)))
-      : [await executeBatchTask(batch[0], batchId, strategy)];
+  for (const batch of schedule.parallel_batches) {
+    const batchResults = batch.length > 1
+      ? await Promise.all(batch.map((task) => executeBatchTask(task, batchId, schedule.strategy)))
+      : [await executeBatchTask(batch[0], batchId, schedule.strategy)];
     for (const result of batchResults) {
       resultMap.set(result.task_id, result);
     }
@@ -5444,15 +5691,17 @@ async function executeBatchTasks(tasks, batchId, parallel) {
   }
 
   for (const task of skippedTasks) {
-    resultMap.set(task.task_id, skippedBatchTaskResult(task, batchId, strategy));
+    resultMap.set(task.task_id, skippedBatchTaskResult(task, batchId, schedule.strategy));
   }
 
   const results = tasks.map((task) => resultMap.get(task.task_id));
   return {
-    strategy,
-    true_parallel: trueParallel,
-    path_overlap: pathOverlap,
-    parallel_batches: parallelBatches.map((batch) => batch.map((task) => task.task_id)),
+    strategy: schedule.strategy,
+    true_parallel: schedule.true_parallel,
+    actual_parallelism: schedule.actual_parallelism,
+    path_overlap: schedule.path_overlap,
+    parallel_batches: schedule.parallel_batches.map((batch) => batch.map((task) => task.task_id)),
+    degraded_batches: schedule.degraded_batches.map((batch) => batch.map((task) => task.task_id)),
     results
   };
 }
@@ -5474,6 +5723,9 @@ function batchSummaryMarkdown(summary) {
   const parallelRows = (summary.parallel_batches ?? []).length === 0
     ? "- none"
     : summary.parallel_batches.map((batch, index) => `- batch-${index + 1}: ${batch.join(", ")}`).join("\n");
+  const decompositionRows = (summary.high_risk_decomposition ?? []).length === 0
+    ? "- none"
+    : summary.high_risk_decomposition.map((item) => `- ${item.owner_agent}: ${item.parent_task_id} -> ${item.status} (${item.child_task_ids.join(", ") || "none"})`).join("\n");
   const overlapRows = summary.path_overlap?.detected
     ? summary.path_overlap.overlaps.map((overlap) => `- ${overlap.path}: ${overlap.task_ids.join(", ")}`).join("\n")
     : "- none";
@@ -5483,14 +5735,20 @@ function batchSummaryMarkdown(summary) {
 - goal: ${summary.goal}
 - execution_strategy: ${summary.execution_strategy}
 - parallel_requested: ${summary.parallel_requested}
+- actual_parallelism: ${summary.actual_parallelism ?? "unknown"}
 - true_parallel: ${summary.true_parallel ? "yes" : "no"}
 - path_overlap_detected: ${summary.path_overlap?.detected ? "yes" : "no"}
+- efficiency_report_file: ${summary.efficiency_report_file ?? "none"}
 - implementation_commit_hash: ${summary.implementation_commit_hash}
 - validation_status: ${summary.validation_result.status}
 
 ## Parallel Batches
 
 ${parallelRows}
+
+## High Risk Decomposition
+
+${decompositionRows}
 
 ## Path Overlap
 
@@ -5524,6 +5782,71 @@ async function writeBatchSummary(summary) {
   return summaryFile;
 }
 
+function batchEfficiencyReportFiles(batchId) {
+  return [
+    `autopilot-runs/${batchId}-efficiency.json`,
+    `autopilot-runs/${batchId}-efficiency.md`
+  ];
+}
+
+function batchEfficiencyMarkdown(report) {
+  const parallelRows = report.parallel_batches.length === 0
+    ? "- none"
+    : report.parallel_batches.map((batch, index) => `- batch-${index + 1}: ${batch.join(", ")}`).join("\n");
+  const decompositionRows = report.high_risk_decomposition.length === 0
+    ? "- none"
+    : report.high_risk_decomposition.map((item) => `- ${item.owner_agent}: ${item.status}; children=${item.child_task_ids.join(", ") || "none"}`).join("\n");
+  const overlapRows = report.path_overlap.detected
+    ? report.path_overlap.overlaps.map((overlap) => `- ${overlap.path}: ${overlap.task_ids.join(", ")}`).join("\n")
+    : "- none";
+  return `# Autopilot Batch Efficiency Report
+
+- batch_id: ${report.batch_id}
+- goal: ${report.goal}
+- execution_strategy: ${report.execution_strategy}
+- parallel_requested: ${report.parallel_requested}
+- actual_parallelism: ${report.actual_parallelism}
+- true_parallel: ${report.true_parallel ? "yes" : "no"}
+- validation_status: ${report.validation_status}
+
+## Task Counts
+
+- planned_task_count: ${report.task_counts.planned}
+- executable_task_count: ${report.task_counts.executable}
+- proposal_only_task_count: ${report.task_counts.proposal_only}
+- split_parent_count: ${report.task_counts.split_parent}
+- split_child_count: ${report.task_counts.split_child}
+
+## Parallel Batches
+
+${parallelRows}
+
+## Path Overlap
+
+${overlapRows}
+
+## High Risk Decomposition
+
+${decompositionRows}
+
+## Safety
+
+- deploy: disabled
+- production_operations: disabled
+- credential_values: disabled
+- managed_project_writes: disabled
+- real_worker_execution: disabled
+`;
+}
+
+async function writeBatchEfficiencyReport(report) {
+  const [jsonRelative, markdownRelative] = batchEfficiencyReportFiles(report.batch_id);
+  await mkdir(resolveFromRoot("autopilot-runs"), { recursive: true });
+  await writeFile(resolveFromRoot(jsonRelative), `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  await writeFile(resolveFromRoot(markdownRelative), batchEfficiencyMarkdown(report), "utf8");
+  return [jsonRelative, markdownRelative];
+}
+
 function autopilotBatchRunFiles(run) {
   return [
     `autopilot-runs/${run.run_id}.json`,
@@ -5538,6 +5861,9 @@ function autopilotBatchMarkdown(run) {
   const parallelRows = (run.parallel_batches ?? []).length === 0
     ? "- none"
     : run.parallel_batches.map((batch, index) => `- batch-${index + 1}: ${batch.join(", ")}`).join("\n");
+  const decompositionRows = (run.high_risk_decomposition ?? []).length === 0
+    ? "- none"
+    : run.high_risk_decomposition.map((item) => `- ${item.owner_agent}: ${item.parent_task_id} -> ${item.status} (${item.child_task_ids.join(", ") || "none"})`).join("\n");
   const overlapRows = run.path_overlap?.detected
     ? run.path_overlap.overlaps.map((overlap) => `- ${overlap.path}: ${overlap.task_ids.join(", ")}`).join("\n")
     : "- none";
@@ -5550,6 +5876,7 @@ function autopilotBatchMarkdown(run) {
 - batch_id: ${run.batch_plan.batch_id}
 - parallel_requested: ${run.parallel_requested}
 - execution_strategy: ${run.execution_strategy}
+- actual_parallelism: ${run.actual_parallelism}
 - true_parallel: ${run.true_parallel ? "yes" : "no"}
 - path_overlap_detected: ${run.path_overlap?.detected ? "yes" : "no"}
 - implementation_commit_hash: ${run.commit_hash ?? "none"}
@@ -5565,6 +5892,10 @@ ${rows}
 ## Parallel Batches
 
 ${parallelRows}
+
+## High Risk Decomposition
+
+${decompositionRows}
 
 ## Path Overlap
 
@@ -5616,9 +5947,12 @@ function buildAutopilotBatchRun({
   validationResult = null,
   commitHash = null,
   batchSummaryFile = null,
+  batchEfficiencyFiles = [],
   trueParallel = false,
   pathOverlap = { detected: false, overlaps: [] },
-  parallelBatches = []
+  parallelBatches = [],
+  actualParallelism = 0,
+  highRiskDecomposition = []
 }) {
   const now = new Date().toISOString();
   const failedCommands = commandsRun.filter((command) => !command.ok).map((command) => command.command);
@@ -5638,8 +5972,10 @@ function buildAutopilotBatchRun({
     execution_mode: mode === "apply" ? "batch_execute" : "batch_proposal",
     execution_strategy: executionStrategy,
     true_parallel: trueParallel,
+    actual_parallelism: actualParallelism,
     path_overlap: pathOverlap,
     parallel_batches: parallelBatches,
+    high_risk_decomposition: highRiskDecomposition,
     execution_result: executionResult ?? {
       executed: false,
       implementation: "parallel-batch-planner-proposal",
@@ -5656,6 +5992,7 @@ function buildAutopilotBatchRun({
     },
     commit_hash: commitHash,
     batch_summary_file: batchSummaryFile,
+    batch_efficiency_files: batchEfficiencyFiles,
     next_recommendation: {
       title: mode === "apply" ? "Review batch execution summary" : "Review batch plan before parallel execution",
       reason: mode === "apply"
@@ -5683,6 +6020,7 @@ function printAutopilotBatch(run, files = null) {
   console.log(`parallel_requested: ${run.parallel_requested}`);
   console.log(`task_count: ${run.batch_plan.tasks.length}`);
   console.log(`execution_strategy: ${run.execution_strategy}`);
+  console.log(`actual_parallelism: ${run.actual_parallelism}`);
   console.log(`true_parallel: ${run.true_parallel ? "yes" : "no"}`);
   console.log(`path_overlap_detected: ${run.path_overlap?.detected ? "yes" : "no"}`);
   console.log(`execution: ${run.execution_result.executed ? "executed" : "proposal_only"}`);
@@ -5694,6 +6032,12 @@ function printAutopilotBatch(run, files = null) {
     run.parallel_batches.forEach((batch, index) => {
       console.log(`- batch-${index + 1}: ${batch.join(", ")}`);
     });
+  }
+  if ((run.high_risk_decomposition ?? []).length > 0) {
+    console.log("high_risk_decomposition:");
+    for (const item of run.high_risk_decomposition) {
+      console.log(`- ${item.owner_agent}: ${item.status} (${item.child_task_ids.join(", ") || "none"})`);
+    }
   }
   if (run.path_overlap?.detected) {
     console.log("path_overlaps:");
@@ -5751,7 +6095,13 @@ async function autopilotBatch(args) {
   if (!output.batch_plan?.tasks?.length) {
     throw new Error("Planning Center did not return a batch_plan for this goal.");
   }
-  const tasks = await evaluateBatchTasks(output.batch_plan.tasks);
+  const decomposition = decomposeHighRiskBatchTasks(output.batch_plan.tasks);
+  const tasks = await evaluateBatchTasks(decomposition.tasks);
+  const drySchedule = buildBatchExecutionSchedule(
+    tasks.filter((task) => task.automatic_execution_allowed),
+    output.batch_plan.batch_id,
+    args.parallel
+  );
   const commandsRun = [
     {
       command: "read runtime/global/*",
@@ -5767,6 +6117,14 @@ async function autopilotBatch(args) {
       status: 0,
       blocked: false,
       stdout_tail: `batch_id=${output.batch_plan.batch_id}; tasks=${output.batch_plan.tasks.length}`,
+      stderr_tail: ""
+    },
+    {
+      command: "high risk safe decomposition",
+      ok: true,
+      status: 0,
+      blocked: false,
+      stdout_tail: `parents=${decomposition.decompositions.length}; expanded_tasks=${tasks.length}`,
       stderr_tail: ""
     },
     ...tasks.map((task) => ({
@@ -5787,7 +6145,13 @@ async function autopilotBatch(args) {
     batchPlan: output.batch_plan,
     tasks,
     commandsRun,
-    changedFiles: []
+    changedFiles: [],
+    executionStrategy: drySchedule.strategy,
+    trueParallel: drySchedule.true_parallel,
+    pathOverlap: drySchedule.path_overlap,
+    parallelBatches: drySchedule.parallel_batches.map((batch) => batch.map((task) => task.task_id)),
+    actualParallelism: drySchedule.actual_parallelism,
+    highRiskDecomposition: decomposition.decompositions
   });
 
   if (args.dryRun) {
@@ -5798,12 +6162,53 @@ async function autopilotBatch(args) {
   const execution = await executeBatchTasks(tasks, output.batch_plan.batch_id, args.parallel);
   let validationResult = await runBatchUnifiedValidation(commandsRun);
   let reportedResults = await writeBatchTaskReports(execution.results, validationResult, commandsRun);
+  let efficiencyReport = {
+    schema_version: 1,
+    batch_id: output.batch_plan.batch_id,
+    goal,
+    execution_strategy: execution.strategy,
+    parallel_requested: args.parallel,
+    actual_parallelism: execution.actual_parallelism,
+    true_parallel: execution.true_parallel,
+    path_overlap: execution.path_overlap,
+    parallel_batches: execution.parallel_batches,
+    degraded_batches: execution.degraded_batches,
+    high_risk_decomposition: decomposition.decompositions,
+    task_counts: {
+      planned: output.batch_plan.tasks.length,
+      expanded: tasks.length,
+      executable: reportedResults.filter((result) => result.status === "EXECUTED").length,
+      proposal_only: reportedResults.filter((result) => result.status === "PROPOSAL_ONLY").length,
+      split_parent: decomposition.decompositions.length,
+      split_child: reportedResults.filter((result) => result.split_from).length
+    },
+    validation_status: validationResult.status,
+    safety: {
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "disabled",
+      managed_project_writes: "disabled",
+      real_worker_execution: "disabled"
+    }
+  };
+  let efficiencyFiles = await writeBatchEfficiencyReport(efficiencyReport);
   const finalDiffCheck = await runAllowedCommand("git diff --check");
   commandsRun.push(finalDiffCheck);
   validationResult = validationSummary(commandsRun.filter((command) =>
     ["pnpm typecheck", "pnpm lint:check", "git diff --check"].includes(command.command)
   ));
   reportedResults = await writeBatchTaskReports(reportedResults, validationResult, commandsRun);
+  efficiencyReport = {
+    ...efficiencyReport,
+    validation_status: validationResult.status,
+    task_counts: {
+      ...efficiencyReport.task_counts,
+      executable: reportedResults.filter((result) => result.status === "EXECUTED").length,
+      proposal_only: reportedResults.filter((result) => result.status === "PROPOSAL_ONLY").length,
+      split_child: reportedResults.filter((result) => result.split_from).length
+    }
+  };
+  efficiencyFiles = await writeBatchEfficiencyReport(efficiencyReport);
   const batchValidationResult = batchExecutionValidationSummary(reportedResults, validationResult);
 
   let implementationCommitHash = "";
@@ -5834,9 +6239,9 @@ async function autopilotBatch(args) {
   const nextRecommendationValue = {
     title: "Review V5 batch execution and approve the next executor increment",
     reason: execution.true_parallel
-      ? "The batch executor completed LOW/MEDIUM local tasks with true parallel batches and left HIGH risk work proposal-only."
+      ? "The batch executor completed LOW/MEDIUM local tasks with the highest safe parallelism, decomposed safe HIGH-lane subtasks, and kept unsafe HIGH/CRITICAL work out of execution."
       : execution.path_overlap.detected
-        ? "The batch executor detected overlapping planned paths, downgraded to sequential execution, and left HIGH risk work proposal-only."
+        ? "The batch executor isolated only path-overlap conflicts while preserving safe parallel execution for unaffected tasks."
         : "The batch executor completed LOW/MEDIUM local tasks sequentially and left HIGH risk work proposal-only.",
     command: `node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal "${goal}" --dry-run`
   };
@@ -5845,9 +6250,12 @@ async function autopilotBatch(args) {
     goal,
     execution_strategy: execution.strategy,
     parallel_requested: args.parallel,
+    actual_parallelism: execution.actual_parallelism,
     true_parallel: execution.true_parallel,
     path_overlap: execution.path_overlap,
     parallel_batches: execution.parallel_batches,
+    high_risk_decomposition: decomposition.decompositions,
+    efficiency_report_file: efficiencyFiles[1],
     implementation_commit_hash: implementationCommitHash || "none",
     tasks: reportedResults,
     validation_result: batchValidationResult,
@@ -5864,19 +6272,19 @@ async function autopilotBatch(args) {
     batchPlan: output.batch_plan,
     tasks: reportedResults,
     commandsRun,
-    changedFiles: unique([...reportedResults.flatMap((result) => result.changed_files), summaryFile]).sort(),
+    changedFiles: unique([...reportedResults.flatMap((result) => result.changed_files), ...efficiencyFiles, summaryFile]).sort(),
     executionStrategy: execution.strategy,
     executionResult: {
       executed: batchValidationResult.status === "PASS",
       implementation: execution.true_parallel
-        ? "true-parallel-batch-executor"
+        ? "max-efficiency-parallel-batch-executor"
         : execution.path_overlap.detected
-          ? "sequential-downgrade-on-path-overlap"
+          ? "partial-parallel-downgrade-on-path-overlap"
           : "sequential-batch-executor",
       summary: execution.true_parallel
-        ? `Executed LOW/MEDIUM local repository tasks in true parallel batches with parallel=${args.parallel}; HIGH risk tasks remained proposal-only.`
+        ? `Executed LOW/MEDIUM local repository tasks with actual_parallelism=${execution.actual_parallelism} and parallel=${args.parallel}; HIGH risk was decomposed into safe subtasks when possible.`
         : execution.path_overlap.detected
-          ? "Detected overlapping planned paths and downgraded LOW/MEDIUM tasks to sequential execution; HIGH risk tasks remained proposal-only."
+          ? "Detected overlapping planned paths and isolated only conflicting tasks while preserving parallel execution for unaffected tasks."
           : "Executed LOW/MEDIUM local repository tasks sequentially; HIGH risk tasks remained proposal-only."
     },
     validationResult: {
@@ -5886,9 +6294,12 @@ async function autopilotBatch(args) {
     },
     commitHash: implementationCommitHash || null,
     batchSummaryFile: summaryFile,
+    batchEfficiencyFiles: efficiencyFiles,
     trueParallel: execution.true_parallel,
     pathOverlap: execution.path_overlap,
-    parallelBatches: execution.parallel_batches
+    parallelBatches: execution.parallel_batches,
+    actualParallelism: execution.actual_parallelism,
+    highRiskDecomposition: decomposition.decompositions
   });
   files = await writeAutopilotBatchRun(applyRun);
 
