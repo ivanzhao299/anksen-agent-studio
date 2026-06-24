@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
@@ -51,6 +51,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs worker assign --runtime <runtime_id> --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker assign --capability <capability_tag> --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker cancel --worker <worker_id> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs worker parallel-smoke --agents agent-1,agent-2 --parallel 2 [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs mobile ios-detect --project <path> --dry-run
   node packages/orchestrator-core/bin/studio.mjs mobile android-detect --project <path> --dry-run
   node packages/orchestrator-core/bin/studio.mjs mobile validate --platform ios --dry-run
@@ -102,6 +103,7 @@ function parseArgs(argv) {
     approveHighRisk: rest.includes("--approve-high-risk"),
     summary: rest.includes("--summary"),
     text: "",
+    agents: "",
     goal: "",
     skill: "",
     runtime: "",
@@ -125,6 +127,9 @@ function parseArgs(argv) {
     const arg = rest[index];
     if (arg === "--text") {
       args.text = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--agents") {
+      args.agents = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--goal") {
       args.goal = rest[index + 1] ?? "";
@@ -8148,6 +8153,285 @@ async function workerCancel(args) {
   if (cancellation.blocked_reasons.length > 0) process.exitCode = 1;
 }
 
+function parallelSmokeAgents(args) {
+  return unique((args.agents || "agent-1,agent-2,agent-3,agent-4")
+    .split(",")
+    .map((agent) => agent.trim())
+    .filter(Boolean));
+}
+
+function parallelSmokeTask(agent, index) {
+  const tasks = [
+    {
+      task: "read-platform-state",
+      source: "runtime/global/platform-state.json",
+      description: "Read platform state metadata."
+    },
+    {
+      task: "read-runtime-health-example",
+      source: "packages/runtime-center/examples/runtime-health.example.json",
+      description: "Read Runtime Center health fixture."
+    },
+    {
+      task: "read-worker-registry-example",
+      source: "packages/worker-pool/examples/worker-registry.example.json",
+      description: "Read Worker Pool registry fixture."
+    },
+    {
+      task: "read-governance-policy-example",
+      source: "packages/governance-center/examples/governance-policy.example.json",
+      description: "Read Governance Center policy fixture."
+    }
+  ];
+  return {
+    agent,
+    ...tasks[index % tasks.length],
+    delay_ms: 850 + (index * 125)
+  };
+}
+
+function parallelSmokeRunId(agents, parallel) {
+  const createdAt = new Date().toISOString();
+  return `parallel-smoke-${timestampForFile(createdAt)}-${createHash("sha1").update(`${agents.join(",")}:${parallel}:${createdAt}`).digest("hex").slice(0, 8)}`;
+}
+
+function hasIntervalOverlap(left, right) {
+  return left.started_at_ms < right.completed_at_ms && right.started_at_ms < left.completed_at_ms;
+}
+
+function parallelSmokeAnalysis(results) {
+  const pids = results.map((result) => result.pid).filter(Boolean);
+  const workspaces = results.map((result) => result.workspace).filter(Boolean);
+  const logPaths = results.map((result) => result.log_json).filter(Boolean);
+  const overlapPairs = [];
+  for (let leftIndex = 0; leftIndex < results.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < results.length; rightIndex += 1) {
+      if (hasIntervalOverlap(results[leftIndex], results[rightIndex])) {
+        overlapPairs.push([results[leftIndex].agent, results[rightIndex].agent]);
+      }
+    }
+  }
+  const independentProcesses = unique(pids).length === results.length;
+  const independentWorkspaces = unique(workspaces).length === results.length;
+  const independentLogs = unique(logPaths).length === results.length;
+  const hasTimeOverlap = overlapPairs.length > 0;
+  const allPassed = results.every((result) => result.status === "PASS" && result.exit_code === 0);
+  return {
+    independent_processes: independentProcesses,
+    independent_workspaces: independentWorkspaces,
+    independent_run_logs: independentLogs,
+    time_overlap_detected: hasTimeOverlap,
+    overlap_pairs: overlapPairs,
+    sequential_simulation_detected: !hasTimeOverlap || !independentProcesses,
+    all_passed: allPassed,
+    parallel_mode: independentProcesses && independentWorkspaces && independentLogs && hasTimeOverlap && allPassed ? "real" : "simulated"
+  };
+}
+
+function parallelSmokeMarkdown(report) {
+  const agentRows = report.agents.map((agent) =>
+    `| ${agent.agent} | ${agent.run_id} | ${agent.pid} | ${agent.workspace} | ${agent.log_json} | ${agent.started_at} | ${agent.completed_at} | ${agent.status} |`
+  ).join("\n");
+  const overlapRows = report.analysis.overlap_pairs.length === 0
+    ? "| none | none |"
+    : report.analysis.overlap_pairs.map((pair) => `| ${pair[0]} | ${pair[1]} |`).join("\n");
+  return `# Real Multi-Agent Parallel Execution Report
+
+- generated_at: ${report.generated_at}
+- smoke_run_id: ${report.smoke_run_id}
+- parallel_requested: ${report.parallel_requested}
+- parallel_mode: ${report.analysis.parallel_mode}
+- independent_processes: ${report.analysis.independent_processes ? "yes" : "no"}
+- independent_workspaces: ${report.analysis.independent_workspaces ? "yes" : "no"}
+- independent_run_logs: ${report.analysis.independent_run_logs ? "yes" : "no"}
+- time_overlap_detected: ${report.analysis.time_overlap_detected ? "yes" : "no"}
+- sequential_simulation_detected: ${report.analysis.sequential_simulation_detected ? "yes" : "no"}
+
+## Agents
+
+| Agent | Run ID | PID | Workspace | Run Log | Started | Completed | Status |
+| --- | --- | ---: | --- | --- | --- | --- | --- |
+${agentRows}
+
+## Time Overlap
+
+| Agent A | Agent B |
+| --- | --- |
+${overlapRows}
+
+## Safety
+
+- deploy: disabled
+- production_operation: disabled
+- server_access: disabled
+- credential_values: not_read
+- model_invocation: disabled
+- managed_project_writes: disabled
+- jinhu_smart_park_writes: disabled
+- write_allowlist: autopilot-runs/parallel-smoke/**, docs/release/**
+
+## Conclusion
+
+The smoke command uses Node child_process workers with independent PIDs, workspaces, and logs. If any of those checks fail, the report marks the run as simulated.
+`;
+}
+
+async function runParallelSmokeChild(config) {
+  await mkdir(config.workspace, { recursive: true });
+  const script = resolveFromRoot("packages/worker-pool/bin/parallel-smoke-worker.mjs");
+  const args = [
+    script,
+    "--agent", config.agent,
+    "--run-id", config.run_id,
+    "--workspace", config.workspace,
+    "--repo-root", repoRoot,
+    "--task", config.task,
+    "--source", config.source,
+    "--delay-ms", String(config.delay_ms)
+  ];
+  const spawnedAtMs = Date.now();
+  return new Promise((resolveChild) => {
+    const child = spawn(process.execPath, args, {
+      cwd: config.workspace,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    const stdout = [];
+    const stderr = [];
+    child.stdout.on("data", (chunk) => stdout.push(String(chunk)));
+    child.stderr.on("data", (chunk) => stderr.push(String(chunk)));
+    child.on("close", async (exitCode) => {
+      const logJson = join(config.workspace, "run-log.json");
+      let result = null;
+      try {
+        result = await readJson(logJson);
+      } catch {
+        result = {
+          agent: config.agent,
+          run_id: config.run_id,
+          pid: child.pid ?? 0,
+          workspace: config.workspace,
+          source_path: config.source,
+          started_at_ms: spawnedAtMs,
+          completed_at_ms: Date.now(),
+          started_at: new Date(spawnedAtMs).toISOString(),
+          completed_at: new Date().toISOString(),
+          status: "FAIL",
+          error: stderr.join("").trim() || "worker log missing"
+        };
+      }
+      resolveChild({
+        ...result,
+        observed_child_pid: child.pid ?? null,
+        exit_code: exitCode ?? 0,
+        stdout: stdout.join("").trim(),
+        stderr: stderr.join("").trim(),
+        log_json: relativePath(logJson),
+        log_markdown: relativePath(join(config.workspace, "run-log.md")),
+        workspace: relativePath(config.workspace)
+      });
+    });
+  });
+}
+
+async function workerParallelSmoke(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("worker parallel-smoke requires --dry-run or --apply.");
+  }
+  const agents = parallelSmokeAgents(args);
+  const parallel = Number(args.parallel || agents.length);
+  if (agents.length === 0) throw new Error("worker parallel-smoke requires at least one agent.");
+  if (!Number.isInteger(parallel) || parallel < 1) throw new Error("worker parallel-smoke requires --parallel >= 1.");
+  const tasks = agents.map((agent, index) => parallelSmokeTask(agent, index));
+  const runId = parallelSmokeRunId(agents, parallel);
+  const runRoot = resolveFromRoot(`autopilot-runs/parallel-smoke/${runId}`);
+  const plannedAgents = tasks.map((task) => ({
+    ...task,
+    run_id: `${runId}-${safeSegment(task.agent)}`,
+    workspace: relativePath(join(runRoot, "workspaces", safeSegment(task.agent))),
+    log_json: relativePath(join(runRoot, "workspaces", safeSegment(task.agent), "run-log.json")),
+    log_markdown: relativePath(join(runRoot, "workspaces", safeSegment(task.agent), "run-log.md"))
+  }));
+
+  if (args.dryRun) {
+    console.log("# Worker Parallel Smoke dry-run");
+    console.log("");
+    console.log(`smoke_run_id: ${runId}`);
+    console.log(`agents: ${agents.join(", ")}`);
+    console.log(`parallel_requested: ${parallel}`);
+    console.log("parallel_mode: planned_real_child_processes");
+    console.log("writes: disabled in dry-run");
+    console.log("deploy: disabled");
+    console.log("production_operation: disabled");
+    console.log("credential_values: not_read");
+    console.log("model_invocation: disabled");
+    console.log("jinhu_smart_park_writes: disabled");
+    console.log("");
+    console.log("| Agent | Task | Source | Planned Workspace | Planned Run Log |");
+    console.log("| --- | --- | --- | --- | --- |");
+    for (const agent of plannedAgents) {
+      console.log(`| ${agent.agent} | ${agent.task} | ${agent.source} | ${agent.workspace} | ${agent.log_json} |`);
+    }
+    return;
+  }
+
+  await mkdir(runRoot, { recursive: true });
+  const agentConfigs = plannedAgents.map((agent) => ({
+    ...agent,
+    workspace: resolveFromRoot(agent.workspace)
+  }));
+  const startedAt = new Date().toISOString();
+  const results = await Promise.all(agentConfigs.map((config) => runParallelSmokeChild(config)));
+  const completedAt = new Date().toISOString();
+  const analysis = parallelSmokeAnalysis(results);
+  const report = {
+    schema_version: 1,
+    generated_at: completedAt,
+    started_at: startedAt,
+    smoke_run_id: runId,
+    requested_agents: agents,
+    parallel_requested: parallel,
+    implementation: "node_child_process_parallel_smoke",
+    analysis,
+    agents: results,
+    safety: {
+      deploy: "disabled",
+      production_operation: "disabled",
+      server_access: "disabled",
+      credential_values: "not_read",
+      model_invocation: "disabled",
+      managed_project_writes: "disabled",
+      jinhu_smart_park_writes: "disabled",
+      write_allowlist: ["autopilot-runs/parallel-smoke/**", "docs/release/**"]
+    }
+  };
+  const summaryJson = join(runRoot, "summary.json");
+  const summaryMarkdown = join(runRoot, "summary.md");
+  const releaseReport = resolveFromRoot("docs/release/REAL_MULTI_AGENT_PARALLEL_EXECUTION_REPORT.md");
+  await writeFile(summaryJson, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  await writeFile(summaryMarkdown, parallelSmokeMarkdown(report), "utf8");
+  await writeFile(releaseReport, parallelSmokeMarkdown(report), "utf8");
+
+  console.log("# Worker Parallel Smoke apply");
+  console.log("");
+  console.log(`smoke_run_id: ${runId}`);
+  console.log(`parallel_mode: ${analysis.parallel_mode}`);
+  console.log(`independent_processes: ${analysis.independent_processes ? "yes" : "no"}`);
+  console.log(`independent_workspaces: ${analysis.independent_workspaces ? "yes" : "no"}`);
+  console.log(`independent_run_logs: ${analysis.independent_run_logs ? "yes" : "no"}`);
+  console.log(`time_overlap_detected: ${analysis.time_overlap_detected ? "yes" : "no"}`);
+  console.log(`sequential_simulation_detected: ${analysis.sequential_simulation_detected ? "yes" : "no"}`);
+  console.log(`summary_json: ${relativePath(summaryJson)}`);
+  console.log(`summary_markdown: ${relativePath(summaryMarkdown)}`);
+  console.log(`release_report: ${relativePath(releaseReport)}`);
+  console.log("");
+  console.log("| Agent | PID | Workspace | Run Log | Status |");
+  console.log("| --- | ---: | --- | --- | --- |");
+  for (const result of results) {
+    console.log(`| ${result.agent} | ${result.pid} | ${result.workspace} | ${result.log_json} | ${result.status} |`);
+  }
+  if (analysis.parallel_mode !== "real") process.exitCode = 1;
+}
+
 function printMobileDetection(result, title) {
   console.log(`# ${title} dry-run`);
   console.log("");
@@ -8909,6 +9193,7 @@ async function main() {
   if (args.command === "worker" && args.subcommand === "health") return workerHealth(args);
   if (args.command === "worker" && args.subcommand === "assign") return workerAssign(args);
   if (args.command === "worker" && args.subcommand === "cancel") return workerCancel(args);
+  if (args.command === "worker" && args.subcommand === "parallel-smoke") return workerParallelSmoke(args);
   if (args.command === "mobile" && args.subcommand === "ios-detect") return mobileIosDetect(args);
   if (args.command === "mobile" && args.subcommand === "android-detect") return mobileAndroidDetect(args);
   if (args.command === "mobile" && args.subcommand === "validate") return mobileValidate(args);
