@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-27701878e5",
+  "task_id": "v5-batch-agent-3-project-runtime-memory",
+  "owner_agent": "agent-3",
+  "execution_strategy": "true_parallel_executor_parallel_4",
+  "split_from": null,
+  "parent_risk": null,
+  "split_strategy": null,
+  "target_package": "packages/project-connector",
+  "allowed_paths": [
+    "packages/project-connector/**",
+    "runtime/global/**",
+    "docs/release/V5_*MULTI_PROJECT*"
+  ],
+  "forbidden_paths": [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "examples/jinhu-smart-park/**",
+    "runtime/projects/jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ],
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled",
+    "real_worker_execution": "disabled"
+  }
+}
