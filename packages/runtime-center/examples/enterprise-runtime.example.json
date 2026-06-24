@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "runtime_control_plane_id": "anksen-agent-studio-enterprise-runtime-local",
+  "mode": "dry_run_only",
+  "profiles": [
+    {
+      "runtime_id": "codex-cli-local",
+      "adapter_id": "codex-cli",
+      "tenant_scope": "local_studio",
+      "supported_skills": [
+        "code_development",
+        "documentation",
+        "validation_testing"
+      ],
+      "capability_scores": {
+        "code_development": 92,
+        "documentation": 88,
+        "validation_testing": 86
+      },
+      "credential_policy": "reference_presence_only",
+      "network_policy": "metadata_only",
+      "workspace_policy": "local_repo_only",
+      "concurrency_policy": {
+        "max_parallel_tasks": 4,
+        "path_overlap_policy": "isolate_conflicts"
+      },
+      "invocation_policy": "invoke_plan_only"
+    },
+    {
+      "runtime_id": "local-agent-dry-run",
+      "adapter_id": "local-agent",
+      "tenant_scope": "single_workspace",
+      "supported_skills": [
+        "schema_inference",
+        "dry_run_analysis"
+      ],
+      "capability_scores": {
+        "schema_inference": 78,
+        "dry_run_analysis": 90
+      },
+      "credential_policy": "none",
+      "network_policy": "disabled",
+      "workspace_policy": "read_only",
+      "concurrency_policy": {
+        "max_parallel_tasks": 2,
+        "path_overlap_policy": "isolate_conflicts"
+      },
+      "invocation_policy": "disabled"
+    }
+  ],
+  "selection_policy": {
+    "default_strategy": "highest_safe_capability",
+    "governance_gate_required": true,
+    "credential_values_available": false
+  },
+  "audit_policy": {
+    "record_runtime_selection": true,
+    "record_invoke_plan": true,
+    "record_secret_values": false
+  },
+  "safety": {
+    "real_worker_execution": "disabled",
+    "external_model_calls": "disabled",
+    "credential_values": "not_read",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "managed_project_writes": "disabled"
+  }
+}

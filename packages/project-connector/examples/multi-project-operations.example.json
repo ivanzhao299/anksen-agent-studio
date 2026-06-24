@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "workspace_id": "anksen-agent-studio-v5-portfolio",
+  "mode": "read_only",
+  "portfolio": {
+    "managed_project_count": 1,
+    "write_policy": "disabled",
+    "command_execution_policy": "dry_run_only"
+  },
+  "projects": [
+    {
+      "project_id": "jinhu-smart-park",
+      "memory_source": "runtime/projects/jinhu-smart-park",
+      "operation_policy": "read_only",
+      "write_policy": "disabled",
+      "detected_stack": [
+        "Next.js App Router",
+        "React",
+        "NestJS API",
+        "TypeScript",
+        "PostgreSQL",
+        "Docker",
+        "Agent Orchestrator project state"
+      ],
+      "command_readiness": [
+        {
+          "kind": "typecheck",
+          "command": "pnpm typecheck",
+          "execution_policy": "dry_run_only"
+        },
+        {
+          "kind": "lint",
+          "command": "pnpm lint",
+          "execution_policy": "dry_run_only"
+        },
+        {
+          "kind": "doctor",
+          "command": "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+          "execution_policy": "dry_run_only"
+        }
+      ]
+    }
+  ],
+  "proposal_queue": {
+    "managed_project_write_proposals": 0,
+    "approval_required_for_writes": true
+  },
+  "safety": {
+    "managed_project_writes": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read",
+    "agent_execution": "disabled"
+  }
+}

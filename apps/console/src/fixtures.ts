@@ -19,6 +19,7 @@ export const consoleFixture = {
     "packages/credential-vault/examples/*.json",
     "packages/governance-center/examples/*.json",
     "packages/planning-center/examples/*.json",
+    "runtime/global/v5-roadmap.json",
     "autopilot-runs/*.json",
     "packages/evolution-center/examples/state.example.json",
     "packages/discovery-engine/examples/discovery-state.example.json"
@@ -139,6 +140,19 @@ export const consoleFixture = {
         { label: "Current stage", value: "V4-O approval gate" },
         { label: "Next risk", value: "HIGH" },
         { label: "Approval", value: "required" }
+      ]
+    },
+    {
+      id: "v5Roadmap",
+      title: "V5 Roadmap Completion",
+      status: "ready",
+      risk: "MEDIUM",
+      source: "runtime/global/v5-roadmap.json",
+      summary: "Shows declared V5 roadmap file completion, proposal-only stages, remaining gaps, and repeated batch risk.",
+      metrics: [
+        { label: "Declared files", value: "11/11" },
+        { label: "Proposal-only stages", value: "3" },
+        { label: "Duplicate batch risk", value: "HIGH" }
       ]
     },
     {
@@ -308,6 +322,27 @@ export const consoleFixture = {
     approval_required: true,
     execution_mode: "blocked",
     stop_condition: "Autopilot max_steps=1; no Agent, deploy, production operation, credential read, or managed-project write is allowed."
+  },
+  v5_roadmap: {
+    completion_percent: 100,
+    expected_file_count: 11,
+    present_file_count: 11,
+    missing_file_count: 0,
+    proposal_only_stages: ["V5-B", "V5-D", "V5-F"],
+    executable_stages: ["V5-A", "V5-C", "V5-E"],
+    duplicate_batch_risk: "HIGH",
+    recommended_mode: "integration_or_productization",
+    remaining_gaps: [
+      "Replace repeated template batch generation with stage-specific integration tasks.",
+      "Connect Console views to the V5 completion model and proposal queues.",
+      "Add dry-run runtime smoke proposal before any real Worker activity.",
+      "Keep V5-B, V5-D, and V5-F proposal-only until explicit approval gates exist."
+    ],
+    recent_autopilot_runs: [
+      { batch_id: "batch-plan-feb72f17e4", validation: "PASS", duplicate_risk: "HIGH" },
+      { batch_id: "batch-plan-27701878e5", validation: "PASS", duplicate_risk: "HIGH" },
+      { batch_id: "batch-plan-aa65800cca", validation: "PASS", duplicate_risk: "HIGH" }
+    ]
   },
   production_ops: {
     display_mode: "reserved_read_only",

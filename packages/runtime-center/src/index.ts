@@ -53,4 +53,32 @@ export interface RuntimeSelectionResult {
   readonly reason: string;
 }
 
+export interface EnterpriseRuntimeProfile {
+  readonly runtime_id: string;
+  readonly adapter_id: string;
+  readonly tenant_scope: "local_studio" | "single_workspace" | "multi_project";
+  readonly supported_skills: readonly string[];
+  readonly capability_scores: Readonly<Record<string, number>>;
+  readonly credential_policy: "none" | "reference_presence_only" | "proposal_required";
+  readonly network_policy: "disabled" | "metadata_only" | "approval_required";
+  readonly workspace_policy: "read_only" | "local_repo_only" | "approval_required";
+  readonly concurrency_policy: {
+    readonly max_parallel_tasks: number;
+    readonly path_overlap_policy: "isolate_conflicts" | "sequential_only";
+  };
+  readonly invocation_policy: "invoke_plan_only" | "disabled" | "approval_required";
+}
+
+export interface EnterpriseRuntimeControlPlane {
+  readonly schema_version: number;
+  readonly runtime_control_plane_id: string;
+  readonly mode: "read_only" | "dry_run_only";
+  readonly profiles: readonly EnterpriseRuntimeProfile[];
+  readonly selection_policy: {
+    readonly default_strategy: "highest_safe_capability" | "lowest_risk" | "manual_selection";
+    readonly governance_gate_required: boolean;
+    readonly credential_values_available: false;
+  };
+}
+
 export const runtimeCenterVersion = "0.1.0";

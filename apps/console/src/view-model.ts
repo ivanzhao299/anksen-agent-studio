@@ -2,6 +2,12 @@ import { consoleApp, consoleSafety } from "./app.js";
 import { consoleActions } from "./actions.js";
 import { consoleFixture } from "./fixtures.js";
 import { consoleNavigation, type ConsolePageId } from "./navigation.js";
+import {
+  consoleV5CompletionSummary,
+  consoleV5RecentRunHistory,
+  consoleV5RemainingGaps,
+  consoleV5StageCompletion
+} from "./v5-roadmap.js";
 
 export type ConsoleModuleSummary = (typeof consoleFixture.modules)[number];
 export type ConsoleMetric = ConsoleModuleSummary["metrics"][number];
@@ -74,6 +80,7 @@ export function getConsoleModuleDetails(id: ConsolePageId) {
   if (id === "credentialVault") return consoleFixture.credential_vault;
   if (id === "governance") return consoleFixture.governance;
   if (id === "planning") return consoleFixture.planning;
+  if (id === "v5Roadmap") return consoleFixture.v5_roadmap;
   if (id === "autopilot") return consoleFixture.autopilot;
   if (id === "memory") return consoleFixture.memory_context;
   return consoleFixture.evolution_discovery;
@@ -97,6 +104,13 @@ export function getConsoleViewModel() {
       credential_vault: consoleFixture.credential_vault,
       governance: consoleFixture.governance,
       planning: consoleFixture.planning,
+      v5_roadmap: {
+        fixture: consoleFixture.v5_roadmap,
+        completion: consoleV5CompletionSummary,
+        stages: consoleV5StageCompletion,
+        remaining_gaps: consoleV5RemainingGaps,
+        recent_runs: consoleV5RecentRunHistory
+      },
       production_ops: consoleFixture.production_ops,
       autopilot: consoleFixture.autopilot,
       memory_context: consoleFixture.memory_context,

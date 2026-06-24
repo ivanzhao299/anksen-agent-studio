@@ -3,6 +3,17 @@ export { consoleActions, getConsoleAction, listConsoleActions, type ConsoleActio
 export { consoleFixture, type ConsoleFixture } from "./fixtures.js";
 export { consoleNavigation, type ConsoleNavigationItem, type ConsolePageId } from "./navigation.js";
 export {
+  consoleV5BatchEntries,
+  consoleV5BatchSafety,
+  consoleV5CompletionSummary,
+  consoleV5RecentRunHistory,
+  consoleV5RemainingGaps,
+  consoleV5StageCompletion,
+  type ConsoleV5RoadmapEntry,
+  type ConsoleV5RunHistoryEntry,
+  type ConsoleV5StageCompletion
+} from "./v5-roadmap.js";
+export {
   consolePanels,
   consoleReadOnlySummary,
   getConsoleModuleDetails,

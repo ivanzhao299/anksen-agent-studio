@@ -84,6 +84,33 @@ export interface DebugSpecialistAnalysis {
   readonly execution_mode: "proposal_only";
 }
 
+export interface MultiProjectOperationReadiness {
+  readonly kind: string;
+  readonly command: string;
+  readonly execution_policy: "dry_run_only" | "disabled" | "approval_required";
+}
+
+export interface MultiProjectOperationEntry {
+  readonly project_id: string;
+  readonly memory_source: string;
+  readonly operation_policy: "read_only" | "proposal_only";
+  readonly write_policy: "disabled" | "approval_required";
+  readonly detected_stack: readonly string[];
+  readonly command_readiness: readonly MultiProjectOperationReadiness[];
+}
+
+export interface MultiProjectOperationsPlan {
+  readonly schema_version: number;
+  readonly workspace_id: string;
+  readonly mode: "read_only" | "proposal_only";
+  readonly portfolio: {
+    readonly managed_project_count: number;
+    readonly write_policy: "disabled" | "approval_required";
+    readonly command_execution_policy: "dry_run_only" | "disabled";
+  };
+  readonly projects: readonly MultiProjectOperationEntry[];
+}
+
 export {
   listWorkspaceProjects,
   multiProjectWorkspaceFixture,

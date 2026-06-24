@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/multi-project-operations.schema.json",
+  "title": "ANKSEN Agent Studio Multi Project Operations",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "workspace_id",
+    "mode",
+    "portfolio",
+    "projects",
+    "proposal_queue",
+    "safety"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "workspace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "read_only",
+        "proposal_only"
+      ]
+    },
+    "portfolio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "managed_project_count",
+        "write_policy",
+        "command_execution_policy"
+      ],
+      "properties": {
+        "managed_project_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "write_policy": {
+          "type": "string",
+          "enum": [
+            "disabled",
+            "approval_required"
+          ]
+        },
+        "command_execution_policy": {
+          "type": "string",
+          "enum": [
+            "dry_run_only",
+            "disabled"
+          ]
+        }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "project_id",
+          "memory_source",
+          "operation_policy",
+          "write_policy",
+          "detected_stack",
+          "command_readiness"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "memory_source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_policy": {
+            "type": "string",
+            "enum": [
+              "read_only",
+              "proposal_only"
+            ]
+          },
+          "write_policy": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "approval_required"
+            ]
+          },
+          "detected_stack": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "command_readiness": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "command",
+                "execution_policy"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "command": {
+                  "type": "string"
+                },
+                "execution_policy": {
+                  "type": "string",
+                  "enum": [
+                    "dry_run_only",
+                    "disabled",
+                    "approval_required"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "proposal_queue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "managed_project_write_proposals",
+        "approval_required_for_writes"
+      ],
+      "properties": {
+        "managed_project_write_proposals": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "approval_required_for_writes": {
+          "type": "boolean"
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "managed_project_writes",
+        "deploy",
+        "production_operations",
+        "credential_values",
+        "agent_execution"
+      ],
+      "properties": {
+        "managed_project_writes": {
+          "type": "string",
+          "const": "disabled"
+        },
+        "deploy": {
+          "type": "string",
+          "const": "disabled"
+        },
+        "production_operations": {
+          "type": "string",
+          "const": "disabled"
+        },
+        "credential_values": {
+          "type": "string",
+          "const": "not_read"
+        },
+        "agent_execution": {
+          "type": "string",
+          "const": "disabled"
+        }
+      }
+    }
+  }
+}

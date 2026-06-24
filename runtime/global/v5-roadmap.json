@@ -35,10 +35,10 @@
       "approval_required": false,
       "execution_mode": "local_repo_execute",
       "target_project": "anksen-agent-studio",
-      "target_package": "packages/runtime-adapters",
+      "target_package": "packages/runtime-center",
       "expected_files": [
-        "packages/runtime-adapters/schemas/enterprise-runtime-profile.schema.json",
-        "packages/runtime-adapters/examples/enterprise-runtime-profiles.example.json",
+        "packages/runtime-center/schemas/enterprise-runtime.schema.json",
+        "packages/runtime-center/examples/enterprise-runtime.example.json",
         "docs/release/V5_ENTERPRISE_RUNTIME_MVP.md"
       ],
       "validation_commands": [

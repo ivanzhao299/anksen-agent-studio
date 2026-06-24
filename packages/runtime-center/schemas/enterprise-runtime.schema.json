@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/enterprise-runtime.schema.json",
+  "title": "ANKSEN Agent Studio Enterprise Runtime",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "runtime_control_plane_id",
+    "mode",
+    "profiles",
+    "selection_policy",
+    "audit_policy",
+    "safety"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "runtime_control_plane_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "read_only",
+        "dry_run_only"
+      ]
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtime_id",
+          "adapter_id",
+          "tenant_scope",
+          "supported_skills",
+          "capability_scores",
+          "credential_policy",
+          "network_policy",
+          "workspace_policy",
+          "concurrency_policy",
+          "invocation_policy"
+        ],
+        "properties": {
+          "runtime_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "adapter_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "tenant_scope": {
+            "type": "string",
+            "enum": [
+              "local_studio",
+              "single_workspace",
+              "multi_project"
+            ]
+          },
+          "supported_skills": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "capability_scores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            }
+          },
+          "credential_policy": {
+            "type": "string",
+            "enum": [
+              "none",
+              "reference_presence_only",
+              "proposal_required"
+            ]
+          },
+          "network_policy": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "metadata_only",
+              "approval_required"
+            ]
+          },
+          "workspace_policy": {
+            "type": "string",
+            "enum": [
+              "read_only",
+              "local_repo_only",
+              "approval_required"
+            ]
+          },
+          "concurrency_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "max_parallel_tasks",
+              "path_overlap_policy"
+            ],
+            "properties": {
+              "max_parallel_tasks": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "path_overlap_policy": {
+                "type": "string",
+                "enum": [
+                  "isolate_conflicts",
+                  "sequential_only"
+                ]
+              }
+            }
+          },
+          "invocation_policy": {
+            "type": "string",
+            "enum": [
+              "invoke_plan_only",
+              "disabled",
+              "approval_required"
+            ]
+          }
+        }
+      }
+    },
+    "selection_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default_strategy",
+        "governance_gate_required",
+        "credential_values_available"
+      ],
+      "properties": {
+        "default_strategy": {
+          "type": "string",
+          "enum": [
+            "highest_safe_capability",
+            "lowest_risk",
+            "manual_selection"
+          ]
+        },
+        "governance_gate_required": {
+          "type": "boolean"
+        },
+        "credential_values_available": {
+          "type": "boolean"
+        }
+      }
+    },
+    "audit_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_runtime_selection",
+        "record_invoke_plan",
+        "record_secret_values"
+      ],
+      "properties": {
+        "record_runtime_selection": {
+          "type": "boolean"
+        },
+        "record_invoke_plan": {
+          "type": "boolean"
+        },
+        "record_secret_values": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "real_worker_execution",
+        "external_model_calls",
+        "credential_values",
+        "deploy",
+        "production_operations",
+        "managed_project_writes"
+      ],
+      "properties": {
+        "real_worker_execution": {
+          "type": "string",
+          "const": "disabled"
+        },
+        "external_model_calls": {
+          "type": "string",
+          "const": "disabled"
+        },
+        "credential_values": {
+          "type": "string",
+          "const": "not_read"
+        },
+        "deploy": {
+          "type": "string",
+          "const": "disabled"
+        },
+        "production_operations": {
+          "type": "string",
+          "const": "disabled"
+        },
+        "managed_project_writes": {
+          "type": "string",
+          "const": "disabled"
+        }
+      }
+    }
+  }
+}
