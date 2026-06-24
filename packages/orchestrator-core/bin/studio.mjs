@@ -7933,7 +7933,10 @@ async function consoleSmoke(args) {
     "OpenHands",
     "Aider",
     "Local Agent",
-    "开始"
+    "开始",
+    "停止",
+    "我可以帮你推进工程任务",
+    "展开详情"
   ].every((text) => actionsHtml.includes(text));
   const smartParkControlsPresent = [
     "继续 Smart Park",
@@ -7956,6 +7959,7 @@ async function consoleSmoke(args) {
     "Agent 执行",
     "验证 / CI",
     "报告",
+    "执行时间线",
     "任务创建",
     "代码修改",
     "CI/CD",
@@ -8041,7 +8045,23 @@ async function consoleActionServerSmoke(args) {
     project_id: "jinhu-smart-park",
     goal: "审批 Proposal 草稿"
   });
-  const routeCheck = ["/api/action-plan", "/api/action-run", "/api/action-log/latest"].every((route) => serverText.includes(route));
+  const asyncRun = await actionServer.startConversationAction({
+    action_id: "runtime-health",
+    project_id: "jinhu-smart-park",
+    goal: "Runtime health conversation smoke",
+    workspace_mode: "auto",
+    agent: "codex-cli"
+  });
+  const cancelRun = await actionServer.startConversationAction({
+    action_id: "autopilot-dry-run",
+    project_id: "jinhu-smart-park",
+    goal: "Cancel smoke",
+    workspace_mode: "plan_only",
+    agent: "auto"
+  });
+  const cancelledRun = await actionServer.cancelConversationAction(cancelRun.run_id);
+  const loadedRun = actionServer.getConversationAction(asyncRun.run_id);
+  const routeCheck = ["/api/actions/start", "/api/actions/", "/cancel", "/api/action-plan", "/api/action-run", "/api/action-log/latest"].every((route) => serverText.includes(route));
   const localOnlyCheck = serverText.includes("127.0.0.1") && serverText.includes("localOnly");
   const registryCheck = Array.isArray(summary.actions)
     && summary.actions.some((action) => action.id === "smart-park-go-live-plan")
@@ -8063,6 +8083,11 @@ async function consoleActionServerSmoke(args) {
     && summary.direct_execute_allowed_for.includes("MEDIUM")
     && summary.high_risk_policy === "proposal_only"
     && summary.critical_risk_policy === "human_approval_required";
+  const asyncApiCheck = Boolean(asyncRun.run_id)
+    && loadedRun?.run_id === asyncRun.run_id
+    && cancelledRun?.status === "CANCELLED"
+    && Array.isArray(asyncRun.messages)
+    && asyncRun.messages.some((message) => message.content.includes("已理解目标"));
   const status = routeCheck
     && localOnlyCheck
     && registryCheck
@@ -8070,6 +8095,7 @@ async function consoleActionServerSmoke(args) {
     && commandMappingCheck
     && governanceCheck
     && safetyCheck
+    && asyncApiCheck
     ? "PASS"
     : "FAIL";
 
@@ -8083,10 +8109,13 @@ async function consoleActionServerSmoke(args) {
   console.log(`command_mapping: ${commandMappingCheck ? "PASS" : "FAIL"}`);
   console.log(`governance_gate: ${governanceCheck ? "PASS" : "FAIL"}`);
   console.log(`safety_policy: ${safetyCheck ? "PASS" : "FAIL"}`);
+  console.log(`async_action_api: ${asyncApiCheck ? "PASS" : "FAIL"}`);
   console.log(`action_log_dir: ${summary.action_log_dir}`);
   console.log(`runtime_health_log: ${runtimePlan.logs.json}`);
   console.log(`smart_park_plan_log: ${smartParkPlan.logs.json}`);
   console.log(`high_risk_plan_log: ${highPlan.logs.json}`);
+  console.log(`conversation_run_id: ${asyncRun.run_id}`);
+  console.log(`cancel_smoke_status: ${cancelledRun?.status ?? "UNKNOWN"}`);
   console.log("deploy: disabled");
   console.log("production_operations: disabled");
   console.log("credential_values_read: no");

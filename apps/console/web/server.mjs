@@ -4,7 +4,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderConsolePage } from "./render.mjs";
 import { consoleWebRoutes } from "./routes.mjs";
-import { createActionPlan, executeConsoleAction, latestActionLog } from "./action-server.mjs";
+import {
+  cancelConversationAction,
+  createActionPlan,
+  executeConsoleAction,
+  getConversationAction,
+  latestActionLog,
+  startConversationAction
+} from "./action-server.mjs";
 
 const port = Number(process.env.PORT ?? 4317);
 const allowedPaths = new Set(consoleWebRoutes.map((route) => route.path));
@@ -38,6 +45,22 @@ const server = createServer(async (request, response) => {
     }
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
     const pathname = url.pathname === "/dashboard" ? "/" : url.pathname;
+    const actionRunMatch = pathname.match(/^\/api\/actions\/([^/]+)$/);
+    const actionCancelMatch = pathname.match(/^\/api\/actions\/([^/]+)\/cancel$/);
+    if (request.method === "POST" && pathname === "/api/actions/start") {
+      sendJson(response, 202, await startConversationAction(await readJsonBody(request)));
+      return;
+    }
+    if (request.method === "GET" && actionRunMatch) {
+      const run = getConversationAction(decodeURIComponent(actionRunMatch[1]));
+      sendJson(response, run ? 200 : 404, run ?? { status: "NOT_FOUND", run_id: actionRunMatch[1] });
+      return;
+    }
+    if (request.method === "POST" && actionCancelMatch) {
+      const run = await cancelConversationAction(decodeURIComponent(actionCancelMatch[1]));
+      sendJson(response, run ? 200 : 404, run ?? { status: "NOT_FOUND", run_id: actionCancelMatch[1] });
+      return;
+    }
     if (request.method === "POST" && pathname === "/api/action-plan") {
       sendJson(response, 200, await createActionPlan(await readJsonBody(request)));
       return;

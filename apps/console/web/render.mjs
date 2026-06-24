@@ -115,6 +115,10 @@ function topStatusBar(model, data) {
 
 function actionWorkbench(data, title = "统一 AI 开发工作台") {
   const projectOptions = data.actionServer.projects.map((item) => formOption(item.project_id, projectDisplayLabel(item)));
+  const projectCards = data.actionServer.projects.map((item) => `<button type="button" class="project-card${item.project_id === "jinhu-smart-park" ? " active" : ""}" data-project-select="${escapeHtml(item.project_id)}">
+    <strong>${escapeHtml(item.label)}</strong>
+    <span>${escapeHtml(item.project_id === "phoenix-erp" ? "GitHub 远程待接入" : item.status)}</span>
+  </button>`);
   const flowSteps = [
     ["规划", "把目标拆成任务、风险和执行策略"],
     ["Agent 执行", "自动选择或指定 Codex / Claude / Gemini / OpenHands / Aider"],
@@ -132,7 +136,15 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
     "生产配置治理"
   ];
   return `<section class="workspace-shell">
-    <div class="ai-workspace">
+    <aside class="project-rail">
+      <div class="section-head small">
+        <h3>项目</h3>
+        <span class="pill">Pilot</span>
+      </div>
+      <div class="project-list">${projectCards.join("")}</div>
+      <p class="help">当前重点：jinhu-smart-park 上线；ERP 后续通过 GitHub Repo Connector 接入。</p>
+    </aside>
+    <div class="ai-workspace chat-workspace">
       <div class="workspace-hero">
         <div>
           <span class="eyebrow">ANKSEN Agent Studio</span>
@@ -142,23 +154,14 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
         <span class="pill">Pilot Production / 127.0.0.1</span>
       </div>
       <div class="capability-strip">${capabilities.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
-      <label for="action-goal">输入目标</label>
-      <textarea id="action-goal" class="goal-box command-input" placeholder="输入目标，例如：生成 Smart Park 上线计划 / 检查项目阻断项 / 继续推进 Pilot">继续推进 Pilot</textarea>
-      <div class="workspace-controls">
-        <div>
-          <label for="action-project">选择项目</label>
-          <select id="action-project">${projectOptions.join("")}</select>
+      <div id="conversation-stream" class="conversation-stream" aria-live="polite">
+        <div class="chat-message assistant">
+          <div class="message-avatar">AI</div>
+          <div class="message-body">
+            <strong>我可以帮你推进工程任务。</strong>
+            <p>输入自然语言目标后点击开始，我会显示理解、项目选择、Agent/Runtime、计划、Governance、执行或审批、结果报告的完整状态流。</p>
+          </div>
         </div>
-        <div>
-          <label for="action-mode">选择模式</label>
-          <select id="action-mode">${workspaceModeOptions()}</select>
-        </div>
-        <div>
-          <label for="action-agent">Agent / AI</label>
-          <select id="action-agent">${aiAgentOptions()}</select>
-        </div>
-        <input type="hidden" id="action-type" value="workspace-default">
-        <button type="button" class="primary-action start-button" data-console-action="start">开始</button>
       </div>
       <div class="quick-row mission-row">
         <button type="button" data-quick-action="context-summary" data-goal="读取上下文">读取上下文</button>
@@ -168,36 +171,57 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
         <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="查看待审批 Proposal">查看待审批 Proposal</button>
         <button type="button" class="secondary" data-quick-action="worker-health" data-goal="查看 Worker 状态">查看 Worker 状态</button>
       </div>
-      <div class="policy-strip compact-policy">
-        <span>${riskBadge("LOW")} 本地执行</span>
-        <span>${riskBadge("MEDIUM")} 本地执行</span>
-        <span>${riskBadge("HIGH")} Proposal</span>
-        <span>${riskBadge("CRITICAL")} 人工审批</span>
-      </div>
       <div class="execution-console">
-        <div class="section-head small"><h3>执行区</h3><span>${escapeHtml(data.actionServer.action_log_dir)}</span></div>
-        <div class="flow-rail">${flowSteps.map(([name, detail]) => `<div class="flow-step"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(detail)}</span></div>`).join("")}</div>
-        <div class="conversation-result">
-          <div class="assistant-avatar">AI</div>
-          <div class="assistant-message">
-            <div class="action-feedback-grid">
-              <div><span>当前状态</span><strong id="action-status" class="status-label ready">待操作</strong></div>
-              <div><span>命令摘要</span><strong id="action-command">等待开始</strong></div>
-              <div><span>风险等级</span><strong id="action-risk">未评估</strong></div>
-              <div><span>Action Log</span><strong id="action-log-path">${escapeHtml(data.action_log.latest_path ?? "未生成")}</strong></div>
-            </div>
-            <label for="action-output">对话结果 / 报告摘要</label>
-            <pre id="action-output">${escapeHtml(data.action_log.latest_summary ?? "输入目标后点击开始。选择“只生成计划”时不会执行任务。")}</pre>
-            <label for="action-error">stderr / error message</label>
-            <pre id="action-error">无</pre>
+        <div class="section-head small"><h3>执行时间线</h3><span id="run-state" class="status-label ready">待操作</span></div>
+        <div id="flow-rail" class="flow-rail">${flowSteps.map(([name, detail]) => `<div class="flow-step"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(detail)}</span></div>`).join("")}</div>
+        <details class="run-details">
+          <summary>展开详情</summary>
+          <div class="action-feedback-grid">
+            <div><span>run_id</span><strong id="action-run-id">未生成</strong></div>
+            <div><span>状态</span><strong id="action-status" class="status-label ready">待操作</strong></div>
+            <div><span>风险</span><strong id="action-risk">未评估</strong></div>
+            <div><span>日志路径</span><strong id="action-log-path">${escapeHtml(data.action_log.latest_path ?? "未生成")}</strong></div>
           </div>
+          <label for="action-command">命令摘要</label>
+          <pre id="action-command">等待开始</pre>
+          <label for="action-output">结果摘要</label>
+          <pre id="action-output">${escapeHtml(data.action_log.latest_summary ?? "输入目标后点击开始。")}</pre>
+          <label for="action-error">stderr / error message</label>
+          <pre id="action-error">无</pre>
+        </details>
+      </div>
+      <div class="composer">
+        <label for="action-goal">输入目标</label>
+        <textarea id="action-goal" class="goal-box command-input" placeholder="输入目标，例如：生成 Smart Park 上线计划 / 检查项目阻断项 / 继续推进 Pilot">继续推进 Pilot</textarea>
+        <div class="workspace-controls">
+          <div>
+            <label for="action-project">选择项目</label>
+            <select id="action-project">${projectOptions.join("")}</select>
+          </div>
+          <div>
+            <label for="action-mode">选择模式</label>
+            <select id="action-mode">${workspaceModeOptions()}</select>
+          </div>
+          <div>
+            <label for="action-agent">Agent / AI</label>
+            <select id="action-agent">${aiAgentOptions()}</select>
+          </div>
+          <input type="hidden" id="action-type" value="workspace-default">
+          <button type="button" class="primary-action start-button" data-console-action="start">开始</button>
+          <button type="button" class="danger cancel-button" data-console-action="cancel">停止</button>
         </div>
       </div>
     </div>
     <aside class="advanced-config">
       <div class="section-head small">
-        <h3>必要配置</h3>
+        <h3>Agent / 配置 / 日志</h3>
         <span class="pill">默认折叠</span>
+      </div>
+      <div class="policy-strip compact-policy">
+        <span>${riskBadge("LOW")} 本地执行</span>
+        <span>${riskBadge("MEDIUM")} 本地执行</span>
+        <span>${riskBadge("HIGH")} Proposal</span>
+        <span>${riskBadge("CRITICAL")} 人工审批</span>
       </div>
       <details>
         <summary>运行环境</summary>
@@ -218,6 +242,10 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
       <details>
         <summary>项目配置</summary>
         <p>jinhu-smart-park 已连接；phoenix-erp 等远程项目等待 GitHub Repo Connector 接入。</p>
+      </details>
+      <details open>
+        <summary>日志</summary>
+        <p id="side-log-path">${escapeHtml(data.action_log.latest_path ?? data.actionServer.action_log_dir)}</p>
       </details>
     </aside>
   </section>`;
@@ -348,15 +376,32 @@ function interactiveScript() {
   const commandEl = document.getElementById("action-command");
   const riskEl = document.getElementById("action-risk");
   const logPathEl = document.getElementById("action-log-path");
+  const sideLogPathEl = document.getElementById("side-log-path");
+  const runIdEl = document.getElementById("action-run-id");
+  const runStateEl = document.getElementById("run-state");
+  const conversationStream = document.getElementById("conversation-stream");
+  const flowRail = document.getElementById("flow-rail");
   const goal = document.getElementById("action-goal");
   const project = document.getElementById("action-project");
   const action = document.getElementById("action-type");
   const modeSelect = document.getElementById("action-mode");
   const agent = document.getElementById("action-agent");
   const draftStatus = document.getElementById("config-draft-status");
+  let currentRunId = null;
+  let pollTimer = null;
+  const terminalStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED"]);
 
   function normalize(value) {
     return String(value || "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  }
+
+  function escapeClient(value) {
+    return String(value == null ? "" : value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
   }
 
   function setStatus(value) {
@@ -367,10 +412,15 @@ function interactiveScript() {
       "执行中": "local",
       "成功": "pass",
       "失败": "blocked",
-      "需审批": "proposal-only"
+      "需审批": "proposal-only",
+      "已取消": "cancelled"
     }[value] || normalize(value);
     statusEl.textContent = value;
     statusEl.className = "status-label " + statusClass;
+    if (runStateEl) {
+      runStateEl.textContent = value;
+      runStateEl.className = "status-label " + statusClass;
+    }
   }
 
   function setText(element, value) {
@@ -379,10 +429,14 @@ function interactiveScript() {
 
   function statusFromRecord(record, fallback) {
     if (fallback) return fallback;
+    if (record && record.status === "QUEUED") return "生成中";
+    if (record && record.status === "RUNNING") return "执行中";
+    if (record && record.status === "CANCELLED") return "已取消";
     if (record && record.result && record.result.status === "PASS") return "成功";
     if (record && record.result && record.result.status === "FAIL") return "失败";
     if (record && record.result && record.result.status === "BLOCKED") return "需审批";
     if (record && record.result && record.result.status === "NEEDS_APPROVAL") return "需审批";
+    if (record && record.result && record.result.status === "CANCELLED") return "已取消";
     if (record && record.plan && record.plan.approval_required) return "需审批";
     if (record && record.plan) return "成功";
     return "待操作";
@@ -392,9 +446,11 @@ function interactiveScript() {
     const plan = record && record.plan ? record.plan : {};
     const result = record && record.result ? record.result : {};
     setStatus(statusFromRecord(record, fallbackStatus));
-    setText(commandEl, plan.command || plan.plan_command || "未生成");
+    setText(runIdEl, record && record.run_id ? record.run_id : (plan.plan_id || "未生成"));
+    setText(commandEl, plan.command || plan.plan_command || record.command_summary || "未生成");
     setText(riskEl, plan.risk || "未评估");
     setText(logPathEl, record && record.logs ? (record.logs.json || record.logs.markdown || plan.log_path) : (plan.log_path || "未生成"));
+    setText(sideLogPathEl, record && record.logs ? (record.logs.json || record.logs.markdown || plan.log_path) : (plan.log_path || "未生成"));
     const humanSummary = result.stdout_summary || [
       plan.plan_id ? "计划已生成" : "等待操作",
       plan.action_label ? "动作：" + plan.action_label : "",
@@ -405,6 +461,50 @@ function interactiveScript() {
     ].filter(Boolean).join("\\n");
     setText(output, humanSummary);
     setText(errorOutput, result.stderr_summary || result.error || "");
+  }
+
+  function optimisticMessages(body) {
+    const text = escapeClient(body.goal || "继续推进 Pilot");
+    const projectText = escapeClient(body.project_id || "jinhu-smart-park");
+    const agentText = escapeClient(body.agent || "auto");
+    const modeText = escapeClient(body.workspace_mode || "auto");
+    if (!conversationStream) return;
+    conversationStream.innerHTML = [
+      '<div class="chat-message user"><div class="message-avatar">你</div><div class="message-body"><strong>目标</strong><p>' + text + '</p></div></div>',
+      '<div class="chat-message assistant"><div class="message-avatar">AI</div><div class="message-body"><strong>已理解目标</strong><p>正在选择项目：' + projectText + '</p></div></div>',
+      '<div class="chat-message assistant"><div class="message-avatar">AI</div><div class="message-body"><strong>正在选择 Agent/Runtime</strong><p>' + agentText + ' / ' + modeText + '<span class="typing"><span></span><span></span><span></span></span></p></div></div>'
+    ].join("");
+    conversationStream.scrollTop = conversationStream.scrollHeight;
+  }
+
+  function renderConversation(record) {
+    if (!conversationStream) return;
+    const messages = Array.isArray(record && record.messages) ? record.messages : [];
+    if (messages.length === 0) return;
+    conversationStream.innerHTML = messages.map((message) => {
+      const role = message.role === "user" ? "user" : "assistant";
+      const label = role === "user" ? "你" : "AI";
+      const phase = message.phase ? '<strong>' + escapeClient(message.phase) + '</strong>' : "";
+      return '<div class="chat-message ' + role + '"><div class="message-avatar">' + label + '</div><div class="message-body">' + phase + '<p>' + escapeClient(message.content) + '</p></div></div>';
+    }).join("");
+    if (!terminalStatuses.has(record.status || "")) {
+      conversationStream.innerHTML += '<div class="chat-message assistant"><div class="message-avatar">AI</div><div class="message-body"><strong>运行中</strong><p>任务正在处理，请稍候<span class="typing"><span></span><span></span><span></span></span></p></div></div>';
+    }
+    conversationStream.scrollTop = conversationStream.scrollHeight;
+  }
+
+  function renderTimeline(record) {
+    if (!flowRail || !Array.isArray(record && record.timeline)) return;
+    flowRail.innerHTML = record.timeline.map((step) => {
+      const status = normalize(step.status);
+      return '<div class="flow-step ' + status + '"><strong>' + escapeClient(step.name) + '</strong><span>' + escapeClient(step.status) + '</span></div>';
+    }).join("");
+  }
+
+  function renderRun(record) {
+    renderActionResult(record);
+    renderConversation(record);
+    renderTimeline(record);
   }
 
   function actionForMode() {
@@ -439,19 +539,54 @@ function interactiveScript() {
     return value;
   }
 
+  async function startAction(actionOverride) {
+    const body = payload(actionOverride);
+    currentRunId = null;
+    if (pollTimer) clearTimeout(pollTimer);
+    optimisticMessages(body);
+    setStatus("执行中");
+    const record = await postJson("/api/actions/start", body);
+    currentRunId = record.run_id;
+    renderRun(record);
+    schedulePoll();
+  }
+
+  async function pollRun() {
+    if (!currentRunId) return;
+    const response = await fetch("/api/actions/" + encodeURIComponent(currentRunId));
+    const record = await response.json();
+    renderRun(record);
+    if (!terminalStatuses.has(record.status || "")) schedulePoll();
+  }
+
+  function schedulePoll() {
+    if (pollTimer) clearTimeout(pollTimer);
+    pollTimer = setTimeout(() => {
+      pollRun().catch((error) => {
+        renderActionResult({ result: { status: "FAIL", stderr_summary: String(error && error.message ? error.message : error) } });
+      });
+    }, 900);
+  }
+
+  async function cancelCurrentRun() {
+    if (!currentRunId) {
+      renderActionResult({ result: { status: "CANCELLED", stdout_summary: "当前没有运行中的任务。" } }, "待操作");
+      return;
+    }
+    if (pollTimer) clearTimeout(pollTimer);
+    const record = await postJson("/api/actions/" + encodeURIComponent(currentRunId) + "/cancel", {});
+    renderRun(record);
+  }
+
   document.querySelectorAll("[data-console-action]").forEach((button) => {
     button.addEventListener("click", async () => {
       const buttonMode = button.getAttribute("data-console-action");
       try {
         if (buttonMode === "start") {
-          const body = payload();
-          if (body.action_id === "autopilot-dry-run") {
-            setStatus("生成中");
-            renderActionResult(await postJson("/api/action-plan", body));
-          } else {
-            setStatus("执行中");
-            renderActionResult(await postJson("/api/action-run", body));
-          }
+          await startAction();
+        }
+        if (buttonMode === "cancel") {
+          await cancelCurrentRun();
         }
         if (buttonMode === "plan") {
           setStatus("生成中");
@@ -480,7 +615,7 @@ function interactiveScript() {
       const quickAction = button.getAttribute("data-quick-action");
       setStatus("执行中");
       try {
-        renderActionResult(await postJson("/api/action-run", payload(quickAction)));
+        await startAction(quickAction);
       } catch (error) {
         renderActionResult({ result: { status: "FAIL", stderr_summary: String(error && error.message ? error.message : error) } });
       }
@@ -495,12 +630,31 @@ function interactiveScript() {
       const proposalAction = button.getAttribute("data-proposal-action");
       setStatus("生成中");
       try {
-        renderActionResult(await postJson("/api/action-plan", payload(proposalAction)));
+        await startAction(proposalAction);
       } catch (error) {
         renderActionResult({ result: { status: "FAIL", stderr_summary: String(error && error.message ? error.message : error) } });
       }
     });
   });
+
+  document.querySelectorAll("[data-project-select]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const value = button.getAttribute("data-project-select");
+      if (project) project.value = value;
+      document.querySelectorAll("[data-project-select]").forEach((item) => item.classList.toggle("active", item === button));
+    });
+  });
+
+  if (goal) {
+    goal.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        startAction().catch((error) => {
+          renderActionResult({ result: { status: "FAIL", stderr_summary: String(error && error.message ? error.message : error) } });
+        });
+      }
+    });
+  }
 
   const draftKey = "anksen-console-config-drafts";
   const draftFields = [...document.querySelectorAll("[data-config-draft]")];
@@ -562,19 +716,44 @@ function shell(content, activeId, model, data) {
     p { color: var(--muted); line-height: 1.55; margin: 0; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
     .metric, .panel, .workbench, .smart-entry, .output-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; box-shadow: 0 10px 26px var(--shadow); }
-    .workspace-shell { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
-    .ai-workspace, .advanced-config { background: #101720; border: 1px solid #26364a; border-radius: 8px; padding: 18px; box-shadow: 0 16px 34px var(--shadow); }
+    .workspace-shell { display: grid; grid-template-columns: 220px minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+    .ai-workspace, .advanced-config, .project-rail { background: #101720; border: 1px solid #26364a; border-radius: 8px; padding: 18px; box-shadow: 0 16px 34px var(--shadow); }
+    .project-rail { position: sticky; top: 146px; }
+    .project-list { display: grid; gap: 10px; }
+    .project-card { text-align: left; border: 1px solid var(--line); background: #0b1118; color: var(--text); border-radius: 8px; padding: 11px; }
+    .project-card.active { border-color: rgba(52, 211, 153, 0.55); background: rgba(52, 211, 153, 0.08); }
+    .project-card strong, .project-card span { display: block; overflow-wrap: anywhere; }
+    .project-card span { color: var(--muted); font-size: 12px; margin-top: 5px; }
+    .chat-workspace { min-height: calc(100vh - 180px); display: flex; flex-direction: column; }
     .workspace-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
     .workspace-hero h2 { font-size: 30px; line-height: 1.15; margin: 4px 0 8px; }
     .eyebrow { color: var(--green); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
     .capability-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
     .capability-strip span { border: 1px solid #2b3b50; background: #0b1118; color: #c7d2df; border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 700; }
     .command-input { min-height: 150px; font-size: 16px; background: #090f16; border-color: #314258; }
-    .workspace-controls { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.7fr) minmax(180px, 0.9fr) 120px; gap: 12px; align-items: end; margin-top: 12px; }
-    .start-button { min-height: 42px; }
+    .conversation-stream { display: grid; gap: 12px; min-height: 220px; max-height: 44vh; overflow: auto; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #080d13; }
+    .chat-message { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 10px; align-items: start; }
+    .chat-message.user { grid-template-columns: minmax(0, 1fr) 36px; }
+    .chat-message.user .message-avatar { grid-column: 2; grid-row: 1; background: #132947; color: var(--blue); border-color: rgba(90, 169, 255, 0.35); }
+    .chat-message.user .message-body { grid-column: 1; grid-row: 1; background: #111a25; }
+    .message-avatar { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; background: #12301f; color: var(--green); font-size: 12px; font-weight: 900; border: 1px solid rgba(52, 211, 153, 0.35); }
+    .message-body { border: 1px solid var(--line); border-radius: 8px; background: #0d141d; padding: 11px; }
+    .message-body strong { display: block; margin-bottom: 5px; }
+    .message-body p { font-size: 13px; white-space: pre-wrap; }
+    .typing { display: inline-flex; gap: 4px; align-items: center; margin-left: 6px; }
+    .typing span { width: 5px; height: 5px; border-radius: 50%; background: var(--green); animation: pulse 1s infinite ease-in-out; }
+    .typing span:nth-child(2) { animation-delay: 0.15s; }
+    .typing span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes pulse { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+    .workspace-controls { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(140px, 0.75fr) minmax(170px, 0.9fr) 96px 88px; gap: 10px; align-items: end; margin-top: 12px; }
+    .start-button, .cancel-button { min-height: 42px; }
     .execution-console { margin-top: 16px; border: 1px solid var(--line); border-radius: 8px; background: #0b1118; padding: 14px; }
     .flow-rail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
     .flow-step { border: 1px solid #2a394d; border-radius: 8px; background: #111923; padding: 11px; min-height: 92px; }
+    .flow-step.running { border-color: rgba(90, 169, 255, 0.55); background: rgba(90, 169, 255, 0.08); }
+    .flow-step.pass { border-color: rgba(52, 211, 153, 0.45); }
+    .flow-step.needs-approval, .flow-step.blocked { border-color: rgba(251, 191, 36, 0.55); background: rgba(251, 191, 36, 0.08); }
+    .flow-step.fail, .flow-step.cancelled { border-color: rgba(251, 113, 133, 0.55); background: rgba(251, 113, 133, 0.08); }
     .flow-step strong { display: block; margin-bottom: 8px; }
     .flow-step span { color: var(--muted); font-size: 12px; line-height: 1.45; }
     .conversation-result { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; align-items: start; }
@@ -584,6 +763,8 @@ function shell(content, activeId, model, data) {
     .advanced-config details { border: 1px solid var(--line); border-radius: 8px; background: #0b1118; margin-top: 10px; overflow: hidden; }
     .advanced-config summary { cursor: pointer; padding: 11px 12px; font-weight: 800; color: var(--text); }
     .advanced-config p { border-top: 1px solid var(--line); padding: 11px 12px; font-size: 12px; }
+    .composer { position: sticky; bottom: 0; margin-top: 16px; padding-top: 14px; background: linear-gradient(180deg, rgba(16, 23, 32, 0.72), #101720 28%); border-top: 1px solid var(--line); }
+    .run-details summary { cursor: pointer; color: var(--blue); font-size: 13px; font-weight: 800; margin-bottom: 10px; }
     .hero-workbench { border-color: #315a82; background: #101923; }
     .smart-entry { border-color: #315a82; background: #111923; }
     .entry-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
@@ -602,7 +783,7 @@ function shell(content, activeId, model, data) {
     .risk-badge.low, .status-label.pass, .status-label.ready, .status-label.direct-execute-ready { color: var(--green); background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.35); }
     .risk-badge.medium, .status-label.local, .status-label.recorded, .status-label.draft-dry-run { color: var(--blue); background: rgba(90, 169, 255, 0.1); border-color: rgba(90, 169, 255, 0.35); }
     .risk-badge.high, .status-label.proposal-only, .status-label.yes { color: var(--yellow); background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.35); }
-    .risk-badge.critical, .status-label.blocked { color: var(--red); background: rgba(251, 113, 133, 0.1); border-color: rgba(251, 113, 133, 0.35); }
+    .risk-badge.critical, .status-label.blocked, .status-label.cancelled { color: var(--red); background: rgba(251, 113, 133, 0.1); border-color: rgba(251, 113, 133, 0.35); }
     .status-label.no { color: var(--green); background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.35); }
     label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
     input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; color: var(--text); background: #0c1219; }
@@ -643,7 +824,7 @@ function shell(content, activeId, model, data) {
     .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
-    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .layout { grid-template-columns: 1fr; } .top-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result { grid-template-columns: 1fr; } .workspace-hero { display: block; } }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .layout { grid-template-columns: 1fr; } .top-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } }
     @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell { grid-template-columns: 1fr; } .advanced-config { position: static; } }
   </style>
 </head>

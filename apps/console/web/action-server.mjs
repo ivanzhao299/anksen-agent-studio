@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
@@ -11,6 +11,8 @@ const webDir = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(webDir, "../../..");
 export const actionLogDir = "autopilot-runs/console-actions";
 const studioScript = "packages/orchestrator-core/bin/studio.mjs";
+const actionRuns = new Map();
+const terminalRunStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED"]);
 
 const projects = {
   "jinhu-smart-park": {
@@ -266,6 +268,66 @@ function summarizeStdout(stdout) {
   return lines.slice(0, 30).join("\n");
 }
 
+function runMessagesForPlan(plan) {
+  return [
+    { role: "user", content: plan.goal_summary, at: plan.created_at },
+    { role: "assistant", content: `已理解目标：${plan.goal_summary}`, at: plan.created_at, phase: "understood" },
+    { role: "assistant", content: `正在选择项目：${plan.target_project}（${plan.target_project_status}）`, at: plan.created_at, phase: "project" },
+    { role: "assistant", content: `正在选择 Agent/Runtime：${plan.agent} / ${plan.workspace_mode}`, at: plan.created_at, phase: "agent" },
+    { role: "assistant", content: `正在生成计划：${plan.action_label}`, at: plan.created_at, phase: "planning" },
+    { role: "assistant", content: `正在通过 Governance 检查：${plan.governance_gate}，风险 ${plan.risk}`, at: plan.created_at, phase: "governance" }
+  ];
+}
+
+function runTimeline(status, resultStatus = "PENDING") {
+  const executionStatus = terminalRunStatuses.has(resultStatus) ? resultStatus : status;
+  return [
+    { name: "已理解目标", status: "PASS" },
+    { name: "选择项目", status: "PASS" },
+    { name: "选择 Agent/Runtime", status: "PASS" },
+    { name: "生成计划", status: ["QUEUED", "RUNNING"].includes(status) ? "RUNNING" : "PASS" },
+    { name: "Governance 检查", status: ["BLOCKED", "NEEDS_APPROVAL"].includes(resultStatus) ? "NEEDS_APPROVAL" : "PASS" },
+    { name: "执行 / 审批", status: executionStatus },
+    { name: "结果报告", status: terminalRunStatuses.has(resultStatus) ? "PASS" : "PENDING" }
+  ];
+}
+
+function publicRun(run) {
+  if (!run) return null;
+  const { child: _child, stdout: _stdout, stderr: _stderr, ...value } = run;
+  return value;
+}
+
+async function persistConversationRun(run) {
+  const logs = await writeActionLog(publicRun(run));
+  run.logs = logs;
+  run.plan.log_path = logs.json;
+  run.updated_at = new Date().toISOString();
+  return logs;
+}
+
+function finishSmartParkPlan(plan, commandResult) {
+  const smartParkGoLivePlan = plan.action_id === "smart-park-go-live-plan"
+    ? buildSmartParkGoLivePlan(commandResult)
+    : null;
+  if (smartParkGoLivePlan) {
+    commandResult.stdout_summary = `${commandResult.stdout_summary ? `${commandResult.stdout_summary}\n\n` : ""}${formatSmartParkGoLivePlan(smartParkGoLivePlan)}`;
+  }
+  return ["smart-park-continue", "smart-park-blockers", "smart-park-go-live-plan"].includes(plan.action_id)
+    ? {
+        quick_entries: [
+          "继续 Smart Park",
+          "检查上线阻断项",
+          "生成 SMART_PARK_GO_LIVE_PLAN",
+          "检查项目状态",
+          "生成下一步任务 proposal"
+        ],
+        go_live_plan: smartParkGoLivePlan,
+        next_proposal_command: `node ${studioScript} project task-plan --config examples/jinhu-smart-park/project.config.example.json --text "<下一步任务>" --dry-run`
+      }
+    : null;
+}
+
 function buildSmartParkGoLivePlan(commandResult) {
   const chainReady = commandResult.status === "PASS";
   return {
@@ -416,6 +478,194 @@ export async function createActionPlan(input) {
     ...record,
     logs
   };
+}
+
+async function runConversationCommand(runId, input, command) {
+  const run = actionRuns.get(runId);
+  if (!run || run.status === "CANCELLED") return;
+
+  if (!run.plan.allowed_to_execute) {
+    run.status = run.plan.approval_required ? "NEEDS_APPROVAL" : "BLOCKED";
+    run.phase = "approval";
+    run.result = {
+      status: run.status,
+      exit_code: null,
+      stdout_summary: `${run.plan.governance_gate}: ${run.plan.blocked_reason}`,
+      stderr_summary: ""
+    };
+    run.messages.push({
+      role: "assistant",
+      content: run.plan.approval_required
+        ? `需要审批：${run.plan.blocked_reason}`
+        : `已阻止执行：${run.plan.blocked_reason}`,
+      at: new Date().toISOString(),
+      phase: "approval"
+    });
+    run.timeline = runTimeline(run.status, run.result.status);
+    await persistConversationRun(run);
+    return;
+  }
+
+  run.status = "RUNNING";
+  run.phase = "executing";
+  run.result = {
+    status: "RUNNING",
+    exit_code: null,
+    stdout_summary: "正在执行本地安全任务...",
+    stderr_summary: ""
+  };
+  run.messages.push({
+    role: "assistant",
+    content: "正在执行本地安全任务，LOW/MEDIUM 会在 Governance Gate 允许后继续。",
+    at: new Date().toISOString(),
+    phase: "executing"
+  });
+  run.timeline = runTimeline(run.status, run.result.status);
+  await persistConversationRun(run);
+
+  const child = spawn(command.command, command.args, {
+    cwd: repoRoot,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  run.child = child;
+  run.child_pid = child.pid;
+  run.updated_at = new Date().toISOString();
+  run.stdout = "";
+  run.stderr = "";
+
+  child.stdout.on("data", (chunk) => {
+    run.stdout += chunk.toString("utf8");
+  });
+  child.stderr.on("data", (chunk) => {
+    run.stderr += chunk.toString("utf8");
+  });
+  child.on("error", async (error) => {
+    if (run.status === "CANCELLED") return;
+    run.status = "FAIL";
+    run.phase = "failed";
+    run.result = {
+      status: "FAIL",
+      exit_code: 1,
+      stdout_summary: summarizeStdout(run.stdout),
+      stderr_summary: summarizeStdout(error.message)
+    };
+    run.messages.push({
+      role: "assistant",
+      content: `执行失败：${run.result.stderr_summary || error.message}`,
+      at: new Date().toISOString(),
+      phase: "failed"
+    });
+    run.timeline = runTimeline(run.status, run.result.status);
+    delete run.child;
+    await persistConversationRun(run);
+  });
+  child.on("close", async (code, signal) => {
+    if (run.status === "CANCELLED") return;
+    const commandResult = {
+      status: code === 0 ? "PASS" : "FAIL",
+      exit_code: typeof code === "number" ? code : 1,
+      signal: signal ?? null,
+      stdout_summary: summarizeStdout(run.stdout),
+      stderr_summary: summarizeStdout(run.stderr)
+    };
+    run.smart_park = finishSmartParkPlan(run.plan, commandResult);
+    run.status = commandResult.status;
+    run.phase = commandResult.status === "PASS" ? "reported" : "failed";
+    run.result = commandResult;
+    run.messages.push({
+      role: "assistant",
+      content: commandResult.status === "PASS"
+        ? `执行完成：${commandResult.stdout_summary || "任务已完成，未产生额外输出。"}`
+        : `执行失败：${commandResult.stderr_summary || commandResult.stdout_summary || "命令返回非零状态。"}`,
+      at: new Date().toISOString(),
+      phase: "report"
+    });
+    run.timeline = runTimeline(run.status, run.result.status);
+    delete run.child;
+    await persistConversationRun(run);
+  });
+}
+
+export async function startConversationAction(input) {
+  const plan = buildPlan(input);
+  const command = commandFor(input);
+  const run = {
+    schema_version: 1,
+    kind: "console_action_conversation_run",
+    run_id: plan.plan_id,
+    created_at: plan.created_at,
+    updated_at: plan.created_at,
+    status: "QUEUED",
+    phase: "queued",
+    plan,
+    command_summary: command.display,
+    child_pid: null,
+    result: {
+      status: "QUEUED",
+      exit_code: null,
+      stdout_summary: "任务已创建，正在准备执行。",
+      stderr_summary: ""
+    },
+    messages: runMessagesForPlan(plan),
+    timeline: runTimeline("QUEUED", "QUEUED"),
+    smart_park: null,
+    stdout: "",
+    stderr: ""
+  };
+  actionRuns.set(run.run_id, run);
+  await persistConversationRun(run);
+  setTimeout(() => {
+    runConversationCommand(run.run_id, input, command).catch(async (error) => {
+      const current = actionRuns.get(run.run_id);
+      if (!current || current.status === "CANCELLED") return;
+      current.status = "FAIL";
+      current.phase = "failed";
+      current.result = {
+        status: "FAIL",
+        exit_code: 1,
+        stdout_summary: "",
+        stderr_summary: summarizeStdout(error?.message ?? String(error))
+      };
+      current.messages.push({
+        role: "assistant",
+        content: `执行失败：${current.result.stderr_summary}`,
+        at: new Date().toISOString(),
+        phase: "failed"
+      });
+      current.timeline = runTimeline(current.status, current.result.status);
+      await persistConversationRun(current);
+    });
+  }, 25);
+  return publicRun(run);
+}
+
+export function getConversationAction(runId) {
+  return publicRun(actionRuns.get(runId));
+}
+
+export async function cancelConversationAction(runId) {
+  const run = actionRuns.get(runId);
+  if (!run) return null;
+  if (terminalRunStatuses.has(run.status)) return publicRun(run);
+  run.status = "CANCELLED";
+  run.phase = "cancelled";
+  run.result = {
+    status: "CANCELLED",
+    exit_code: null,
+    stdout_summary: "已触发本地 dry-run kill-switch，当前任务已取消。",
+    stderr_summary: ""
+  };
+  run.messages.push({
+    role: "assistant",
+    content: "已停止当前任务。本地 kill-switch 不会写业务项目、不执行部署、不读取凭证。",
+    at: new Date().toISOString(),
+    phase: "cancelled"
+  });
+  run.timeline = runTimeline(run.status, run.result.status);
+  if (run.child && !run.child.killed) run.child.kill("SIGTERM");
+  delete run.child;
+  await persistConversationRun(run);
+  return publicRun(run);
 }
 
 export async function executeConsoleAction(input) {
