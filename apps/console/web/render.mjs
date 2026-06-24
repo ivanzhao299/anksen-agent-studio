@@ -25,7 +25,10 @@ function metric(label, value) {
 }
 
 function table(rows, columns) {
-  return `<table><thead><tr>${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${columns.map((column) => `<td>${escapeHtml(row[column.key])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  return `<table><thead><tr>${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${columns.map((column) => {
+    const value = row[column.key] ?? "";
+    return `<td>${column.html ? String(value) : escapeHtml(value)}</td>`;
+  }).join("")}</tr>`).join("")}</tbody></table>`;
 }
 
 function list(items) {
@@ -36,8 +39,24 @@ function jsonBlock(value) {
   return `<pre>${escapeHtml(JSON.stringify(value, null, 2))}</pre>`;
 }
 
+function detailsJson(title, value) {
+  return `<details class="details-drawer"><summary>${escapeHtml(title)}</summary>${jsonBlock(value)}</details>`;
+}
+
 function badge(label, value, tone = "neutral") {
   return `<div class="status-chip ${tone}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+}
+
+function normalizeToken(value) {
+  return String(value ?? "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+function riskBadge(value) {
+  return `<span class="risk-badge ${normalizeToken(value)}">风险 ${escapeHtml(value)}</span>`;
+}
+
+function statusLabel(value) {
+  return `<span class="status-label ${normalizeToken(value)}">${escapeHtml(value)}</span>`;
 }
 
 function formOption(value, label, selected = false) {
@@ -55,18 +74,18 @@ function topStatusBar(model, data) {
   </div>`;
 }
 
-function actionWorkbench(data, title = "中央任务工作台") {
+function actionWorkbench(data, title = "任务工作台") {
   const actionOptions = data.actionServer.actions.map((item) => formOption(item.id, item.label));
   const projectOptions = data.actionServer.projects.map((item) => formOption(item.project_id, `${item.label} (${item.status})`));
-  return `<section class="workbench">
+  return `<section class="workbench hero-workbench">
     <div class="section-head">
       <div>
         <h2>${escapeHtml(title)}</h2>
-        <p>输入目标，生成计划，执行本地 dry-run，并把结果写入 Action Log。</p>
+        <p>以目标为中心推进 Studio：生成计划、执行本地 dry-run、查看日志，所有动作都受 Governance Gate 约束。</p>
       </div>
       <span class="pill">127.0.0.1 / dry-run only</span>
     </div>
-    <label for="action-goal">目标输入区</label>
+    <label for="action-goal">大目标输入框</label>
     <textarea id="action-goal" class="goal-box" placeholder="输入目标，例如：生成 Smart Park 上线计划 / 检查项目阻断项 / 继续推进 Pilot">继续推进 Pilot</textarea>
     <div class="form-grid control-grid">
       <div>
@@ -100,6 +119,24 @@ function actionWorkbench(data, title = "中央任务工作台") {
   </section>`;
 }
 
+function smartParkEntryPanel() {
+  return `<section class="smart-entry">
+    <div class="section-head">
+      <div>
+        <h2>Smart Park 上线入口</h2>
+        <p>只生成上线计划、阻断项检查和下一步 proposal，不修改业务项目，不执行部署。</p>
+      </div>
+      <span class="pill warn-pill">业务项目写入禁用</span>
+    </div>
+    <div class="entry-grid">
+      <button type="button" data-quick-action="smart-park-go-live-plan-dry-run" data-goal="生成 Smart Park 上线计划 dry-run">生成上线计划 dry-run</button>
+      <button type="button" class="secondary" data-quick-action="project-inspect" data-goal="检查 Smart Park 项目状态">检查项目状态</button>
+      <button type="button" class="secondary" data-quick-action="governance-check" data-goal="查看 Smart Park 当前阻断项">查看阻断项</button>
+      <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="生成 Smart Park 下一步任务 proposal">生成下一步任务 proposal</button>
+    </div>
+  </section>`;
+}
+
 function recommendationPanel(data) {
   const recommendation = data.autopilot.latest_summary?.next_recommendation ?? "运行 Autopilot dry-run 以刷新下一步建议。";
   return `<section>
@@ -123,7 +160,7 @@ function executionTimeline() {
   ];
   return `<section>
     <div class="section-head"><h2>执行时间线</h2><span class="pill">可观察</span></div>
-    <div class="timeline">${steps.map(([name, status, detail]) => `<div class="timeline-step"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(status)}</span><p>${escapeHtml(detail)}</p></div>`).join("")}</div>
+    <div class="timeline">${steps.map(([name, status, detail]) => `<div class="timeline-step"><strong>${escapeHtml(name)}</strong>${statusLabel(status)}<p>${escapeHtml(detail)}</p></div>`).join("")}</div>
   </section>`;
 }
 
@@ -135,7 +172,8 @@ function workerRows(data) {
   return agents.map((agent, index) => ({
     agent,
     pid: pids[agent] ?? "idle",
-    status: pids[agent] ? "PASS" : "READY",
+    status: statusLabel(pids[agent] ? "PASS" : "READY"),
+    risk: riskBadge(index === 4 ? "HIGH" : "LOW"),
     task: ["Docs / Runtime", "Governance", "Credential / Project", "Console UI", "Proposal / Architecture"][index],
     log: logs[agent] ?? data.autopilot.latest?.path ?? data.action_log.latest_path,
     duration: pids[agent] ? "overlap" : "n/a"
@@ -144,11 +182,12 @@ function workerRows(data) {
 
 function workerPanel(data) {
   return `<section>
-    <div class="section-head"><h2>Worker 面板</h2><span class="pill">agent-1~5</span></div>
+    <div class="section-head"><h2>Worker 实时状态</h2><span class="pill">agent-1~5 / 本地 dry-run</span></div>
     ${table(workerRows(data), [
       { key: "agent", label: "Agent" },
       { key: "pid", label: "PID" },
-      { key: "status", label: "状态" },
+      { key: "status", label: "状态", html: true },
+      { key: "risk", label: "风险标识", html: true },
       { key: "task", label: "任务" },
       { key: "log", label: "日志路径" },
       { key: "duration", label: "耗时" }
@@ -158,17 +197,17 @@ function workerPanel(data) {
 
 function proposalPanel() {
   const proposals = [
-    { id: "smart-park-go-live-plan", risk: "MEDIUM", approval: "no", status: "DRAFT_DRY_RUN" },
-    { id: "remote-worker-runtime", risk: "HIGH", approval: "yes", status: "PROPOSAL_ONLY" },
-    { id: "production-operation", risk: "CRITICAL", approval: "yes", status: "BLOCKED" }
+    { id: "smart-park-go-live-plan", risk: riskBadge("MEDIUM"), approval: statusLabel("no"), status: statusLabel("DRAFT_DRY_RUN") },
+    { id: "remote-worker-runtime", risk: riskBadge("HIGH"), approval: statusLabel("yes"), status: statusLabel("PROPOSAL_ONLY") },
+    { id: "production-operation", risk: riskBadge("CRITICAL"), approval: statusLabel("yes"), status: statusLabel("BLOCKED") }
   ];
   return `<section>
-    <div class="section-head"><h2>Proposal 审批区</h2><span class="pill warn-pill">真实写入禁用</span></div>
+    <div class="section-head"><h2>Proposal 审批区</h2><span class="pill warn-pill">风险标识 / 真实写入禁用</span></div>
     ${table(proposals, [
       { key: "id", label: "proposal list" },
-      { key: "risk", label: "risk" },
-      { key: "approval", label: "approval_required" },
-      { key: "status", label: "status" }
+      { key: "risk", label: "risk", html: true },
+      { key: "approval", label: "approval_required", html: true },
+      { key: "status", label: "status", html: true }
     ])}
     <div class="button-row">
       <button type="button" class="secondary" data-proposal-action="proposal-review">查看</button>
@@ -310,7 +349,10 @@ function shell(content, activeId, model, data) {
     h3 { font-size: 14px; margin: 0 0 8px; }
     p { color: var(--muted); line-height: 1.55; margin: 0; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
-    .metric, .panel, .workbench, .output-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; box-shadow: 0 10px 26px var(--shadow); }
+    .metric, .panel, .workbench, .smart-entry, .output-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; box-shadow: 0 10px 26px var(--shadow); }
+    .hero-workbench { border-color: #315a82; background: #101923; }
+    .smart-entry { border-color: #315a82; background: #111923; }
+    .entry-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
     .metric span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
     .metric strong { display: block; font-size: 18px; overflow-wrap: anywhere; }
     table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 26px var(--shadow); }
@@ -322,6 +364,12 @@ function shell(content, activeId, model, data) {
     .warn-pill { background: #3a2630; color: var(--red); }
     .safe { color: var(--green); font-weight: 700; }
     .warn { color: var(--red); font-weight: 700; }
+    .risk-badge, .status-label { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; border: 1px solid var(--line); white-space: nowrap; }
+    .risk-badge.low, .status-label.pass, .status-label.ready { color: var(--green); background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.35); }
+    .risk-badge.medium, .status-label.local, .status-label.recorded, .status-label.draft-dry-run { color: var(--blue); background: rgba(90, 169, 255, 0.1); border-color: rgba(90, 169, 255, 0.35); }
+    .risk-badge.high, .status-label.proposal-only, .status-label.yes { color: var(--yellow); background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.35); }
+    .risk-badge.critical, .status-label.blocked { color: var(--red); background: rgba(251, 113, 133, 0.1); border-color: rgba(251, 113, 133, 0.35); }
+    .status-label.no { color: var(--green); background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.35); }
     label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
     input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; color: var(--text); background: #0c1219; }
     input:focus, select:focus, textarea:focus { outline: 2px solid rgba(90, 169, 255, 0.32); border-color: var(--blue); }
@@ -345,8 +393,11 @@ function shell(content, activeId, model, data) {
     .timeline { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
     .timeline-step { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; position: relative; }
     .timeline-step strong { display: block; margin-bottom: 6px; }
-    .timeline-step span { color: var(--green); font-size: 12px; font-weight: 700; }
+    .timeline-step .status-label { margin-bottom: 8px; }
     .output-card { margin-top: 14px; }
+    .details-drawer { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 0; overflow: hidden; box-shadow: 0 10px 26px var(--shadow); }
+    .details-drawer summary { cursor: pointer; color: var(--blue); font-size: 13px; font-weight: 800; padding: 12px 14px; background: #101923; }
+    .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
     @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } .top-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } .timeline { grid-template-columns: 1fr; } }
@@ -369,7 +420,8 @@ function shell(content, activeId, model, data) {
 }
 
 function pageDashboard(model, data) {
-  return `${actionWorkbench(data, "中央任务工作台")}
+  return `${actionWorkbench(data, "任务工作台")}
+  ${smartParkEntryPanel()}
   ${recommendationPanel(data)}
   ${executionTimeline()}
   ${workerPanel(data)}
@@ -388,6 +440,7 @@ function pageDashboard(model, data) {
     ${metric(messages.pages.dashboard.credentialBackends, model.modules.credential_backends)}
     ${metric(messages.pages.dashboard.governanceGates, model.modules.governance_release_gates)}
   </div></section>
+  <section><h2>详情抽屉</h2>${detailsJson("查看原始 Dashboard Model JSON", model)}</section>
   <section><h2>${messages.common.safety}</h2><div class="panel">${list(Object.entries(data.safety).map(([key, value]) => `${key}: ${value}`))}</div></section>`;
 }
 
@@ -399,7 +452,7 @@ function pageProjects(data) {
     ${metric(messages.pages.projects.phoenixErp, messages.pages.projects.phoenixStatus)}
     ${metric(messages.pages.projects.writes, data.safety.managed_project_writes)}
   </div></section>
-  <section><h2>${messages.pages.projects.runtimeMemory}</h2>${jsonBlock(project)}</section>`;
+  <section><h2>${messages.pages.projects.runtimeMemory}</h2>${detailsJson("查看原始运行记忆 JSON", project)}</section>`;
 }
 
 function pageRuntime(data) {
@@ -447,7 +500,7 @@ function pagePlanning(data) {
     ${metric(messages.pages.planning.v5Roadmap, Array.isArray(data.v5Roadmap?.stages) ? `${data.v5Roadmap.stages.length} stages` : messages.common.loaded)}
     ${metric(messages.pages.planning.externalCalls, data.safety.external_calls)}
   </div></section>
-  <section><h2>${messages.pages.planning.roadmapMemory}</h2>${jsonBlock(data.roadmapMemory)}</section>`;
+  <section><h2>${messages.pages.planning.roadmapMemory}</h2>${detailsJson("查看原始 Roadmap Memory JSON", data.roadmapMemory)}</section>`;
 }
 
 function pageAutopilot(data) {
@@ -456,13 +509,14 @@ function pageAutopilot(data) {
     ${metric(messages.pages.autopilot.executionMode, data.autopilot.latest_summary?.execution_mode ?? messages.common.unknown)}
     ${metric(messages.pages.autopilot.writesFromConsole, data.safety.managed_project_writes)}
   </div></section>
-  <section><h2>${messages.pages.autopilot.latestRunSummary}</h2>${jsonBlock(data.autopilot.latest_summary ?? {})}</section>`;
+  <section><h2>${messages.pages.autopilot.latestRunSummary}</h2>${detailsJson("查看原始 Autopilot Run JSON", data.autopilot.latest_summary ?? {})}</section>`;
 }
 
 function pageActions(data) {
   const actions = data.consoleActions?.actions ?? [];
   return `<section><h2>${messages.pages.actions.title}</h2><div class="grid">${metric(messages.pages.actions.actions, data.actionServer.actions.length)}${metric(messages.pages.actions.defaultMode, "dry_run")}${metric(messages.pages.actions.writes, messages.common.falseValue)}${metric("Action Log", data.actionServer.action_log_dir)}</div></section>
   ${actionWorkbench(data, "操作中心")}
+  ${smartParkEntryPanel()}
   ${proposalPanel()}
   <section>${table(actions.map((action) => ({
     id: action.id,

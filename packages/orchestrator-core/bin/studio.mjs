@@ -7862,7 +7862,7 @@ async function consoleSmoke(args) {
   const configHtml = await renderModule.renderConsolePage("/config");
   const dashboardHtml = await renderModule.renderConsolePage("/");
   const interactiveControlsPresent = [
-    "目标输入区",
+    "大目标输入框",
     "输入目标，例如：生成 Smart Park 上线计划 / 检查项目阻断项 / 继续推进 Pilot",
     "项目选择",
     "操作类型",
@@ -7878,15 +7878,18 @@ async function consoleSmoke(args) {
   ].every((text) => actionsHtml.includes(text));
   const controlTowerPresent = [
     "企业级 AI 软件工厂控制塔",
-    "中央任务工作台",
+    "任务工作台",
+    "Smart Park 上线入口",
     "推荐动作区",
     "执行时间线",
-    "Worker 面板",
+    "Worker 实时状态",
     "Proposal 审批区",
+    "风险标识",
     "项目工作台",
     "平台状态",
     "V5 / Pilot",
-    "风险闸门"
+    "风险闸门",
+    "查看原始"
   ].every((text) => dashboardHtml.includes(text));
   const darkThemePresent = dashboardHtml.includes("color-scheme: dark") && dashboardHtml.includes("--bg: #0b0f14");
   const configCenterPresent = [
