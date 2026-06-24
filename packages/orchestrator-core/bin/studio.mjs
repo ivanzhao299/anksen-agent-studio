@@ -4930,6 +4930,10 @@ async function writeBatchFiles(files) {
   return Object.keys(files).sort();
 }
 
+function batchTaskWorkspaceFile(batchId, task) {
+  return `autopilot-runs/workspaces/${batchId}/${task.task_id}/workspace.json`;
+}
+
 function v5OperatorManualFiles(task, batchId) {
   return {
     "docs/release/V5_OPERATOR_USER_MANUAL.md": `# V5 Operator User Manual
@@ -5171,24 +5175,71 @@ Agent-5 remains proposal-only because this lane touches runtime architecture and
   };
 }
 
-async function writeBatchTaskImplementation(task, batchId) {
-  let files;
+function batchTaskFileMap(task, batchId) {
   if (task.task_id === "v5-batch-agent-1-docs-console-manual") {
-    files = v5OperatorManualFiles(task, batchId);
-  } else if (task.task_id === "v5-batch-agent-2-governance-validation") {
-    files = v5GovernanceValidationFiles(task, batchId);
-  } else if (task.task_id === "v5-batch-agent-3-project-runtime-memory") {
-    files = v5ProjectOperationsFiles(task, batchId);
-  } else if (task.task_id === "v5-batch-agent-4-console-ui-entrypoints") {
-    files = v5ConsoleEntrypointFiles(task, batchId);
-  } else if (task.task_id === "v5-batch-agent-5-architecture-runtime-prodops") {
-    files = v5ArchitectureProposalFiles(task, batchId);
-  } else {
-    throw new Error(`No batch task writer is registered for ${task.task_id}.`);
+    return v5OperatorManualFiles(task, batchId);
   }
+  if (task.task_id === "v5-batch-agent-2-governance-validation") {
+    return v5GovernanceValidationFiles(task, batchId);
+  }
+  if (task.task_id === "v5-batch-agent-3-project-runtime-memory") {
+    return v5ProjectOperationsFiles(task, batchId);
+  }
+  if (task.task_id === "v5-batch-agent-4-console-ui-entrypoints") {
+    return v5ConsoleEntrypointFiles(task, batchId);
+  }
+  if (task.task_id === "v5-batch-agent-5-architecture-runtime-prodops") {
+    return v5ArchitectureProposalFiles(task, batchId);
+  }
+  throw new Error(`No batch task writer is registered for ${task.task_id}.`);
+}
+
+async function writeBatchTaskImplementation(task, batchId) {
+  const files = batchTaskFileMap(task, batchId);
   const relativeFiles = Object.keys(files);
   assertBatchTaskPaths(task, relativeFiles);
   return writeBatchFiles(files);
+}
+
+function batchTaskImplementationFiles(task, batchId) {
+  const files = batchTaskFileMap(task, batchId);
+  const relativeFiles = Object.keys(files);
+  assertBatchTaskPaths(task, relativeFiles);
+  return relativeFiles.sort();
+}
+
+function plannedBatchTaskFiles(task, batchId) {
+  return unique([
+    ...batchTaskImplementationFiles(task, batchId),
+    batchTaskWorkspaceFile(batchId, task),
+    ...batchTaskReportFiles(batchId, task)
+  ]).sort();
+}
+
+function detectBatchPathOverlaps(tasks, batchId) {
+  const writersByPath = new Map();
+  for (const task of tasks) {
+    for (const file of plannedBatchTaskFiles(task, batchId)) {
+      const writers = writersByPath.get(file) ?? [];
+      writers.push(task.task_id);
+      writersByPath.set(file, writers);
+    }
+  }
+  const overlaps = [...writersByPath.entries()]
+    .filter(([, writers]) => writers.length > 1)
+    .map(([path, writers]) => ({ path, task_ids: writers }));
+  return {
+    detected: overlaps.length > 0,
+    overlaps
+  };
+}
+
+function chunkTasks(tasks, size) {
+  const chunks = [];
+  for (let index = 0; index < tasks.length; index += size) {
+    chunks.push(tasks.slice(index, index + size));
+  }
+  return chunks;
 }
 
 function batchTaskReportFiles(batchId, task) {
@@ -5249,11 +5300,10 @@ async function writeBatchTaskReport(report) {
 }
 
 async function executeBatchTask(task, batchId, strategy) {
-  const taskCommands = [];
-  const taskWorkspace = `autopilot-runs/workspaces/${batchId}/${task.task_id}`;
+  const taskWorkspace = dirname(batchTaskWorkspaceFile(batchId, task));
   const status = task.proposal_required ? "PROPOSAL_ONLY" : "EXECUTED";
   await mkdir(resolveFromRoot(taskWorkspace), { recursive: true });
-  const workspaceFile = `${taskWorkspace}/workspace.json`;
+  const workspaceFile = batchTaskWorkspaceFile(batchId, task);
   await writeFile(resolveFromRoot(workspaceFile), `${JSON.stringify({
     schema_version: 1,
     batch_id: batchId,
@@ -5272,80 +5322,148 @@ async function executeBatchTask(task, batchId, strategy) {
     }
   }, null, 2)}\n`, "utf8");
   const changedFiles = await writeBatchTaskImplementation(task, batchId);
-  for (const command of task.validation_commands ?? []) {
-    taskCommands.push(await runAllowedCommand(command));
-  }
-  const validationResult = validationSummary(taskCommands);
-  const report = {
-    schema_version: 1,
-    batch_id: batchId,
-    task_id: task.task_id,
-    owner_agent: task.owner_agent,
-    target_package: task.target_package,
-    skill_type: task.skill_type,
-    runtime: task.runtime,
-    status,
-    execution_mode: task.effective_execution_mode,
-    execution_strategy: strategy,
-    risk: task.risk,
-    task_workspace: taskWorkspace,
-    allowed_paths: task.allowed_paths,
-    forbidden_paths: task.forbidden_paths,
-    dependencies: task.dependencies,
-    changed_files: changedFiles,
-    validation_result: validationResult,
-    commands_run: taskCommands,
-    safety: {
-      deploy: "disabled",
-      production_operations: "disabled",
-      credential_values: "disabled",
-      managed_project_writes: "disabled",
-      real_worker_execution: "disabled"
-    }
+  const validationResult = {
+    status: "PENDING_UNIFIED_VALIDATION",
+    command_count: 0,
+    failed_commands: []
   };
-  const reportFiles = await writeBatchTaskReport(report);
   return {
     ...task,
+    batch_id: batchId,
     status,
     execution_strategy: strategy,
     task_workspace: taskWorkspace,
-    changed_files: unique([...changedFiles, workspaceFile, ...reportFiles]).sort(),
+    changed_files: unique([...changedFiles, workspaceFile]).sort(),
     validation_result: validationResult,
-    commands_run: taskCommands
+    commands_run: []
   };
+}
+
+function skippedBatchTaskResult(task, batchId, strategy) {
+  return {
+    ...task,
+    batch_id: batchId,
+    status: "SKIPPED",
+    execution_strategy: strategy,
+    task_workspace: dirname(batchTaskWorkspaceFile(batchId, task)),
+    changed_files: [],
+    validation_result: {
+      status: "SKIPPED",
+      command_count: 0,
+      failed_commands: []
+    },
+    commands_run: []
+  };
+}
+
+async function writeBatchTaskReports(results, validationResult, commandsRun) {
+  const enriched = [];
+  for (const result of results) {
+    const taskCommands = commandsRun.filter((command) =>
+      ["pnpm typecheck", "pnpm lint:check", "git diff --check"].includes(command.command)
+    );
+    const reportFiles = batchTaskReportFiles(result.batch_id, result);
+    const reportChangedFiles = unique([...(result.changed_files ?? []), ...reportFiles]).sort();
+    const report = {
+      schema_version: 1,
+      batch_id: result.batch_id,
+      task_id: result.task_id,
+      owner_agent: result.owner_agent,
+      target_package: result.target_package,
+      skill_type: result.skill_type,
+      runtime: result.runtime,
+      status: result.status,
+      execution_mode: result.effective_execution_mode,
+      execution_strategy: result.execution_strategy,
+      risk: result.risk,
+      task_workspace: result.task_workspace,
+      allowed_paths: result.allowed_paths,
+      forbidden_paths: result.forbidden_paths,
+      dependencies: result.dependencies,
+      changed_files: reportChangedFiles,
+      validation_result: validationResult,
+      commands_run: taskCommands,
+      safety: {
+        deploy: "disabled",
+        production_operations: "disabled",
+        credential_values: "disabled",
+        managed_project_writes: "disabled",
+        real_worker_execution: "disabled"
+      }
+    };
+    await writeBatchTaskReport(report);
+    enriched.push({
+      ...result,
+      changed_files: reportChangedFiles,
+      validation_result: result.status === "SKIPPED" ? result.validation_result : validationResult,
+      commands_run: result.status === "SKIPPED" ? [] : taskCommands
+    });
+  }
+  return enriched;
+}
+
+async function runBatchUnifiedValidation(commandsRun) {
+  const validationCommands = ["pnpm typecheck", "pnpm lint:check", "git diff --check"];
+  const results = [];
+  for (const command of validationCommands) {
+    const result = await runAllowedCommand(command);
+    commandsRun.push(result);
+    results.push(result);
+  }
+  return validationSummary(results);
 }
 
 async function executeBatchTasks(tasks, batchId, parallel) {
-  const strategy = `sequential_executor_with_parallel_plan_semantics_parallel_${parallel}`;
-  const results = [];
-  for (const task of tasks) {
-    if (task.automatic_execution_allowed || task.proposal_required) {
-      results.push(await executeBatchTask(task, batchId, strategy));
-    } else {
-      results.push({
-        ...task,
-        status: "SKIPPED",
-        execution_strategy: strategy,
-        task_workspace: `autopilot-runs/workspaces/${batchId}/${task.task_id}`,
-        changed_files: [],
-        validation_result: {
-          status: "SKIPPED",
-          command_count: 0,
-          failed_commands: []
-        },
-        commands_run: []
-      });
+  const executableTasks = tasks.filter((task) => task.automatic_execution_allowed);
+  const proposalTasks = tasks.filter((task) => !task.automatic_execution_allowed && task.proposal_required);
+  const skippedTasks = tasks.filter((task) => !task.automatic_execution_allowed && !task.proposal_required);
+  const pathOverlap = detectBatchPathOverlaps(executableTasks, batchId);
+  const trueParallel = parallel > 1 && executableTasks.length > 1 && !pathOverlap.detected;
+  const strategy = trueParallel
+    ? `true_parallel_executor_parallel_${parallel}`
+    : pathOverlap.detected
+      ? `sequential_executor_due_to_path_overlap_parallel_${parallel}`
+      : `sequential_executor_parallel_${parallel}`;
+  const parallelBatches = trueParallel
+    ? chunkTasks(executableTasks, parallel)
+    : executableTasks.map((task) => [task]);
+  const resultMap = new Map();
+
+  for (const batch of parallelBatches) {
+    const batchResults = trueParallel
+      ? await Promise.all(batch.map((task) => executeBatchTask(task, batchId, strategy)))
+      : [await executeBatchTask(batch[0], batchId, strategy)];
+    for (const result of batchResults) {
+      resultMap.set(result.task_id, result);
     }
   }
-  return { strategy, results };
+
+  for (const task of proposalTasks) {
+    const proposalResult = await executeBatchTask(task, batchId, "proposal_only_after_parallel_gate");
+    resultMap.set(task.task_id, proposalResult);
+  }
+
+  for (const task of skippedTasks) {
+    resultMap.set(task.task_id, skippedBatchTaskResult(task, batchId, strategy));
+  }
+
+  const results = tasks.map((task) => resultMap.get(task.task_id));
+  return {
+    strategy,
+    true_parallel: trueParallel,
+    path_overlap: pathOverlap,
+    parallel_batches: parallelBatches.map((batch) => batch.map((task) => task.task_id)),
+    results
+  };
 }
 
-function batchExecutionValidationSummary(results) {
-  const failed = results.filter((result) => result.validation_result.status === "FAIL");
+function batchExecutionValidationSummary(results, commandValidation) {
+  const failedTasks = results.filter((result) => result.validation_result.status === "FAIL").map((result) => result.task_id);
   return {
-    status: failed.length === 0 ? "PASS" : "FAIL",
+    status: commandValidation.status === "PASS" && failedTasks.length === 0 ? "PASS" : "FAIL",
     task_count: results.length,
-    failed_tasks: failed.map((result) => result.task_id)
+    failed_tasks: unique([...failedTasks, ...(commandValidation.failed_commands ?? [])]),
+    command_count: commandValidation.command_count
   };
 }
 
@@ -5353,14 +5471,30 @@ function batchSummaryMarkdown(summary) {
   const rows = summary.tasks.map((task) =>
     `| ${task.owner_agent} | ${task.task_id} | ${task.status} | ${task.risk} | ${task.effective_execution_mode} | ${task.validation_result.status} | ${(task.changed_files ?? []).join(", ")} |`
   ).join("\n");
+  const parallelRows = (summary.parallel_batches ?? []).length === 0
+    ? "- none"
+    : summary.parallel_batches.map((batch, index) => `- batch-${index + 1}: ${batch.join(", ")}`).join("\n");
+  const overlapRows = summary.path_overlap?.detected
+    ? summary.path_overlap.overlaps.map((overlap) => `- ${overlap.path}: ${overlap.task_ids.join(", ")}`).join("\n")
+    : "- none";
   return `# Autopilot Batch Execution Summary
 
 - batch_id: ${summary.batch_id}
 - goal: ${summary.goal}
 - execution_strategy: ${summary.execution_strategy}
 - parallel_requested: ${summary.parallel_requested}
+- true_parallel: ${summary.true_parallel ? "yes" : "no"}
+- path_overlap_detected: ${summary.path_overlap?.detected ? "yes" : "no"}
 - implementation_commit_hash: ${summary.implementation_commit_hash}
 - validation_status: ${summary.validation_result.status}
+
+## Parallel Batches
+
+${parallelRows}
+
+## Path Overlap
+
+${overlapRows}
 
 ## Agent Allocation
 
@@ -5401,6 +5535,12 @@ function autopilotBatchMarkdown(run) {
   const rows = run.batch_plan.tasks.map((task) =>
     `| ${task.owner_agent} | ${task.task_id} | ${task.status ?? "PLANNED"} | ${task.target_package} | ${task.skill_type} | ${task.runtime} | ${task.risk} | ${task.effective_execution_mode} | ${task.execution_gate.reason} |`
   ).join("\n");
+  const parallelRows = (run.parallel_batches ?? []).length === 0
+    ? "- none"
+    : run.parallel_batches.map((batch, index) => `- batch-${index + 1}: ${batch.join(", ")}`).join("\n");
+  const overlapRows = run.path_overlap?.detected
+    ? run.path_overlap.overlaps.map((overlap) => `- ${overlap.path}: ${overlap.task_ids.join(", ")}`).join("\n")
+    : "- none";
   return `# Autopilot Batch Plan
 
 - run_id: ${run.run_id}
@@ -5410,6 +5550,8 @@ function autopilotBatchMarkdown(run) {
 - batch_id: ${run.batch_plan.batch_id}
 - parallel_requested: ${run.parallel_requested}
 - execution_strategy: ${run.execution_strategy}
+- true_parallel: ${run.true_parallel ? "yes" : "no"}
+- path_overlap_detected: ${run.path_overlap?.detected ? "yes" : "no"}
 - implementation_commit_hash: ${run.commit_hash ?? "none"}
 - summary_file: ${run.batch_summary_file ?? "none"}
 - execution_result: ${run.execution_result.summary}
@@ -5419,6 +5561,14 @@ function autopilotBatchMarkdown(run) {
 | Agent | Task | Status | Target Package | Skill | Runtime | Risk | Mode | Gate |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 ${rows}
+
+## Parallel Batches
+
+${parallelRows}
+
+## Path Overlap
+
+${overlapRows}
 
 ## Validation
 
@@ -5465,7 +5615,10 @@ function buildAutopilotBatchRun({
   executionResult = null,
   validationResult = null,
   commitHash = null,
-  batchSummaryFile = null
+  batchSummaryFile = null,
+  trueParallel = false,
+  pathOverlap = { detected: false, overlaps: [] },
+  parallelBatches = []
 }) {
   const now = new Date().toISOString();
   const failedCommands = commandsRun.filter((command) => !command.ok).map((command) => command.command);
@@ -5484,12 +5637,15 @@ function buildAutopilotBatchRun({
     },
     execution_mode: mode === "apply" ? "batch_execute" : "batch_proposal",
     execution_strategy: executionStrategy,
+    true_parallel: trueParallel,
+    path_overlap: pathOverlap,
+    parallel_batches: parallelBatches,
     execution_result: executionResult ?? {
       executed: false,
       implementation: "parallel-batch-planner-proposal",
       summary: mode === "dry-run"
         ? "Dry-run only. No batch proposal was written and no task was executed."
-        : "Batch proposal recorded. Real parallel execution is not implemented in this MVP."
+        : "Batch proposal recorded. Apply mode can execute governed LOW/MEDIUM local tasks."
     },
     commands_run: commandsRun,
     changed_files: changedFiles,
@@ -5504,7 +5660,7 @@ function buildAutopilotBatchRun({
       title: mode === "apply" ? "Review batch execution summary" : "Review batch plan before parallel execution",
       reason: mode === "apply"
         ? "Batch Executor completed the safe local tasks and left HIGH risk work proposal-only."
-        : "Parallel Autopilot Planner currently produces a governed batch proposal; the next step is approving an executor implementation for selected LOW/MEDIUM tasks.",
+        : "Parallel Autopilot Planner produces a governed batch proposal; apply mode can execute selected LOW/MEDIUM local repository tasks.",
       command: `node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal "${goal}" --dry-run`
     },
     safety: {
@@ -5527,10 +5683,24 @@ function printAutopilotBatch(run, files = null) {
   console.log(`parallel_requested: ${run.parallel_requested}`);
   console.log(`task_count: ${run.batch_plan.tasks.length}`);
   console.log(`execution_strategy: ${run.execution_strategy}`);
+  console.log(`true_parallel: ${run.true_parallel ? "yes" : "no"}`);
+  console.log(`path_overlap_detected: ${run.path_overlap?.detected ? "yes" : "no"}`);
   console.log(`execution: ${run.execution_result.executed ? "executed" : "proposal_only"}`);
   console.log(`validation: ${run.validation_result.status}`);
   console.log(`commit_hash: ${run.commit_hash ?? "none"}`);
   console.log(`summary_file: ${run.batch_summary_file ?? "none"}`);
+  if ((run.parallel_batches ?? []).length > 0) {
+    console.log("parallel_batches:");
+    run.parallel_batches.forEach((batch, index) => {
+      console.log(`- batch-${index + 1}: ${batch.join(", ")}`);
+    });
+  }
+  if (run.path_overlap?.detected) {
+    console.log("path_overlaps:");
+    for (const overlap of run.path_overlap.overlaps) {
+      console.log(`- ${overlap.path}: ${overlap.task_ids.join(", ")}`);
+    }
+  }
   console.log("");
   console.log("| Agent | Task | Status | Target Package | Skill | Runtime | Risk | Mode | Proposal |");
   console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
@@ -5626,47 +5796,48 @@ async function autopilotBatch(args) {
   }
 
   const execution = await executeBatchTasks(tasks, output.batch_plan.batch_id, args.parallel);
-  commandsRun.push(...execution.results.flatMap((result) =>
-    result.commands_run.map((command) => ({
-      ...command,
-      command: `${result.task_id}: ${command.command}`
-    }))
-  ));
+  let validationResult = await runBatchUnifiedValidation(commandsRun);
+  let reportedResults = await writeBatchTaskReports(execution.results, validationResult, commandsRun);
   const finalDiffCheck = await runAllowedCommand("git diff --check");
   commandsRun.push(finalDiffCheck);
-
-  let validationResult = batchExecutionValidationSummary(execution.results);
-  if (!finalDiffCheck.ok) {
-    validationResult = {
-      status: "FAIL",
-      task_count: execution.results.length,
-      failed_tasks: unique([...validationResult.failed_tasks, "git diff --check"])
-    };
-  }
+  validationResult = validationSummary(commandsRun.filter((command) =>
+    ["pnpm typecheck", "pnpm lint:check", "git diff --check"].includes(command.command)
+  ));
+  reportedResults = await writeBatchTaskReports(reportedResults, validationResult, commandsRun);
+  const batchValidationResult = batchExecutionValidationSummary(reportedResults, validationResult);
 
   let implementationCommitHash = "";
   let summaryFile = "";
   let files = null;
-  if (validationResult.status === "PASS") {
+  if (batchValidationResult.status === "PASS") {
     const implementationChangedFiles = await currentChangedFiles();
     const implementationCommit = await commitPaths(
       implementationChangedFiles,
-      "chore(autopilot): execute parallel batch tasks",
+      "chore(autopilot): add true parallel batch executor",
       commandsRun
     );
     implementationCommitHash = implementationCommit.hash;
     if (!implementationCommit.ok) {
+      batchValidationResult.status = "FAIL";
+      batchValidationResult.failed_tasks = unique([
+        ...(batchValidationResult.failed_tasks ?? []),
+        "git commit batch implementation"
+      ]);
       validationResult = {
         status: "FAIL",
-        task_count: execution.results.length,
-        failed_tasks: unique([...validationResult.failed_tasks, "git commit batch implementation"])
+        command_count: commandsRun.length,
+        failed_commands: unique([...(validationResult.failed_commands ?? []), "git commit batch implementation"])
       };
     }
   }
 
   const nextRecommendationValue = {
     title: "Review V5 batch execution and approve the next executor increment",
-    reason: "The batch executor completed LOW/MEDIUM local tasks sequentially while preserving the parallel plan and leaving HIGH risk work proposal-only.",
+    reason: execution.true_parallel
+      ? "The batch executor completed LOW/MEDIUM local tasks with true parallel batches and left HIGH risk work proposal-only."
+      : execution.path_overlap.detected
+        ? "The batch executor detected overlapping planned paths, downgraded to sequential execution, and left HIGH risk work proposal-only."
+        : "The batch executor completed LOW/MEDIUM local tasks sequentially and left HIGH risk work proposal-only.",
     command: `node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal "${goal}" --dry-run`
   };
   const summary = {
@@ -5674,9 +5845,12 @@ async function autopilotBatch(args) {
     goal,
     execution_strategy: execution.strategy,
     parallel_requested: args.parallel,
+    true_parallel: execution.true_parallel,
+    path_overlap: execution.path_overlap,
+    parallel_batches: execution.parallel_batches,
     implementation_commit_hash: implementationCommitHash || "none",
-    tasks: execution.results,
-    validation_result: validationResult,
+    tasks: reportedResults,
+    validation_result: batchValidationResult,
     next_recommendation: nextRecommendationValue
   };
   summaryFile = await writeBatchSummary(summary);
@@ -5688,29 +5862,40 @@ async function autopilotBatch(args) {
     globalContext,
     planningOutput: output,
     batchPlan: output.batch_plan,
-    tasks: execution.results,
+    tasks: reportedResults,
     commandsRun,
-    changedFiles: unique([...execution.results.flatMap((result) => result.changed_files), summaryFile]).sort(),
+    changedFiles: unique([...reportedResults.flatMap((result) => result.changed_files), summaryFile]).sort(),
     executionStrategy: execution.strategy,
     executionResult: {
-      executed: validationResult.status === "PASS",
-      implementation: "sequential-batch-executor-with-parallel-plan-semantics",
-      summary: "Executed LOW/MEDIUM local repository tasks sequentially with parallel plan semantics; HIGH risk tasks remained proposal-only."
+      executed: batchValidationResult.status === "PASS",
+      implementation: execution.true_parallel
+        ? "true-parallel-batch-executor"
+        : execution.path_overlap.detected
+          ? "sequential-downgrade-on-path-overlap"
+          : "sequential-batch-executor",
+      summary: execution.true_parallel
+        ? `Executed LOW/MEDIUM local repository tasks in true parallel batches with parallel=${args.parallel}; HIGH risk tasks remained proposal-only.`
+        : execution.path_overlap.detected
+          ? "Detected overlapping planned paths and downgraded LOW/MEDIUM tasks to sequential execution; HIGH risk tasks remained proposal-only."
+          : "Executed LOW/MEDIUM local repository tasks sequentially; HIGH risk tasks remained proposal-only."
     },
     validationResult: {
-      status: validationResult.status,
+      status: batchValidationResult.status,
       command_count: commandsRun.length,
-      failed_commands: validationResult.failed_tasks
+      failed_commands: batchValidationResult.failed_tasks
     },
     commitHash: implementationCommitHash || null,
-    batchSummaryFile: summaryFile
+    batchSummaryFile: summaryFile,
+    trueParallel: execution.true_parallel,
+    pathOverlap: execution.path_overlap,
+    parallelBatches: execution.parallel_batches
   });
   files = await writeAutopilotBatchRun(applyRun);
 
-  if (validationResult.status === "PASS") {
+  if (batchValidationResult.status === "PASS") {
     const recordCommit = await commitPaths(
       unique([summaryFile, ...autopilotBatchRunFiles(applyRun)]),
-      "chore(autopilot): record batch execution summary",
+      "chore(autopilot): record true parallel batch execution summary",
       commandsRun
     );
     applyRun.summary_commit_hash = recordCommit.hash || null;
