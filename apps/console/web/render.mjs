@@ -14,9 +14,10 @@ function escapeHtml(value) {
 }
 
 function nav(activeId) {
-  return `<nav>${consoleWebRoutes.filter((route) => route.showInNav !== false).map((route) => {
+  return `<nav><button type="button" id="nav-toggle" class="nav-toggle" aria-label="折叠侧边栏">‹</button>${consoleWebRoutes.filter((route) => route.showInNav !== false).map((route) => {
     const active = route.id === activeId ? "active" : "";
-    return `<a class="${active}" href="${route.navPath}">${escapeHtml(route.label)}</a>`;
+    const shortLabel = route.label === "AI 工作台" ? "AI" : route.label.slice(0, 1);
+    return `<a class="${active}" href="${route.navPath}" data-short="${escapeHtml(shortLabel)}"><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
   }).join("")}</nav>`;
 }
 
@@ -41,10 +42,6 @@ function jsonBlock(value) {
 
 function detailsJson(title, value) {
   return `<details class="details-drawer"><summary>${escapeHtml(title)}</summary>${jsonBlock(value)}</details>`;
-}
-
-function badge(label, value, tone = "neutral") {
-  return `<div class="status-chip ${tone}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
 }
 
 function normalizeToken(value) {
@@ -104,12 +101,12 @@ function aiAgentOptions() {
 
 function topStatusBar(model, data) {
   return `<div class="top-status">
-    ${badge("平台状态", model.platform_status, "good")}
-    ${badge("Pilot Production", "ENABLED", "good")}
-    ${badge("当前项目", model.active_project, "neutral")}
-    ${badge("Agent", model.modules.workers, "neutral")}
-    ${badge("风险闸门", "LOW/MEDIUM 直执", "good")}
-    ${badge("最近运行", data.autopilot.latest_summary?.validation ?? "unknown", data.autopilot.latest_summary?.validation === "PASS" ? "good" : "warn")}
+    <span>平台 ${escapeHtml(model.platform_status)}</span>
+    <span>Pilot ENABLED</span>
+    <span>项目 ${escapeHtml(model.active_project)}</span>
+    <span>Agent ${escapeHtml(model.modules.workers)}</span>
+    <span>闸门 LOW/MEDIUM 直执</span>
+    <span>最近 ${escapeHtml(data.autopilot.latest_summary?.validation ?? "unknown")}</span>
   </div>`;
 }
 
@@ -119,22 +116,7 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
     <strong>${escapeHtml(item.label)}</strong>
     <span>${escapeHtml(item.project_id === "phoenix-erp" ? "GitHub 远程待接入" : item.status)}</span>
   </button>`);
-  const flowSteps = [
-    ["规划", "把目标拆成任务、风险和执行策略"],
-    ["Agent 执行", "自动选择或指定 Codex / Claude / Gemini / OpenHands / Aider"],
-    ["验证 / CI", "运行本地验证、CI 准备和安全检查"],
-    ["报告", "生成结果摘要、阻断项和下一步建议"]
-  ];
-  const capabilities = [
-    "任务创建",
-    "Agent 调度",
-    "代码修改",
-    "重构",
-    "验证",
-    "CI/CD",
-    "服务器配置",
-    "生产配置治理"
-  ];
+  const flowSteps = ["规划", "Agent 执行", "验证", "报告"];
   return `<section class="workspace-shell">
     <aside class="project-rail">
       <div class="section-head small">
@@ -142,26 +124,17 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
         <span class="pill">Pilot</span>
       </div>
       <div class="project-list">${projectCards.join("")}</div>
-      <p class="help">当前重点：jinhu-smart-park 上线；ERP 后续通过 GitHub Repo Connector 接入。</p>
     </aside>
     <div class="ai-workspace chat-workspace">
       <div class="workspace-hero">
         <div>
           <span class="eyebrow">ANKSEN Agent Studio</span>
           <h2>${escapeHtml(title)}</h2>
-          <p>一个对话式入口统一接入 Codex、Claude Code、Gemini、OpenHands、Aider 和 Local Agent。当前优先服务 jinhu-smart-park 上线，后续接入 ERP 项目。</p>
         </div>
         <span class="pill">Pilot Production / 127.0.0.1</span>
       </div>
-      <div class="capability-strip">${capabilities.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
       <div id="conversation-stream" class="conversation-stream" aria-live="polite">
-        <div class="chat-message assistant">
-          <div class="message-avatar">AI</div>
-          <div class="message-body">
-            <strong>我可以帮你推进工程任务。</strong>
-            <p>输入自然语言目标后点击开始，我会显示理解、项目选择、Agent/Runtime、计划、Governance、执行或审批、结果报告的完整状态流。</p>
-          </div>
-        </div>
+        <div class="terminal-line assistant">$ READY</div>
       </div>
       <div class="quick-row mission-row">
         <button type="button" data-quick-action="context-summary" data-goal="读取上下文">读取上下文</button>
@@ -173,7 +146,7 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
       </div>
       <div class="execution-console">
         <div class="section-head small"><h3>执行时间线</h3><span id="run-state" class="status-label ready">待操作</span></div>
-        <div id="flow-rail" class="flow-rail">${flowSteps.map(([name, detail]) => `<div class="flow-step"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(detail)}</span></div>`).join("")}</div>
+        <div id="flow-rail" class="flow-rail">${flowSteps.map((name) => `<div class="flow-step"><strong>${escapeHtml(name)}</strong></div>`).join("")}</div>
         <details class="run-details">
           <summary>展开详情</summary>
           <div class="action-feedback-grid">
@@ -225,23 +198,18 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
       </div>
       <details>
         <summary>运行环境</summary>
-        <p>默认使用本地 codex-cli；其他 AI/Agent 通过后端适配器接入，真实外部模型调用保持关闭。</p>
       </details>
       <details>
         <summary>Agent 调度</summary>
-        <p>本地 Agent 可执行 LOW/MEDIUM 安全任务；远程或生产 Worker 仍需 Proposal 或人工审批。</p>
       </details>
       <details>
         <summary>认证与凭证</summary>
-        <p>仅配置凭证引用，不读取、不展示、不保存 API Key、SSH Key 或其他真实密钥。</p>
       </details>
       <details>
         <summary>安全审批</summary>
-        <p>LOW/MEDIUM 可本地执行，HIGH 生成 Proposal，CRITICAL 必须人工审批，不允许绕过生产闸门。</p>
       </details>
       <details>
         <summary>项目配置</summary>
-        <p>jinhu-smart-park 已连接；phoenix-erp 等远程项目等待 GitHub Repo Connector 接入。</p>
       </details>
       <details open>
         <summary>日志</summary>
@@ -387,9 +355,27 @@ function interactiveScript() {
   const modeSelect = document.getElementById("action-mode");
   const agent = document.getElementById("action-agent");
   const draftStatus = document.getElementById("config-draft-status");
+  const navToggle = document.getElementById("nav-toggle");
   let currentRunId = null;
   let pollTimer = null;
   const terminalStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED"]);
+  const navCollapsedKey = "anksen-console-nav-collapsed";
+
+  if (localStorage.getItem(navCollapsedKey) === "yes") document.body.classList.add("nav-collapsed");
+
+  function syncNavToggle() {
+    if (!navToggle) return;
+    const collapsed = document.body.classList.contains("nav-collapsed");
+    navToggle.textContent = collapsed ? "›" : "‹";
+    navToggle.setAttribute("aria-label", collapsed ? "展开侧边栏" : "折叠侧边栏");
+  }
+
+  syncNavToggle();
+  navToggle?.addEventListener("click", () => {
+    document.body.classList.toggle("nav-collapsed");
+    localStorage.setItem(navCollapsedKey, document.body.classList.contains("nav-collapsed") ? "yes" : "no");
+    syncNavToggle();
+  });
 
   function normalize(value) {
     return String(value || "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -470,9 +456,10 @@ function interactiveScript() {
     const modeText = escapeClient(body.workspace_mode || "auto");
     if (!conversationStream) return;
     conversationStream.innerHTML = [
-      '<div class="chat-message user"><div class="message-avatar">你</div><div class="message-body"><strong>目标</strong><p>' + text + '</p></div></div>',
-      '<div class="chat-message assistant"><div class="message-avatar">AI</div><div class="message-body"><strong>已理解目标</strong><p>正在选择项目：' + projectText + '</p></div></div>',
-      '<div class="chat-message assistant"><div class="message-avatar">AI</div><div class="message-body"><strong>正在选择 Agent/Runtime</strong><p>' + agentText + ' / ' + modeText + '<span class="typing"><span></span><span></span><span></span></span></p></div></div>'
+      '<div class="terminal-line user">> ' + text + '</div>',
+      '<div class="terminal-line assistant">$ 已理解目标</div>',
+      '<div class="terminal-line assistant">$ 项目 ' + projectText + '</div>',
+      '<div class="terminal-line running">$ Agent/Runtime ' + agentText + ' / ' + modeText + ' ...</div>'
     ].join("");
     conversationStream.scrollTop = conversationStream.scrollHeight;
   }
@@ -483,12 +470,12 @@ function interactiveScript() {
     if (messages.length === 0) return;
     conversationStream.innerHTML = messages.map((message) => {
       const role = message.role === "user" ? "user" : "assistant";
-      const label = role === "user" ? "你" : "AI";
-      const phase = message.phase ? '<strong>' + escapeClient(message.phase) + '</strong>' : "";
-      return '<div class="chat-message ' + role + '"><div class="message-avatar">' + label + '</div><div class="message-body">' + phase + '<p>' + escapeClient(message.content) + '</p></div></div>';
+      const prefix = role === "user" ? "> " : "$ ";
+      const phase = message.phase ? "[" + escapeClient(message.phase) + "] " : "";
+      return '<div class="terminal-line ' + role + '">' + prefix + phase + escapeClient(message.content) + '</div>';
     }).join("");
     if (!terminalStatuses.has(record.status || "")) {
-      conversationStream.innerHTML += '<div class="chat-message assistant"><div class="message-avatar">AI</div><div class="message-body"><strong>运行中</strong><p>任务正在处理，请稍候<span class="typing"><span></span><span></span><span></span></span></p></div></div>';
+      conversationStream.innerHTML += '<div class="terminal-line running">$ 运行中 ...</div>';
     }
     conversationStream.scrollTop = conversationStream.scrollHeight;
   }
@@ -690,48 +677,59 @@ function shell(content, activeId, model, data) {
     :root { color-scheme: dark; --bg: #0b0f14; --nav: #0f141b; --panel: #121922; --panel-2: #16202b; --text: #e5edf5; --muted: #94a3b8; --line: #263241; --blue: #5aa9ff; --green: #34d399; --yellow: #fbbf24; --red: #fb7185; --shadow: rgba(0, 0, 0, 0.24); }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
-    header { padding: 18px 24px 12px; border-bottom: 1px solid var(--line); background: #0d1218; position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 28px var(--shadow); }
+    header { padding: 10px 18px 8px; border-bottom: 1px solid var(--line); background: #0d1218; position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 28px var(--shadow); }
     .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-    .brand-lockup { display: flex; align-items: center; gap: 14px; min-width: 0; }
-    .logo-frame { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 56px; flex: 0 0 auto; border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; }
+    .brand-lockup { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .logo-frame { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 40px; flex: 0 0 auto; border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; }
     .brand-logo { display: block; width: 100%; height: 100%; object-fit: contain; }
     .brand-copy { min-width: 0; }
-    h1 { margin: 0 0 4px; font-size: 22px; font-weight: 700; letter-spacing: 0; }
-    .subhead { color: var(--muted); font-size: 13px; }
-    .top-status { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; margin-top: 14px; }
+    h1 { margin: 0 0 2px; font-size: 18px; font-weight: 700; letter-spacing: 0; }
+    .subhead { color: var(--muted); font-size: 12px; }
+    .top-status { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .top-status span { white-space: nowrap; }
     .status-chip { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 9px 10px; min-width: 0; }
     .status-chip span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 3px; }
     .status-chip strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
     .status-chip.good strong { color: var(--green); }
     .status-chip.warn strong { color: var(--yellow); }
-    .layout { display: grid; grid-template-columns: 244px minmax(0, 1fr); min-height: calc(100vh - 122px); }
-    nav { border-right: 1px solid var(--line); background: var(--nav); padding: 14px 12px; position: sticky; top: 123px; height: calc(100vh - 123px); align-self: start; }
-    nav a { display: block; color: var(--muted); text-decoration: none; padding: 9px 10px; border-radius: 6px; font-size: 14px; margin-bottom: 3px; }
+    .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100vh - 84px); transition: grid-template-columns 0.18s ease; }
+    nav { border-right: 1px solid var(--line); background: var(--nav); padding: 10px; position: sticky; top: 84px; height: calc(100vh - 84px); align-self: start; overflow: hidden; }
+    .nav-toggle { width: 100%; min-height: 32px; margin: 0 0 8px; border-color: var(--line); background: #0b1118; color: var(--muted); }
+    nav a { display: block; color: var(--muted); text-decoration: none; padding: 8px 10px; border-radius: 6px; font-size: 14px; margin-bottom: 3px; white-space: nowrap; }
     nav a:hover { color: var(--text); background: #182231; }
     nav a.active { background: #203149; color: var(--blue); font-weight: 700; }
-    main { padding: 22px 24px 40px; max-width: 1480px; width: 100%; }
+    body.nav-collapsed .layout { grid-template-columns: 56px minmax(0, 1fr); }
+    body.nav-collapsed nav { padding: 8px; }
+    body.nav-collapsed nav a { text-align: center; padding: 8px 0; }
+    body.nav-collapsed nav a .nav-label { display: none; }
+    body.nav-collapsed nav a::after { content: attr(data-short); font-size: 12px; }
+    main { padding: 14px 16px 28px; max-width: 1480px; width: 100%; }
     section { margin-bottom: 18px; }
     h2 { font-size: 18px; margin: 0 0 10px; }
     h3 { font-size: 14px; margin: 0 0 8px; }
     p { color: var(--muted); line-height: 1.55; margin: 0; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
     .metric, .panel, .workbench, .smart-entry, .output-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; box-shadow: 0 10px 26px var(--shadow); }
-    .workspace-shell { display: grid; grid-template-columns: 220px minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
-    .ai-workspace, .advanced-config, .project-rail { background: #101720; border: 1px solid #26364a; border-radius: 8px; padding: 18px; box-shadow: 0 16px 34px var(--shadow); }
-    .project-rail { position: sticky; top: 146px; }
+    .workspace-shell { display: grid; grid-template-columns: 180px minmax(0, 1fr) 260px; gap: 12px; align-items: start; }
+    .ai-workspace, .advanced-config, .project-rail { background: #101720; border: 1px solid #26364a; border-radius: 8px; padding: 12px; box-shadow: 0 12px 24px var(--shadow); }
+    .project-rail { position: sticky; top: 98px; }
     .project-list { display: grid; gap: 10px; }
     .project-card { text-align: left; border: 1px solid var(--line); background: #0b1118; color: var(--text); border-radius: 8px; padding: 11px; }
     .project-card.active { border-color: rgba(52, 211, 153, 0.55); background: rgba(52, 211, 153, 0.08); }
     .project-card strong, .project-card span { display: block; overflow-wrap: anywhere; }
     .project-card span { color: var(--muted); font-size: 12px; margin-top: 5px; }
-    .chat-workspace { min-height: calc(100vh - 180px); display: flex; flex-direction: column; }
-    .workspace-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
-    .workspace-hero h2 { font-size: 30px; line-height: 1.15; margin: 4px 0 8px; }
+    .chat-workspace { min-height: calc(100vh - 118px); display: flex; flex-direction: column; }
+    .workspace-hero { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .workspace-hero h2 { font-size: 22px; line-height: 1.15; margin: 3px 0 0; }
     .eyebrow { color: var(--green); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
     .capability-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
     .capability-strip span { border: 1px solid #2b3b50; background: #0b1118; color: #c7d2df; border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 700; }
-    .command-input { min-height: 150px; font-size: 16px; background: #090f16; border-color: #314258; }
-    .conversation-stream { display: grid; gap: 12px; min-height: 220px; max-height: 44vh; overflow: auto; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #080d13; }
+    .command-input { min-height: 104px; font-size: 15px; background: #090f16; border-color: #314258; }
+    .conversation-stream { display: block; flex: 1 1 auto; min-height: 280px; max-height: 48vh; overflow: auto; padding: 12px 14px; border: 0; border-radius: 0; background: #030507; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03); }
+    .terminal-line { color: #d7e2ef; font-size: 13px; line-height: 1.58; white-space: pre-wrap; overflow-wrap: anywhere; padding: 1px 0; }
+    .terminal-line.user { color: #8bd3ff; }
+    .terminal-line.assistant { color: #d7e2ef; }
+    .terminal-line.running { color: var(--green); }
     .chat-message { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 10px; align-items: start; }
     .chat-message.user { grid-template-columns: minmax(0, 1fr) 36px; }
     .chat-message.user .message-avatar { grid-column: 2; grid-row: 1; background: #132947; color: var(--blue); border-color: rgba(90, 169, 255, 0.35); }
@@ -745,25 +743,26 @@ function shell(content, activeId, model, data) {
     .typing span:nth-child(2) { animation-delay: 0.15s; }
     .typing span:nth-child(3) { animation-delay: 0.3s; }
     @keyframes pulse { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
-    .workspace-controls { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(140px, 0.75fr) minmax(170px, 0.9fr) 96px 88px; gap: 10px; align-items: end; margin-top: 12px; }
-    .start-button, .cancel-button { min-height: 42px; }
-    .execution-console { margin-top: 16px; border: 1px solid var(--line); border-radius: 8px; background: #0b1118; padding: 14px; }
-    .flow-rail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
-    .flow-step { border: 1px solid #2a394d; border-radius: 8px; background: #111923; padding: 11px; min-height: 92px; }
-    .flow-step.running { border-color: rgba(90, 169, 255, 0.55); background: rgba(90, 169, 255, 0.08); }
-    .flow-step.pass { border-color: rgba(52, 211, 153, 0.45); }
-    .flow-step.needs-approval, .flow-step.blocked { border-color: rgba(251, 191, 36, 0.55); background: rgba(251, 191, 36, 0.08); }
-    .flow-step.fail, .flow-step.cancelled { border-color: rgba(251, 113, 133, 0.55); background: rgba(251, 113, 133, 0.08); }
-    .flow-step strong { display: block; margin-bottom: 8px; }
-    .flow-step span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .workspace-controls { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(120px, 0.7fr) minmax(150px, 0.8fr) minmax(72px, auto) minmax(72px, auto); gap: 8px; align-items: end; margin-top: 10px; }
+    .workspace-controls button { white-space: nowrap; min-width: 72px; }
+    .start-button, .cancel-button { min-height: 40px; }
+    .execution-console { margin-top: 10px; border: 0; border-radius: 0; background: #030507; padding: 10px 12px; }
+    .flow-rail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+    .flow-step { border: 0; border-radius: 0; background: transparent; padding: 0; min-height: auto; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .flow-step.running { color: var(--blue); }
+    .flow-step.pass { color: var(--green); }
+    .flow-step.needs-approval, .flow-step.blocked { color: var(--yellow); }
+    .flow-step.fail, .flow-step.cancelled { color: var(--red); }
+    .flow-step strong { display: block; margin-bottom: 2px; font-size: 12px; }
+    .flow-step span { color: inherit; font-size: 11px; line-height: 1.35; }
     .conversation-result { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; align-items: start; }
     .assistant-avatar { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 8px; background: #12301f; color: var(--green); font-weight: 900; border: 1px solid rgba(52, 211, 153, 0.35); }
     .assistant-message { min-width: 0; }
-    .advanced-config { position: sticky; top: 146px; }
+    .advanced-config { position: sticky; top: 98px; }
     .advanced-config details { border: 1px solid var(--line); border-radius: 8px; background: #0b1118; margin-top: 10px; overflow: hidden; }
     .advanced-config summary { cursor: pointer; padding: 11px 12px; font-weight: 800; color: var(--text); }
     .advanced-config p { border-top: 1px solid var(--line); padding: 11px 12px; font-size: 12px; }
-    .composer { position: sticky; bottom: 0; margin-top: 16px; padding-top: 14px; background: linear-gradient(180deg, rgba(16, 23, 32, 0.72), #101720 28%); border-top: 1px solid var(--line); }
+    .composer { position: sticky; bottom: 0; margin-top: 10px; padding-top: 10px; background: linear-gradient(180deg, rgba(16, 23, 32, 0.72), #101720 28%); border-top: 1px solid var(--line); }
     .run-details summary { cursor: pointer; color: var(--blue); font-size: 13px; font-weight: 800; margin-bottom: 10px; }
     .hero-workbench { border-color: #315a82; background: #101923; }
     .smart-entry { border-color: #315a82; background: #111923; }

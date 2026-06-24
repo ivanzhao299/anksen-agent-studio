@@ -7935,7 +7935,7 @@ async function consoleSmoke(args) {
     "Local Agent",
     "开始",
     "停止",
-    "我可以帮你推进工程任务",
+    "$ READY",
     "展开详情"
   ].every((text) => actionsHtml.includes(text));
   const smartParkControlsPresent = [
@@ -7950,6 +7950,7 @@ async function consoleSmoke(args) {
     "ANKSEN Logo",
     "/assets/anksen-logo.svg",
     "Pilot Production",
+    "nav-toggle",
     "运行环境",
     "Agent 调度",
     "认证与凭证",
@@ -7957,15 +7958,12 @@ async function consoleSmoke(args) {
     "项目配置",
     "规划",
     "Agent 执行",
-    "验证 / CI",
+    "验证",
     "报告",
     "执行时间线",
-    "任务创建",
-    "代码修改",
-    "CI/CD",
     "Smart Park 上线入口",
-    "平台状态",
-    "风险闸门"
+    "平台",
+    "闸门"
   ].every((text) => dashboardHtml.includes(text));
   const darkThemePresent = dashboardHtml.includes("color-scheme: dark") && dashboardHtml.includes("--bg: #0b0f14");
   const configCenterPresent = [
