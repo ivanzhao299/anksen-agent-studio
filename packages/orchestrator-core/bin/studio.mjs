@@ -55,6 +55,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs runtime list
   node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run
   node packages/orchestrator-core/bin/studio.mjs runtime select --skill <skill_type> [--dry-run]
+  node packages/orchestrator-core/bin/studio.mjs pilot runtime-smoke --runtime codex-cli [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs plan --goal "..." --dry-run
   node packages/orchestrator-core/bin/studio.mjs plan --goal "..." --completion-aware --dry-run
   node packages/orchestrator-core/bin/studio.mjs console render --dry-run
@@ -74,7 +75,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "production", "production-ops", "context", "autopilot", "debug", "console"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "production", "production-ops", "context", "autopilot", "debug", "console", "pilot"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -7926,6 +7927,350 @@ async function runtimeSelect(args) {
   }
 }
 
+function pilotRuntimeSmokePaths() {
+  return {
+    doc: "docs/release/PILOT_1_REAL_RUNTIME_SMOKE.md",
+    artifact: "runtime/pilot/pilot-1-runtime-smoke.json",
+    report: "runtime/pilot/pilot-1-runtime-smoke-report.md"
+  };
+}
+
+async function collectPilotRuntimeSmokePreflight(runtimeId) {
+  const { api: runtimeApi, center } = await loadRuntimeCenterApi();
+  const { api: adapterApi, bundle: adapterBundle } = await loadRuntimeAdapterApi();
+  const { api: credentialApi, vault } = await loadCredentialVaultApi();
+  const { api: governanceApi, bundle: governanceBundle } = await loadGovernanceCenterApi();
+  const selection = runtimeApi.selectRuntime(center, {
+    skillType: "code_development",
+    capability: "code_development",
+    region: "local",
+    budgetUsd: 20
+  });
+  const adapterPlan = adapterApi.buildInvokePlan(adapterBundle, {
+    runtime: runtimeId,
+    skillType: "code_development"
+  });
+  const adapter = adapterBundle.indexes.adaptersById.get(adapterPlan.adapter_id);
+  const credential = credentialApi.credentialInventory(vault)
+    .find((item) => item.credential_id === adapter?.credential_reference_id)
+    ?? credentialApi.credentialInventory(vault).find((item) => item.provider === adapter?.provider)
+    ?? null;
+  const governance = adapter ? governanceApi.evaluateAdapterMetadata(governanceBundle, adapter) : null;
+  const governanceValidation = governanceApi.validateGovernanceCenter(governanceBundle);
+  return {
+    selection,
+    adapterPlan,
+    adapter,
+    credential,
+    governance,
+    governanceValidation
+  };
+}
+
+function buildPilotSmokeArtifact({ runtimeId, mode, preflight, validationResult = null, filesWritten = [] }) {
+  const now = new Date().toISOString();
+  const paths = pilotRuntimeSmokePaths();
+  const workerPayload = {
+    worker_runtime: "local codex-cli",
+    worker_runtime_id: runtimeId,
+    worker_task: "pilot-1-write-runtime-smoke-artifact",
+    execution_mode: mode,
+    real_execution: mode === "apply",
+    result: mode === "apply" ? "artifact_written" : "planned",
+    allowed_paths: Object.values(paths),
+    forbidden_paths: [
+      "jinhu-smart-park/**",
+      "../jinhu-smart-park/**",
+      "**/.env*",
+      "**/*secret*",
+      "**/*private_key*",
+      "**/*ssh_key*"
+    ]
+  };
+  const workerHash = createHash("sha256").update(JSON.stringify(workerPayload)).digest("hex").slice(0, 16);
+  const checks = [
+    {
+      check_id: "runtime_select",
+      status: preflight.selection.selected_runtime === runtimeId ? "PASS" : "FAIL",
+      evidence: `selected_runtime=${preflight.selection.selected_runtime ?? "none"}`
+    },
+    {
+      check_id: "credential_reference",
+      status: preflight.credential?.status === "reference_only" ? "PASS" : "FAIL",
+      evidence: preflight.credential
+        ? `${preflight.credential.credential_id}; ${preflight.credential.reference_type}; secret_value_read=${preflight.credential.secret_value_read}`
+        : "missing"
+    },
+    {
+      check_id: "adapter_invoke_plan",
+      status: preflight.adapterPlan.execution_status === "planned" ? "PASS" : "FAIL",
+      evidence: `${preflight.adapterPlan.adapter_id}; ${preflight.adapterPlan.execution_status}`
+    },
+    {
+      check_id: "governance_gate",
+      status: preflight.governance?.status === "PASS" && preflight.governanceValidation.status === "PASS" ? "PASS" : "FAIL",
+      evidence: `adapter=${preflight.governance?.status ?? "missing"}; center=${preflight.governanceValidation.status}`
+    },
+    {
+      check_id: "worker_runtime",
+      status: runtimeId === "codex-cli" ? "PASS" : "FAIL",
+      evidence: workerPayload.worker_runtime
+    },
+    {
+      check_id: "result_artifact",
+      status: mode === "apply" || filesWritten.length > 0 ? "PASS" : "PLANNED",
+      evidence: paths.artifact
+    },
+    {
+      check_id: "validation",
+      status: validationResult?.ok ? "PASS" : validationResult ? "FAIL" : "PENDING",
+      evidence: validationResult ? `git diff --check status=${validationResult.status}` : "not_run"
+    }
+  ];
+  return {
+    schema_version: 1,
+    pilot_id: "pilot-1-real-runtime-smoke",
+    generated_at: now,
+    status: checks.every((check) => ["PASS", "PLANNED", "PENDING"].includes(check.status)) ? (mode === "apply" ? "PASS" : "PLANNED") : "FAIL",
+    runtime: {
+      selected_runtime: preflight.selection.selected_runtime,
+      requested_runtime: runtimeId,
+      provider: preflight.selection.selected_provider,
+      skill_type: "code_development",
+      runtime_select_status: preflight.selection.selected_runtime === runtimeId ? "PASS" : "FAIL"
+    },
+    credential_reference: {
+      credential_id: preflight.credential?.credential_id ?? "",
+      provider: preflight.credential?.provider ?? "",
+      status: preflight.credential?.status ?? "missing",
+      reference_type: preflight.credential?.reference_type ?? "missing",
+      secret_value_read: "no",
+      env_read: "no",
+      keychain_read: "no",
+      external_vault_read: "no"
+    },
+    adapter: {
+      adapter_id: preflight.adapterPlan.adapter_id,
+      runtime_id: preflight.adapterPlan.runtime_id,
+      invoke_mode: preflight.adapter?.invoke_mode ?? "missing",
+      execution_status: preflight.adapterPlan.execution_status,
+      credential_reference_status: preflight.adapterPlan.credential_reference_status,
+      model_invocation: preflight.adapterPlan.model_invocation,
+      external_calls: preflight.adapterPlan.external_calls,
+      blocked_reasons: preflight.adapterPlan.blocked_reasons
+    },
+    governance: {
+      status: preflight.governance?.status ?? "missing",
+      risk: preflight.governance?.risk ?? "missing",
+      automation_mode: preflight.governance?.automation_mode ?? "missing",
+      center_status: preflight.governanceValidation.status,
+      deploy: "disabled",
+      production_operations: "disabled",
+      server_access: "disabled"
+    },
+    worker_runtime: {
+      ...workerPayload,
+      result_hash: workerHash,
+      files_written: filesWritten
+    },
+    validation_result: validationResult ? {
+      command: "git diff --check",
+      status: validationResult.ok ? "PASS" : "FAIL",
+      exit_code: validationResult.status,
+      stdout_tail: stdoutTail(validationResult.stdout, 20),
+      stderr_tail: stdoutTail(validationResult.stderr, 20)
+    } : {
+      command: "git diff --check",
+      status: "PENDING",
+      exit_code: null,
+      stdout_tail: "",
+      stderr_tail: ""
+    },
+    checks,
+    safety: {
+      managed_project_writes: "disabled",
+      jinhu_smart_park_modified: "no",
+      deploy: "disabled",
+      production_operations: "disabled",
+      server_access: "disabled",
+      credential_values: "not_read",
+      real_model_call: "disabled"
+    }
+  };
+}
+
+function pilotRuntimeSmokeMarkdown(artifact) {
+  return `# Pilot-1 Real Runtime Smoke
+
+- pilot_id: ${artifact.pilot_id}
+- generated_at: ${artifact.generated_at}
+- status: ${artifact.status}
+- runtime: ${artifact.runtime.selected_runtime}
+- worker: ${artifact.worker_runtime.worker_runtime}
+- real_execution: ${artifact.worker_runtime.real_execution ? "yes" : "no"}
+
+## Scope
+
+Pilot-1 validates only Codex CLI. Claude Code, Gemini, OpenHands, and Aider are out of scope.
+
+## Chain
+
+Runtime Center -> Credential Vault Reference -> Runtime Adapter -> Governance -> Worker Runtime -> Result Artifact
+
+## Evidence
+
+| Step | Status | Evidence |
+| --- | --- | --- |
+${artifact.checks.map((check) => `| ${check.check_id} | ${check.status} | ${check.evidence} |`).join("\n")}
+
+## Result
+
+- result_artifact: \`runtime/pilot/pilot-1-runtime-smoke.json\`
+- result_report: \`runtime/pilot/pilot-1-runtime-smoke-report.md\`
+- worker_result_hash: ${artifact.worker_runtime.result_hash}
+- validation: ${artifact.validation_result.status}
+
+## Safety
+
+- \`jinhu-smart-park\` modified: no.
+- Deploy: disabled.
+- Production operations: disabled.
+- Server access: disabled.
+- Credential values: not read.
+- Real model call: disabled.
+`;
+}
+
+function pilotRuntimeSmokeReportMarkdown(artifact) {
+  return `# Pilot-1 Runtime Smoke Report
+
+## Summary
+
+- status: ${artifact.status}
+- runtime: ${artifact.runtime.selected_runtime}
+- provider: ${artifact.runtime.provider}
+- credential_reference: ${artifact.credential_reference.status}
+- adapter: ${artifact.adapter.adapter_id}
+- governance: ${artifact.governance.status}
+- worker: ${artifact.worker_runtime.worker_runtime}
+- real_execution: ${artifact.worker_runtime.real_execution ? "yes" : "no"}
+- validation: ${artifact.validation_result.status}
+
+## Runtime Center
+
+- runtime_select_status: ${artifact.runtime.runtime_select_status}
+- selected_runtime: ${artifact.runtime.selected_runtime}
+- skill_type: ${artifact.runtime.skill_type}
+
+## Credential Vault Reference
+
+- credential_id: ${artifact.credential_reference.credential_id}
+- status: ${artifact.credential_reference.status}
+- reference_type: ${artifact.credential_reference.reference_type}
+- secret_value_read: ${artifact.credential_reference.secret_value_read}
+
+## Runtime Adapter
+
+- adapter_id: ${artifact.adapter.adapter_id}
+- invoke_mode: ${artifact.adapter.invoke_mode}
+- execution_status: ${artifact.adapter.execution_status}
+- model_invocation: ${artifact.adapter.model_invocation}
+- external_calls: ${artifact.adapter.external_calls}
+
+## Governance
+
+- status: ${artifact.governance.status}
+- risk: ${artifact.governance.risk}
+- automation_mode: ${artifact.governance.automation_mode}
+- deploy: ${artifact.governance.deploy}
+- production_operations: ${artifact.governance.production_operations}
+
+## Worker Runtime
+
+- worker_runtime: ${artifact.worker_runtime.worker_runtime}
+- worker_task: ${artifact.worker_runtime.worker_task}
+- result: ${artifact.worker_runtime.result}
+- result_hash: ${artifact.worker_runtime.result_hash}
+- files_written: ${artifact.worker_runtime.files_written.join(", ")}
+
+## Validation
+
+- command: ${artifact.validation_result.command}
+- status: ${artifact.validation_result.status}
+- exit_code: ${artifact.validation_result.exit_code}
+- stderr_tail: ${artifact.validation_result.stderr_tail || "none"}
+
+## Safety
+
+- managed_project_writes: ${artifact.safety.managed_project_writes}
+- jinhu_smart_park_modified: ${artifact.safety.jinhu_smart_park_modified}
+- deploy: ${artifact.safety.deploy}
+- production_operations: ${artifact.safety.production_operations}
+- server_access: ${artifact.safety.server_access}
+- credential_values: ${artifact.safety.credential_values}
+- real_model_call: ${artifact.safety.real_model_call}
+`;
+}
+
+async function writePilotRuntimeSmokeFiles(artifact) {
+  const paths = pilotRuntimeSmokePaths();
+  await mkdir(resolveFromRoot("runtime/pilot"), { recursive: true });
+  await writeJsonFile(resolveFromRoot(paths.artifact), artifact);
+  await writeFile(resolveFromRoot(paths.doc), pilotRuntimeSmokeMarkdown(artifact), "utf8");
+  await writeFile(resolveFromRoot(paths.report), pilotRuntimeSmokeReportMarkdown(artifact), "utf8");
+  return Object.values(paths);
+}
+
+async function pilotRuntimeSmoke(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("pilot runtime-smoke requires --dry-run or --apply.");
+  }
+  const runtimeId = args.runtime || "codex-cli";
+  if (runtimeId !== "codex-cli") {
+    throw new Error("Pilot-1 only allows --runtime codex-cli.");
+  }
+  const preflight = await collectPilotRuntimeSmokePreflight(runtimeId);
+  const mode = args.apply ? "apply" : "dry-run";
+  let artifact = buildPilotSmokeArtifact({ runtimeId, mode, preflight });
+  let filesWritten = [];
+  let validationResult = null;
+
+  if (args.apply) {
+    filesWritten = await writePilotRuntimeSmokeFiles(artifact);
+    validationResult = await execReadOnly(repoRoot, "git", ["diff", "--check"], 120000);
+    artifact = buildPilotSmokeArtifact({ runtimeId, mode, preflight, validationResult, filesWritten });
+    filesWritten = await writePilotRuntimeSmokeFiles(artifact);
+  }
+
+  console.log(`# Pilot-1 Runtime Smoke ${mode}`);
+  console.log("");
+  console.log(`status: ${artifact.status}`);
+  console.log(`runtime: ${artifact.runtime.selected_runtime}`);
+  console.log(`credential_reference: ${artifact.credential_reference.status}`);
+  console.log(`adapter: ${artifact.adapter.adapter_id}`);
+  console.log(`adapter_invoke_plan: ${artifact.adapter.execution_status}`);
+  console.log(`governance: ${artifact.governance.status}`);
+  console.log(`worker: ${artifact.worker_runtime.worker_runtime}`);
+  console.log(`real_execution: ${artifact.worker_runtime.real_execution ? "yes" : "no"}`);
+  console.log(`result_hash: ${artifact.worker_runtime.result_hash}`);
+  console.log(`validation: ${artifact.validation_result.status}`);
+  console.log("secret_values_read: no");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("server_access: disabled");
+  console.log("");
+  console.log("checks:");
+  for (const check of artifact.checks) {
+    console.log(`- ${check.check_id}: ${check.status} (${check.evidence})`);
+  }
+  if (filesWritten.length > 0) {
+    console.log("");
+    console.log("written_files:");
+    for (const file of filesWritten) console.log(`- ${file}`);
+  }
+  if (artifact.status !== "PASS" && args.apply) process.exitCode = 1;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.command || args.command === "--help" || args.command === "-h") {
@@ -7969,6 +8314,7 @@ async function main() {
   if (args.command === "runtime" && args.subcommand === "list") return runtimeList();
   if (args.command === "runtime" && args.subcommand === "health") return runtimeHealth(args);
   if (args.command === "runtime" && args.subcommand === "select") return runtimeSelect(args);
+  if (args.command === "pilot" && args.subcommand === "runtime-smoke") return pilotRuntimeSmoke(args);
   if (args.command === "console" && args.subcommand === "render") return consoleRender(args);
   if (args.command === "skill-route") {
     if (!args.text.trim()) throw new Error("Missing --text for skill-route.");

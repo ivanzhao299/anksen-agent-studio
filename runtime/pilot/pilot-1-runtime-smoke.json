@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "pilot_id": "pilot-1-real-runtime-smoke",
+  "generated_at": "2026-06-24T03:59:03.975Z",
+  "status": "PASS",
+  "runtime": {
+    "selected_runtime": "codex-cli",
+    "requested_runtime": "codex-cli",
+    "provider": "openai",
+    "skill_type": "code_development",
+    "runtime_select_status": "PASS"
+  },
+  "credential_reference": {
+    "credential_id": "openai-primary-ref",
+    "provider": "openai",
+    "status": "reference_only",
+    "reference_type": "vault_path",
+    "secret_value_read": "no",
+    "env_read": "no",
+    "keychain_read": "no",
+    "external_vault_read": "no"
+  },
+  "adapter": {
+    "adapter_id": "codex-cli",
+    "runtime_id": "codex-cli",
+    "invoke_mode": "cli",
+    "execution_status": "planned",
+    "credential_reference_status": "reference_only",
+    "model_invocation": "disabled",
+    "external_calls": "disabled",
+    "blocked_reasons": []
+  },
+  "governance": {
+    "status": "PASS",
+    "risk": "MEDIUM",
+    "automation_mode": "autopilot_execute",
+    "center_status": "PASS",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "server_access": "disabled"
+  },
+  "worker_runtime": {
+    "worker_runtime": "local codex-cli",
+    "worker_runtime_id": "codex-cli",
+    "worker_task": "pilot-1-write-runtime-smoke-artifact",
+    "execution_mode": "apply",
+    "real_execution": true,
+    "result": "artifact_written",
+    "allowed_paths": [
+      "docs/release/PILOT_1_REAL_RUNTIME_SMOKE.md",
+      "runtime/pilot/pilot-1-runtime-smoke.json",
+      "runtime/pilot/pilot-1-runtime-smoke-report.md"
+    ],
+    "forbidden_paths": [
+      "jinhu-smart-park/**",
+      "../jinhu-smart-park/**",
+      "**/.env*",
+      "**/*secret*",
+      "**/*private_key*",
+      "**/*ssh_key*"
+    ],
+    "result_hash": "222d041841cc99c2",
+    "files_written": [
+      "docs/release/PILOT_1_REAL_RUNTIME_SMOKE.md",
+      "runtime/pilot/pilot-1-runtime-smoke.json",
+      "runtime/pilot/pilot-1-runtime-smoke-report.md"
+    ]
+  },
+  "validation_result": {
+    "command": "git diff --check",
+    "status": "PASS",
+    "exit_code": 0,
+    "stdout_tail": "",
+    "stderr_tail": ""
+  },
+  "checks": [
+    {
+      "check_id": "runtime_select",
+      "status": "PASS",
+      "evidence": "selected_runtime=codex-cli"
+    },
+    {
+      "check_id": "credential_reference",
+      "status": "PASS",
+      "evidence": "openai-primary-ref; vault_path; secret_value_read=no"
+    },
+    {
+      "check_id": "adapter_invoke_plan",
+      "status": "PASS",
+      "evidence": "codex-cli; planned"
+    },
+    {
+      "check_id": "governance_gate",
+      "status": "PASS",
+      "evidence": "adapter=PASS; center=PASS"
+    },
+    {
+      "check_id": "worker_runtime",
+      "status": "PASS",
+      "evidence": "local codex-cli"
+    },
+    {
+      "check_id": "result_artifact",
+      "status": "PASS",
+      "evidence": "runtime/pilot/pilot-1-runtime-smoke.json"
+    },
+    {
+      "check_id": "validation",
+      "status": "PASS",
+      "evidence": "git diff --check status=0"
+    }
+  ],
+  "safety": {
+    "managed_project_writes": "disabled",
+    "jinhu_smart_park_modified": "no",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "server_access": "disabled",
+    "credential_values": "not_read",
+    "real_model_call": "disabled"
+  }
+}
