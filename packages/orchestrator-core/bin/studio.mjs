@@ -36,6 +36,10 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs credential list --dry-run
   node packages/orchestrator-core/bin/studio.mjs credential validate --dry-run
   node packages/orchestrator-core/bin/studio.mjs credential policy --dry-run
+  node packages/orchestrator-core/bin/studio.mjs credential backend-list --dry-run
+  node packages/orchestrator-core/bin/studio.mjs credential backend-select --backend <backend_id> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs credential scope-check --runtime <runtime_id> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs credential audit-policy --dry-run
   node packages/orchestrator-core/bin/studio.mjs governance check --dry-run
   node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run
   node packages/orchestrator-core/bin/studio.mjs approval-policy --dry-run
@@ -99,6 +103,7 @@ function parseArgs(argv) {
     skill: "",
     runtime: "",
     worker: "",
+    backend: "",
     platform: "",
     capability: "",
     region: "local",
@@ -125,6 +130,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--worker") {
       args.worker = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--backend") {
+      args.backend = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--platform") {
       args.platform = rest[index + 1] ?? "";
@@ -7516,6 +7524,132 @@ async function credentialPolicy(args) {
   for (const field of policy.forbidden_fields) console.log(`- ${field}`);
 }
 
+async function credentialBackendList(args) {
+  assertDryRun(args, "credential backend-list");
+  const { api, vault } = await loadCredentialVaultApi();
+  const validation = api.validateBackendPolicy(vault);
+  const backends = api.backendInventory(vault);
+  console.log("# Credential Backend List dry-run");
+  console.log("");
+  console.log(`status: ${validation.status}`);
+  console.log(`backends: ${backends.length}`);
+  console.log(`scopes: ${validation.scope_count}`);
+  console.log("secret_values_read: no");
+  console.log("env_read: no");
+  console.log("keychain_read: no");
+  console.log("external_vault_read: no");
+  console.log("ssh_agent_read: no");
+  console.log("external_connection: disabled");
+  console.log("");
+  console.log("| Backend | Reference Type | Environments | Risk | Mode | Approval | Secret Read | External Connection |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
+  for (const backend of backends) {
+    console.log(`| ${backend.backend_id} | ${backend.reference_type} | ${backend.supported_environments.join(", ")} | ${backend.risk} | ${backend.execution_mode} | ${backend.approval_required ? "yes" : "no"} | ${backend.secret_values_read} | ${backend.external_connection} |`);
+  }
+  console.log("");
+  console.log("findings:");
+  if (validation.findings.length === 0) {
+    console.log("- none");
+  } else {
+    for (const finding of validation.findings) console.log(`- ${finding.severity}: ${finding.message}`);
+  }
+  if (validation.status !== "PASS") process.exitCode = 1;
+}
+
+async function credentialBackendSelect(args) {
+  assertDryRun(args, "credential backend-select");
+  if (!args.backend.trim()) {
+    throw new Error("Missing --backend for credential backend-select.");
+  }
+  const { api, vault } = await loadCredentialVaultApi();
+  const selection = api.selectBackend(vault, args.backend);
+  console.log("# Credential Backend Select dry-run");
+  console.log("");
+  console.log(`selection_id: ${selection.selection_id}`);
+  console.log(`backend_id: ${selection.backend_id}`);
+  console.log(`status: ${selection.status}`);
+  console.log(`risk: ${selection.risk}`);
+  console.log(`execution_mode: ${selection.execution_mode}`);
+  console.log(`approval_required: ${selection.approval_required ? "yes" : "no"}`);
+  console.log(`proposal_required: ${selection.proposal_required ? "yes" : "no"}`);
+  console.log(`secret_values_read: ${selection.secret_values_read}`);
+  console.log(`env_read: ${selection.env_read}`);
+  console.log(`keychain_read: ${selection.keychain_read}`);
+  console.log(`external_vault_read: ${selection.external_vault_read}`);
+  console.log(`ssh_agent_read: ${selection.ssh_agent_read}`);
+  console.log(`external_connection: ${selection.external_connection}`);
+  console.log(`notes: ${selection.notes}`);
+  console.log("");
+  console.log("blocked_reasons:");
+  if (selection.blocked_reasons.length === 0) {
+    console.log("- none");
+  } else {
+    for (const reason of selection.blocked_reasons) console.log(`- ${reason}`);
+  }
+  if (selection.status === "BLOCKED") process.exitCode = 1;
+}
+
+async function credentialScopeCheck(args) {
+  assertDryRun(args, "credential scope-check");
+  if (!args.runtime.trim()) {
+    throw new Error("Missing --runtime for credential scope-check.");
+  }
+  const { api, vault } = await loadCredentialVaultApi();
+  const result = api.scopeCheck(vault, args.runtime);
+  console.log("# Credential Scope Check dry-run");
+  console.log("");
+  console.log(`status: ${result.status}`);
+  console.log(`runtime_id: ${result.runtime_id}`);
+  console.log(`credential_reference_id: ${result.credential_reference_id || "none"}`);
+  console.log(`credential_status: ${result.credential_status}`);
+  console.log(`credential_reference_type: ${result.credential_reference_type}`);
+  console.log(`environment: ${result.scope.environment ?? "none"}`);
+  console.log(`allowed_backends: ${(result.scope.allowed_backends ?? []).join(", ") || "none"}`);
+  console.log(`production_allowed: ${result.scope.production_allowed ? "yes" : "no"}`);
+  console.log("secret_values_read: no");
+  console.log("env_read: no");
+  console.log("keychain_read: no");
+  console.log("external_vault_read: no");
+  console.log("ssh_agent_read: no");
+  console.log("external_connection: disabled");
+  console.log("");
+  console.log("findings:");
+  if (result.findings.length === 0) {
+    console.log("- none");
+  } else {
+    for (const finding of result.findings) console.log(`- ${finding}`);
+  }
+  if (result.status !== "PASS") process.exitCode = 1;
+}
+
+async function credentialAuditPolicy(args) {
+  assertDryRun(args, "credential audit-policy");
+  const { api, vault } = await loadCredentialVaultApi();
+  const policy = api.auditPolicySummary(vault);
+  console.log("# Credential Backend Audit Policy dry-run");
+  console.log("");
+  console.log(`policy_id: ${policy.policy_id}`);
+  console.log(`environment_separation: ${policy.environment_separation.join(", ")}`);
+  console.log(`rotation_mode: ${policy.rotation_policy.mode}`);
+  console.log(`rotation_minimum_review_days: ${policy.rotation_policy.minimum_review_days}`);
+  console.log(`secret_value_rotation: ${policy.rotation_policy.secret_value_rotation}`);
+  console.log(`secret_values_in_logs: ${policy.audit_policy.secret_values_in_logs}`);
+  console.log(`env_reads_logged: ${policy.audit_policy.env_reads_logged}`);
+  console.log(`external_vault_connections: ${policy.audit_policy.external_vault_connections}`);
+  console.log(`approval_medium: ${policy.approval_policy.medium}`);
+  console.log(`approval_high: ${policy.approval_policy.high}`);
+  console.log(`approval_critical: ${policy.approval_policy.critical}`);
+  console.log("secret_values_read: no");
+  console.log("env_read: no");
+  console.log("keychain_read: no");
+  console.log("external_vault_read: no");
+  console.log("ssh_agent_read: no");
+  console.log("external_connection: disabled");
+  console.log("");
+  console.log("log_events:");
+  for (const event of policy.audit_policy.log_events) console.log(`- ${event}`);
+}
+
 async function governanceCheck(args) {
   assertDryRun(args, "governance check");
   const { api, bundle } = await loadGovernanceCenterApi();
@@ -8538,6 +8672,10 @@ async function main() {
   if (args.command === "credential" && args.subcommand === "list") return credentialList(args);
   if (args.command === "credential" && args.subcommand === "validate") return credentialValidate(args);
   if (args.command === "credential" && args.subcommand === "policy") return credentialPolicy(args);
+  if (args.command === "credential" && args.subcommand === "backend-list") return credentialBackendList(args);
+  if (args.command === "credential" && args.subcommand === "backend-select") return credentialBackendSelect(args);
+  if (args.command === "credential" && args.subcommand === "scope-check") return credentialScopeCheck(args);
+  if (args.command === "credential" && args.subcommand === "audit-policy") return credentialAuditPolicy(args);
   if (args.command === "governance" && args.subcommand === "check") return governanceCheck(args);
   if (args.command === "release-gate" && args.subcommand === "check") return releaseGateCheck(args);
   if (args.command === "approval-policy") return approvalPolicy(args);

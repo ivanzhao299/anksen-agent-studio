@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "policy_id": "pilot-3-real-credential-backend-policy",
+  "updated_at": "2026-06-24T00:00:00.000+08:00",
+  "secret_values": "forbidden",
+  "environment_separation": ["local", "staging", "production"],
+  "backends": [
+    {
+      "backend_id": "local-env-ref",
+      "display_name": "Local Environment Variable Reference",
+      "reference_type": "env_ref",
+      "supported_environments": ["local"],
+      "risk": "MEDIUM",
+      "execution_mode": "reference_only",
+      "secret_read": "forbidden",
+      "external_connection": "disabled",
+      "approval_required": false,
+      "notes": "Stores only environment variable names. Studio must not read process.env secret values."
+    },
+    {
+      "backend_id": "macos-keychain-ref",
+      "display_name": "macOS Keychain Reference",
+      "reference_type": "keychain_ref",
+      "supported_environments": ["local", "staging"],
+      "risk": "MEDIUM",
+      "execution_mode": "reference_only",
+      "secret_read": "forbidden",
+      "external_connection": "disabled",
+      "approval_required": false,
+      "notes": "Stores only keychain item references. Studio must not call security/keychain reads in Pilot-3."
+    },
+    {
+      "backend_id": "external-vault-ref",
+      "display_name": "External Vault Reference",
+      "reference_type": "external_vault_ref",
+      "supported_environments": ["staging"],
+      "risk": "HIGH",
+      "execution_mode": "proposal_only",
+      "secret_read": "forbidden",
+      "external_connection": "disabled",
+      "approval_required": true,
+      "notes": "External vault integration remains proposal-only and disconnected."
+    },
+    {
+      "backend_id": "cloud-secret-manager-ref",
+      "display_name": "Cloud Secret Manager Reference",
+      "reference_type": "external_vault_ref",
+      "supported_environments": ["staging"],
+      "risk": "HIGH",
+      "execution_mode": "proposal_only",
+      "secret_read": "forbidden",
+      "external_connection": "disabled",
+      "approval_required": true,
+      "notes": "Cloud secret manager references are metadata only. No cloud API is called."
+    },
+    {
+      "backend_id": "ssh-agent-ref",
+      "display_name": "SSH Agent Reference",
+      "reference_type": "ssh_agent_ref",
+      "supported_environments": ["local", "staging"],
+      "risk": "HIGH",
+      "execution_mode": "proposal_only",
+      "secret_read": "forbidden",
+      "external_connection": "disabled",
+      "approval_required": true,
+      "notes": "SSH agent use is proposal-only. Pilot-3 does not list identities or open connections."
+    }
+  ],
+  "credential_scopes": [
+    {
+      "runtime_id": "codex-cli",
+      "credential_reference_id": "openai-primary-ref",
+      "environment": "local",
+      "allowed_backends": ["local-env-ref", "macos-keychain-ref"],
+      "production_allowed": false,
+      "scope_notes": "Codex CLI may use local reference metadata only. Secret values remain outside Studio."
+    },
+    {
+      "runtime_id": "local-agent",
+      "credential_reference_id": "local-runtime-none",
+      "environment": "local",
+      "allowed_backends": ["local-env-ref"],
+      "production_allowed": false,
+      "scope_notes": "Local deterministic runtime does not require a credential value."
+    },
+    {
+      "runtime_id": "openhands",
+      "credential_reference_id": "openhands-worker-ssh-ref",
+      "environment": "staging",
+      "allowed_backends": ["ssh-agent-ref", "macos-keychain-ref"],
+      "production_allowed": false,
+      "scope_notes": "Remote worker SSH references are HIGH risk and proposal-only."
+    }
+  ],
+  "rotation_policy": {
+    "mode": "policy_only",
+    "minimum_review_days": 90,
+    "secret_value_rotation": "not_performed_by_studio"
+  },
+  "audit_policy": {
+    "log_events": ["backend.list", "backend.select", "scope.check", "audit.policy"],
+    "secret_values_in_logs": "forbidden",
+    "env_reads_logged": "not_performed",
+    "external_vault_connections": "not_performed"
+  },
+  "approval_policy": {
+    "medium": "dry_run_reference_only",
+    "high": "proposal_only",
+    "critical": "human_approval_required"
+  },
+  "notes": "Pilot-3 defines real credential backend policy without saving or reading real API keys, SSH keys, env values, keychain items, or external vault entries."
+}

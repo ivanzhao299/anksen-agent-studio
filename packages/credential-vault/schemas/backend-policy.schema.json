@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/credential-backend-policy.schema.json",
+  "title": "Credential Backend Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy_id", "updated_at", "secret_values", "environment_separation", "backends", "rotation_policy", "audit_policy", "approval_policy"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "policy_id": { "type": "string", "minLength": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "secret_values": { "type": "string", "enum": ["forbidden"] },
+    "environment_separation": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["local", "staging", "production"] },
+      "uniqueItems": true
+    },
+    "backends": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/backend" },
+      "minItems": 1
+    },
+    "credential_scopes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scope" }
+    },
+    "rotation_policy": { "$ref": "#/$defs/rotation_policy" },
+    "audit_policy": { "$ref": "#/$defs/audit_policy" },
+    "approval_policy": { "$ref": "#/$defs/approval_policy" },
+    "notes": { "type": "string" }
+  },
+  "$defs": {
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backend_id", "display_name", "reference_type", "supported_environments", "risk", "execution_mode", "secret_read", "external_connection"],
+      "properties": {
+        "backend_id": { "type": "string", "enum": ["local-env-ref", "macos-keychain-ref", "external-vault-ref", "cloud-secret-manager-ref", "ssh-agent-ref"] },
+        "display_name": { "type": "string" },
+        "reference_type": { "type": "string", "enum": ["env_ref", "keychain_ref", "external_vault_ref", "ssh_agent_ref"] },
+        "supported_environments": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["local", "staging", "production"] },
+          "uniqueItems": true
+        },
+        "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+        "execution_mode": { "type": "string", "enum": ["reference_only", "proposal_only", "human_approval_required"] },
+        "secret_read": { "type": "string", "enum": ["forbidden"] },
+        "external_connection": { "type": "string", "enum": ["disabled"] },
+        "approval_required": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_id", "credential_reference_id", "environment", "allowed_backends", "production_allowed"],
+      "properties": {
+        "runtime_id": { "type": "string", "minLength": 1 },
+        "credential_reference_id": { "type": "string", "minLength": 1 },
+        "environment": { "type": "string", "enum": ["local", "staging", "production"] },
+        "allowed_backends": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "production_allowed": { "type": "boolean" },
+        "scope_notes": { "type": "string" }
+      }
+    },
+    "rotation_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "minimum_review_days", "secret_value_rotation"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["policy_only"] },
+        "minimum_review_days": { "type": "integer", "minimum": 1 },
+        "secret_value_rotation": { "type": "string", "enum": ["not_performed_by_studio"] }
+      }
+    },
+    "audit_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["log_events", "secret_values_in_logs", "env_reads_logged", "external_vault_connections"],
+      "properties": {
+        "log_events": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "secret_values_in_logs": { "type": "string", "enum": ["forbidden"] },
+        "env_reads_logged": { "type": "string", "enum": ["not_performed"] },
+        "external_vault_connections": { "type": "string", "enum": ["not_performed"] }
+      }
+    },
+    "approval_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["medium", "high", "critical"],
+      "properties": {
+        "medium": { "type": "string", "enum": ["dry_run_reference_only"] },
+        "high": { "type": "string", "enum": ["proposal_only"] },
+        "critical": { "type": "string", "enum": ["human_approval_required"] }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "selection_id": "select-local-env-ref-example",
+  "backend_id": "local-env-ref",
+  "status": "SELECTED",
+  "dry_run": true,
+  "risk": "MEDIUM",
+  "execution_mode": "reference_only",
+  "secret_values_read": "no",
+  "external_connection": "disabled",
+  "approval_required": false,
+  "blocked_reasons": []
+}

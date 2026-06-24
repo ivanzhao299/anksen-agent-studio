@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/credential-backend-selection.schema.json",
+  "title": "Credential Backend Selection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "selection_id", "backend_id", "status", "dry_run", "risk", "execution_mode", "secret_values_read"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "selection_id": { "type": "string", "minLength": 1 },
+    "backend_id": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["SELECTED", "PROPOSAL_ONLY", "BLOCKED"] },
+    "dry_run": { "type": "boolean", "const": true },
+    "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    "execution_mode": { "type": "string" },
+    "secret_values_read": { "type": "string", "enum": ["no"] },
+    "external_connection": { "type": "string", "enum": ["disabled"] },
+    "approval_required": { "type": "boolean" },
+    "blocked_reasons": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
