@@ -12,14 +12,14 @@
     "scope": { "type": "string", "enum": ["context", "runtime", "project", "worker", "credential", "governance", "autopilot", "smart_park", "proposal"] },
     "command": { "type": "string" },
     "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
-    "mode": { "type": "string", "enum": ["read_only", "dry_run"] },
-    "executionMode": { "type": "string", "enum": ["dry_run_only", "proposal_only"] },
+    "mode": { "type": "string", "enum": ["read_only", "dry_run", "direct_execute"] },
+    "executionMode": { "type": "string", "enum": ["dry_run_only", "direct_execute", "proposal_only", "human_approval_required"] },
     "requiresApproval": { "type": "boolean" },
     "readOnly": { "type": "boolean", "const": true },
     "write_enabled": { "type": "boolean", "const": false },
     "production_enabled": { "type": "boolean", "const": false },
     "source": { "type": "string" },
-    "governance_gate": { "type": "string", "enum": ["ALLOW_DRY_RUN", "PROPOSAL_ONLY", "HUMAN_APPROVAL_REQUIRED"] },
+    "governance_gate": { "type": "string", "enum": ["ALLOW_DRY_RUN", "ALLOW_DIRECT_EXECUTE", "PROPOSAL_ONLY", "HUMAN_APPROVAL_REQUIRED"] },
     "disabledReason": { "type": "string" }
   }
 }

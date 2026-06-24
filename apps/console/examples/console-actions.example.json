@@ -1,7 +1,10 @@
 {
   "schema_version": 1,
   "action_center_id": "pilot-4-console-action-center",
-  "default_mode": "read_only",
+  "default_mode": "pilot_production",
+  "direct_execute_allowed_for": ["LOW", "MEDIUM"],
+  "high_risk_policy": "proposal_only",
+  "critical_risk_policy": "human_approval_required",
   "write_enabled": false,
   "production_enabled": false,
   "actions": [

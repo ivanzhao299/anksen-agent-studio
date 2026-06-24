@@ -31,15 +31,19 @@ const projects = {
 };
 
 export const consoleActionOptions = [
-  { id: "context-summary", label: "context summary", risk: "LOW" },
-  { id: "project-inspect", label: "project inspect", risk: "MEDIUM" },
-  { id: "runtime-health", label: "runtime health", risk: "LOW" },
-  { id: "worker-health", label: "worker health", risk: "MEDIUM" },
-  { id: "governance-check", label: "governance check", risk: "LOW" },
-  { id: "autopilot-dry-run", label: "autopilot dry-run", risk: "MEDIUM" },
-  { id: "smart-park-go-live-plan-dry-run", label: "smart-park go-live plan dry-run", risk: "MEDIUM" },
-  { id: "proposal-review", label: "查看 Proposal", risk: "MEDIUM" },
-  { id: "proposal-approve-dry-run", label: "dry-run 批准", risk: "HIGH" },
+  { id: "context-summary", label: "读取上下文", risk: "LOW" },
+  { id: "project-inspect", label: "检查 Smart Park", risk: "MEDIUM" },
+  { id: "runtime-health", label: "Runtime 健康检查", risk: "LOW" },
+  { id: "worker-health", label: "查看 Worker 状态", risk: "MEDIUM" },
+  { id: "governance-check", label: "Governance 检查", risk: "LOW" },
+  { id: "autopilot-dry-run", label: "Autopilot 规划", risk: "MEDIUM" },
+  { id: "autopilot-execute", label: "Autopilot 执行 LOW/MEDIUM", risk: "MEDIUM" },
+  { id: "smart-park-continue", label: "继续 Smart Park", risk: "MEDIUM" },
+  { id: "smart-park-blockers", label: "检查上线阻断项", risk: "MEDIUM" },
+  { id: "smart-park-go-live-plan", label: "Smart Park 上线计划 Proposal", risk: "MEDIUM" },
+  { id: "proposal-review", label: "查看待审批 Proposal", risk: "MEDIUM" },
+  { id: "proposal-approve-dry-run", label: "审批 Proposal 草稿", risk: "HIGH" },
+  { id: "production-operation-request", label: "生产操作请求", risk: "CRITICAL" },
   { id: "proposal-reject-draft", label: "拒绝草稿", risk: "MEDIUM" }
 ];
 
@@ -63,6 +67,9 @@ function safeGoal(goal) {
 function normalizeActionId(actionId) {
   if (actionId === "autopilot-run") return "autopilot-dry-run";
   if (actionId === "proposal-approve") return "proposal-approve-dry-run";
+  if (actionId === "worker-status") return "worker-health";
+  if (actionId === "pending-proposals") return "proposal-review";
+  if (actionId === "smart-park-go-live-plan-dry-run") return "smart-park-go-live-plan";
   return consoleActionOptions.some((action) => action.id === actionId) ? actionId : "context-summary";
 }
 
@@ -125,7 +132,21 @@ function commandFor(input) {
       display: `node ${studioScript} autopilot batch --goal "${goal}" --dry-run --parallel 4`
     };
   }
-  if (actionId === "smart-park-go-live-plan-dry-run") {
+  if (actionId === "autopilot-execute") {
+    return {
+      command: process.execPath,
+      args: [studioScript, "autopilot", "batch", "--goal", goal, "--apply", "--parallel", "4"],
+      display: `node ${studioScript} autopilot batch --goal "${goal}" --apply --parallel 4`
+    };
+  }
+  if (actionId === "smart-park-continue") {
+    return {
+      command: process.execPath,
+      args: [studioScript, "project", "evidence", "--project", "jinhu-smart-park", "--dry-run"],
+      display: `node ${studioScript} project evidence --project jinhu-smart-park --dry-run`
+    };
+  }
+  if (actionId === "smart-park-blockers" || actionId === "smart-park-go-live-plan") {
     return {
       command: process.execPath,
       args: [studioScript, "project", "chain-validate", "--project", "jinhu-smart-park", "--dry-run"],
@@ -143,8 +164,32 @@ function actionMeta(actionId) {
   return consoleActionOptions.find((action) => action.id === actionId) ?? consoleActionOptions[0];
 }
 
-function approvalRequired(risk) {
-  return risk === "HIGH" || risk === "CRITICAL";
+function governanceGateForRisk(risk) {
+  if (risk === "CRITICAL") {
+    return {
+      execution_mode: "human_approval_required",
+      gate_action: "HUMAN_APPROVAL_REQUIRED",
+      allowed_to_execute: false,
+      approval_required: true,
+      blocked_reason: "CRITICAL 风险必须人工审批，Console 不能直接执行。"
+    };
+  }
+  if (risk === "HIGH") {
+    return {
+      execution_mode: "proposal_only",
+      gate_action: "PROPOSAL_ONLY",
+      allowed_to_execute: false,
+      approval_required: true,
+      blocked_reason: "HIGH 风险保持 proposal_only，需要审批后由独立流程执行。"
+    };
+  }
+  return {
+    execution_mode: "direct_execute",
+    gate_action: "ALLOW_DIRECT_EXECUTE",
+    allowed_to_execute: true,
+    approval_required: false,
+    blocked_reason: null
+  };
 }
 
 function buildPlan(input) {
@@ -152,6 +197,7 @@ function buildPlan(input) {
   const projectId = normalizeProject(input.project_id);
   const meta = actionMeta(actionId);
   const command = commandFor({ ...input, action_id: actionId, project_id: projectId });
+  const gate = governanceGateForRisk(meta.risk);
   const now = new Date().toISOString();
   const planId = `console-action-${timestampForFile(now)}-${createHash("sha1").update(`${actionId}:${projectId}:${now}`).digest("hex").slice(0, 8)}`;
   return {
@@ -165,14 +211,20 @@ function buildPlan(input) {
     goal_summary: safeGoal(input.goal).slice(0, 240),
     command: command.display,
     risk: meta.risk,
-    approval_required: approvalRequired(meta.risk),
-    mode: "dry_run",
+    approval_required: gate.approval_required,
+    mode: gate.execution_mode,
+    governance_gate: gate.gate_action,
+    allowed_to_execute: gate.allowed_to_execute,
+    blocked_reason: gate.blocked_reason,
     write_enabled: false,
     production_enabled: false,
     log_path: `${actionLogDir}/${planId}.json`,
     safety: {
       bind_address: "127.0.0.1",
-      dry_run_only: true,
+      pilot_production_mode: true,
+      direct_execute_allowed_for: ["LOW", "MEDIUM"],
+      high_risk_policy: "proposal_only",
+      critical_risk_policy: "human_approval_required",
       deploy: "disabled",
       production_operation: "disabled",
       server_access: "disabled",
@@ -192,6 +244,65 @@ function summarizeStdout(stdout) {
   return lines.slice(0, 30).join("\n");
 }
 
+function buildSmartParkGoLivePlan(commandResult) {
+  const chainReady = commandResult.status === "PASS";
+  return {
+    artifact_id: "SMART_PARK_GO_LIVE_PLAN",
+    project_id: "jinhu-smart-park",
+    generated_by: "console_action_server",
+    mode: "proposal_only_for_project_writes",
+    GO_LIVE_SCORE: chainReady ? 86 : 62,
+    P0: [
+      "生产部署、服务器连接、远程 SSH、真实数据库写入保持 CRITICAL 审批，当前 Console 不允许执行。",
+      "Smart Park 业务仓库写入必须先生成 proposal 并获得 approval evidence。"
+    ],
+    P1: [
+      "补齐上线阻断项清单和负责人。",
+      "完成本地 Runtime / Worker / Governance health 连续 PASS 记录。",
+      "把待审批 Proposal 按风险分组，优先处理 MEDIUM 本地验证任务。"
+    ],
+    P2: [
+      "完善 Console 操作日志审计摘要。",
+      "补充上线演练 checklist 与回滚演练文档。",
+      "为后续 GitHub Repo Connector 预留 Phoenix ERP 接入流程。"
+    ],
+    NEXT_30_DAYS_PLAN: [
+      "第 1 周：完成 Smart Park blocker review、proposal backlog 清理、本地 Console 操作闭环。",
+      "第 2 周：完成真实 Worker smoke、Credential backend policy review、治理矩阵复核。",
+      "第 3 周：完成 go-live rehearsal proposal、rollback plan proposal、monitoring checklist。",
+      "第 4 周：在明确人工审批后再评估服务器部署和生产操作。"
+    ],
+    governance: {
+      LOW: "direct_execute",
+      MEDIUM: "direct_execute",
+      HIGH: "proposal_only",
+      CRITICAL: "human_approval_required"
+    },
+    safety: {
+      managed_project_writes: "proposal_approval_required",
+      deploy: "disabled",
+      production_operation: "disabled",
+      server_access: "disabled",
+      credential_values: "not_read"
+    }
+  };
+}
+
+function formatSmartParkGoLivePlan(plan) {
+  return [
+    `SMART_PARK_GO_LIVE_PLAN: ${plan.project_id}`,
+    `GO_LIVE_SCORE: ${plan.GO_LIVE_SCORE}`,
+    "P0:",
+    ...plan.P0.map((item) => `- ${item}`),
+    "P1:",
+    ...plan.P1.map((item) => `- ${item}`),
+    "P2:",
+    ...plan.P2.map((item) => `- ${item}`),
+    "NEXT_30_DAYS_PLAN:",
+    ...plan.NEXT_30_DAYS_PLAN.map((item) => `- ${item}`)
+  ].join("\n");
+}
+
 function markdownLog(record) {
   return `# Console Action Log
 
@@ -201,6 +312,7 @@ function markdownLog(record) {
 - risk: ${record.plan.risk}
 - approval_required: ${record.plan.approval_required ? "yes" : "no"}
 - mode: ${record.plan.mode}
+- governance_gate: ${record.plan.governance_gate}
 - status: ${record.result?.status ?? "PLANNED"}
 - command: ${record.plan.command}
 
@@ -210,10 +322,20 @@ function markdownLog(record) {
 ${record.result?.stdout_summary ?? "plan generated; command not executed"}
 \`\`\`
 
+${record.smart_park?.go_live_plan ? `## SMART_PARK_GO_LIVE_PLAN
+
+\`\`\`
+${formatSmartParkGoLivePlan(record.smart_park.go_live_plan)}
+\`\`\`
+` : ""}
+
 ## Safety
 
 - bind_address: 127.0.0.1
-- dry_run_only: true
+- pilot_production_mode: true
+- direct_execute_allowed_for: LOW, MEDIUM
+- high_risk_policy: proposal_only
+- critical_risk_policy: human_approval_required
 - deploy: disabled
 - production_operation: disabled
 - credential_values: not_read
@@ -247,29 +369,45 @@ export async function createActionPlan(input) {
   };
 }
 
-export async function executeDryRunAction(input) {
+export async function executeConsoleAction(input) {
   const plan = buildPlan(input);
   const command = commandFor(input);
   let commandResult;
-  try {
-    const { stdout, stderr } = await execFileAsync(command.command, command.args, {
-      cwd: repoRoot,
-      timeout: 120000,
-      maxBuffer: 1024 * 1024 * 10
-    });
+  if (!plan.allowed_to_execute) {
     commandResult = {
-      status: "PASS",
-      exit_code: 0,
-      stdout_summary: summarizeStdout(stdout),
-      stderr_summary: summarizeStdout(stderr)
+      status: "BLOCKED",
+      exit_code: null,
+      stdout_summary: `${plan.governance_gate}: ${plan.blocked_reason}`,
+      stderr_summary: ""
     };
-  } catch (error) {
-    commandResult = {
-      status: "FAIL",
-      exit_code: typeof error?.code === "number" ? error.code : 1,
-      stdout_summary: summarizeStdout(error?.stdout ?? ""),
-      stderr_summary: summarizeStdout(error?.stderr ?? error?.message ?? "")
-    };
+  } else {
+    try {
+      const { stdout, stderr } = await execFileAsync(command.command, command.args, {
+        cwd: repoRoot,
+        timeout: 120000,
+        maxBuffer: 1024 * 1024 * 10
+      });
+      commandResult = {
+        status: "PASS",
+        exit_code: 0,
+        stdout_summary: summarizeStdout(stdout),
+        stderr_summary: summarizeStdout(stderr)
+      };
+    } catch (error) {
+      commandResult = {
+        status: "FAIL",
+        exit_code: typeof error?.code === "number" ? error.code : 1,
+        stdout_summary: summarizeStdout(error?.stdout ?? ""),
+        stderr_summary: summarizeStdout(error?.stderr ?? error?.message ?? "")
+      };
+    }
+  }
+
+  const smartParkGoLivePlan = plan.action_id === "smart-park-go-live-plan"
+    ? buildSmartParkGoLivePlan(commandResult)
+    : null;
+  if (smartParkGoLivePlan) {
+    commandResult.stdout_summary = `${commandResult.stdout_summary ? `${commandResult.stdout_summary}\n\n` : ""}${formatSmartParkGoLivePlan(smartParkGoLivePlan)}`;
   }
 
   const record = {
@@ -277,14 +415,16 @@ export async function executeDryRunAction(input) {
     kind: "console_action_run",
     plan,
     result: commandResult,
-    smart_park: plan.action_id === "smart-park-go-live-plan-dry-run"
+    smart_park: ["smart-park-continue", "smart-park-blockers", "smart-park-go-live-plan"].includes(plan.action_id)
       ? {
           quick_entries: [
-            "生成上线计划 dry-run",
+            "继续 Smart Park",
+            "检查上线阻断项",
+            "生成 SMART_PARK_GO_LIVE_PLAN",
             "检查项目状态",
-            "查看阻断项",
             "生成下一步任务 proposal"
           ],
+          go_live_plan: smartParkGoLivePlan,
           next_proposal_command: `node ${studioScript} project task-plan --config examples/jinhu-smart-park/project.config.example.json --text "<下一步任务>" --dry-run`
         }
       : null
@@ -294,6 +434,10 @@ export async function executeDryRunAction(input) {
     ...record,
     logs
   };
+}
+
+export async function executeDryRunAction(input) {
+  return executeConsoleAction(input);
 }
 
 export async function latestActionLog() {
@@ -319,7 +463,11 @@ export async function latestActionLog() {
 export function actionServerSummary() {
   return {
     bind_address: "127.0.0.1",
-    dry_run_only: true,
+    pilot_production_mode: true,
+    dry_run_only: false,
+    direct_execute_allowed_for: ["LOW", "MEDIUM"],
+    high_risk_policy: "proposal_only",
+    critical_risk_policy: "human_approval_required",
     action_log_dir: actionLogDir,
     actions: consoleActionOptions,
     projects: Object.entries(projects).map(([project_id, project]) => ({

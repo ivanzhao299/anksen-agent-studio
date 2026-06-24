@@ -7868,19 +7868,22 @@ async function consoleSmoke(args) {
     "项目选择",
     "操作类型",
     "生成计划",
-    "执行 dry-run",
+    "开始执行",
     "查看日志"
   ].every((text) => actionsHtml.includes(text));
   const smartParkControlsPresent = [
-    "生成上线计划 dry-run",
-    "检查 Smart Park",
-    "Governance 检查",
-    "查看 Proposal"
+    "继续 Smart Park",
+    "检查上线阻断项",
+    "生成上线计划 Proposal",
+    "查看待审批 Proposal",
+    "查看 Worker 状态"
   ].every((text) => actionsHtml.includes(text));
   const controlTowerPresent = [
     "企业级 AI 软件工厂控制塔",
     "ANKSEN Logo",
     "/assets/anksen-logo.svg",
+    "Pilot Production Mode",
+    "LOW/MEDIUM 本地安全任务可直接执行",
     "任务工作台",
     "Smart Park 上线入口",
     "推荐动作区",
@@ -7890,7 +7893,7 @@ async function consoleSmoke(args) {
     "风险标识",
     "项目工作台",
     "平台状态",
-    "V5 / Pilot",
+    "Pilot Production",
     "风险闸门",
     "查看原始"
   ].every((text) => dashboardHtml.includes(text));

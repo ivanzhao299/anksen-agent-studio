@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderConsolePage } from "./render.mjs";
 import { consoleWebRoutes } from "./routes.mjs";
-import { createActionPlan, executeDryRunAction, latestActionLog } from "./action-server.mjs";
+import { createActionPlan, executeConsoleAction, latestActionLog } from "./action-server.mjs";
 
 const port = Number(process.env.PORT ?? 4317);
 const allowedPaths = new Set(consoleWebRoutes.map((route) => route.path));
@@ -43,7 +43,7 @@ const server = createServer(async (request, response) => {
       return;
     }
     if (request.method === "POST" && pathname === "/api/action-run") {
-      sendJson(response, 200, await executeDryRunAction(await readJsonBody(request)));
+      sendJson(response, 200, await executeConsoleAction(await readJsonBody(request)));
       return;
     }
     if (request.method === "GET" && pathname === "/api/action-log/latest") {
@@ -77,5 +77,6 @@ const server = createServer(async (request, response) => {
 
 server.listen(port, "127.0.0.1", () => {
   console.log(`ANKSEN Agent Studio Console running at http://127.0.0.1:${port}`);
-  console.log("Mode: local read-only pilot. No external calls, deploy, production operations, model calls, or secret reads.");
+  console.log("Mode: Pilot Production. LOW/MEDIUM local allowlist actions execute; HIGH stays proposal-only; CRITICAL requires human approval.");
+  console.log("No deploy, production operations, model calls, managed project writes, or secret reads.");
 });

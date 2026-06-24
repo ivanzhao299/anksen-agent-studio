@@ -59,6 +59,18 @@ function statusLabel(value) {
   return `<span class="status-label ${normalizeToken(value)}">${escapeHtml(value)}</span>`;
 }
 
+function executionModeForRisk(risk) {
+  if (risk === "CRITICAL") return "human_approval_required";
+  if (risk === "HIGH") return "proposal_only";
+  return "direct_execute";
+}
+
+function governanceGateForRisk(risk) {
+  if (risk === "CRITICAL") return "HUMAN_APPROVAL_REQUIRED";
+  if (risk === "HIGH") return "PROPOSAL_ONLY";
+  return "ALLOW_DIRECT_EXECUTE";
+}
+
 function formOption(value, label, selected = false) {
   return `<option value="${escapeHtml(value)}"${selected ? " selected" : ""}>${escapeHtml(label)}</option>`;
 }
@@ -66,10 +78,10 @@ function formOption(value, label, selected = false) {
 function topStatusBar(model, data) {
   return `<div class="top-status">
     ${badge("平台状态", model.platform_status, "good")}
-    ${badge("V5 / Pilot", `${model.v5_status} / READY`, "good")}
+    ${badge("Pilot Production", "ENABLED", "good")}
     ${badge("当前项目", model.active_project, "neutral")}
     ${badge("Worker", model.modules.workers, "neutral")}
-    ${badge("风险闸门", "PASS", "good")}
+    ${badge("风险闸门", "LOW/MEDIUM 直执", "good")}
     ${badge("最近运行", data.autopilot.latest_summary?.validation ?? "unknown", data.autopilot.latest_summary?.validation === "PASS" ? "good" : "warn")}
   </div>`;
 }
@@ -81,9 +93,9 @@ function actionWorkbench(data, title = "任务工作台") {
     <div class="section-head">
       <div>
         <h2>${escapeHtml(title)}</h2>
-        <p>以目标为中心推进 Studio：生成计划、执行本地 dry-run、查看日志，所有动作都受 Governance Gate 约束。</p>
+        <p>以目标为中心推进 Studio：LOW/MEDIUM 本地安全任务可直接执行，HIGH 保持 Proposal，CRITICAL 必须人工审批。</p>
       </div>
-      <span class="pill">127.0.0.1 / dry-run only</span>
+      <span class="pill">Pilot Production Mode / 127.0.0.1</span>
     </div>
     <label for="action-goal">大目标输入框</label>
     <textarea id="action-goal" class="goal-box" placeholder="输入目标，例如：生成 Smart Park 上线计划 / 检查项目阻断项 / 继续推进 Pilot">继续推进 Pilot</textarea>
@@ -98,19 +110,22 @@ function actionWorkbench(data, title = "任务工作台") {
       </div>
       <div class="button-row compact">
         <button type="button" data-console-action="plan">生成计划</button>
-        <button type="button" data-console-action="run">执行 dry-run</button>
+        <button type="button" class="primary-action" data-console-action="run">开始执行</button>
         <button type="button" class="secondary" data-console-action="logs">查看日志</button>
       </div>
     </div>
-    <div class="quick-row">
-      <button type="button" class="secondary" data-quick-action="context-summary" data-goal="读取全局上下文">读取上下文</button>
-      <button type="button" class="secondary" data-quick-action="project-inspect" data-goal="检查 Smart Park 项目状态">检查 Smart Park</button>
-      <button type="button" class="secondary" data-quick-action="smart-park-go-live-plan-dry-run" data-goal="生成 Smart Park 上线计划 dry-run">生成上线计划 dry-run</button>
-      <button type="button" class="secondary" data-quick-action="runtime-health" data-goal="Runtime 健康检查">Runtime 健康检查</button>
-      <button type="button" class="secondary" data-quick-action="worker-health" data-goal="Worker 健康检查">Worker 健康检查</button>
-      <button type="button" class="secondary" data-quick-action="governance-check" data-goal="Governance 检查">Governance 检查</button>
-      <button type="button" class="secondary" data-quick-action="autopilot-dry-run" data-goal="继续推进 Pilot">Autopilot dry-run</button>
-      <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="查看 Smart Park Proposal">查看 Proposal</button>
+    <div class="quick-row mission-row">
+      <button type="button" data-quick-action="smart-park-continue" data-goal="继续 Smart Park">继续 Smart Park</button>
+      <button type="button" class="secondary" data-quick-action="smart-park-blockers" data-goal="检查 Smart Park 上线阻断项">检查上线阻断项</button>
+      <button type="button" class="secondary" data-quick-action="smart-park-go-live-plan" data-goal="生成 Smart Park 上线计划 Proposal">生成上线计划 Proposal</button>
+      <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="查看待审批 Proposal">查看待审批 Proposal</button>
+      <button type="button" class="secondary" data-quick-action="worker-health" data-goal="查看 Worker 状态">查看 Worker 状态</button>
+    </div>
+    <div class="policy-strip">
+      <span>${riskBadge("LOW")} 直接执行</span>
+      <span>${riskBadge("MEDIUM")} 直接执行</span>
+      <span>${riskBadge("HIGH")} Proposal</span>
+      <span>${riskBadge("CRITICAL")} 人工审批</span>
     </div>
     <div class="output-card">
       <div class="section-head small"><h3>Action Log 摘要</h3><span>${escapeHtml(data.actionServer.action_log_dir)}</span></div>
@@ -124,15 +139,16 @@ function smartParkEntryPanel() {
     <div class="section-head">
       <div>
         <h2>Smart Park 上线入口</h2>
-        <p>只生成上线计划、阻断项检查和下一步 proposal，不修改业务项目，不执行部署。</p>
+        <p>继续推进前先检查上线阻断项和待审批 Proposal；不会绕过生产审批，也不会写入业务项目。</p>
       </div>
-      <span class="pill warn-pill">业务项目写入禁用</span>
+      <span class="pill warn-pill">生产审批不可绕过</span>
     </div>
     <div class="entry-grid">
-      <button type="button" data-quick-action="smart-park-go-live-plan-dry-run" data-goal="生成 Smart Park 上线计划 dry-run">生成上线计划 dry-run</button>
-      <button type="button" class="secondary" data-quick-action="project-inspect" data-goal="检查 Smart Park 项目状态">检查项目状态</button>
-      <button type="button" class="secondary" data-quick-action="governance-check" data-goal="查看 Smart Park 当前阻断项">查看阻断项</button>
-      <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="生成 Smart Park 下一步任务 proposal">生成下一步任务 proposal</button>
+      <button type="button" data-quick-action="smart-park-continue" data-goal="继续 Smart Park">继续 Smart Park</button>
+      <button type="button" class="secondary" data-quick-action="smart-park-blockers" data-goal="检查 Smart Park 上线阻断项">检查上线阻断项</button>
+      <button type="button" class="secondary" data-quick-action="smart-park-go-live-plan" data-goal="生成 Smart Park 上线计划 Proposal">生成上线计划 Proposal</button>
+      <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="查看待审批 Proposal">查看待审批 Proposal</button>
+      <button type="button" class="secondary" data-quick-action="worker-health" data-goal="查看 Worker 状态">查看 Worker 状态</button>
     </div>
   </section>`;
 }
@@ -143,8 +159,8 @@ function recommendationPanel(data) {
     <div class="section-head"><h2>推荐动作区</h2><span class="pill">Planning / Governance</span></div>
     <div class="kanban-grid">
       <div class="panel"><h3>下一步建议</h3><p>${escapeHtml(recommendation)}</p></div>
-      <div class="panel"><h3>可自动执行任务</h3>${list(["LOW / MEDIUM 本仓库 dry-run", "Runtime health", "Worker health", "Autopilot dry-run"])}</div>
-      <div class="panel"><h3>需审批任务</h3>${list(["HIGH remote worker", "CRITICAL production operation", "真实凭证后端接入"])}</div>
+      <div class="panel"><h3>可直接执行任务</h3>${list(["LOW / MEDIUM 本地 allowlist 命令", "Runtime health", "Worker health", "Smart Park 阻断项检查", "Smart Park 上线计划 Proposal 生成"])}</div>
+      <div class="panel"><h3>仍需审批任务</h3>${list(["HIGH remote worker: proposal_only", "CRITICAL production operation: human_approval_required", "真实凭证后端接入"])}</div>
       <div class="panel"><h3>最近失败项</h3>${list(["无活动失败项", "SSH/production 相关动作保持 HOLD 或 proposal_only"])}</div>
     </div>
   </section>`;
@@ -153,8 +169,8 @@ function recommendationPanel(data) {
 function executionTimeline() {
   const steps = [
     ["Planning", "READY", "目标解析与 batch plan"],
-    ["Governance", "PASS", "LOW/MEDIUM dry-run 放行"],
-    ["Worker", "LOCAL", "仅本地 child_process / dry-run"],
+    ["Governance", "PASS", "LOW/MEDIUM 直接执行，HIGH/CRITICAL 拦截"],
+    ["Worker", "LOCAL", "仅本地 child_process allowlist"],
     ["Validation", "PASS", "typecheck / lint / smoke"],
     ["Report", "RECORDED", "Action Log + run summary"]
   ];
@@ -182,7 +198,7 @@ function workerRows(data) {
 
 function workerPanel(data) {
   return `<section>
-    <div class="section-head"><h2>Worker 实时状态</h2><span class="pill">agent-1~5 / 本地 dry-run</span></div>
+    <div class="section-head"><h2>Worker 实时状态</h2><span class="pill">agent-1~5 / 本地执行</span></div>
     ${table(workerRows(data), [
       { key: "agent", label: "Agent" },
       { key: "pid", label: "PID" },
@@ -197,7 +213,7 @@ function workerPanel(data) {
 
 function proposalPanel() {
   const proposals = [
-    { id: "smart-park-go-live-plan", risk: riskBadge("MEDIUM"), approval: statusLabel("no"), status: statusLabel("DRAFT_DRY_RUN") },
+    { id: "smart-park-go-live-plan", risk: riskBadge("MEDIUM"), approval: statusLabel("no"), status: statusLabel("DIRECT_EXECUTE_READY") },
     { id: "remote-worker-runtime", risk: riskBadge("HIGH"), approval: statusLabel("yes"), status: statusLabel("PROPOSAL_ONLY") },
     { id: "production-operation", risk: riskBadge("CRITICAL"), approval: statusLabel("yes"), status: statusLabel("BLOCKED") }
   ];
@@ -211,7 +227,7 @@ function proposalPanel() {
     ])}
     <div class="button-row">
       <button type="button" class="secondary" data-proposal-action="proposal-review">查看</button>
-      <button type="button" class="secondary" data-proposal-action="proposal-approve-dry-run">dry-run 批准</button>
+      <button type="button" class="secondary" data-proposal-action="proposal-approve-dry-run">生成审批草稿</button>
       <button type="button" class="danger" data-proposal-action="proposal-reject-draft">拒绝草稿</button>
     </div>
   </section>`;
@@ -219,7 +235,7 @@ function proposalPanel() {
 
 function projectWorkbench(data) {
   const rows = [
-    { project: "jinhu-smart-park", status: "CONNECTED", policy: "read-only / dry-run", next: "go-live plan dry-run" },
+    { project: "jinhu-smart-park", status: "CONNECTED", policy: "Pilot Production / guarded", next: "blocker check" },
     { project: "phoenix-erp", status: "WAITING_FOR_GITHUB_REPO", policy: "planned", next: "GitHub Repo Connector" },
     { project: "group-portal", status: "PLANNED", policy: "not_connected", next: "project intake" }
   ];
@@ -290,7 +306,7 @@ function interactiveScript() {
     button.addEventListener("click", async () => {
       if (project) project.value = "jinhu-smart-park";
       if (action) action.value = button.getAttribute("data-proposal-action");
-      if (goal) goal.value = button.textContent + " Smart Park proposal dry-run";
+      if (goal) goal.value = button.textContent + " Smart Park proposal";
       show(await postJson("/api/action-plan", payload()));
     });
   });
@@ -370,7 +386,7 @@ function shell(content, activeId, model, data) {
     .safe { color: var(--green); font-weight: 700; }
     .warn { color: var(--red); font-weight: 700; }
     .risk-badge, .status-label { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; border: 1px solid var(--line); white-space: nowrap; }
-    .risk-badge.low, .status-label.pass, .status-label.ready { color: var(--green); background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.35); }
+    .risk-badge.low, .status-label.pass, .status-label.ready, .status-label.direct-execute-ready { color: var(--green); background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.35); }
     .risk-badge.medium, .status-label.local, .status-label.recorded, .status-label.draft-dry-run { color: var(--blue); background: rgba(90, 169, 255, 0.1); border-color: rgba(90, 169, 255, 0.35); }
     .risk-badge.high, .status-label.proposal-only, .status-label.yes { color: var(--yellow); background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.35); }
     .risk-badge.critical, .status-label.blocked { color: var(--red); background: rgba(251, 113, 133, 0.1); border-color: rgba(251, 113, 133, 0.35); }
@@ -386,9 +402,14 @@ function shell(content, activeId, model, data) {
     .button-row.compact { align-items: end; margin-top: 0; }
     button { border: 1px solid #326ba8; background: #1d4f86; color: #f8fbff; border-radius: 6px; padding: 9px 12px; font: inherit; font-weight: 700; cursor: pointer; }
     button:hover { background: #2364a8; }
+    button.primary-action { background: #0f7a4f; border-color: #1f9f6b; }
+    button.primary-action:hover { background: #12875a; }
     button.secondary { background: #111a25; color: var(--blue); }
     button.danger { border-color: #753241; color: var(--red); background: #1d1116; }
     .quick-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .mission-row button { min-height: 42px; }
+    .policy-strip { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #0c1219; }
+    .policy-strip span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
     .draft-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
     .help { color: var(--muted); font-size: 12px; margin-top: 6px; }
     .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
@@ -525,18 +546,18 @@ function pageAutopilot(data) {
 }
 
 function pageActions(data) {
-  const actions = data.consoleActions?.actions ?? [];
-  return `<section><h2>${messages.pages.actions.title}</h2><div class="grid">${metric(messages.pages.actions.actions, data.actionServer.actions.length)}${metric(messages.pages.actions.defaultMode, "dry_run")}${metric(messages.pages.actions.writes, messages.common.falseValue)}${metric("Action Log", data.actionServer.action_log_dir)}</div></section>
+  const actions = data.actionServer.actions ?? [];
+  return `<section><h2>${messages.pages.actions.title}</h2><div class="grid">${metric(messages.pages.actions.actions, actions.length)}${metric(messages.pages.actions.defaultMode, "pilot_production")}${metric(messages.pages.actions.writes, messages.common.falseValue)}${metric("Action Log", data.actionServer.action_log_dir)}</div></section>
   ${actionWorkbench(data, "操作中心")}
   ${smartParkEntryPanel()}
   ${proposalPanel()}
   <section>${table(actions.map((action) => ({
     id: action.id,
-    intent: action.intent,
-    risk: action.risk,
-    mode: `${action.mode}/${action.executionMode}`,
-    gate: action.governance_gate
-  })), [{ key: "id", label: messages.pages.actions.action }, { key: "intent", label: messages.pages.actions.intent }, { key: "risk", label: messages.common.risk }, { key: "mode", label: messages.common.mode }, { key: "gate", label: messages.common.gate }])}</section>`;
+    intent: action.label,
+    risk: riskBadge(action.risk),
+    mode: executionModeForRisk(action.risk),
+    gate: governanceGateForRisk(action.risk)
+  })), [{ key: "id", label: messages.pages.actions.action }, { key: "intent", label: messages.pages.actions.intent }, { key: "risk", label: messages.common.risk, html: true }, { key: "mode", label: messages.common.mode }, { key: "gate", label: messages.common.gate }])}</section>`;
 }
 
 function pageConfig(data) {
@@ -549,7 +570,10 @@ function pageConfig(data) {
   };
   const runtimeDraft = {
     default_runtime: "codex-cli",
-    mode: "dry_run_only",
+    mode: "pilot_production",
+    direct_execute_allowed_for: ["LOW", "MEDIUM"],
+    high_risk_policy: "proposal_only",
+    critical_risk_policy: "human_approval_required",
     external_model_calls: "disabled"
   };
   const workerDraft = {
@@ -563,8 +587,8 @@ function pageConfig(data) {
     allowed_references: ["vault_path", "env_ref", "keychain_ref", "external_vault_ref"]
   };
   const governanceDraft = {
-    LOW: "execute dry-run",
-    MEDIUM: "autopilot dry-run",
+    LOW: "direct_execute",
+    MEDIUM: "direct_execute",
     HIGH: "proposal_only",
     CRITICAL: "human_approval_required"
   };

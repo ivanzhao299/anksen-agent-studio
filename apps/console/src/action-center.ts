@@ -3,12 +3,19 @@ export type ConsoleActionId =
   | "runtime-health"
   | "project-inspect"
   | "worker-health"
+  | "worker-status"
   | "credential-validate"
   | "governance-check"
   | "autopilot-run"
+  | "autopilot-execute"
+  | "smart-park-continue"
+  | "smart-park-blockers"
+  | "smart-park-go-live-plan"
   | "smart-park-go-live-plan-dry-run"
+  | "pending-proposals"
   | "proposal-review"
   | "proposal-approve-dry-run"
+  | "production-operation-request"
   | "proposal-reject-draft"
   | "proposal-approve";
 
@@ -24,9 +31,9 @@ export type ConsoleActionScope =
   | "proposal";
 
 export type ConsoleActionRisk = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-export type ConsoleActionMode = "read_only" | "dry_run";
-export type ConsoleExecutionMode = "dry_run_only" | "proposal_only";
-export type ConsoleGovernanceGate = "ALLOW_DRY_RUN" | "PROPOSAL_ONLY" | "HUMAN_APPROVAL_REQUIRED";
+export type ConsoleActionMode = "read_only" | "dry_run" | "direct_execute";
+export type ConsoleExecutionMode = "dry_run_only" | "direct_execute" | "proposal_only" | "human_approval_required";
+export type ConsoleGovernanceGate = "ALLOW_DRY_RUN" | "ALLOW_DIRECT_EXECUTE" | "PROPOSAL_ONLY" | "HUMAN_APPROVAL_REQUIRED";
 
 export interface ConsoleActionDescriptor {
   readonly id: ConsoleActionId;
@@ -52,13 +59,13 @@ export interface ConsoleActionPlan {
   readonly action_id: ConsoleActionId;
   readonly label: string;
   readonly intent: string;
-  readonly status: "PLANNED_DRY_RUN" | "PROPOSAL_ONLY" | "BLOCKED";
+  readonly status: "PLANNED_DRY_RUN" | "PLANNED_EXECUTION" | "PROPOSAL_ONLY" | "BLOCKED";
   readonly risk: ConsoleActionRisk;
   readonly execution_mode: ConsoleExecutionMode;
   readonly mode: ConsoleActionMode;
   readonly write_enabled: false;
   readonly production_enabled: false;
-  readonly dry_run: true;
+  readonly dry_run: boolean;
   readonly command: string;
   readonly requires_approval: boolean;
   readonly governance_gate: ConsoleGovernanceGate;
@@ -76,7 +83,10 @@ export interface ConsoleActionPlan {
 
 export const consoleActionCenter = {
   action_center_id: "pilot-4-console-action-center",
-  default_mode: "read_only",
+  default_mode: "pilot_production",
+  direct_execute_allowed_for: ["LOW", "MEDIUM"],
+  high_risk_policy: "proposal_only",
+  critical_risk_policy: "human_approval_required",
   write_enabled: false,
   production_enabled: false
 } as const;
@@ -287,13 +297,27 @@ export function getConsoleAction(id: string) {
   return consoleActions.find((action) => action.id === id) ?? null;
 }
 
+function executionModeForRisk(risk: ConsoleActionRisk): ConsoleExecutionMode {
+  if (risk === "CRITICAL") return "human_approval_required";
+  if (risk === "HIGH") return "proposal_only";
+  return "direct_execute";
+}
+
+function governanceGateForRisk(risk: ConsoleActionRisk): ConsoleGovernanceGate {
+  if (risk === "CRITICAL") return "HUMAN_APPROVAL_REQUIRED";
+  if (risk === "HIGH") return "PROPOSAL_ONLY";
+  return "ALLOW_DIRECT_EXECUTE";
+}
+
 export function buildConsoleActionPlan(id: string): ConsoleActionPlan | null {
   const action = getConsoleAction(id);
   if (!action) return null;
-  const proposalOnly = action.executionMode === "proposal_only" || action.risk === "HIGH" || action.risk === "CRITICAL";
+  const executionMode = executionModeForRisk(action.risk);
+  const proposalOnly = executionMode === "proposal_only" || executionMode === "human_approval_required";
   const blockedReasons = [
     ...(action.disabledReason ? [action.disabledReason] : []),
-    ...(proposalOnly ? ["HIGH/CRITICAL or approval actions stay proposal-only from the Console."] : [])
+    ...(action.risk === "HIGH" ? ["HIGH actions stay proposal-only from the Console."] : []),
+    ...(action.risk === "CRITICAL" ? ["CRITICAL actions require explicit human approval and cannot be executed from the Console."] : [])
   ];
   return {
     schema_version: 1,
@@ -301,21 +325,21 @@ export function buildConsoleActionPlan(id: string): ConsoleActionPlan | null {
     action_id: action.id,
     label: action.label,
     intent: action.intent,
-    status: proposalOnly ? "PROPOSAL_ONLY" : "PLANNED_DRY_RUN",
+    status: executionMode === "human_approval_required" ? "BLOCKED" : proposalOnly ? "PROPOSAL_ONLY" : "PLANNED_EXECUTION",
     risk: action.risk,
-    execution_mode: action.executionMode,
-    mode: action.mode,
+    execution_mode: executionMode,
+    mode: proposalOnly ? action.mode : "direct_execute",
     write_enabled: false,
     production_enabled: false,
-    dry_run: true,
+    dry_run: false,
     command: action.command,
-    requires_approval: action.requiresApproval,
-    governance_gate: action.governance_gate,
+    requires_approval: proposalOnly,
+    governance_gate: governanceGateForRisk(action.risk),
     steps: [
       "Read Console action intent metadata.",
-      "Verify action is read-only or dry-run with writes disabled.",
-      "Apply governance gate before any future execution.",
-      proposalOnly ? "Generate or review a proposal; do not execute the action." : "Return a local dry-run command plan; do not execute from the Console."
+      "Apply Governance Gate before command execution.",
+      proposalOnly ? "Generate or review a proposal; do not execute the action." : "Execute the local allowlist command from the Console Action Server.",
+      "Keep deploy, production operations, managed project writes, model calls, and credential value reads disabled."
     ],
     safety: {
       deploy: "disabled",
