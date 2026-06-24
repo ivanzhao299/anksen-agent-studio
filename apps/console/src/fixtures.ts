@@ -13,7 +13,6 @@ export const consoleFixture = {
     "runtime/global/roadmap-memory.json",
     "runtime/global/codex-context-index.json",
     "runtime/projects/jinhu-smart-park/project-state.json",
-    "runtime/projects/phoenix-erp/project-state.json",
     "packages/project-connector/examples/*.json",
     "packages/runtime-center/examples/*.json",
     "packages/runtime-adapters/examples/*.json",
@@ -32,7 +31,7 @@ export const consoleFixture = {
     next_action: "Await explicit approval for V4-O Production Operations Center implementation",
     next_action_risk: "HIGH",
     next_action_execution_mode: "blocked",
-    managed_project_count: 2,
+    managed_project_count: 1,
     completed_v4_milestones: 8,
     release_doc_count: 20,
     schema_or_example_count: 89,
@@ -60,9 +59,9 @@ export const consoleFixture = {
       source: "runtime/projects",
       summary: "Shows connected and planned managed project health as context only; project writes stay disabled.",
       metrics: [
-        { label: "Managed projects", value: "2" },
+        { label: "Managed projects", value: "1" },
         { label: "Connected", value: "1" },
-        { label: "Planned", value: "1" }
+        { label: "Planned", value: "0" }
       ]
     },
     {
@@ -224,21 +223,6 @@ export const consoleFixture = {
       },
       event_file_count: 180,
       memory_dir: "runtime/projects/jinhu-smart-park",
-      write_policy: "disabled",
-      deploy_policy: "forbidden",
-      production_operation_policy: "forbidden"
-    },
-    {
-      project_id: "phoenix-erp",
-      display_name: "Phoenix ERP",
-      connector_status: "planned",
-      doctor_status: "NOT_CONNECTED",
-      repo_branch: "planned",
-      repo_clean: "not_connected",
-      task_count: 0,
-      queue_status_counts: {},
-      event_file_count: 0,
-      memory_dir: "runtime/projects/phoenix-erp",
       write_policy: "disabled",
       deploy_policy: "forbidden",
       production_operation_policy: "forbidden"
@@ -438,14 +422,14 @@ export const consoleFixture = {
       "runtime/global/codex-startup.md",
       "runtime/global/handoff-summary.md"
     ],
-    project_contexts: ["runtime/projects/jinhu-smart-park", "runtime/projects/phoenix-erp"],
+    project_contexts: ["runtime/projects/jinhu-smart-park"],
     required_reading: [
       "runtime/global/codex-startup.md",
       "runtime/global/handoff-summary.md",
       "runtime/global/platform-state.json",
       "runtime/global/roadmap-memory.json",
       "runtime/projects/jinhu-smart-park/handoff-summary.md",
-      "runtime/projects/phoenix-erp/handoff-summary.md",
+      "Phoenix ERP will be connected later through GitHub Repo Connector.",
       "README.md"
     ]
   },

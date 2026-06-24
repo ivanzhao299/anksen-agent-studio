@@ -72,6 +72,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs plan --goal "..." --dry-run
   node packages/orchestrator-core/bin/studio.mjs plan --goal "..." --completion-aware --dry-run
   node packages/orchestrator-core/bin/studio.mjs console render --dry-run
+  node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run
   node packages/orchestrator-core/bin/studio.mjs console actions --dry-run
   node packages/orchestrator-core/bin/studio.mjs console action-plan --action <action_id> --dry-run
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
@@ -7212,6 +7213,82 @@ async function consoleActionPlan(args) {
   if (plan.status === "BLOCKED") process.exitCode = 1;
 }
 
+async function consoleSmoke(args) {
+  assertDryRun(args, "console smoke");
+  const routesModule = await import(pathToFileURL(resolveFromRoot("apps/console/web/routes.mjs")).href);
+  const dataModule = await import(pathToFileURL(resolveFromRoot("apps/console/web/data.mjs")).href);
+  const routes = routesModule.consoleWebRoutes ?? [];
+  const requiredRouteIds = [
+    "dashboard",
+    "projects",
+    "runtime",
+    "workers",
+    "credentials",
+    "governance",
+    "planning",
+    "autopilot",
+    "actions",
+    "memory",
+    "pilotStatus"
+  ];
+  const routeIds = routes.map((route) => route.id);
+  const missingRoutes = requiredRouteIds.filter((id) => !routeIds.includes(id));
+  const requiredFiles = [
+    "runtime/global/platform-state.json",
+    "runtime/global/roadmap-memory.json",
+    "runtime/global/v5-roadmap.json",
+    "runtime/projects/jinhu-smart-park/project-state.json"
+  ];
+  const requiredDirs = [
+    "packages/runtime-center/examples",
+    "packages/worker-pool/examples",
+    "packages/governance-center/examples",
+    "autopilot-runs"
+  ];
+  const unreadableFiles = requiredFiles.filter((file) => !existsSync(resolveFromRoot(file)));
+  const unreadableDirs = requiredDirs.filter((dir) => !existsSync(resolveFromRoot(dir)));
+  const dashboardModel = await dataModule.buildConsoleDashboardModel();
+  const dashboardGenerated = Boolean(dashboardModel?.title && dashboardModel?.modules);
+  const data = await dataModule.loadConsoleLocalData();
+  const safetyPass = data.safety.external_calls === "disabled"
+    && data.safety.credential_values === "not_read"
+    && data.safety.managed_project_writes === "disabled"
+    && data.safety.deploy === "disabled"
+    && data.safety.production_operations === "disabled"
+    && data.safety.model_invocation === "disabled"
+    && data.safety.phoenix_erp_local_path === "not_connected";
+  const status = missingRoutes.length === 0
+    && unreadableFiles.length === 0
+    && unreadableDirs.length === 0
+    && dashboardGenerated
+    && safetyPass
+    ? "PASS"
+    : "FAIL";
+
+  console.log("# Console Smoke dry-run");
+  console.log("");
+  console.log(`status: ${status}`);
+  console.log(`routes_count: ${routes.length}`);
+  console.log(`missing_routes: ${missingRoutes.length === 0 ? "none" : missingRoutes.join(", ")}`);
+  console.log(`data_files_readable: ${unreadableFiles.length === 0 ? "yes" : "no"}`);
+  console.log(`missing_data_files: ${unreadableFiles.length === 0 ? "none" : unreadableFiles.join(", ")}`);
+  console.log(`data_dirs_readable: ${unreadableDirs.length === 0 ? "yes" : "no"}`);
+  console.log(`missing_data_dirs: ${unreadableDirs.length === 0 ? "none" : unreadableDirs.join(", ")}`);
+  console.log(`dashboard_model_generated: ${dashboardGenerated ? "yes" : "no"}`);
+  console.log(`latest_autopilot_source: ${data.data_sources.autopilot_latest}`);
+  console.log(`phoenix_erp_local_path: ${data.safety.phoenix_erp_local_path}`);
+  console.log("external_calls: disabled");
+  console.log("credential_values_read: no");
+  console.log("managed_project_writes: disabled");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("model_invocation: disabled");
+  console.log("");
+  console.log("pages:");
+  for (const route of routes) console.log(`- ${route.label}: ${route.path}`);
+  if (status !== "PASS") process.exitCode = 1;
+}
+
 async function loadRuntimeCenterApi() {
   const api = await import(runtimeCenterUtilsUrl());
   const center = await api.loadRuntimeCenter();
@@ -8850,6 +8927,7 @@ async function main() {
   if (args.command === "runtime" && args.subcommand === "select") return runtimeSelect(args);
   if (args.command === "pilot" && args.subcommand === "runtime-smoke") return pilotRuntimeSmoke(args);
   if (args.command === "console" && args.subcommand === "render") return consoleRender(args);
+  if (args.command === "console" && args.subcommand === "smoke") return consoleSmoke(args);
   if (args.command === "console" && args.subcommand === "actions") return consoleActionsDryRun(args);
   if (args.command === "console" && args.subcommand === "action-plan") return consoleActionPlan(args);
   if (args.command === "skill-route") {

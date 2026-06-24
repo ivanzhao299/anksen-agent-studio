@@ -1,10 +1,11 @@
 {
-  "name": "@anksen-agent-studio/console",
+  "name": "@anksen/console",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "node web/server.mjs",
+    "build": "node web/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   }
 }
-
