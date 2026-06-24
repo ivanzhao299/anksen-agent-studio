@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "kind": "console_action_plan",
+  "plan": {
+    "schema_version": 1,
+    "plan_id": "console-action-2026-06-24T055428051Z-ddf250c2",
+    "created_at": "2026-06-24T05:54:28.051Z",
+    "action_id": "runtime-health",
+    "action_label": "runtime health",
+    "target_project": "jinhu-smart-park",
+    "target_project_status": "connected",
+    "goal_summary": "继续推进 Pilot",
+    "command": "node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run",
+    "risk": "LOW",
+    "approval_required": false,
+    "mode": "dry_run",
+    "write_enabled": false,
+    "production_enabled": false,
+    "log_path": "autopilot-runs/console-actions/console-action-2026-06-24T055428051Z-ddf250c2.json",
+    "safety": {
+      "bind_address": "127.0.0.1",
+      "dry_run_only": true,
+      "deploy": "disabled",
+      "production_operation": "disabled",
+      "server_access": "disabled",
+      "credential_values": "not_read",
+      "credential_storage": "disabled",
+      "managed_project_writes": "disabled",
+      "external_model_call": "disabled"
+    }
+  },
+  "result": null
+}

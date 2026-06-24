@@ -7,6 +7,7 @@ export type ConsolePageId =
   | "credentialVault"
   | "governance"
   | "actionCenter"
+  | "configCenter"
   | "planning"
   | "v5Roadmap"
   | "autopilot"
@@ -30,6 +31,7 @@ export const consoleNavigation: readonly ConsoleNavigationItem[] = [
   { id: "credentialVault", label: "凭证", route: "/agent-studio/credentials", source: "packages/credential-vault/examples", readOnly: true },
   { id: "governance", label: "治理", route: "/agent-studio/governance", source: "packages/governance-center/examples", readOnly: true },
   { id: "actionCenter", label: "操作中心", route: "/agent-studio/actions", source: "apps/console/examples/console-actions.example.json", readOnly: true },
+  { id: "configCenter", label: "配置中心", route: "/agent-studio/config", source: "browser-local draft only", readOnly: true },
   { id: "planning", label: "规划", route: "/agent-studio/planning", source: "packages/planning-center and runtime/global/roadmap-memory.json", readOnly: true },
   { id: "v5Roadmap", label: "V5 路线", route: "/agent-studio/v5-roadmap", source: "runtime/global/v5-roadmap.json", readOnly: true },
   { id: "autopilot", label: "自动驾驶", route: "/agent-studio/autopilot", source: "autopilot-runs", readOnly: true },

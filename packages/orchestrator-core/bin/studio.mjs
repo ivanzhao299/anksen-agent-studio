@@ -7823,6 +7823,7 @@ async function consoleSmoke(args) {
   assertDryRun(args, "console smoke");
   const routesModule = await import(pathToFileURL(resolveFromRoot("apps/console/web/routes.mjs")).href);
   const dataModule = await import(pathToFileURL(resolveFromRoot("apps/console/web/data.mjs")).href);
+  const renderModule = await import(pathToFileURL(resolveFromRoot("apps/console/web/render.mjs")).href);
   const routes = routesModule.consoleWebRoutes ?? [];
   const requiredRouteIds = [
     "dashboard",
@@ -7834,6 +7835,7 @@ async function consoleSmoke(args) {
     "planning",
     "autopilot",
     "actions",
+    "config",
     "memory",
     "pilotStatus"
   ];
@@ -7856,6 +7858,29 @@ async function consoleSmoke(args) {
   const dashboardModel = await dataModule.buildConsoleDashboardModel();
   const dashboardGenerated = Boolean(dashboardModel?.title && dashboardModel?.modules);
   const data = await dataModule.loadConsoleLocalData();
+  const actionsHtml = await renderModule.renderConsolePage("/actions");
+  const configHtml = await renderModule.renderConsolePage("/config");
+  const interactiveControlsPresent = [
+    "目标/任务描述",
+    "项目选择",
+    "操作类型",
+    "生成计划",
+    "执行 dry-run",
+    "查看日志"
+  ].every((text) => actionsHtml.includes(text));
+  const smartParkControlsPresent = [
+    "生成上线计划 dry-run",
+    "检查项目状态",
+    "查看阻断项",
+    "生成下一步任务 proposal"
+  ].every((text) => actionsHtml.includes(text));
+  const configCenterPresent = [
+    "项目配置",
+    "Runtime 配置",
+    "Worker 配置",
+    "Credential Reference 配置",
+    "Governance 策略查看"
+  ].every((text) => configHtml.includes(text));
   const safetyPass = data.safety.external_calls === "disabled"
     && data.safety.credential_values === "not_read"
     && data.safety.managed_project_writes === "disabled"
@@ -7867,6 +7892,9 @@ async function consoleSmoke(args) {
     && unreadableFiles.length === 0
     && unreadableDirs.length === 0
     && dashboardGenerated
+    && interactiveControlsPresent
+    && smartParkControlsPresent
+    && configCenterPresent
     && safetyPass
     ? "PASS"
     : "FAIL";
@@ -7881,6 +7909,10 @@ async function consoleSmoke(args) {
   console.log(`data_dirs_readable: ${unreadableDirs.length === 0 ? "yes" : "no"}`);
   console.log(`missing_data_dirs: ${unreadableDirs.length === 0 ? "none" : unreadableDirs.join(", ")}`);
   console.log(`dashboard_model_generated: ${dashboardGenerated ? "yes" : "no"}`);
+  console.log(`interactive_controls: ${interactiveControlsPresent ? "yes" : "no"}`);
+  console.log(`smart_park_quick_entries: ${smartParkControlsPresent ? "yes" : "no"}`);
+  console.log(`config_center: ${configCenterPresent ? "yes" : "no"}`);
+  console.log(`action_log_dir: ${data.actionServer.action_log_dir}`);
   console.log(`latest_autopilot_source: ${data.data_sources.autopilot_latest}`);
   console.log(`phoenix_erp_local_path: ${data.safety.phoenix_erp_local_path}`);
   console.log("external_calls: disabled");

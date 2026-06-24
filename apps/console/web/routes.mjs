@@ -12,6 +12,7 @@ export const consoleWebRoutes = [
   { id: "planning", label: messages.nav.planning, path: "/planning", navPath: "/planning" },
   { id: "autopilot", label: messages.nav.autopilot, path: "/autopilot", navPath: "/autopilot" },
   { id: "actions", label: messages.nav.actions, path: "/actions", navPath: "/actions" },
+  { id: "config", label: messages.nav.config, path: "/config", navPath: "/config" },
   { id: "memory", label: messages.nav.memory, path: "/memory", navPath: "/memory" },
   { id: "pilotStatus", label: messages.nav.pilotStatus, path: "/pilot-status", navPath: "/pilot-status" }
 ];

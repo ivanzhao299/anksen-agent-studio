@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "kind": "console_action_run",
+  "plan": {
+    "schema_version": 1,
+    "plan_id": "console-action-2026-06-24T055434807Z-60f49bfb",
+    "created_at": "2026-06-24T05:54:34.807Z",
+    "action_id": "runtime-health",
+    "action_label": "runtime health",
+    "target_project": "jinhu-smart-park",
+    "target_project_status": "connected",
+    "goal_summary": "继续推进 Pilot",
+    "command": "node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run",
+    "risk": "LOW",
+    "approval_required": false,
+    "mode": "dry_run",
+    "write_enabled": false,
+    "production_enabled": false,
+    "log_path": "autopilot-runs/console-actions/console-action-2026-06-24T055434807Z-60f49bfb.json",
+    "safety": {
+      "bind_address": "127.0.0.1",
+      "dry_run_only": true,
+      "deploy": "disabled",
+      "production_operation": "disabled",
+      "server_access": "disabled",
+      "credential_values": "not_read",
+      "credential_storage": "disabled",
+      "managed_project_writes": "disabled",
+      "external_model_call": "disabled"
+    }
+  },
+  "result": {
+    "status": "PASS",
+    "exit_code": 0,
+    "stdout_summary": "# Runtime Center Health dry-run\nproviders: 6\nruntimes: 6\nadapters: 6\nnetwork_probes: disabled\ncredential_values: not read\n| Provider | Runtime | Adapter | Adapter Status | Status | Latency | Auth | Available Skills |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| openai | codex-cli | codex-cli | registered | unknown | n/a | reference_only | code_development, validation_testing, data_integration, evolution_observer |\n| anthropic | claude-code | claude-code | registered | unknown | n/a | reference_only | code_development, data_integration, validation_testing |\n| google | gemini-cli | gemini-cli | registered | unknown | n/a | reference_only | code_development, web_research, spreadsheet_analysis |\n| openhands | openhands | openhands | registered | unknown | n/a | reference_only | code_development, data_integration |\n| aider | aider | aider | registered | unknown | n/a | reference_only | code_development, validation_testing |\n| local-runtime | local-agent | local-agent | registered | unknown | n/a | not_required | validation_testing, evolution_observer, legacy_discovery, replica_scoring |",
+    "stderr_summary": ""
+  },
+  "smart_park": null
+}

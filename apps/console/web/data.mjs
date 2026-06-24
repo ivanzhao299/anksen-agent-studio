@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { actionServerSummary } from "./action-server.mjs";
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(webDir, "../../..");
@@ -135,6 +136,7 @@ export async function loadConsoleLocalData() {
     codexContextIndex,
     decisionLog,
     consoleActions,
+    actionServer: actionServerSummary(),
     runtime: {
       examples: runtimeCenterExamples,
       profile_count: countArray(runtimeProfiles?.profiles, "profiles"),

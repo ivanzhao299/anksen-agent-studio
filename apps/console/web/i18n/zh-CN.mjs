@@ -15,6 +15,7 @@ export const zhCN = {
     planning: "规划",
     autopilot: "自动驾驶",
     actions: "操作中心",
+    config: "配置中心",
     memory: "记忆中心",
     pilotStatus: "试运行状态"
   },
@@ -105,6 +106,15 @@ export const zhCN = {
       writes: "写入",
       action: "操作",
       intent: "意图"
+    },
+    config: {
+      title: "配置中心",
+      projects: "项目配置",
+      runtime: "Runtime 配置",
+      workers: "Worker 配置",
+      credentials: "Credential Reference 配置",
+      governance: "Governance 策略查看",
+      draftOnly: "仅保存浏览器草稿，不写真实凭证。"
     },
     memory: {
       title: "记忆中心",

@@ -6,6 +6,7 @@ export type ConsoleActionId =
   | "credential-validate"
   | "governance-check"
   | "autopilot-run"
+  | "smart-park-go-live-plan-dry-run"
   | "proposal-review"
   | "proposal-approve";
 
@@ -17,6 +18,7 @@ export type ConsoleActionScope =
   | "credential"
   | "governance"
   | "autopilot"
+  | "smart_park"
   | "proposal";
 
 export type ConsoleActionRisk = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -188,6 +190,22 @@ export const consoleActions: readonly ConsoleActionDescriptor[] = [
     write_enabled: false,
     production_enabled: false,
     source: "autopilot-runs",
+    governance_gate: "ALLOW_DRY_RUN"
+  },
+  {
+    id: "smart-park-go-live-plan-dry-run",
+    label: "Smart Park Go-Live Plan Dry Run",
+    intent: "smart-park go-live plan dry-run",
+    scope: "smart_park",
+    command: "node packages/orchestrator-core/bin/studio.mjs project chain-validate --project jinhu-smart-park --dry-run",
+    risk: "MEDIUM",
+    mode: "dry_run",
+    executionMode: "dry_run_only",
+    requiresApproval: false,
+    readOnly: true,
+    write_enabled: false,
+    production_enabled: false,
+    source: "runtime/projects/jinhu-smart-park",
     governance_gate: "ALLOW_DRY_RUN"
   },
   {

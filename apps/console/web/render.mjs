@@ -36,6 +36,84 @@ function jsonBlock(value) {
   return `<pre>${escapeHtml(JSON.stringify(value, null, 2))}</pre>`;
 }
 
+function formOption(value, label, selected = false) {
+  return `<option value="${escapeHtml(value)}"${selected ? " selected" : ""}>${escapeHtml(label)}</option>`;
+}
+
+function interactiveScript() {
+  return `<script>
+(() => {
+  const output = document.getElementById("action-output");
+  const goal = document.getElementById("action-goal");
+  const project = document.getElementById("action-project");
+  const action = document.getElementById("action-type");
+  const draftStatus = document.getElementById("config-draft-status");
+
+  function show(value) {
+    if (output) output.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  }
+
+  function payload() {
+    return {
+      goal: goal ? goal.value : "继续推进 Pilot",
+      project_id: project ? project.value : "jinhu-smart-park",
+      action_id: action ? action.value : "context-summary"
+    };
+  }
+
+  async function postJson(url, body) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    return response.json();
+  }
+
+  document.querySelectorAll("[data-console-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const mode = button.getAttribute("data-console-action");
+      try {
+        if (mode === "plan") show(await postJson("/api/action-plan", payload()));
+        if (mode === "run") show(await postJson("/api/action-run", payload()));
+        if (mode === "logs") show(await (await fetch("/api/action-log/latest")).json());
+      } catch (error) {
+        show({ status: "FAIL", error: String(error && error.message ? error.message : error) });
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-quick-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (project) project.value = "jinhu-smart-park";
+      if (action) action.value = button.getAttribute("data-quick-action");
+      if (goal) goal.value = button.getAttribute("data-goal") || goal.value;
+      show(await postJson("/api/action-run", payload()));
+    });
+  });
+
+  const draftKey = "anksen-console-config-drafts";
+  const draftFields = [...document.querySelectorAll("[data-config-draft]")];
+  if (draftFields.length > 0) {
+    const saved = JSON.parse(localStorage.getItem(draftKey) || "{}");
+    for (const field of draftFields) {
+      if (saved[field.id]) field.value = saved[field.id];
+    }
+    document.querySelector("[data-config-save]")?.addEventListener("click", () => {
+      const next = {};
+      for (const field of draftFields) next[field.id] = field.value;
+      localStorage.setItem(draftKey, JSON.stringify(next));
+      if (draftStatus) draftStatus.textContent = "草稿已保存到浏览器本地存储，未写入仓库。";
+    });
+    document.querySelector("[data-config-reset]")?.addEventListener("click", () => {
+      localStorage.removeItem(draftKey);
+      location.reload();
+    });
+  }
+})();
+</script>`;
+}
+
 function shell(content, activeId, model) {
   const route = consoleWebRoutes.find((item) => item.id === activeId) ?? consoleWebRoutes[0];
   return `<!doctype html>
@@ -70,7 +148,19 @@ function shell(content, activeId, model) {
     .pill { display: inline-block; padding: 2px 7px; border-radius: 999px; background: #e7f0fa; color: var(--blue); font-size: 12px; font-weight: 700; }
     .safe { color: var(--green); font-weight: 700; }
     .warn { color: var(--red); font-weight: 700; }
+    label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; color: var(--text); background: #fff; }
+    textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
+    .form-grid { display: grid; grid-template-columns: minmax(220px, 1.5fr) minmax(180px, 0.8fr) minmax(220px, 1fr); gap: 12px; align-items: end; }
+    .button-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    button { border: 1px solid var(--blue); background: var(--blue); color: #fff; border-radius: 6px; padding: 9px 12px; font: inherit; font-weight: 700; cursor: pointer; }
+    button.secondary { background: #fff; color: var(--blue); }
+    button.danger { border-color: var(--red); color: var(--red); background: #fff; }
+    .quick-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+    .draft-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+    .help { color: var(--muted); font-size: 12px; margin-top: 6px; }
     @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } nav { border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } }
+    @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -82,6 +172,7 @@ function shell(content, activeId, model) {
     ${nav(activeId)}
     <main>${content}</main>
   </div>
+  ${interactiveScript()}
 </body>
 </html>`;
 }
@@ -171,7 +262,38 @@ function pageAutopilot(data) {
 
 function pageActions(data) {
   const actions = data.consoleActions?.actions ?? [];
-  return `<section><h2>${messages.pages.actions.title}</h2><div class="grid">${metric(messages.pages.actions.actions, actions.length)}${metric(messages.pages.actions.defaultMode, "read_only")}${metric(messages.pages.actions.writes, messages.common.falseValue)}</div></section>
+  const actionOptions = data.actionServer.actions.map((item) => formOption(item.id, item.label));
+  const projectOptions = data.actionServer.projects.map((item) => formOption(item.project_id, `${item.label} (${item.status})`));
+  return `<section><h2>${messages.pages.actions.title}</h2><div class="grid">${metric(messages.pages.actions.actions, data.actionServer.actions.length)}${metric(messages.pages.actions.defaultMode, "dry_run")}${metric(messages.pages.actions.writes, messages.common.falseValue)}${metric("Action Log", data.actionServer.action_log_dir)}</div></section>
+  <section class="panel">
+    <div class="form-grid">
+      <div>
+        <label for="action-goal">目标/任务描述</label>
+        <textarea id="action-goal" placeholder="输入要推进的目标，例如：继续推进 Pilot">继续推进 Pilot</textarea>
+      </div>
+      <div>
+        <label for="action-project">项目选择</label>
+        <select id="action-project">${projectOptions.join("")}</select>
+      </div>
+      <div>
+        <label for="action-type">操作类型</label>
+        <select id="action-type">${actionOptions.join("")}</select>
+      </div>
+    </div>
+    <div class="button-row">
+      <button type="button" data-console-action="plan">生成计划</button>
+      <button type="button" data-console-action="run">执行 dry-run</button>
+      <button type="button" class="secondary" data-console-action="logs">查看日志</button>
+    </div>
+    <p class="help">本地 Action Server 只监听 127.0.0.1；所有操作强制 dry-run，写入 action log，不读取密钥，不部署，不执行生产操作。</p>
+  </section>
+  <section><h2>Smart Park 快捷入口</h2><div class="quick-grid">
+    <button type="button" data-quick-action="smart-park-go-live-plan-dry-run" data-goal="生成 jinhu-smart-park 上线计划 dry-run">生成上线计划 dry-run</button>
+    <button type="button" class="secondary" data-quick-action="project-inspect" data-goal="检查 jinhu-smart-park 项目状态">检查项目状态</button>
+    <button type="button" class="secondary" data-quick-action="governance-check" data-goal="查看 jinhu-smart-park 上线阻断项">查看阻断项</button>
+    <button type="button" class="secondary" data-quick-action="autopilot-dry-run" data-goal="生成 jinhu-smart-park 下一步任务 proposal">生成下一步任务 proposal</button>
+  </div></section>
+  <section><h2>命令输出摘要 / 风险 / 审批 / 日志</h2><pre id="action-output">等待操作...</pre></section>
   <section>${table(actions.map((action) => ({
     id: action.id,
     intent: action.intent,
@@ -179,6 +301,50 @@ function pageActions(data) {
     mode: `${action.mode}/${action.executionMode}`,
     gate: action.governance_gate
   })), [{ key: "id", label: messages.pages.actions.action }, { key: "intent", label: messages.pages.actions.intent }, { key: "risk", label: messages.common.risk }, { key: "mode", label: messages.common.mode }, { key: "gate", label: messages.common.gate }])}</section>`;
+}
+
+function pageConfig(data) {
+  const projectDraft = {
+    project_id: "jinhu-smart-park",
+    connected: true,
+    phoenix_erp: "planned / not_connected",
+    managed_project_writes: false
+  };
+  const runtimeDraft = {
+    default_runtime: "codex-cli",
+    mode: "dry_run_only",
+    external_model_calls: "disabled"
+  };
+  const workerDraft = {
+    worker_pool: "local_only",
+    allowed_capabilities: ["codex", "web", "backend", "mobile-ios", "mobile-android"],
+    remote_workers: "proposal_only"
+  };
+  const credentialDraft = {
+    credential_values: "not_read",
+    storage: "reference_only",
+    allowed_references: ["vault_path", "env_ref", "keychain_ref", "external_vault_ref"]
+  };
+  const governanceDraft = {
+    LOW: "execute dry-run",
+    MEDIUM: "autopilot dry-run",
+    HIGH: "proposal_only",
+    CRITICAL: "human_approval_required"
+  };
+  return `<section><h2>${messages.pages.config.title}</h2><div class="grid">
+    ${metric(messages.pages.config.projects, "draft")}
+    ${metric(messages.pages.config.runtime, "dry-run")}
+    ${metric(messages.pages.config.credentials, "reference_only")}
+    ${metric(messages.pages.config.governance, data.governance.policy_id)}
+  </div><p class="help">${messages.pages.config.draftOnly}</p></section>
+  <section class="draft-grid">
+    <div class="panel"><label for="draft-project">${messages.pages.config.projects}</label><textarea id="draft-project" data-config-draft>${escapeHtml(JSON.stringify(projectDraft, null, 2))}</textarea></div>
+    <div class="panel"><label for="draft-runtime">${messages.pages.config.runtime}</label><textarea id="draft-runtime" data-config-draft>${escapeHtml(JSON.stringify(runtimeDraft, null, 2))}</textarea></div>
+    <div class="panel"><label for="draft-worker">${messages.pages.config.workers}</label><textarea id="draft-worker" data-config-draft>${escapeHtml(JSON.stringify(workerDraft, null, 2))}</textarea></div>
+    <div class="panel"><label for="draft-credential">${messages.pages.config.credentials}</label><textarea id="draft-credential" data-config-draft>${escapeHtml(JSON.stringify(credentialDraft, null, 2))}</textarea></div>
+    <div class="panel"><label for="draft-governance">${messages.pages.config.governance}</label><textarea id="draft-governance" data-config-draft>${escapeHtml(JSON.stringify(governanceDraft, null, 2))}</textarea></div>
+  </section>
+  <section class="panel"><div class="button-row"><button type="button" data-config-save>保存草稿</button><button type="button" class="danger" data-config-reset>重置草稿</button></div><p id="config-draft-status" class="help">草稿仅保存在浏览器 localStorage，不写仓库、不写真实凭证。</p></section>`;
 }
 
 function pageMemory(data) {
@@ -216,6 +382,7 @@ export async function renderConsolePage(pathname = "/") {
     planning: () => pagePlanning(data),
     autopilot: () => pageAutopilot(data),
     actions: () => pageActions(data),
+    config: () => pageConfig(data),
     memory: () => pageMemory(data),
     pilotStatus: () => pagePilotStatus(data)
   };

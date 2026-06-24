@@ -15,6 +15,7 @@ export interface ConsoleMessages {
     | "planning"
     | "autopilot"
     | "actions"
+    | "config"
     | "memory"
     | "pilotStatus",
     string

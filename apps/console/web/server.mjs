@@ -1,14 +1,50 @@
 import { createServer } from "node:http";
 import { renderConsolePage } from "./render.mjs";
 import { consoleWebRoutes } from "./routes.mjs";
+import { createActionPlan, executeDryRunAction, latestActionLog } from "./action-server.mjs";
 
 const port = Number(process.env.PORT ?? 4317);
 const allowedPaths = new Set(consoleWebRoutes.map((route) => route.path));
 
+function localOnly(request) {
+  return ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.socket.remoteAddress ?? "");
+}
+
+function sendJson(response, status, value) {
+  response.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store"
+  });
+  response.end(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+async function readJsonBody(request) {
+  const chunks = [];
+  for await (const chunk of request) chunks.push(chunk);
+  const text = Buffer.concat(chunks).toString("utf8");
+  return text.trim() ? JSON.parse(text) : {};
+}
+
 const server = createServer(async (request, response) => {
   try {
+    if (!localOnly(request)) {
+      sendJson(response, 403, { status: "BLOCKED", reason: "Console Action Server only accepts local 127.0.0.1 requests." });
+      return;
+    }
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
     const pathname = url.pathname === "/dashboard" ? "/" : url.pathname;
+    if (request.method === "POST" && pathname === "/api/action-plan") {
+      sendJson(response, 200, await createActionPlan(await readJsonBody(request)));
+      return;
+    }
+    if (request.method === "POST" && pathname === "/api/action-run") {
+      sendJson(response, 200, await executeDryRunAction(await readJsonBody(request)));
+      return;
+    }
+    if (request.method === "GET" && pathname === "/api/action-log/latest") {
+      sendJson(response, 200, await latestActionLog() ?? { status: "EMPTY", path: null });
+      return;
+    }
     if (!allowedPaths.has(pathname)) {
       response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
       response.end("Console route not found.");
