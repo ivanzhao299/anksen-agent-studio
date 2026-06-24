@@ -1,6 +1,6 @@
 # V5 Console Copy Guide
 
-- batch_id: batch-plan-bec739c319
+- batch_id: batch-plan-382fe66309
 - owner_agent: agent-1
 
 ## Copy Principles
