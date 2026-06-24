@@ -539,7 +539,7 @@ function shell(content, activeId, model, data) {
     header { padding: 18px 24px 12px; border-bottom: 1px solid var(--line); background: #0d1218; position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 28px var(--shadow); }
     .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .brand-lockup { display: flex; align-items: center; gap: 14px; min-width: 0; }
-    .logo-frame { display: inline-flex; align-items: center; justify-content: center; width: 118px; height: 56px; flex: 0 0 auto; border: 1px solid #d9e6f4; border-radius: 8px; background: #f8fbff; padding: 7px 10px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72); }
+    .logo-frame { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 56px; flex: 0 0 auto; border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; }
     .brand-logo { display: block; width: 100%; height: 100%; object-fit: contain; }
     .brand-copy { min-width: 0; }
     h1 { margin: 0 0 4px; font-size: 22px; font-weight: 700; letter-spacing: 0; }
