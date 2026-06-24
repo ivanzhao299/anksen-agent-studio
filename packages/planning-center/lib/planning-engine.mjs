@@ -85,6 +85,10 @@ function goalTargetsV5(request) {
   return /\bV5\b/i.test(String(request.goal ?? ""));
 }
 
+function goalTargetsPilot(request) {
+  return /\bPilot\b|试运行/i.test(String(request.goal ?? ""));
+}
+
 function v5Roadmap(inputs) {
   const roadmap = inputs.roadmap?.v5_roadmap;
   return roadmap && Array.isArray(roadmap.stages) ? roadmap : null;
@@ -571,6 +575,230 @@ function buildV5BatchPlan(request, selectedAction) {
       managed_project_writes: "disabled"
     },
     tasks
+  };
+}
+
+function pilotAction() {
+  return {
+    title: "Use real parallel Worker executor in Autopilot Batch",
+    reason: "Pilot mode has validated worker parallel-smoke; the next safe step is to wire the same local child_process evidence into formal Autopilot Batch without enabling remote workers, deploy, production operations, secrets, or managed-project writes.",
+    target_project: "anksen-agent-studio",
+    target_package: "packages/orchestrator-core",
+    expected_files: [
+      "packages/orchestrator-core/bin/studio.mjs",
+      "packages/planning-center/lib/planning-engine.mjs",
+      "autopilot-runs/*"
+    ],
+    validation_commands: [
+      "pnpm typecheck",
+      "pnpm lint:check",
+      "node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal \"继续推进 Pilot\" --dry-run",
+      "git diff --check"
+    ],
+    risk: "MEDIUM",
+    approval_required: false,
+    execution_mode: "local_repo_execute",
+    automation_level: "autopilot_execute"
+  };
+}
+
+function pilotBatchTasks() {
+  const commonForbiddenPaths = [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "examples/jinhu-smart-park/**",
+    "runtime/projects/jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ];
+  return [
+    normalizeBatchTask({
+      task_id: "pilot-batch-agent-1-runtime-chain-evidence",
+      title: "Pilot runtime chain evidence",
+      owner_agent: "agent-1",
+      target_project: "anksen-agent-studio",
+      target_package: "packages/runtime-center",
+      skill_type: "runtime_validation",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "runtime/pilot/**",
+        "docs/release/PILOT_RUNTIME_CHAIN_PARALLEL_EVIDENCE.md"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "LOW",
+      dependencies: [],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Record read-only Pilot runtime chain evidence while keeping credential values, model calls, deploy, and production operations disabled."
+    }),
+    normalizeBatchTask({
+      task_id: "pilot-batch-agent-2-worker-pool-evidence",
+      title: "Pilot worker pool evidence",
+      owner_agent: "agent-2",
+      target_project: "anksen-agent-studio",
+      target_package: "packages/worker-pool",
+      skill_type: "worker_validation",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "packages/worker-pool/examples/pilot-worker-pool-parallel.example.json",
+        "docs/release/PILOT_WORKER_POOL_PARALLEL_EVIDENCE.md"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs worker health --dry-run",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Record local Worker Pool parallel evidence using child_process-only workers and no remote connectivity."
+    }),
+    normalizeBatchTask({
+      task_id: "pilot-batch-agent-3-credential-policy-evidence",
+      title: "Pilot credential policy evidence",
+      owner_agent: "agent-3",
+      target_project: "anksen-agent-studio",
+      target_package: "packages/credential-vault",
+      skill_type: "credential_policy",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "packages/credential-vault/examples/pilot-credential-backend-policy.example.json",
+        "docs/release/PILOT_CREDENTIAL_POLICY_PARALLEL_EVIDENCE.md"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs credential audit-policy --dry-run",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Record credential backend policy evidence as reference-only metadata without reading or storing secret values."
+    }),
+    normalizeBatchTask({
+      task_id: "pilot-batch-agent-4-console-action-evidence",
+      title: "Pilot console action evidence",
+      owner_agent: "agent-4",
+      target_project: "anksen-agent-studio",
+      target_package: "apps/console",
+      skill_type: "console_validation",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "apps/console/examples/pilot-console-action-flow.example.json",
+        "docs/release/PILOT_CONSOLE_ACTION_PARALLEL_EVIDENCE.md"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "MEDIUM",
+      dependencies: [],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run",
+        "git diff --check"
+      ],
+      execution_mode: "local_repo_execute",
+      objective: "Record Console pilot action evidence while all Console actions remain read-only, dry-run, or proposal-only."
+    }),
+    normalizeBatchTask({
+      task_id: "pilot-batch-agent-5-remote-worker-production-readiness",
+      title: "Pilot remote worker and production readiness proposal",
+      owner_agent: "agent-5",
+      target_project: "anksen-agent-studio",
+      target_package: "docs/release",
+      skill_type: "architecture_planning",
+      runtime: "codex-cli",
+      allowed_paths: [
+        "docs/release/PILOT_REMOTE_WORKER_PRODUCTION_PROPOSAL.md",
+        "docs/release/PILOT_REMOTE_WORKER_READINESS_READONLY.md",
+        "packages/worker-pool/examples/pilot-remote-worker-readiness.example.json"
+      ],
+      forbidden_paths: commonForbiddenPaths,
+      risk: "HIGH",
+      dependencies: [
+        "pilot-batch-agent-2-worker-pool-evidence"
+      ],
+      validation_commands: [
+        "pnpm typecheck",
+        "pnpm lint:check",
+        "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+        "git diff --check"
+      ],
+      execution_mode: "proposal_only",
+      approval_required: true,
+      proposal_required: true,
+      objective: "Keep remote worker and production readiness in proposal-only mode unless it is decomposed into local read-only evidence."
+    })
+  ];
+}
+
+function buildPilotBatchPlan(request, selectedAction) {
+  const tasks = pilotBatchTasks();
+  return {
+    batch_id: batchId(request),
+    goal: request.goal,
+    source_planning_output_id: outputId(request),
+    source_action_title: selectedAction.title,
+    strategy: "pilot_real_parallel_worker_executor",
+    remaining_gap_ids: [
+      "formal-autopilot-batch-real-child-process-evidence"
+    ],
+    parallelism: {
+      min_tasks: 4,
+      max_tasks: 5,
+      recommended_parallel: 4,
+      max_parallel: 5
+    },
+    execution_policy: {
+      low_medium: "local_repo_execute_allowed",
+      high_critical: "proposal_only_or_safe_decomposition",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "disabled",
+      managed_project_writes: "disabled",
+      external_model_calls: "disabled",
+      remote_workers: "disabled"
+    },
+    tasks
+  };
+}
+
+function buildPilotPlanningOutput(request) {
+  const action = pilotAction();
+  return {
+    schema_version: 1,
+    planning_output_id: outputId(request),
+    source_request_id: request.request_id,
+    goal: request.goal,
+    current_stage: {
+      stage_name: "Pilot Productization",
+      next_stage: action.title,
+      extraction_completed: Boolean(request.inputs?.closure_report?.extraction_completed),
+      remote_execute_completed: Boolean(request.inputs?.closure_report?.remote_execute_completed),
+      pilot_runtime_smoke_completed: Boolean(request.inputs?.docs?.release_files?.includes?.("docs/release/PILOT_1_REAL_RUNTIME_SMOKE.md")),
+      pilot_worker_pool_completed: Boolean(request.inputs?.docs?.release_files?.includes?.("docs/release/PILOT_2_WORKER_POOL_MVP.md")),
+      high_critical_policy: "proposal_only"
+    },
+    next_action: action,
+    reason: action.reason,
+    target_project: action.target_project,
+    target_package: action.target_package,
+    expected_files: action.expected_files,
+    validation_commands: action.validation_commands,
+    risk: action.risk,
+    approval_required: action.approval_required,
+    execution_mode: action.execution_mode,
+    batch_plan: buildPilotBatchPlan(request, action),
+    stop_condition: "STOP: Planning Center generated one Pilot batch plan. Only LOW/MEDIUM local repository tasks may execute; HIGH/CRITICAL work remains proposal-only or safe-decomposed."
   };
 }
 
@@ -1074,6 +1302,9 @@ function v4ContinuousCompleteAction() {
 }
 
 export function buildPlanningOutput(request) {
+  if (goalTargetsPilot(request)) {
+    return buildPilotPlanningOutput(request);
+  }
   if (goalTargetsV5(request)) {
     return buildV5PlanningOutput(request);
   }

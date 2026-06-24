@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-9327842d0f",
+  "task_id": "pilot-batch-agent-2-worker-pool-evidence",
+  "owner_agent": "agent-2",
+  "target_package": "packages/worker-pool",
+  "skill_type": "worker_validation",
+  "runtime": "codex-cli",
+  "split_from": null,
+  "parent_risk": null,
+  "split_strategy": null,
+  "status": "EXECUTED",
+  "execution_mode": "local_repo_execute",
+  "execution_strategy": "true_parallel_executor_parallel_4",
+  "risk": "MEDIUM",
+  "task_workspace": "autopilot-runs/workspaces/batch-plan-9327842d0f/pilot-batch-agent-2-worker-pool-evidence",
+  "allowed_paths": [
+    "packages/worker-pool/examples/pilot-worker-pool-parallel.example.json",
+    "docs/release/PILOT_WORKER_POOL_PARALLEL_EVIDENCE.md"
+  ],
+  "forbidden_paths": [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "examples/jinhu-smart-park/**",
+    "runtime/projects/jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ],
+  "dependencies": [],
+  "changed_files": [
+    "autopilot-runs/batch-plan-9327842d0f-pilot-batch-agent-2-worker-pool-evidence.json",
+    "autopilot-runs/batch-plan-9327842d0f-pilot-batch-agent-2-worker-pool-evidence.md",
+    "autopilot-runs/parallel-batch/batch-plan-9327842d0f/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.json",
+    "autopilot-runs/parallel-batch/batch-plan-9327842d0f/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.md",
+    "autopilot-runs/workspaces/batch-plan-9327842d0f/pilot-batch-agent-2-worker-pool-evidence/workspace.json",
+    "docs/release/PILOT_WORKER_POOL_PARALLEL_EVIDENCE.md",
+    "packages/worker-pool/examples/pilot-worker-pool-parallel.example.json"
+  ],
+  "validation_result": {
+    "status": "PASS",
+    "command_count": 5,
+    "failed_commands": []
+  },
+  "commands_run": [
+    {
+      "command": "pnpm typecheck",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "> anksen-agent-studio@0.1.0 typecheck /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> pnpm -r --if-present typecheck\n\nScope: 15 of 16 workspace projects\napps/console typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/discovery-engine typecheck: Done\npackages/governance-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/credential-vault typecheck: Done\npackages/mobile-stack-pack typecheck$ tsc -p tsconfig.json --noEmit\npackages/evolution-center typecheck: Done\npackages/orchestrator-core typecheck$ tsc -p tsconfig.json --noEmit\napps/console typecheck: Done\npackages/planning-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/mobile-stack-pack typecheck: Done\npackages/production-ops typecheck$ tsc -p tsconfig.json --noEmit\npackages/governance-center typecheck: Done\npackages/project-connector typecheck$ tsc -p tsconfig.json --noEmit\npackages/orchestrator-core typecheck: Done\npackages/runtime-adapters typecheck$ tsc -p tsconfig.json --noEmit\npackages/planning-center typecheck: Done\npackages/runtime-center typecheck$ tsc -p tsconfig.json --noEmit\npackages/production-ops typecheck: Done\npackages/runtime-memory typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-adapters typecheck: Done\npackages/skill-router typecheck$ tsc -p tsconfig.json --noEmit\npackages/project-connector typecheck: Done\npackages/worker-pool typecheck$ tsc -p tsconfig.json --noEmit\npackages/runtime-center typecheck: Done\npackages/worker-pool typecheck: Done\npackages/runtime-memory typecheck: Done\npackages/skill-router typecheck: Done",
+      "stderr_tail": ""
+    },
+    {
+      "command": "pnpm lint:check",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "> anksen-agent-studio@0.1.0 lint:check /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio\n> node packages/orchestrator-core/bin/studio.mjs lint-check\n\nlint:check: no ESLint configuration is enabled in the extraction-stage skeleton.\nstatus: PASS",
+      "stderr_tail": ""
+    },
+    {
+      "command": "git diff --check",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "command": "git diff --check",
+      "ok": true,
+      "status": 0,
+      "blocked": false,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    }
+  ],
+  "child_process_evidence": {
+    "agent": "agent-2",
+    "task_id": "pilot-batch-agent-2-worker-pool-evidence",
+    "run_id": "batch-plan-9327842d0f-agent-2-pilot-batch-agent-2-worker-pool-evidence",
+    "pid": 55402,
+    "observed_child_pid": 55402,
+    "workspace": "autopilot-runs/parallel-batch/batch-plan-9327842d0f/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence",
+    "run_log_json": "autopilot-runs/parallel-batch/batch-plan-9327842d0f/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.json",
+    "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-9327842d0f/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.md",
+    "started_at": "2026-06-24T05:42:16.942Z",
+    "completed_at": "2026-06-24T05:42:17.921Z",
+    "duration_ms": 979,
+    "status": "PASS",
+    "exit_code": 0,
+    "source_path": "packages/worker-pool/examples/worker-registry.example.json",
+    "bytes_read": 2280
+  },
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled",
+    "local_child_process_worker": "enabled",
+    "remote_worker_execution": "disabled",
+    "external_model_call": "disabled"
+  }
+}

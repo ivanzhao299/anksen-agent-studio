@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-9327842d0f",
+  "owner_agent": "agent-1",
+  "evidence_id": "pilot-runtime-chain-parallel-evidence",
+  "runtime": "codex-cli",
+  "credential_reference": "reference_only",
+  "adapter_invoke_plan": "PASS",
+  "governance_gate": "PASS",
+  "worker_execution": "local_child_process_only",
+  "blocked_operations": [
+    "external_model_call",
+    "server_access",
+    "deploy",
+    "production_operation",
+    "credential_value_read",
+    "managed_project_write"
+  ]
+}

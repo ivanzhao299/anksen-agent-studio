@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-9327842d0f",
+  "owner_agent": "agent-4",
+  "evidence_id": "pilot-console-action-flow",
+  "default_mode": "read_only",
+  "allowed_actions": [
+    "context_summary",
+    "runtime_health",
+    "worker_health",
+    "credential_validate",
+    "governance_check",
+    "autopilot_dry_run"
+  ],
+  "write_enabled": false,
+  "production_enabled": false,
+  "high_critical_policy": "proposal_only"
+}

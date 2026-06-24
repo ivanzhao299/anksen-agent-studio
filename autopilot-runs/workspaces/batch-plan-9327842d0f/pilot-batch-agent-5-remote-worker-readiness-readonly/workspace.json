@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-9327842d0f",
+  "task_id": "pilot-batch-agent-5-remote-worker-readiness-readonly",
+  "owner_agent": "agent-5",
+  "execution_strategy": "true_parallel_executor_parallel_4",
+  "split_from": "pilot-batch-agent-5-remote-worker-production-readiness",
+  "parent_risk": "HIGH",
+  "split_strategy": "high_risk_safe_decomposition",
+  "target_package": "packages/worker-pool",
+  "allowed_paths": [
+    "docs/release/PILOT_REMOTE_WORKER_READINESS_READONLY.md",
+    "packages/worker-pool/examples/pilot-remote-worker-readiness.example.json"
+  ],
+  "forbidden_paths": [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "examples/jinhu-smart-park/**",
+    "runtime/projects/jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ],
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled",
+    "real_worker_execution": "disabled"
+  }
+}

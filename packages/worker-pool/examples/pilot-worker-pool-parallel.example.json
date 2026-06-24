@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-9327842d0f",
+  "owner_agent": "agent-2",
+  "evidence_id": "pilot-worker-pool-parallel",
+  "worker_scope": "local_only",
+  "executor": "node_child_process",
+  "required_evidence": [
+    "agent_pids",
+    "independent_workspaces",
+    "independent_run_logs",
+    "time_overlap_matrix"
+  ],
+  "remote_workers": "disabled",
+  "production_workers": "proposal_only"
+}

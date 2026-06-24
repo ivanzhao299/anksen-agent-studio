@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-9327842d0f",
+  "task_id": "pilot-batch-agent-4-console-action-evidence",
+  "owner_agent": "agent-4",
+  "execution_strategy": "true_parallel_executor_parallel_4",
+  "split_from": null,
+  "parent_risk": null,
+  "split_strategy": null,
+  "target_package": "apps/console",
+  "allowed_paths": [
+    "apps/console/examples/pilot-console-action-flow.example.json",
+    "docs/release/PILOT_CONSOLE_ACTION_PARALLEL_EVIDENCE.md"
+  ],
+  "forbidden_paths": [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "examples/jinhu-smart-park/**",
+    "runtime/projects/jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ],
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled",
+    "real_worker_execution": "disabled"
+  }
+}

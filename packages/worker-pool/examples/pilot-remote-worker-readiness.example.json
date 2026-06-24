@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-9327842d0f",
+  "owner_agent": "agent-5",
+  "split_from": "pilot-batch-agent-5-remote-worker-production-readiness",
+  "evidence_id": "pilot-remote-worker-readiness-readonly",
+  "mode": "read_only",
+  "allowed_operations": [
+    "describe_remote_worker_requirements",
+    "record_governance_gate",
+    "record_kill_switch_requirement"
+  ],
+  "blocked_operations": [
+    "ssh",
+    "server_connect",
+    "remote_worker_start",
+    "external_model_call",
+    "deploy",
+    "production_operation",
+    "credential_value_read"
+  ],
+  "governance": {
+    "remote_worker": "HIGH_PROPOSAL_ONLY",
+    "production_worker": "CRITICAL_HUMAN_APPROVAL_REQUIRED"
+  }
+}
