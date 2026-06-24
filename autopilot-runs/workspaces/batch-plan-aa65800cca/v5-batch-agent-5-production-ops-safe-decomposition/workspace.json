@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-aa65800cca",
+  "task_id": "v5-batch-agent-5-production-ops-safe-decomposition",
+  "owner_agent": "agent-5",
+  "execution_strategy": "true_parallel_executor_parallel_4",
+  "split_from": "v5-batch-agent-5-architecture-runtime-prodops",
+  "parent_risk": "HIGH",
+  "split_strategy": "high_risk_safe_decomposition",
+  "target_package": "packages/production-ops",
+  "allowed_paths": [
+    "docs/release/V5_PRODUCTION_OPS_SAFE_DECOMPOSITION.md",
+    "packages/production-ops/examples/v5-production-ops-safety-decomposition.example.json"
+  ],
+  "forbidden_paths": [
+    "jinhu-smart-park/**",
+    "../jinhu-smart-park/**",
+    "examples/jinhu-smart-park/**",
+    "runtime/projects/jinhu-smart-park/**",
+    "**/.env*",
+    "**/*secret*",
+    "**/*private_key*",
+    "**/*ssh_key*"
+  ],
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled",
+    "real_worker_execution": "disabled"
+  }
+}

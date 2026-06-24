@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-aa65800cca",
+  "goal": "继续推进 V5",
+  "execution_strategy": "true_parallel_executor_parallel_4",
+  "parallel_requested": 4,
+  "actual_parallelism": 4,
+  "true_parallel": true,
+  "path_overlap": {
+    "detected": false,
+    "overlaps": [],
+    "degraded_task_ids": [],
+    "unaffected_task_ids": [
+      "v5-batch-agent-1-docs-console-manual",
+      "v5-batch-agent-2-governance-validation",
+      "v5-batch-agent-3-project-runtime-memory",
+      "v5-batch-agent-4-console-ui-entrypoints",
+      "v5-batch-agent-5-runtime-architecture-readonly",
+      "v5-batch-agent-5-production-ops-safe-decomposition"
+    ]
+  },
+  "parallel_batches": [
+    [
+      "v5-batch-agent-1-docs-console-manual",
+      "v5-batch-agent-2-governance-validation",
+      "v5-batch-agent-3-project-runtime-memory",
+      "v5-batch-agent-4-console-ui-entrypoints"
+    ],
+    [
+      "v5-batch-agent-5-runtime-architecture-readonly",
+      "v5-batch-agent-5-production-ops-safe-decomposition"
+    ]
+  ],
+  "degraded_batches": [],
+  "high_risk_decomposition": [
+    {
+      "parent_task_id": "v5-batch-agent-5-architecture-runtime-prodops",
+      "owner_agent": "agent-5",
+      "parent_risk": "HIGH",
+      "status": "SPLIT_TO_SAFE_SUBTASKS",
+      "child_task_ids": [
+        "v5-batch-agent-5-runtime-architecture-readonly",
+        "v5-batch-agent-5-production-ops-safe-decomposition"
+      ],
+      "direct_execution": false
+    }
+  ],
+  "task_counts": {
+    "planned": 5,
+    "expanded": 6,
+    "executable": 6,
+    "proposal_only": 0,
+    "split_parent": 1,
+    "split_child": 2
+  },
+  "validation_status": "PASS",
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled",
+    "real_worker_execution": "disabled"
+  }
+}

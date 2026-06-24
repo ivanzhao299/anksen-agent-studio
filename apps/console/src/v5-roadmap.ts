@@ -15,7 +15,7 @@ export const consoleV5BatchEntries: readonly ConsoleV5RoadmapEntry[] = [
 ] as const;
 
 export const consoleV5BatchSafety = {
-  batch_id: "batch-plan-a3914edecb",
+  batch_id: "batch-plan-aa65800cca",
   real_worker_execution: "disabled",
   deploy: "disabled",
   production_operations: "disabled",
