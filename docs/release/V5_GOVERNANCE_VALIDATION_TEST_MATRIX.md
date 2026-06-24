@@ -1,6 +1,6 @@
 # V5 Governance Validation Test Matrix
 
-- batch_id: batch-plan-a4ff6f9be5
+- batch_id: batch-plan-bec739c319
 - owner_agent: agent-2
 - execution_mode: local_repo_execute
 
