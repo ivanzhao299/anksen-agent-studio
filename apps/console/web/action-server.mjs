@@ -236,6 +236,26 @@ function buildPlan(input) {
   };
 }
 
+function actionPlanCommandFor(plan, input) {
+  const goal = safeGoal(input.goal);
+  return {
+    command: process.execPath,
+    args: [
+      studioScript,
+      "console",
+      "action-plan",
+      "--action",
+      plan.action_id,
+      "--goal",
+      goal,
+      "--project",
+      plan.target_project,
+      "--dry-run"
+    ],
+    display: `node ${studioScript} console action-plan --action ${plan.action_id} --goal "${goal}" --project ${plan.target_project} --dry-run`
+  };
+}
+
 function summarizeStdout(stdout) {
   const lines = redactSensitive(stdout)
     .split("\n")
@@ -356,11 +376,36 @@ async function writeActionLog(record) {
 
 export async function createActionPlan(input) {
   const plan = buildPlan(input);
+  const planCommand = actionPlanCommandFor(plan, input);
+  let commandResult;
+  try {
+    const { stdout, stderr } = await execFileAsync(planCommand.command, planCommand.args, {
+      cwd: repoRoot,
+      timeout: 120000,
+      maxBuffer: 1024 * 1024 * 10
+    });
+    commandResult = {
+      status: plan.approval_required ? "NEEDS_APPROVAL" : "PASS",
+      exit_code: 0,
+      stdout_summary: summarizeStdout(stdout),
+      stderr_summary: summarizeStdout(stderr)
+    };
+  } catch (error) {
+    commandResult = {
+      status: "FAIL",
+      exit_code: typeof error?.code === "number" ? error.code : 1,
+      stdout_summary: summarizeStdout(error?.stdout ?? ""),
+      stderr_summary: summarizeStdout(error?.stderr ?? error?.message ?? "")
+    };
+  }
   const record = {
     schema_version: 1,
     kind: "console_action_plan",
-    plan,
-    result: null
+    plan: {
+      ...plan,
+      plan_command: planCommand.display
+    },
+    result: commandResult
   };
   const logs = await writeActionLog(record);
   return {

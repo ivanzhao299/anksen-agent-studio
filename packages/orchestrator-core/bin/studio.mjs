@@ -76,7 +76,8 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs console render --dry-run
   node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run
   node packages/orchestrator-core/bin/studio.mjs console actions --dry-run
-  node packages/orchestrator-core/bin/studio.mjs console action-plan --action <action_id> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs console action-plan --action <action_id> --goal "..." --project <project_id> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs console action-server-smoke --dry-run
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
   node packages/orchestrator-core/bin/studio.mjs observe [--dry-run]
@@ -7683,20 +7684,68 @@ async function loadConsoleActionCenter() {
   return readJson(resolveFromRoot("apps/console/examples/console-actions.example.json"));
 }
 
-function buildConsoleCliActionPlan(actionCenter, actionId) {
-  const action = (actionCenter.actions ?? []).find((item) => item.id === actionId) ?? null;
+function normalizeConsoleActionId(actionId) {
+  if (actionId === "autopilot-run") return "autopilot-dry-run";
+  if (actionId === "pending-proposals") return "proposal-review";
+  if (actionId === "worker-status") return "worker-health";
+  if (actionId === "smart-park-go-live-plan-dry-run") return "smart-park-go-live-plan";
+  if (actionId === "proposal-approve") return "proposal-approve-dry-run";
+  return actionId;
+}
+
+function consoleGateForRisk(risk) {
+  if (risk === "CRITICAL") {
+    return {
+      status: "BLOCKED",
+      executionMode: "human_approval_required",
+      mode: "read_only",
+      governanceGate: "HUMAN_APPROVAL_REQUIRED",
+      requiresApproval: true,
+      dryRun: false,
+      blockedReason: "CRITICAL risk requires explicit human approval and cannot be executed from Console."
+    };
+  }
+  if (risk === "HIGH") {
+    return {
+      status: "PROPOSAL_ONLY",
+      executionMode: "proposal_only",
+      mode: "read_only",
+      governanceGate: "PROPOSAL_ONLY",
+      requiresApproval: true,
+      dryRun: false,
+      blockedReason: "HIGH risk stays proposal_only from Console."
+    };
+  }
+  return {
+    status: "PLANNED_EXECUTION",
+    executionMode: "direct_execute",
+    mode: "direct_execute",
+    governanceGate: "ALLOW_DIRECT_EXECUTE",
+    requiresApproval: false,
+    dryRun: false,
+    blockedReason: null
+  };
+}
+
+function buildConsoleCliActionPlan(actionCenter, actionId, options = {}) {
+  const normalizedActionId = normalizeConsoleActionId(actionId);
+  const action = (actionCenter.actions ?? []).find((item) => item.id === normalizedActionId) ?? null;
+  const targetProject = options.project || "jinhu-smart-park";
+  const goal = (options.goal || "继续推进 Pilot").trim();
   if (!action) {
     return {
       schema_version: 1,
-      plan_id: `console-action-plan-${createHash("sha1").update(actionId || "missing").digest("hex").slice(0, 10)}`,
-      action_id: actionId,
+      plan_id: `console-action-plan-${createHash("sha1").update(normalizedActionId || "missing").digest("hex").slice(0, 10)}`,
+      action_id: normalizedActionId,
+      target_project: targetProject,
+      goal_summary: goal.slice(0, 240),
       status: "BLOCKED",
       risk: "CRITICAL",
-      execution_mode: "proposal_only",
+      execution_mode: "human_approval_required",
       mode: "read_only",
       write_enabled: false,
       production_enabled: false,
-      dry_run: true,
+      dry_run: false,
       command: "",
       requires_approval: true,
       governance_gate: "HUMAN_APPROVAL_REQUIRED",
@@ -7709,31 +7758,34 @@ function buildConsoleCliActionPlan(actionCenter, actionId) {
         managed_project_writes: "disabled",
         model_invocation: "disabled"
       },
-      blocked_reasons: [`Unknown Console action: ${actionId}`]
+      blocked_reasons: [`Unknown Console action: ${normalizedActionId}`],
+      not_registered: true
     };
   }
-  const proposalOnly = action.executionMode === "proposal_only" || action.risk === "HIGH" || action.risk === "CRITICAL";
+  const gate = consoleGateForRisk(action.risk);
   return {
     schema_version: 1,
     plan_id: `console-action-plan-${action.id}`,
     action_id: action.id,
+    target_project: targetProject,
+    goal_summary: goal.slice(0, 240),
     label: action.label,
     intent: action.intent,
-    status: proposalOnly ? "PROPOSAL_ONLY" : "PLANNED_DRY_RUN",
+    status: gate.status,
     risk: action.risk,
-    execution_mode: action.executionMode,
-    mode: action.mode,
+    execution_mode: gate.executionMode,
+    mode: gate.mode,
     write_enabled: false,
     production_enabled: false,
-    dry_run: true,
+    dry_run: gate.dryRun,
     command: action.command,
-    requires_approval: action.requiresApproval,
-    governance_gate: action.governance_gate,
+    requires_approval: gate.requiresApproval,
+    governance_gate: gate.governanceGate,
     steps: [
       "Read Console action intent metadata.",
-      "Verify action remains read-only or dry-run with writes disabled.",
-      "Apply governance gate before any future execution.",
-      proposalOnly ? "Generate or review a proposal; do not execute the action." : "Return a local dry-run command plan; do not execute from the Console."
+      "Apply Governance Gate before any command execution.",
+      gate.requiresApproval ? "Generate/review proposal or approval evidence; do not execute this action." : "Allow the local Action Server to execute the mapped LOW/MEDIUM allowlist command.",
+      "Keep deploy, production operations, managed project writes, model calls, and credential value reads disabled."
     ],
     safety: {
       deploy: "disabled",
@@ -7745,7 +7797,7 @@ function buildConsoleCliActionPlan(actionCenter, actionId) {
     },
     blocked_reasons: [
       ...(action.disabledReason ? [action.disabledReason] : []),
-      ...(proposalOnly ? ["HIGH/CRITICAL or approval actions stay proposal-only from the Console."] : [])
+      ...(gate.blockedReason ? [gate.blockedReason] : [])
     ]
   };
 }
@@ -7754,7 +7806,7 @@ async function consoleActionsDryRun(args) {
   assertDryRun(args, "console actions");
   const actionCenter = await loadConsoleActionCenter();
   const actions = actionCenter.actions ?? [];
-  const proposalOnlyCount = actions.filter((action) => action.executionMode === "proposal_only" || ["HIGH", "CRITICAL"].includes(action.risk)).length;
+  const proposalOnlyCount = actions.filter((action) => ["HIGH", "CRITICAL"].includes(action.risk)).length;
   console.log("# Console Action Center dry-run");
   console.log("");
   console.log(`action_center_id: ${actionCenter.action_center_id}`);
@@ -7772,7 +7824,8 @@ async function consoleActionsDryRun(args) {
   console.log("| Action | Intent | Scope | Mode | Risk | Gate | Write | Production |");
   console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const action of actions) {
-    console.log(`| ${action.id} | ${action.intent} | ${action.scope} | ${action.mode}/${action.executionMode} | ${action.risk} | ${action.governance_gate} | ${action.write_enabled ? "yes" : "no"} | ${action.production_enabled ? "yes" : "no"} |`);
+    const gate = consoleGateForRisk(action.risk);
+    console.log(`| ${action.id} | ${action.intent} | ${action.scope} | ${gate.mode}/${gate.executionMode} | ${action.risk} | ${gate.governanceGate} | ${action.write_enabled ? "yes" : "no"} | ${action.production_enabled ? "yes" : "no"} |`);
   }
 }
 
@@ -7782,11 +7835,16 @@ async function consoleActionPlan(args) {
     throw new Error("Missing --action for console action-plan.");
   }
   const actionCenter = await loadConsoleActionCenter();
-  const plan = buildConsoleCliActionPlan(actionCenter, args.action.trim());
+  const plan = buildConsoleCliActionPlan(actionCenter, args.action.trim(), {
+    goal: args.goal || args.text,
+    project: args.project && args.project !== DEFAULT_PROJECT ? args.project : "jinhu-smart-park"
+  });
   console.log("# Console Action Plan dry-run");
   console.log("");
   console.log(`plan_id: ${plan.plan_id}`);
   console.log(`action_id: ${plan.action_id}`);
+  console.log(`target_project: ${plan.target_project}`);
+  console.log(`goal_summary: ${plan.goal_summary}`);
   if (plan.label) console.log(`label: ${plan.label}`);
   if (plan.intent) console.log(`intent: ${plan.intent}`);
   console.log(`status: ${plan.status}`);
@@ -7816,7 +7874,7 @@ async function consoleActionPlan(args) {
   } else {
     for (const reason of plan.blocked_reasons) console.log(`- ${reason}`);
   }
-  if (plan.status === "BLOCKED") process.exitCode = 1;
+  if (plan.not_registered) process.exitCode = 1;
 }
 
 async function consoleSmoke(args) {
@@ -7952,6 +8010,80 @@ async function consoleSmoke(args) {
   console.log("");
   console.log("pages:");
   for (const route of routes) console.log(`- ${route.label}: ${route.path}`);
+  if (status !== "PASS") process.exitCode = 1;
+}
+
+async function consoleActionServerSmoke(args) {
+  assertDryRun(args, "console action-server-smoke");
+  const serverText = await readTextIfExists(resolveFromRoot("apps/console/web/server.mjs"));
+  const actionServer = await import(pathToFileURL(resolveFromRoot("apps/console/web/action-server.mjs")).href);
+  const summary = actionServer.actionServerSummary();
+  const runtimePlan = await actionServer.createActionPlan({
+    action_id: "runtime-health",
+    project_id: "jinhu-smart-park",
+    goal: "Runtime health smoke"
+  });
+  const smartParkPlan = await actionServer.createActionPlan({
+    action_id: "smart-park-go-live-plan",
+    project_id: "jinhu-smart-park",
+    goal: "生成 Smart Park 上线计划 Proposal"
+  });
+  const highPlan = await actionServer.createActionPlan({
+    action_id: "proposal-approve-dry-run",
+    project_id: "jinhu-smart-park",
+    goal: "审批 Proposal 草稿"
+  });
+  const routeCheck = ["/api/action-plan", "/api/action-run", "/api/action-log/latest"].every((route) => serverText.includes(route));
+  const localOnlyCheck = serverText.includes("127.0.0.1") && serverText.includes("localOnly");
+  const registryCheck = Array.isArray(summary.actions)
+    && summary.actions.some((action) => action.id === "smart-park-go-live-plan")
+    && summary.actions.some((action) => action.id === "worker-health");
+  const logWriteCheck = [runtimePlan, smartParkPlan, highPlan].every((record) =>
+    record.logs?.json
+    && record.logs?.markdown
+    && existsSync(resolveFromRoot(record.logs.json))
+    && existsSync(resolveFromRoot(record.logs.markdown))
+  );
+  const commandMappingCheck = runtimePlan.plan.command.includes("runtime health --dry-run")
+    && smartParkPlan.plan.command.includes("project chain-validate --project jinhu-smart-park --dry-run");
+  const governanceCheck = runtimePlan.plan.governance_gate === "ALLOW_DIRECT_EXECUTE"
+    && smartParkPlan.plan.governance_gate === "ALLOW_DIRECT_EXECUTE"
+    && highPlan.plan.governance_gate === "PROPOSAL_ONLY"
+    && highPlan.plan.approval_required === true;
+  const safetyCheck = summary.bind_address === "127.0.0.1"
+    && summary.direct_execute_allowed_for.includes("LOW")
+    && summary.direct_execute_allowed_for.includes("MEDIUM")
+    && summary.high_risk_policy === "proposal_only"
+    && summary.critical_risk_policy === "human_approval_required";
+  const status = routeCheck
+    && localOnlyCheck
+    && registryCheck
+    && logWriteCheck
+    && commandMappingCheck
+    && governanceCheck
+    && safetyCheck
+    ? "PASS"
+    : "FAIL";
+
+  console.log("# Console Action Server Smoke dry-run");
+  console.log("");
+  console.log(`status: ${status}`);
+  console.log(`api_routes: ${routeCheck ? "PASS" : "FAIL"}`);
+  console.log(`local_only: ${localOnlyCheck ? "PASS" : "FAIL"}`);
+  console.log(`action_registry: ${registryCheck ? "PASS" : "FAIL"}`);
+  console.log(`log_write: ${logWriteCheck ? "PASS" : "FAIL"}`);
+  console.log(`command_mapping: ${commandMappingCheck ? "PASS" : "FAIL"}`);
+  console.log(`governance_gate: ${governanceCheck ? "PASS" : "FAIL"}`);
+  console.log(`safety_policy: ${safetyCheck ? "PASS" : "FAIL"}`);
+  console.log(`action_log_dir: ${summary.action_log_dir}`);
+  console.log(`runtime_health_log: ${runtimePlan.logs.json}`);
+  console.log(`smart_park_plan_log: ${smartParkPlan.logs.json}`);
+  console.log(`high_risk_plan_log: ${highPlan.logs.json}`);
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("credential_values_read: no");
+  console.log("model_invocation: disabled");
+  console.log("managed_project_writes: disabled");
   if (status !== "PASS") process.exitCode = 1;
 }
 
@@ -9874,6 +10006,7 @@ async function main() {
   if (args.command === "pilot" && args.subcommand === "runtime-smoke") return pilotRuntimeSmoke(args);
   if (args.command === "console" && args.subcommand === "render") return consoleRender(args);
   if (args.command === "console" && args.subcommand === "smoke") return consoleSmoke(args);
+  if (args.command === "console" && args.subcommand === "action-server-smoke") return consoleActionServerSmoke(args);
   if (args.command === "console" && args.subcommand === "actions") return consoleActionsDryRun(args);
   if (args.command === "console" && args.subcommand === "action-plan") return consoleActionPlan(args);
   if (args.command === "skill-route") {

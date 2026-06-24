@@ -128,8 +128,17 @@ function actionWorkbench(data, title = "任务工作台") {
       <span>${riskBadge("CRITICAL")} 人工审批</span>
     </div>
     <div class="output-card">
-      <div class="section-head small"><h3>Action Log 摘要</h3><span>${escapeHtml(data.actionServer.action_log_dir)}</span></div>
+      <div class="section-head small"><h3>操作反馈</h3><span>${escapeHtml(data.actionServer.action_log_dir)}</span></div>
+      <div class="action-feedback-grid">
+        <div><span>当前状态</span><strong id="action-status" class="status-label ready">待操作</strong></div>
+        <div><span>命令摘要</span><strong id="action-command">未生成</strong></div>
+        <div><span>风险等级</span><strong id="action-risk">未评估</strong></div>
+        <div><span>Action Log</span><strong id="action-log-path">${escapeHtml(data.action_log.latest_path ?? "未生成")}</strong></div>
+      </div>
+      <label for="action-output">输出结果</label>
       <pre id="action-output">${escapeHtml(data.action_log.latest_summary ?? "等待操作...")}</pre>
+      <label for="action-error">stderr / error message</label>
+      <pre id="action-error">无</pre>
     </div>
   </section>`;
 }
@@ -254,13 +263,58 @@ function interactiveScript() {
   return `<script>
 (() => {
   const output = document.getElementById("action-output");
+  const errorOutput = document.getElementById("action-error");
+  const statusEl = document.getElementById("action-status");
+  const commandEl = document.getElementById("action-command");
+  const riskEl = document.getElementById("action-risk");
+  const logPathEl = document.getElementById("action-log-path");
   const goal = document.getElementById("action-goal");
   const project = document.getElementById("action-project");
   const action = document.getElementById("action-type");
   const draftStatus = document.getElementById("config-draft-status");
 
-  function show(value) {
-    if (output) output.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  function normalize(value) {
+    return String(value || "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  }
+
+  function setStatus(value) {
+    if (!statusEl) return;
+    const statusClass = {
+      "待操作": "ready",
+      "生成中": "local",
+      "执行中": "local",
+      "成功": "pass",
+      "失败": "blocked",
+      "需审批": "proposal-only"
+    }[value] || normalize(value);
+    statusEl.textContent = value;
+    statusEl.className = "status-label " + statusClass;
+  }
+
+  function setText(element, value) {
+    if (element) element.textContent = value || "无";
+  }
+
+  function statusFromRecord(record, fallback) {
+    if (fallback) return fallback;
+    if (record && record.result && record.result.status === "PASS") return "成功";
+    if (record && record.result && record.result.status === "FAIL") return "失败";
+    if (record && record.result && record.result.status === "BLOCKED") return "需审批";
+    if (record && record.result && record.result.status === "NEEDS_APPROVAL") return "需审批";
+    if (record && record.plan && record.plan.approval_required) return "需审批";
+    if (record && record.plan) return "成功";
+    return "待操作";
+  }
+
+  function renderActionResult(record, fallbackStatus) {
+    const plan = record && record.plan ? record.plan : {};
+    const result = record && record.result ? record.result : {};
+    setStatus(statusFromRecord(record, fallbackStatus));
+    setText(commandEl, plan.command || plan.plan_command || "未生成");
+    setText(riskEl, plan.risk || "未评估");
+    setText(logPathEl, record && record.logs ? (record.logs.json || record.logs.markdown || plan.log_path) : (plan.log_path || "未生成"));
+    setText(output, result.stdout_summary || JSON.stringify(record, null, 2));
+    setText(errorOutput, result.stderr_summary || result.error || "");
   }
 
   function payload() {
@@ -277,18 +331,36 @@ function interactiveScript() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body)
     });
-    return response.json();
+    const text = await response.text();
+    let value;
+    try {
+      value = text ? JSON.parse(text) : {};
+    } catch (error) {
+      value = { status: "FAIL", error: text || String(error) };
+    }
+    if (!response.ok) throw new Error(value.error || value.reason || text || "Action Server request failed");
+    return value;
   }
 
   document.querySelectorAll("[data-console-action]").forEach((button) => {
     button.addEventListener("click", async () => {
       const mode = button.getAttribute("data-console-action");
       try {
-        if (mode === "plan") show(await postJson("/api/action-plan", payload()));
-        if (mode === "run") show(await postJson("/api/action-run", payload()));
-        if (mode === "logs") show(await (await fetch("/api/action-log/latest")).json());
+        if (mode === "plan") {
+          setStatus("生成中");
+          renderActionResult(await postJson("/api/action-plan", payload()));
+        }
+        if (mode === "run") {
+          setStatus("执行中");
+          renderActionResult(await postJson("/api/action-run", payload()));
+        }
+        if (mode === "logs") {
+          setStatus("生成中");
+          const latest = await (await fetch("/api/action-log/latest")).json();
+          renderActionResult(latest.data || latest, "成功");
+        }
       } catch (error) {
-        show({ status: "FAIL", error: String(error && error.message ? error.message : error) });
+        renderActionResult({ result: { status: "FAIL", stderr_summary: String(error && error.message ? error.message : error) } });
       }
     });
   });
@@ -298,7 +370,12 @@ function interactiveScript() {
       if (project) project.value = "jinhu-smart-park";
       if (action) action.value = button.getAttribute("data-quick-action");
       if (goal) goal.value = button.getAttribute("data-goal") || goal.value;
-      show(await postJson("/api/action-run", payload()));
+      setStatus("执行中");
+      try {
+        renderActionResult(await postJson("/api/action-run", payload()));
+      } catch (error) {
+        renderActionResult({ result: { status: "FAIL", stderr_summary: String(error && error.message ? error.message : error) } });
+      }
     });
   });
 
@@ -307,7 +384,12 @@ function interactiveScript() {
       if (project) project.value = "jinhu-smart-park";
       if (action) action.value = button.getAttribute("data-proposal-action");
       if (goal) goal.value = button.textContent + " Smart Park proposal";
-      show(await postJson("/api/action-plan", payload()));
+      setStatus("生成中");
+      try {
+        renderActionResult(await postJson("/api/action-plan", payload()));
+      } catch (error) {
+        renderActionResult({ result: { status: "FAIL", stderr_summary: String(error && error.message ? error.message : error) } });
+      }
     });
   });
 
@@ -421,12 +503,16 @@ function shell(content, activeId, model, data) {
     .timeline-step strong { display: block; margin-bottom: 6px; }
     .timeline-step .status-label { margin-bottom: 8px; }
     .output-card { margin-top: 14px; }
+    .action-feedback-grid { display: grid; grid-template-columns: minmax(120px, 0.5fr) minmax(220px, 1.4fr) minmax(120px, 0.5fr) minmax(220px, 1.1fr); gap: 10px; margin-bottom: 12px; }
+    .action-feedback-grid div { border: 1px solid var(--line); border-radius: 8px; background: #0c1219; padding: 10px; min-width: 0; }
+    .action-feedback-grid span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; }
+    .action-feedback-grid strong { display: block; font-size: 12px; overflow-wrap: anywhere; }
     .details-drawer { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 0; overflow: hidden; box-shadow: 0 10px 26px var(--shadow); }
     .details-drawer summary { cursor: pointer; color: var(--blue); font-size: 13px; font-weight: 800; padding: 12px 14px; background: #101923; }
     .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
-    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .layout { grid-template-columns: 1fr; } .top-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } .timeline { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .layout { grid-template-columns: 1fr; } .top-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } .timeline, .action-feedback-grid { grid-template-columns: 1fr; } }
     @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; } }
   </style>
 </head>

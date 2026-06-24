@@ -7,6 +7,7 @@ export type ConsoleActionId =
   | "credential-validate"
   | "governance-check"
   | "autopilot-run"
+  | "autopilot-dry-run"
   | "autopilot-execute"
   | "smart-park-continue"
   | "smart-park-blockers"
@@ -189,11 +190,11 @@ export const consoleActions: readonly ConsoleActionDescriptor[] = [
     governance_gate: "ALLOW_DRY_RUN"
   },
   {
-    id: "autopilot-run",
-    label: "Autopilot Dry Run",
-    intent: "autopilot dry-run",
+    id: "autopilot-dry-run",
+    label: "Autopilot Planning",
+    intent: "autopilot planning",
     scope: "autopilot",
-    command: "node packages/orchestrator-core/bin/studio.mjs autopilot run --goal \"继续推进 V5\" --dry-run",
+    command: "node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal \"继续推进 Pilot\" --dry-run --parallel 4",
     risk: "MEDIUM",
     mode: "dry_run",
     executionMode: "dry_run_only",
@@ -205,20 +206,85 @@ export const consoleActions: readonly ConsoleActionDescriptor[] = [
     governance_gate: "ALLOW_DRY_RUN"
   },
   {
-    id: "smart-park-go-live-plan-dry-run",
-    label: "Smart Park Go-Live Plan Dry Run",
-    intent: "smart-park go-live plan dry-run",
-    scope: "smart_park",
-    command: "node packages/orchestrator-core/bin/studio.mjs project chain-validate --project jinhu-smart-park --dry-run",
+    id: "autopilot-execute",
+    label: "Autopilot Execute LOW/MEDIUM",
+    intent: "autopilot execute low medium",
+    scope: "autopilot",
+    command: "node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal \"继续推进 Pilot\" --apply --parallel 4",
     risk: "MEDIUM",
-    mode: "dry_run",
-    executionMode: "dry_run_only",
+    mode: "direct_execute",
+    executionMode: "direct_execute",
+    requiresApproval: false,
+    readOnly: true,
+    write_enabled: false,
+    production_enabled: false,
+    source: "autopilot-runs",
+    governance_gate: "ALLOW_DIRECT_EXECUTE"
+  },
+  {
+    id: "smart-park-continue",
+    label: "Continue Smart Park",
+    intent: "smart-park continue",
+    scope: "smart_park",
+    command: "node packages/orchestrator-core/bin/studio.mjs project evidence --project jinhu-smart-park --dry-run",
+    risk: "MEDIUM",
+    mode: "direct_execute",
+    executionMode: "direct_execute",
     requiresApproval: false,
     readOnly: true,
     write_enabled: false,
     production_enabled: false,
     source: "runtime/projects/jinhu-smart-park",
-    governance_gate: "ALLOW_DRY_RUN"
+    governance_gate: "ALLOW_DIRECT_EXECUTE"
+  },
+  {
+    id: "smart-park-blockers",
+    label: "Smart Park Blocker Check",
+    intent: "smart-park blocker check",
+    scope: "smart_park",
+    command: "node packages/orchestrator-core/bin/studio.mjs project chain-validate --project jinhu-smart-park --dry-run",
+    risk: "MEDIUM",
+    mode: "direct_execute",
+    executionMode: "direct_execute",
+    requiresApproval: false,
+    readOnly: true,
+    write_enabled: false,
+    production_enabled: false,
+    source: "runtime/projects/jinhu-smart-park",
+    governance_gate: "ALLOW_DIRECT_EXECUTE"
+  },
+  {
+    id: "smart-park-go-live-plan",
+    label: "Smart Park Go-Live Plan Proposal",
+    intent: "smart-park go-live plan proposal",
+    scope: "smart_park",
+    command: "node packages/orchestrator-core/bin/studio.mjs project chain-validate --project jinhu-smart-park --dry-run",
+    risk: "MEDIUM",
+    mode: "direct_execute",
+    executionMode: "direct_execute",
+    requiresApproval: false,
+    readOnly: true,
+    write_enabled: false,
+    production_enabled: false,
+    source: "runtime/projects/jinhu-smart-park",
+    governance_gate: "ALLOW_DIRECT_EXECUTE"
+  },
+  {
+    id: "production-operation-request",
+    label: "Production Operation Request",
+    intent: "production operation request",
+    scope: "proposal",
+    command: "",
+    risk: "CRITICAL",
+    mode: "read_only",
+    executionMode: "human_approval_required",
+    requiresApproval: true,
+    readOnly: true,
+    write_enabled: false,
+    production_enabled: false,
+    source: "governance",
+    governance_gate: "HUMAN_APPROVAL_REQUIRED",
+    disabledReason: "Production operations are CRITICAL and require explicit human approval outside Console."
   },
   {
     id: "proposal-review",

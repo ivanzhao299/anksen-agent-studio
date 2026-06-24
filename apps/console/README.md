@@ -10,6 +10,12 @@ pnpm --filter @anksen/console dev
 
 The default URL is `http://127.0.0.1:4317`.
 
+Root convenience command:
+
+```bash
+pnpm console:dev
+```
+
 Static build:
 
 ```bash
@@ -60,11 +66,48 @@ Pilot-5 does not connect Phoenix ERP through a local path. Future onboarding sho
 - `consoleActions`
 - `buildConsoleActionPlan(id)`
 
+## Task Workflow
+
+The Console is now task-driven. Use the home page task workbench as the primary entry:
+
+1. Enter a goal in the large goal box.
+2. Select the project and action.
+3. Click `生成计划` to call:
+
+```bash
+node packages/orchestrator-core/bin/studio.mjs console action-plan --action <action_id> --goal "<goal>" --project <project_id> --dry-run
+```
+
+4. Review current status, command summary, risk, output, stderr, and action log path.
+5. Click `开始执行` only when the plan is LOW or MEDIUM and the Governance Gate allows local execution.
+
+HIGH actions stay `proposal_only`. CRITICAL actions stay `human_approval_required`.
+
+## Action Server
+
+The local Action Server only listens on `127.0.0.1`. Console buttons call local API routes:
+
+- `POST /api/action-plan`
+- `POST /api/action-run`
+- `GET /api/action-log/latest`
+
+Action logs are written to:
+
+```text
+autopilot-runs/console-actions/
+```
+
+Smoke test:
+
+```bash
+node packages/orchestrator-core/bin/studio.mjs console action-server-smoke --dry-run
+```
+
 ## Data Policy
 
 - Does not connect to a real database.
 - Does not call external services.
-- Does not execute Agents.
+- Executes only LOW/MEDIUM local allowlist commands.
 - Does not modify managed projects.
 - Does not deploy or run production operations.
 - Does not access servers.
@@ -72,16 +115,20 @@ Pilot-5 does not connect Phoenix ERP through a local path. Future onboarding sho
 - Does not connect Phoenix ERP through a local path.
 
 
-## Operable Read-Only Controls
+## Operable Controls
 
-The Console exposes command descriptors for dry-run and proposal-only actions. These descriptors are view-model data only; they do not execute commands, call external services, deploy, connect to servers, read credential values, or write managed projects.
+The Console exposes local task actions behind Governance Gate:
 
-- Context Summary
-- Runtime Health
-- Project Inspect
-- Worker Health
-- Credential Validate
-- Governance Check
-- Autopilot Dry Run
-- Proposal Review
-- Proposal Approve (proposal-only)
+- LOW / MEDIUM: local allowlist execution
+- HIGH: proposal-only
+- CRITICAL: human approval required
+
+Current high-signal buttons:
+
+- `生成计划`
+- `开始执行`
+- `继续 Smart Park`
+- `检查上线阻断项`
+- `生成上线计划 Proposal`
+- `查看待审批 Proposal`
+- `查看 Worker 状态`
