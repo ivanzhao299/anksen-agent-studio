@@ -116,7 +116,7 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
     <strong>${escapeHtml(item.label)}</strong>
     <span>${escapeHtml(item.project_id === "phoenix-erp" ? "GitHub 远程待接入" : item.status)}</span>
   </button>`);
-  const flowSteps = ["规划", "Agent 执行", "验证", "报告"];
+  const flowSteps = ["已理解目标", "选择项目", "Agent/Runtime", "生成计划", "Governance", "执行/审批", "结果报告"];
   return `<section class="workspace-shell">
     <aside class="project-rail">
       <div class="section-head small">
@@ -145,8 +145,11 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
         <button type="button" class="secondary" data-quick-action="worker-health" data-goal="查看 Worker 状态">查看 Worker 状态</button>
       </div>
       <div class="execution-console">
-        <div class="section-head small"><h3>执行时间线</h3><span id="run-state" class="status-label ready">待操作</span></div>
-        <div id="flow-rail" class="flow-rail">${flowSteps.map((name) => `<div class="flow-step"><strong>${escapeHtml(name)}</strong></div>`).join("")}</div>
+        <div class="timeline-strip">
+          <span class="timeline-label">执行</span>
+          <span id="run-state" class="timeline-state ready">待操作</span>
+          <div id="flow-rail" class="flow-rail">${flowSteps.map((name, index) => `<span class="flow-step pending"><span class="flow-dot"></span><strong>${escapeHtml(name)}</strong></span>${index < flowSteps.length - 1 ? '<span class="flow-separator">→</span>' : ""}`).join("")}</div>
+        </div>
         <details class="run-details">
           <summary>展开详情</summary>
           <div class="action-feedback-grid">
@@ -359,6 +362,7 @@ function interactiveScript() {
   let currentRunId = null;
   let pollTimer = null;
   const terminalStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED"]);
+  const defaultTimeline = ["已理解目标", "选择项目", "Agent/Runtime", "生成计划", "Governance", "执行/审批", "结果报告"];
   const navCollapsedKey = "anksen-console-nav-collapsed";
 
   if (localStorage.getItem(navCollapsedKey) === "yes") document.body.classList.add("nav-collapsed");
@@ -405,7 +409,7 @@ function interactiveScript() {
     statusEl.className = "status-label " + statusClass;
     if (runStateEl) {
       runStateEl.textContent = value;
-      runStateEl.className = "status-label " + statusClass;
+      runStateEl.className = "timeline-state " + statusClass;
     }
   }
 
@@ -461,6 +465,7 @@ function interactiveScript() {
       '<div class="terminal-line assistant">$ 项目 ' + projectText + '</div>',
       '<div class="terminal-line running">$ Agent/Runtime ' + agentText + ' / ' + modeText + ' ...</div>'
     ].join("");
+    renderTimeline({ timeline: defaultTimeline.map((name, index) => ({ name, status: index === 0 ? "RUNNING" : "PENDING" })) });
     conversationStream.scrollTop = conversationStream.scrollHeight;
   }
 
@@ -482,9 +487,10 @@ function interactiveScript() {
 
   function renderTimeline(record) {
     if (!flowRail || !Array.isArray(record && record.timeline)) return;
-    flowRail.innerHTML = record.timeline.map((step) => {
+    flowRail.innerHTML = record.timeline.map((step, index) => {
       const status = normalize(step.status);
-      return '<div class="flow-step ' + status + '"><strong>' + escapeClient(step.name) + '</strong><span>' + escapeClient(step.status) + '</span></div>';
+      const separator = index < record.timeline.length - 1 ? '<span class="flow-separator">→</span>' : "";
+      return '<span class="flow-step ' + status + '"><span class="flow-dot"></span><strong>' + escapeClient(step.name) + '</strong><em>' + escapeClient(step.status) + '</em></span>' + separator;
     }).join("");
   }
 
@@ -746,15 +752,27 @@ function shell(content, activeId, model, data) {
     .workspace-controls { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(120px, 0.7fr) minmax(150px, 0.8fr) minmax(72px, auto) minmax(72px, auto); gap: 8px; align-items: end; margin-top: 10px; }
     .workspace-controls button { white-space: nowrap; min-width: 72px; }
     .start-button, .cancel-button { min-height: 40px; }
-    .execution-console { margin-top: 10px; border: 0; border-radius: 0; background: #030507; padding: 10px 12px; }
-    .flow-rail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
-    .flow-step { border: 0; border-radius: 0; background: transparent; padding: 0; min-height: auto; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .execution-console { margin-top: 8px; border: 0; border-radius: 0; background: #030507; padding: 7px 10px; }
+    .timeline-strip { display: flex; align-items: center; gap: 9px; min-width: 0; white-space: nowrap; }
+    .timeline-label { color: var(--text); font-size: 12px; font-weight: 800; flex: 0 0 auto; }
+    .timeline-state { display: inline-flex; align-items: center; min-height: 20px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 800; color: var(--muted); background: #0b1118; flex: 0 0 auto; }
+    .timeline-state.pass { color: var(--green); }
+    .timeline-state.local { color: var(--blue); }
+    .timeline-state.proposal-only { color: var(--yellow); }
+    .timeline-state.blocked, .timeline-state.cancelled { color: var(--red); }
+    .flow-rail { display: flex; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; padding: 1px 0; scrollbar-width: thin; }
+    .flow-step { display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 0; background: transparent; padding: 0; min-height: auto; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; flex: 0 0 auto; }
+    .flow-dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; opacity: 0.62; flex: 0 0 auto; }
+    .flow-separator { color: #405064; font-size: 11px; flex: 0 0 auto; }
     .flow-step.running { color: var(--blue); }
+    .flow-step.running .flow-dot { opacity: 1; animation: flowPulse 1s infinite ease-in-out; }
     .flow-step.pass { color: var(--green); }
     .flow-step.needs-approval, .flow-step.blocked { color: var(--yellow); }
     .flow-step.fail, .flow-step.cancelled { color: var(--red); }
-    .flow-step strong { display: block; margin-bottom: 2px; font-size: 12px; }
-    .flow-step span { color: inherit; font-size: 11px; line-height: 1.35; }
+    .flow-step.pending { color: #536174; }
+    .flow-step strong { display: inline; margin: 0; font-size: 12px; font-weight: 700; }
+    .flow-step em { color: inherit; font-size: 10px; font-style: normal; opacity: 0.72; }
+    @keyframes flowPulse { 0%, 100% { transform: scale(0.82); box-shadow: 0 0 0 0 rgba(90, 169, 255, 0.38); } 50% { transform: scale(1.25); box-shadow: 0 0 0 5px rgba(90, 169, 255, 0); } }
     .conversation-result { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; align-items: start; }
     .assistant-avatar { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 8px; background: #12301f; color: var(--green); font-weight: 900; border: 1px solid rgba(52, 211, 153, 0.35); }
     .assistant-message { min-width: 0; }
