@@ -8045,6 +8045,20 @@ async function consoleActionServerSmoke(args) {
     project_id: "jinhu-smart-park",
     goal: "审批 Proposal 草稿"
   });
+  const workspaceGoalPlan = await actionServer.createActionPlan({
+    action_id: "workspace-goal",
+    project_id: "jinhu-smart-park",
+    goal: "帮我整理一个普通开发任务计划",
+    workspace_mode: "auto",
+    agent: "auto"
+  });
+  const smartParkBlockerPlan = await actionServer.createActionPlan({
+    action_id: "workspace-goal",
+    project_id: "jinhu-smart-park",
+    goal: "检查 Smart Park 上线阻断项",
+    workspace_mode: "auto",
+    agent: "auto"
+  });
   const asyncRun = await actionServer.startConversationAction({
     action_id: "runtime-health",
     project_id: "jinhu-smart-park",
@@ -8073,7 +8087,11 @@ async function consoleActionServerSmoke(args) {
     && existsSync(resolveFromRoot(record.logs.markdown))
   );
   const commandMappingCheck = runtimePlan.plan.command.includes("runtime health --dry-run")
-    && smartParkPlan.plan.command.includes("project chain-validate --project jinhu-smart-park --dry-run");
+    && smartParkPlan.plan.command.includes("project chain-validate --project jinhu-smart-park --dry-run")
+    && workspaceGoalPlan.plan.action_id === "goal-plan"
+    && workspaceGoalPlan.plan.command.includes(" plan --goal ")
+    && smartParkBlockerPlan.plan.action_id === "smart-park-blockers"
+    && smartParkBlockerPlan.plan.command.includes("project chain-validate --project jinhu-smart-park --dry-run");
   const governanceCheck = runtimePlan.plan.governance_gate === "ALLOW_DIRECT_EXECUTE"
     && smartParkPlan.plan.governance_gate === "ALLOW_DIRECT_EXECUTE"
     && highPlan.plan.governance_gate === "PROPOSAL_ONLY"

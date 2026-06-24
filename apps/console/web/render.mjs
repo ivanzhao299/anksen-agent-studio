@@ -508,8 +508,8 @@ function interactiveScript() {
   }
 
   function actionForMode() {
-    if (modeSelect && modeSelect.value === "plan_only") return "autopilot-dry-run";
-    return "autopilot-execute";
+    if (modeSelect && modeSelect.value === "plan_only") return "workspace-goal";
+    return "workspace-goal";
   }
 
   function payload(actionOverride) {

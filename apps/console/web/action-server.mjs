@@ -33,6 +33,8 @@ const projects = {
 };
 
 export const consoleActionOptions = [
+  { id: "workspace-goal", label: "自然语言任务", risk: "MEDIUM" },
+  { id: "goal-plan", label: "生成任务计划", risk: "MEDIUM" },
   { id: "context-summary", label: "读取上下文", risk: "LOW" },
   { id: "project-inspect", label: "检查 Smart Park", risk: "MEDIUM" },
   { id: "runtime-health", label: "Runtime 健康检查", risk: "LOW" },
@@ -66,12 +68,30 @@ function safeGoal(goal) {
   return value || "继续推进 Pilot";
 }
 
-function normalizeActionId(actionId) {
+function inferWorkspaceActionId(input = {}) {
+  const goal = safeGoal(input.goal).toLowerCase();
+  const mode = String(input.workspace_mode || input.mode || "auto");
+  if (goal.includes("阻断") || goal.includes("blocker") || goal.includes("blocked")) return "smart-park-blockers";
+  if (goal.includes("上线") || goal.includes("go-live") || goal.includes("golive")) return "smart-park-go-live-plan";
+  if (goal.includes("smart park") || goal.includes("智慧园区") || goal.includes("金湖")) return "project-inspect";
+  if (goal.includes("worker") || goal.includes("agent 状态") || goal.includes("agent状态")) return "worker-health";
+  if (goal.includes("runtime") || goal.includes("运行时")) return "runtime-health";
+  if (goal.includes("governance") || goal.includes("治理") || goal.includes("审批")) return "governance-check";
+  if (goal.includes("context") || goal.includes("上下文") || goal.includes("记忆")) return "context-summary";
+  if (goal.includes("proposal") || goal.includes("待审批")) return "proposal-review";
+  if (goal.includes("继续推进 pilot") || goal.includes("继续推进 v5") || goal.includes("继续推进 v4")) {
+    return mode === "plan_only" ? "autopilot-dry-run" : "autopilot-dry-run";
+  }
+  return "goal-plan";
+}
+
+function normalizeActionId(actionId, input = {}) {
   if (actionId === "autopilot-run") return "autopilot-dry-run";
   if (actionId === "proposal-approve") return "proposal-approve-dry-run";
   if (actionId === "worker-status") return "worker-health";
   if (actionId === "pending-proposals") return "proposal-review";
   if (actionId === "smart-park-go-live-plan-dry-run") return "smart-park-go-live-plan";
+  if (actionId === "workspace-default" || actionId === "workspace-goal") return inferWorkspaceActionId(input);
   return consoleActionOptions.some((action) => action.id === actionId) ? actionId : "context-summary";
 }
 
@@ -80,7 +100,7 @@ function normalizeProject(projectId) {
 }
 
 function commandFor(input) {
-  const actionId = normalizeActionId(input.action_id);
+  const actionId = normalizeActionId(input.action_id, input);
   const projectId = normalizeProject(input.project_id);
   const goal = safeGoal(input.goal);
   const project = projects[projectId];
@@ -125,6 +145,13 @@ function commandFor(input) {
       command: process.execPath,
       args: [studioScript, "governance", "check", "--dry-run"],
       display: `node ${studioScript} governance check --dry-run`
+    };
+  }
+  if (actionId === "goal-plan") {
+    return {
+      command: process.execPath,
+      args: [studioScript, "plan", "--goal", goal, "--dry-run"],
+      display: `node ${studioScript} plan --goal "${goal}" --dry-run`
     };
   }
   if (actionId === "autopilot-dry-run") {
@@ -195,7 +222,7 @@ function governanceGateForRisk(risk) {
 }
 
 function buildPlan(input) {
-  const actionId = normalizeActionId(input.action_id);
+  const actionId = normalizeActionId(input.action_id, input);
   const projectId = normalizeProject(input.project_id);
   const meta = actionMeta(actionId);
   const command = commandFor({ ...input, action_id: actionId, project_id: projectId });
@@ -242,6 +269,13 @@ function buildPlan(input) {
 
 function actionPlanCommandFor(plan, input) {
   const goal = safeGoal(input.goal);
+  if (plan.action_id === "goal-plan") {
+    return {
+      command: process.execPath,
+      args: [studioScript, "plan", "--goal", goal, "--dry-run"],
+      display: `node ${studioScript} plan --goal "${goal}" --dry-run`
+    };
+  }
   return {
     command: process.execPath,
     args: [
@@ -561,22 +595,49 @@ async function runConversationCommand(runId, input, command) {
   });
   child.on("close", async (code, signal) => {
     if (run.status === "CANCELLED") return;
+    const combinedOutput = `${run.stdout}\n${run.stderr}`;
+    let fallbackSummary = "";
+    let fallbackStatus = code === 0 ? "PASS" : "FAIL";
+    if (code !== 0 && combinedOutput.includes("Planning Center did not return a batch_plan")) {
+      fallbackStatus = "NEEDS_APPROVAL";
+      try {
+        const fallback = await execFileAsync(process.execPath, [studioScript, "plan", "--goal", run.plan.goal_summary, "--dry-run"], {
+          cwd: repoRoot,
+          timeout: 120000,
+          maxBuffer: 1024 * 1024 * 10
+        });
+        fallbackSummary = [
+          "Planning Center 没有为该目标返回可直接执行的 batch_plan。",
+          "已自动切换为安全计划/Proposal 待确认模式，未执行仓库写入。",
+          "",
+          summarizeStdout(fallback.stdout)
+        ].join("\n");
+      } catch (error) {
+        fallbackSummary = [
+          "Planning Center 没有为该目标返回可直接执行的 batch_plan。",
+          "已停止直接执行；请先生成更明确的计划或选择 Smart Park 快捷入口。",
+          summarizeStdout(error?.stdout ?? error?.stderr ?? error?.message ?? "")
+        ].filter(Boolean).join("\n");
+      }
+    }
     const commandResult = {
-      status: code === 0 ? "PASS" : "FAIL",
+      status: fallbackStatus,
       exit_code: typeof code === "number" ? code : 1,
       signal: signal ?? null,
-      stdout_summary: summarizeStdout(run.stdout),
+      stdout_summary: fallbackSummary || summarizeStdout(run.stdout),
       stderr_summary: summarizeStdout(run.stderr)
     };
     run.smart_park = finishSmartParkPlan(run.plan, commandResult);
     run.status = commandResult.status;
-    run.phase = commandResult.status === "PASS" ? "reported" : "failed";
+    run.phase = commandResult.status === "PASS" ? "reported" : (commandResult.status === "NEEDS_APPROVAL" ? "approval" : "failed");
     run.result = commandResult;
     run.messages.push({
       role: "assistant",
       content: commandResult.status === "PASS"
         ? `执行完成：${commandResult.stdout_summary || "任务已完成，未产生额外输出。"}`
-        : `执行失败：${commandResult.stderr_summary || commandResult.stdout_summary || "命令返回非零状态。"}`,
+        : (commandResult.status === "NEEDS_APPROVAL"
+            ? `需要确认：${commandResult.stdout_summary || "已生成安全计划，等待用户确认下一步。"}`
+            : `执行失败：${commandResult.stderr_summary || commandResult.stdout_summary || "命令返回非零状态。"}`),
       at: new Date().toISOString(),
       phase: "report"
     });
