@@ -75,6 +75,33 @@ function formOption(value, label, selected = false) {
   return `<option value="${escapeHtml(value)}"${selected ? " selected" : ""}>${escapeHtml(label)}</option>`;
 }
 
+function projectDisplayLabel(item) {
+  if (item.project_id === "jinhu-smart-park") return "jinhu-smart-park（已连接）";
+  if (item.project_id === "phoenix-erp") return "phoenix-erp（GitHub 远程待接入）";
+  if (item.project_id === "group-portal") return "group-portal（计划中）";
+  return `${item.label}（${item.status}）`;
+}
+
+function workspaceModeOptions() {
+  return [
+    formOption("auto", "自动", true),
+    formOption("agent", "指定 Agent"),
+    formOption("plan_only", "只生成计划")
+  ].join("");
+}
+
+function aiAgentOptions() {
+  return [
+    formOption("auto", "自动选择", true),
+    formOption("codex-cli", "Codex CLI"),
+    formOption("claude-code", "Claude Code"),
+    formOption("gemini", "Gemini"),
+    formOption("openhands", "OpenHands"),
+    formOption("aider", "Aider"),
+    formOption("local-agent", "Local Agent")
+  ].join("");
+}
+
 function topStatusBar(model, data) {
   return `<div class="top-status">
     ${badge("平台状态", model.platform_status, "good")}
@@ -86,60 +113,102 @@ function topStatusBar(model, data) {
   </div>`;
 }
 
-function actionWorkbench(data, title = "任务工作台") {
-  const actionOptions = data.actionServer.actions.map((item) => formOption(item.id, item.label));
-  const projectOptions = data.actionServer.projects.map((item) => formOption(item.project_id, `${item.label} (${item.status})`));
-  return `<section class="workbench hero-workbench">
-    <div class="section-head">
-      <div>
-        <h2>${escapeHtml(title)}</h2>
-        <p>以目标为中心推进 Studio：LOW/MEDIUM 本地安全任务可直接执行，HIGH 保持 Proposal，CRITICAL 必须人工审批。</p>
+function actionWorkbench(data, title = "统一 AI 开发工作台") {
+  const projectOptions = data.actionServer.projects.map((item) => formOption(item.project_id, projectDisplayLabel(item)));
+  const flowSteps = [
+    ["Planning", "把目标拆成计划与风险判断"],
+    ["Agent 执行", "按模式选择 Codex CLI 或其他 Runtime Adapter"],
+    ["Validation", "运行本地验证与安全检查"],
+    ["Report", "生成结果摘要与 Action Log"]
+  ];
+  return `<section class="workspace-shell">
+    <div class="ai-workspace">
+      <div class="workspace-hero">
+        <div>
+          <span class="eyebrow">ANKSEN Agent Studio</span>
+          <h2>${escapeHtml(title)}</h2>
+          <p>用户只需要选择项目、输入目标、选择模式和 Agent。Runtime、Worker、Credential、Governance、Autopilot 留在后台协同。</p>
+        </div>
+        <span class="pill">Pilot Production / 127.0.0.1</span>
       </div>
-      <span class="pill">Pilot Production Mode / 127.0.0.1</span>
-    </div>
-    <label for="action-goal">大目标输入框</label>
-    <textarea id="action-goal" class="goal-box" placeholder="输入目标，例如：生成 Smart Park 上线计划 / 检查项目阻断项 / 继续推进 Pilot">继续推进 Pilot</textarea>
-    <div class="form-grid control-grid">
-      <div>
-        <label for="action-project">项目选择</label>
-        <select id="action-project">${projectOptions.join("")}</select>
+      <label for="action-goal">输入目标</label>
+      <textarea id="action-goal" class="goal-box command-input" placeholder="输入目标，例如：生成 Smart Park 上线计划 / 检查项目阻断项 / 继续推进 Pilot">继续推进 Pilot</textarea>
+      <div class="workspace-controls">
+        <div>
+          <label for="action-project">选择项目</label>
+          <select id="action-project">${projectOptions.join("")}</select>
+        </div>
+        <div>
+          <label for="action-mode">选择模式</label>
+          <select id="action-mode">${workspaceModeOptions()}</select>
+        </div>
+        <div>
+          <label for="action-agent">Agent / AI</label>
+          <select id="action-agent">${aiAgentOptions()}</select>
+        </div>
+        <input type="hidden" id="action-type" value="workspace-default">
+        <button type="button" class="primary-action start-button" data-console-action="start">开始</button>
       </div>
-      <div>
-        <label for="action-type">操作类型</label>
-        <select id="action-type">${actionOptions.join("")}</select>
+      <div class="quick-row mission-row">
+        <button type="button" data-quick-action="context-summary" data-goal="读取上下文">读取上下文</button>
+        <button type="button" class="secondary" data-quick-action="smart-park-continue" data-goal="继续 Smart Park">继续 Smart Park</button>
+        <button type="button" class="secondary" data-quick-action="smart-park-blockers" data-goal="检查 Smart Park 上线阻断项">检查上线阻断项</button>
+        <button type="button" class="secondary" data-quick-action="smart-park-go-live-plan" data-goal="生成 Smart Park 上线计划 Proposal">Smart Park 上线入口</button>
+        <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="查看待审批 Proposal">查看待审批 Proposal</button>
+        <button type="button" class="secondary" data-quick-action="worker-health" data-goal="查看 Worker 状态">查看 Worker 状态</button>
       </div>
-      <div class="button-row compact">
-        <button type="button" data-console-action="plan">生成计划</button>
-        <button type="button" class="primary-action" data-console-action="run">开始执行</button>
-        <button type="button" class="secondary" data-console-action="logs">查看日志</button>
+      <div class="policy-strip compact-policy">
+        <span>${riskBadge("LOW")} 本地执行</span>
+        <span>${riskBadge("MEDIUM")} 本地执行</span>
+        <span>${riskBadge("HIGH")} Proposal</span>
+        <span>${riskBadge("CRITICAL")} 人工审批</span>
+      </div>
+      <div class="execution-console">
+        <div class="section-head small"><h3>执行区</h3><span>${escapeHtml(data.actionServer.action_log_dir)}</span></div>
+        <div class="flow-rail">${flowSteps.map(([name, detail]) => `<div class="flow-step"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(detail)}</span></div>`).join("")}</div>
+        <div class="conversation-result">
+          <div class="assistant-avatar">AI</div>
+          <div class="assistant-message">
+            <div class="action-feedback-grid">
+              <div><span>当前状态</span><strong id="action-status" class="status-label ready">待操作</strong></div>
+              <div><span>命令摘要</span><strong id="action-command">等待开始</strong></div>
+              <div><span>风险等级</span><strong id="action-risk">未评估</strong></div>
+              <div><span>Action Log</span><strong id="action-log-path">${escapeHtml(data.action_log.latest_path ?? "未生成")}</strong></div>
+            </div>
+            <label for="action-output">对话结果 / 报告摘要</label>
+            <pre id="action-output">${escapeHtml(data.action_log.latest_summary ?? "输入目标后点击开始。选择“只生成计划”时不会执行任务。")}</pre>
+            <label for="action-error">stderr / error message</label>
+            <pre id="action-error">无</pre>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="quick-row mission-row">
-      <button type="button" data-quick-action="smart-park-continue" data-goal="继续 Smart Park">继续 Smart Park</button>
-      <button type="button" class="secondary" data-quick-action="smart-park-blockers" data-goal="检查 Smart Park 上线阻断项">检查上线阻断项</button>
-      <button type="button" class="secondary" data-quick-action="smart-park-go-live-plan" data-goal="生成 Smart Park 上线计划 Proposal">生成上线计划 Proposal</button>
-      <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="查看待审批 Proposal">查看待审批 Proposal</button>
-      <button type="button" class="secondary" data-quick-action="worker-health" data-goal="查看 Worker 状态">查看 Worker 状态</button>
-    </div>
-    <div class="policy-strip">
-      <span>${riskBadge("LOW")} 直接执行</span>
-      <span>${riskBadge("MEDIUM")} 直接执行</span>
-      <span>${riskBadge("HIGH")} Proposal</span>
-      <span>${riskBadge("CRITICAL")} 人工审批</span>
-    </div>
-    <div class="output-card">
-      <div class="section-head small"><h3>操作反馈</h3><span>${escapeHtml(data.actionServer.action_log_dir)}</span></div>
-      <div class="action-feedback-grid">
-        <div><span>当前状态</span><strong id="action-status" class="status-label ready">待操作</strong></div>
-        <div><span>命令摘要</span><strong id="action-command">未生成</strong></div>
-        <div><span>风险等级</span><strong id="action-risk">未评估</strong></div>
-        <div><span>Action Log</span><strong id="action-log-path">${escapeHtml(data.action_log.latest_path ?? "未生成")}</strong></div>
+    <aside class="advanced-config">
+      <div class="section-head small">
+        <h3>高级配置</h3>
+        <span class="pill">默认折叠</span>
       </div>
-      <label for="action-output">输出结果</label>
-      <pre id="action-output">${escapeHtml(data.action_log.latest_summary ?? "等待操作...")}</pre>
-      <label for="action-error">stderr / error message</label>
-      <pre id="action-error">无</pre>
-    </div>
+      <details>
+        <summary>Runtime</summary>
+        <p>默认 Runtime 为 codex-cli；其他 Agent 通过 Runtime Adapter 元数据选择，真实外部模型调用保持禁用。</p>
+      </details>
+      <details>
+        <summary>Worker</summary>
+        <p>本地 Worker Pool 可执行 LOW/MEDIUM 安全任务；远程 Worker 保持 proposal_only。</p>
+      </details>
+      <details>
+        <summary>Credential Reference</summary>
+        <p>仅使用 reference_only，不读取、不展示、不保存真实凭证明文。</p>
+      </details>
+      <details>
+        <summary>Governance</summary>
+        <p>LOW/MEDIUM 可本地执行，HIGH 生成 Proposal，CRITICAL 必须人工审批。</p>
+      </details>
+      <details>
+        <summary>Project Config</summary>
+        <p>jinhu-smart-park 已连接；phoenix-erp 等远程项目等待 GitHub Repo Connector 接入。</p>
+      </details>
+    </aside>
   </section>`;
 }
 
@@ -271,6 +340,8 @@ function interactiveScript() {
   const goal = document.getElementById("action-goal");
   const project = document.getElementById("action-project");
   const action = document.getElementById("action-type");
+  const modeSelect = document.getElementById("action-mode");
+  const agent = document.getElementById("action-agent");
   const draftStatus = document.getElementById("config-draft-status");
 
   function normalize(value) {
@@ -313,15 +384,30 @@ function interactiveScript() {
     setText(commandEl, plan.command || plan.plan_command || "未生成");
     setText(riskEl, plan.risk || "未评估");
     setText(logPathEl, record && record.logs ? (record.logs.json || record.logs.markdown || plan.log_path) : (plan.log_path || "未生成"));
-    setText(output, result.stdout_summary || JSON.stringify(record, null, 2));
+    const humanSummary = result.stdout_summary || [
+      plan.plan_id ? "计划已生成" : "等待操作",
+      plan.action_label ? "动作：" + plan.action_label : "",
+      plan.target_project ? "项目：" + plan.target_project : "",
+      plan.agent ? "Agent：" + plan.agent : "",
+      plan.workspace_mode ? "模式：" + plan.workspace_mode : "",
+      plan.governance_gate ? "治理闸门：" + plan.governance_gate : ""
+    ].filter(Boolean).join("\\n");
+    setText(output, humanSummary);
     setText(errorOutput, result.stderr_summary || result.error || "");
   }
 
-  function payload() {
+  function actionForMode() {
+    if (modeSelect && modeSelect.value === "plan_only") return "autopilot-dry-run";
+    return "autopilot-execute";
+  }
+
+  function payload(actionOverride) {
     return {
       goal: goal ? goal.value : "继续推进 Pilot",
       project_id: project ? project.value : "jinhu-smart-park",
-      action_id: action ? action.value : "context-summary"
+      action_id: actionOverride || actionForMode(),
+      workspace_mode: modeSelect ? modeSelect.value : "auto",
+      agent: agent ? agent.value : "auto"
     };
   }
 
@@ -344,17 +430,27 @@ function interactiveScript() {
 
   document.querySelectorAll("[data-console-action]").forEach((button) => {
     button.addEventListener("click", async () => {
-      const mode = button.getAttribute("data-console-action");
+      const buttonMode = button.getAttribute("data-console-action");
       try {
-        if (mode === "plan") {
-          setStatus("生成中");
-          renderActionResult(await postJson("/api/action-plan", payload()));
+        if (buttonMode === "start") {
+          const body = payload();
+          if (body.action_id === "autopilot-dry-run") {
+            setStatus("生成中");
+            renderActionResult(await postJson("/api/action-plan", body));
+          } else {
+            setStatus("执行中");
+            renderActionResult(await postJson("/api/action-run", body));
+          }
         }
-        if (mode === "run") {
+        if (buttonMode === "plan") {
+          setStatus("生成中");
+          renderActionResult(await postJson("/api/action-plan", payload("autopilot-dry-run")));
+        }
+        if (buttonMode === "run") {
           setStatus("执行中");
           renderActionResult(await postJson("/api/action-run", payload()));
         }
-        if (mode === "logs") {
+        if (buttonMode === "logs") {
           setStatus("生成中");
           const latest = await (await fetch("/api/action-log/latest")).json();
           renderActionResult(latest.data || latest, "成功");
@@ -370,9 +466,10 @@ function interactiveScript() {
       if (project) project.value = "jinhu-smart-park";
       if (action) action.value = button.getAttribute("data-quick-action");
       if (goal) goal.value = button.getAttribute("data-goal") || goal.value;
+      const quickAction = button.getAttribute("data-quick-action");
       setStatus("执行中");
       try {
-        renderActionResult(await postJson("/api/action-run", payload()));
+        renderActionResult(await postJson("/api/action-run", payload(quickAction)));
       } catch (error) {
         renderActionResult({ result: { status: "FAIL", stderr_summary: String(error && error.message ? error.message : error) } });
       }
@@ -384,9 +481,10 @@ function interactiveScript() {
       if (project) project.value = "jinhu-smart-park";
       if (action) action.value = button.getAttribute("data-proposal-action");
       if (goal) goal.value = button.textContent + " Smart Park proposal";
+      const proposalAction = button.getAttribute("data-proposal-action");
       setStatus("生成中");
       try {
-        renderActionResult(await postJson("/api/action-plan", payload()));
+        renderActionResult(await postJson("/api/action-plan", payload(proposalAction)));
       } catch (error) {
         renderActionResult({ result: { status: "FAIL", stderr_summary: String(error && error.message ? error.message : error) } });
       }
@@ -453,6 +551,26 @@ function shell(content, activeId, model, data) {
     p { color: var(--muted); line-height: 1.55; margin: 0; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
     .metric, .panel, .workbench, .smart-entry, .output-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; box-shadow: 0 10px 26px var(--shadow); }
+    .workspace-shell { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+    .ai-workspace, .advanced-config { background: #101720; border: 1px solid #26364a; border-radius: 8px; padding: 18px; box-shadow: 0 16px 34px var(--shadow); }
+    .workspace-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+    .workspace-hero h2 { font-size: 30px; line-height: 1.15; margin: 4px 0 8px; }
+    .eyebrow { color: var(--green); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+    .command-input { min-height: 150px; font-size: 16px; background: #090f16; border-color: #314258; }
+    .workspace-controls { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.7fr) minmax(180px, 0.9fr) 120px; gap: 12px; align-items: end; margin-top: 12px; }
+    .start-button { min-height: 42px; }
+    .execution-console { margin-top: 16px; border: 1px solid var(--line); border-radius: 8px; background: #0b1118; padding: 14px; }
+    .flow-rail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .flow-step { border: 1px solid #2a394d; border-radius: 8px; background: #111923; padding: 11px; min-height: 92px; }
+    .flow-step strong { display: block; margin-bottom: 8px; }
+    .flow-step span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .conversation-result { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; align-items: start; }
+    .assistant-avatar { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 8px; background: #12301f; color: var(--green); font-weight: 900; border: 1px solid rgba(52, 211, 153, 0.35); }
+    .assistant-message { min-width: 0; }
+    .advanced-config { position: sticky; top: 146px; }
+    .advanced-config details { border: 1px solid var(--line); border-radius: 8px; background: #0b1118; margin-top: 10px; overflow: hidden; }
+    .advanced-config summary { cursor: pointer; padding: 11px 12px; font-weight: 800; color: var(--text); }
+    .advanced-config p { border-top: 1px solid var(--line); padding: 11px 12px; font-size: 12px; }
     .hero-workbench { border-color: #315a82; background: #101923; }
     .smart-entry { border-color: #315a82; background: #111923; }
     .entry-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
@@ -512,8 +630,8 @@ function shell(content, activeId, model, data) {
     .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
-    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .layout { grid-template-columns: 1fr; } .top-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } .timeline, .action-feedback-grid { grid-template-columns: 1fr; } }
-    @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .layout { grid-template-columns: 1fr; } .top-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result { grid-template-columns: 1fr; } .workspace-hero { display: block; } }
+    @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell { grid-template-columns: 1fr; } .advanced-config { position: static; } }
   </style>
 </head>
 <body>
@@ -538,29 +656,8 @@ function shell(content, activeId, model, data) {
 </html>`;
 }
 
-function pageDashboard(model, data) {
-  return `${actionWorkbench(data, "任务工作台")}
-  ${smartParkEntryPanel()}
-  ${recommendationPanel(data)}
-  ${executionTimeline()}
-  ${workerPanel(data)}
-  ${proposalPanel()}
-  ${projectWorkbench(data)}
-  <section><h2>${messages.pages.dashboard.title}</h2><div class="grid">
-    ${metric(messages.pages.dashboard.platform, model.platform_status)}
-    ${metric("V5", model.v5_status)}
-    ${metric(messages.pages.dashboard.activeProject, model.active_project)}
-    ${metric(messages.pages.dashboard.latestAutopilot, model.modules.latest_autopilot_run)}
-  </div></section>
-  <section><h2>${messages.pages.dashboard.moduleCounts}</h2><div class="grid">
-    ${metric(messages.pages.dashboard.runtimeProfiles, model.modules.runtime_profiles)}
-    ${metric(messages.pages.dashboard.workers, model.modules.workers)}
-    ${metric(messages.pages.dashboard.credentialRefs, model.modules.credential_references)}
-    ${metric(messages.pages.dashboard.credentialBackends, model.modules.credential_backends)}
-    ${metric(messages.pages.dashboard.governanceGates, model.modules.governance_release_gates)}
-  </div></section>
-  <section><h2>详情抽屉</h2>${detailsJson("查看原始 Dashboard Model JSON", model)}</section>
-  <section><h2>${messages.common.safety}</h2><div class="panel">${list(Object.entries(data.safety).map(([key, value]) => `${key}: ${value}`))}</div></section>`;
+function pageDashboard(_model, data) {
+  return actionWorkbench(data, "统一 AI 开发工作台");
 }
 
 function pageProjects(data) {

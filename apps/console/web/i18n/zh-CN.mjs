@@ -3,7 +3,7 @@ export const zhCN = {
   localeName: "简体中文",
   app: {
     title: "ANKSEN Agent Studio 控制台",
-    subtitle: "企业级 AI 软件工厂控制塔。本地 dry-run 模式，数据来自仓库文件。写入、部署、生产操作、外部调用、模型调用和密钥读取均已禁用。"
+    subtitle: "统一 AI 开发工作台。选择项目、输入目标、选择 Agent，由 Studio 负责规划、执行、验证和报告。"
   },
   nav: {
     dashboard: "总览",

@@ -209,6 +209,8 @@ function buildPlan(input) {
     target_project: projectId,
     target_project_status: projects[projectId].status,
     goal_summary: safeGoal(input.goal).slice(0, 240),
+    workspace_mode: String(input.workspace_mode || input.mode || "auto"),
+    agent: String(input.agent || "auto"),
     command: command.display,
     risk: meta.risk,
     approval_required: gate.approval_required,
@@ -329,6 +331,8 @@ function markdownLog(record) {
 - plan_id: ${record.plan.plan_id}
 - action_id: ${record.plan.action_id}
 - target_project: ${record.plan.target_project}
+- workspace_mode: ${record.plan.workspace_mode}
+- agent: ${record.plan.agent}
 - risk: ${record.plan.risk}
 - approval_required: ${record.plan.approval_required ? "yes" : "no"}
 - mode: ${record.plan.mode}

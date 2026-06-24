@@ -7921,13 +7921,19 @@ async function consoleSmoke(args) {
   const configHtml = await renderModule.renderConsolePage("/config");
   const dashboardHtml = await renderModule.renderConsolePage("/");
   const interactiveControlsPresent = [
-    "大目标输入框",
-    "输入目标，例如：生成 Smart Park 上线计划 / 检查项目阻断项 / 继续推进 Pilot",
-    "项目选择",
-    "操作类型",
-    "生成计划",
-    "开始执行",
-    "查看日志"
+    "统一 AI 开发工作台",
+    "输入目标",
+    "选择项目",
+    "选择模式",
+    "Agent / AI",
+    "自动选择",
+    "Codex CLI",
+    "Claude Code",
+    "Gemini",
+    "OpenHands",
+    "Aider",
+    "Local Agent",
+    "开始"
   ].every((text) => actionsHtml.includes(text));
   const smartParkControlsPresent = [
     "继续 Smart Park",
@@ -7937,23 +7943,22 @@ async function consoleSmoke(args) {
     "查看 Worker 状态"
   ].every((text) => actionsHtml.includes(text));
   const controlTowerPresent = [
-    "企业级 AI 软件工厂控制塔",
+    "统一 AI 开发工作台",
     "ANKSEN Logo",
     "/assets/anksen-logo.svg",
-    "Pilot Production Mode",
-    "LOW/MEDIUM 本地安全任务可直接执行",
-    "任务工作台",
-    "Smart Park 上线入口",
-    "推荐动作区",
-    "执行时间线",
-    "Worker 实时状态",
-    "Proposal 审批区",
-    "风险标识",
-    "项目工作台",
-    "平台状态",
     "Pilot Production",
-    "风险闸门",
-    "查看原始"
+    "Runtime",
+    "Worker",
+    "Credential Reference",
+    "Governance",
+    "Project Config",
+    "Planning",
+    "Agent 执行",
+    "Validation",
+    "Report",
+    "Smart Park 上线入口",
+    "平台状态",
+    "风险闸门"
   ].every((text) => dashboardHtml.includes(text));
   const darkThemePresent = dashboardHtml.includes("color-scheme: dark") && dashboardHtml.includes("--bg: #0b0f14");
   const configCenterPresent = [
