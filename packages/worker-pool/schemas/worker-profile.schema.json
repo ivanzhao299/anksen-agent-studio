@@ -4,17 +4,24 @@
   "title": "Worker Profile",
   "type": "object",
   "additionalProperties": false,
-  "required": ["worker_id", "display_name", "worker_kind", "runtime_id", "adapter_id", "status", "supported_skills", "max_parallel_tasks", "risk", "execution_mode", "isolation_policy_id"],
+  "required": ["worker_id", "display_name", "worker_kind", "worker_os", "runtime_id", "adapter_id", "status", "supported_skills", "capability_tags", "max_parallel_tasks", "risk", "execution_mode", "isolation_policy_id"],
   "properties": {
     "worker_id": { "type": "string", "minLength": 1 },
     "display_name": { "type": "string", "minLength": 1 },
     "worker_kind": { "type": "string", "enum": ["local", "remote", "production"] },
+    "worker_os": { "type": "string", "enum": ["macOS", "Linux", "Windows", "remote", "production"] },
     "runtime_id": { "type": "string", "minLength": 1 },
     "adapter_id": { "type": "string", "minLength": 1 },
     "status": { "type": "string", "enum": ["available", "unavailable", "disabled"] },
     "supported_skills": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "capability_tags": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["codex", "mobile-ios", "mobile-android", "web", "backend", "discovery", "production-dry-run"] },
+      "minItems": 1,
+      "uniqueItems": true
     },
     "max_parallel_tasks": { "type": "integer", "minimum": 1 },
     "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },

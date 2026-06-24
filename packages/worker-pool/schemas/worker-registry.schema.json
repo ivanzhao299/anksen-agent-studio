@@ -12,6 +12,29 @@
     "workers": {
       "type": "array",
       "items": { "$ref": "worker-profile.schema.json" }
+    },
+    "required_capability_tags": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["codex", "mobile-ios", "mobile-android", "web", "backend", "discovery", "production-dry-run"] },
+      "uniqueItems": true
+    },
+    "future_worker_classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["worker_kind", "default_risk", "default_execution_mode"],
+        "properties": {
+          "worker_kind": { "type": "string", "enum": ["local", "remote", "production"] },
+          "worker_os": { "type": "string" },
+          "capability_tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "default_risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          "default_execution_mode": { "type": "string" }
+        }
+      }
     }
   }
 }

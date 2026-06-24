@@ -9,12 +9,25 @@
 
 Pilot-2 establishes a local Worker Pool control surface for ANKSEN Agent Studio. It prepares worker registry, profile, health, assignment, isolation, cancellation, kill-switch, and audit log contracts without connecting to remote servers or starting production workers.
 
-The MVP registers one local worker:
+The MVP registers two local workers:
 
 - worker_id: `local-codex-1`
 - runtime: `codex-cli`
 - adapter: `codex-cli`
 - worker_kind: `local`
+- worker_os: `macOS`
+- capability_tags: `codex`, `web`, `backend`, `discovery`, `production-dry-run`
+- risk: `MEDIUM`
+- execution_mode: `local_repo_execute`
+
+Second worker:
+
+- worker_id: `local-mobile-macos-1`
+- runtime: `local-mobile-dry-run`
+- adapter: `local-agent`
+- worker_kind: `local`
+- worker_os: `macOS`
+- capability_tags: `mobile-ios`, `mobile-android`
 - risk: `MEDIUM`
 - execution_mode: `local_repo_execute`
 
@@ -47,14 +60,31 @@ Examples:
 node packages/orchestrator-core/bin/studio.mjs worker list --dry-run
 node packages/orchestrator-core/bin/studio.mjs worker health --dry-run
 node packages/orchestrator-core/bin/studio.mjs worker assign --runtime codex-cli --dry-run
+node packages/orchestrator-core/bin/studio.mjs worker assign --capability mobile-ios --dry-run
+node packages/orchestrator-core/bin/studio.mjs worker assign --capability mobile-android --dry-run
 node packages/orchestrator-core/bin/studio.mjs worker cancel --worker local-codex-1 --dry-run
 ```
+
+## Capability Tags
+
+Pilot-2 defines the first Worker Pool capability tags:
+
+- `codex`
+- `mobile-ios`
+- `mobile-android`
+- `web`
+- `backend`
+- `discovery`
+- `production-dry-run`
+
+Capability assignment is metadata-only. It does not start an Agent, invoke a mobile toolchain, connect to a remote worker, deploy, or read credentials.
 
 ## Governance
 
 | Worker Class | Default Risk | Default Mode | Execution |
 | --- | --- | --- | --- |
 | local | LOW/MEDIUM | `local_repo_execute` | Allowed for governed local repository tasks. |
+| local macOS mobile | MEDIUM | `local_repo_execute` | Allowed for mobile stack dry-run planning only. |
 | remote | HIGH | `proposal_only` | Blocked until a proposal is approved. |
 | production | CRITICAL | `human_approval_required` | Blocked until explicit CRITICAL approval exists. |
 
@@ -103,6 +133,8 @@ pnpm lint:check
 node packages/orchestrator-core/bin/studio.mjs worker list --dry-run
 node packages/orchestrator-core/bin/studio.mjs worker health --dry-run
 node packages/orchestrator-core/bin/studio.mjs worker assign --runtime codex-cli --dry-run
+node packages/orchestrator-core/bin/studio.mjs worker assign --capability mobile-ios --dry-run
+node packages/orchestrator-core/bin/studio.mjs worker assign --capability mobile-android --dry-run
 node packages/orchestrator-core/bin/studio.mjs worker cancel --worker local-codex-1 --dry-run
 node packages/orchestrator-core/bin/studio.mjs governance check --dry-run
 git diff --check

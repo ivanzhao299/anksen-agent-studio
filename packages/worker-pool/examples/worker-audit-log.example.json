@@ -5,6 +5,7 @@
   "event_type": "worker.assign",
   "worker_id": "local-codex-1",
   "runtime_id": "codex-cli",
+  "capability": "codex",
   "dry_run": true,
   "safety": {
     "server_access": "disabled",

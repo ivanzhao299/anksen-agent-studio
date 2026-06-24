@@ -6,11 +6,24 @@
     {
       "worker_id": "local-codex-1",
       "runtime_id": "codex-cli",
+      "worker_os": "macOS",
+      "capability_tags": ["codex", "web", "backend", "discovery", "production-dry-run"],
       "status": "available",
       "health_status": "healthy",
       "risk": "MEDIUM",
       "execution_mode": "local_repo_execute",
       "notes": "Dry-run registry health only. Local worker metadata is available; no process, SSH, server, model, credential, deploy, or production operation was invoked."
+    },
+    {
+      "worker_id": "local-mobile-macos-1",
+      "runtime_id": "local-mobile-dry-run",
+      "worker_os": "macOS",
+      "capability_tags": ["mobile-ios", "mobile-android"],
+      "status": "available",
+      "health_status": "healthy",
+      "risk": "MEDIUM",
+      "execution_mode": "local_repo_execute",
+      "notes": "Dry-run mobile worker metadata only. No Xcode, Gradle, simulator, emulator, signing, server, deploy, or production operation was invoked."
     }
   ]
 }

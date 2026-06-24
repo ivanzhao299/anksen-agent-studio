@@ -10,7 +10,16 @@
     "cancel_id": { "type": "string", "minLength": 1 },
     "created_at": { "type": "string", "minLength": 1 },
     "worker_id": { "type": "string", "minLength": 1 },
+    "runtime_id": { "type": "string" },
+    "capability_tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "dry_run": { "type": "boolean" },
+    "governance": {
+      "type": "object",
+      "additionalProperties": true
+    },
     "kill_switch": {
       "type": "object",
       "additionalProperties": false,
@@ -21,6 +30,14 @@
         "would_stop_worker_process": { "type": "boolean" },
         "reason": { "type": "string" }
       }
+    },
+    "blocked_reasons": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": true
     }
   }
 }

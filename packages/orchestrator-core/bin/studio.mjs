@@ -45,6 +45,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs worker list --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker health --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker assign --runtime <runtime_id> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs worker assign --capability <capability_tag> --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker cancel --worker <worker_id> --dry-run
   node packages/orchestrator-core/bin/studio.mjs mobile ios-detect --project <path> --dry-run
   node packages/orchestrator-core/bin/studio.mjs mobile android-detect --project <path> --dry-run
@@ -7682,6 +7683,8 @@ async function workerList(args) {
   console.log(`status: ${validation.status}`);
   console.log(`workers: ${inventory.length}`);
   console.log(`local_workers: ${validation.local_worker_count}`);
+  console.log(`capability_tags: ${validation.capability_tags.join(", ")}`);
+  console.log(`macos_mobile_worker_policy: ${validation.macos_mobile_worker_policy}`);
   console.log(`remote_worker_policy: ${validation.remote_worker_policy}`);
   console.log(`production_worker_policy: ${validation.production_worker_policy}`);
   console.log("server_connections: disabled");
@@ -7690,10 +7693,10 @@ async function workerList(args) {
   console.log("production_operations: disabled");
   console.log("credential_values_read: no");
   console.log("");
-  console.log("| Worker | Kind | Runtime | Adapter | Status | Parallel | Risk | Mode | Proposal | Approval |");
-  console.log("| --- | --- | --- | --- | --- | ---: | --- | --- | --- | --- |");
+  console.log("| Worker | Kind | OS | Runtime | Adapter | Capabilities | Status | Parallel | Risk | Mode | Proposal | Approval |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | ---: | --- | --- | --- | --- |");
   for (const worker of inventory) {
-    console.log(`| ${worker.worker_id} | ${worker.worker_kind} | ${worker.runtime_id} | ${worker.adapter_id} | ${worker.status} | ${worker.max_parallel_tasks} | ${worker.governance.risk} | ${worker.governance.execution_mode} | ${worker.governance.proposal_required ? "yes" : "no"} | ${worker.governance.human_approval_required ? "yes" : "no"} |`);
+    console.log(`| ${worker.worker_id} | ${worker.worker_kind} | ${worker.worker_os} | ${worker.runtime_id} | ${worker.adapter_id} | ${worker.capability_tags.join(", ")} | ${worker.status} | ${worker.max_parallel_tasks} | ${worker.governance.risk} | ${worker.governance.execution_mode} | ${worker.governance.proposal_required ? "yes" : "no"} | ${worker.governance.human_approval_required ? "yes" : "no"} |`);
   }
   if (validation.status !== "PASS") process.exitCode = 1;
 }
@@ -7710,25 +7713,30 @@ async function workerHealth(args) {
   console.log("ssh: disabled");
   console.log("credential_values_read: no");
   console.log("");
-  console.log("| Worker | Runtime | Status | Health | Risk | Mode |");
-  console.log("| --- | --- | --- | --- | --- | --- |");
+  console.log("| Worker | Runtime | OS | Capabilities | Status | Health | Risk | Mode |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const worker of health.workers) {
-    console.log(`| ${worker.worker_id} | ${worker.runtime_id} | ${worker.status} | ${worker.health_status} | ${worker.risk} | ${worker.execution_mode} |`);
+    console.log(`| ${worker.worker_id} | ${worker.runtime_id} | ${worker.worker_os} | ${worker.capability_tags.join(", ")} | ${worker.status} | ${worker.health_status} | ${worker.risk} | ${worker.execution_mode} |`);
   }
 }
 
 async function workerAssign(args) {
   assertDryRun(args, "worker assign");
-  if (!args.runtime.trim()) {
-    throw new Error("Missing --runtime for worker assign.");
+  if (!args.runtime.trim() && !args.capability.trim()) {
+    throw new Error("Missing --runtime or --capability for worker assign.");
   }
   const { api, bundle } = await loadWorkerPoolApi();
-  const assignment = api.assignWorker(bundle, args.runtime);
+  const assignment = api.assignWorker(bundle, {
+    runtimeId: args.runtime.trim(),
+    capability: args.capability.trim()
+  });
   console.log("# Worker Pool Assign dry-run");
   console.log("");
   console.log(`assignment_id: ${assignment.assignment_id}`);
   console.log(`status: ${assignment.status}`);
+  console.log(`selection_kind: ${assignment.selection_kind}`);
   console.log(`runtime_id: ${assignment.runtime_id}`);
+  console.log(`capability: ${assignment.capability || "none"}`);
   console.log(`worker_id: ${assignment.worker_id || "none"}`);
   console.log(`risk: ${assignment.governance.risk}`);
   console.log(`execution_mode: ${assignment.governance.execution_mode}`);

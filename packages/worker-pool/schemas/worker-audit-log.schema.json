@@ -12,6 +12,7 @@
     "event_type": { "type": "string", "enum": ["worker.list", "worker.health", "worker.assign", "worker.cancel"] },
     "worker_id": { "type": "string", "minLength": 1 },
     "runtime_id": { "type": "string", "minLength": 1 },
+    "capability": { "type": "string" },
     "dry_run": { "type": "boolean" },
     "safety": { "type": "object", "additionalProperties": true }
   }

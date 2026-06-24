@@ -14,10 +14,15 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["worker_id", "runtime_id", "status", "health_status", "risk", "execution_mode"],
+        "required": ["worker_id", "runtime_id", "worker_os", "capability_tags", "status", "health_status", "risk", "execution_mode"],
         "properties": {
           "worker_id": { "type": "string" },
           "runtime_id": { "type": "string" },
+          "worker_os": { "type": "string" },
+          "capability_tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
           "status": { "type": "string" },
           "health_status": { "type": "string", "enum": ["healthy", "unknown", "blocked"] },
           "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },

@@ -7,18 +7,44 @@
       "worker_id": "local-codex-1",
       "display_name": "Local Codex Worker 1",
       "worker_kind": "local",
+      "worker_os": "macOS",
       "runtime_id": "codex-cli",
       "adapter_id": "codex-cli",
       "status": "available",
       "supported_skills": ["code_development", "validation_testing", "data_integration"],
+      "capability_tags": ["codex", "web", "backend", "discovery", "production-dry-run"],
       "max_parallel_tasks": 1,
       "risk": "MEDIUM",
       "execution_mode": "local_repo_execute",
       "isolation_policy_id": "local-repo-worker-isolation",
       "notes": "Pilot-2 local worker only. No remote server, SSH, deploy, production operation, or credential value access."
+    },
+    {
+      "worker_id": "local-mobile-macos-1",
+      "display_name": "Local macOS Mobile Worker 1",
+      "worker_kind": "local",
+      "worker_os": "macOS",
+      "runtime_id": "local-mobile-dry-run",
+      "adapter_id": "local-agent",
+      "status": "available",
+      "supported_skills": ["mobile_stack_detection", "mobile_validation_planning"],
+      "capability_tags": ["mobile-ios", "mobile-android"],
+      "max_parallel_tasks": 1,
+      "risk": "MEDIUM",
+      "execution_mode": "local_repo_execute",
+      "isolation_policy_id": "local-repo-worker-isolation",
+      "notes": "Pilot-2 local macOS mobile worker metadata only. It can plan iOS and Android stack validation but does not invoke Xcode, Gradle, simulators, emulators, signing, deploy, or production operations."
     }
   ],
+  "required_capability_tags": ["codex", "mobile-ios", "mobile-android", "web", "backend", "discovery", "production-dry-run"],
   "future_worker_classes": [
+    {
+      "worker_kind": "local",
+      "worker_os": "macOS",
+      "capability_tags": ["mobile-ios", "mobile-android"],
+      "default_risk": "MEDIUM",
+      "default_execution_mode": "local_repo_execute"
+    },
     {
       "worker_kind": "remote",
       "default_risk": "HIGH",
