@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/mobile-stack-pack/mobile-validation.schema.json",
+  "title": "Mobile Validation Result",
+  "type": "object",
+  "required": ["schema_version", "platform", "status", "dry_run", "worker_requirement", "governance_gates", "safety"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "platform": { "type": "string", "enum": ["ios", "android"] },
+    "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "dry_run": { "type": "boolean", "const": true },
+    "worker_requirement": { "type": "object" },
+    "governance_gates": { "type": "array" },
+    "safety": {
+      "type": "object",
+      "required": ["xcode_invocation", "gradle_invocation", "simulator_invocation", "emulator_invocation", "credential_values", "release_operation"],
+      "properties": {
+        "xcode_invocation": { "type": "string", "const": "disabled" },
+        "gradle_invocation": { "type": "string", "const": "disabled" },
+        "simulator_invocation": { "type": "string", "const": "disabled" },
+        "emulator_invocation": { "type": "string", "const": "disabled" },
+        "credential_values": { "type": "string", "const": "not_read" },
+        "release_operation": { "type": "string", "const": "disabled" }
+      }
+    }
+  }
+}

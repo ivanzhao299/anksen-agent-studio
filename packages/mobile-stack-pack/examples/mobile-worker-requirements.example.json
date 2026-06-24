@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "requirements": [
+    {
+      "platform": "ios",
+      "required_os": ["macOS"],
+      "simulator_or_emulator_required": true,
+      "signing_reference_only": true,
+      "notes": [
+        "iOS build and simulator validation require a macOS worker with Xcode installed.",
+        "Signing assets must remain credential references only until a real backend is approved."
+      ]
+    },
+    {
+      "platform": "android",
+      "required_os": ["macOS", "Linux"],
+      "simulator_or_emulator_required": true,
+      "signing_reference_only": true,
+      "notes": [
+        "Android build validation can run on macOS or Linux workers with Android SDK metadata.",
+        "Keystore and signing config must remain references only."
+      ]
+    }
+  ]
+}

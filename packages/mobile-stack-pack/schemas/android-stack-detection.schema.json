@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/mobile-stack-pack/android-stack-detection.schema.json",
+  "title": "Android Stack Detection",
+  "type": "object",
+  "required": ["schema_version", "platform", "project_id", "indicators", "commands", "safety"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "platform": { "type": "string", "const": "android" },
+    "project_id": { "type": "string", "minLength": 1 },
+    "project_root": { "type": "string" },
+    "indicators": {
+      "type": "object",
+      "required": ["gradle_files", "languages", "android_manifests", "sdk", "gradle_wrapper", "emulator_targets"],
+      "properties": {
+        "gradle_files": { "type": "array", "items": { "type": "string" } },
+        "languages": { "type": "array", "items": { "type": "string", "enum": ["Kotlin", "Java"] } },
+        "android_manifests": { "type": "array", "items": { "type": "string" } },
+        "sdk": { "type": "string" },
+        "gradle_wrapper": { "type": "boolean" },
+        "emulator_targets": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "required": ["assemble", "test", "emulator_list"],
+      "properties": {
+        "assemble": { "type": "string" },
+        "test": { "type": "string" },
+        "emulator_list": { "type": "string" }
+      }
+    },
+    "signing": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string", "const": "reference_only" },
+        "keystore_ref": { "type": "string" }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": ["gradle_invocation", "emulator_invocation", "credential_values"],
+      "properties": {
+        "gradle_invocation": { "type": "string", "const": "disabled" },
+        "emulator_invocation": { "type": "string", "const": "disabled" },
+        "credential_values": { "type": "string", "const": "not_read" }
+      }
+    }
+  }
+}

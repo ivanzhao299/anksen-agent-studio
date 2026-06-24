@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "gates": [
+    {
+      "action": "build",
+      "risk": "MEDIUM",
+      "gate_action": "allowed_dry_run",
+      "approval_required": false,
+      "notes": "Build planning and local dry-run validation may be automated. Real build execution remains a later worker task."
+    },
+    {
+      "action": "simulator_test",
+      "risk": "MEDIUM",
+      "gate_action": "allowed_dry_run",
+      "approval_required": false,
+      "notes": "Simulator or emulator test planning may be automated. This MVP does not launch devices."
+    },
+    {
+      "action": "signing",
+      "risk": "HIGH",
+      "gate_action": "proposal_only",
+      "approval_required": true,
+      "notes": "Signing requires a proposal and reference-only credential handling."
+    },
+    {
+      "action": "testflight_release",
+      "risk": "CRITICAL",
+      "gate_action": "human_approval_required",
+      "approval_required": true,
+      "notes": "TestFlight release is a production-style operation and is blocked in this MVP."
+    },
+    {
+      "action": "app_store_release",
+      "risk": "CRITICAL",
+      "gate_action": "human_approval_required",
+      "approval_required": true,
+      "notes": "App Store release is blocked until production release gates are approved."
+    },
+    {
+      "action": "google_play_release",
+      "risk": "CRITICAL",
+      "gate_action": "human_approval_required",
+      "approval_required": true,
+      "notes": "Google Play release is blocked until production release gates are approved."
+    }
+  ]
+}

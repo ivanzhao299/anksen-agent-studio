@@ -46,6 +46,10 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs worker health --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker assign --runtime <runtime_id> --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker cancel --worker <worker_id> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs mobile ios-detect --project <path> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs mobile android-detect --project <path> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs mobile validate --platform ios --dry-run
+  node packages/orchestrator-core/bin/studio.mjs mobile validate --platform android --dry-run
   node packages/orchestrator-core/bin/studio.mjs production server-list --dry-run
   node packages/orchestrator-core/bin/studio.mjs production deploy-plan --dry-run
   node packages/orchestrator-core/bin/studio.mjs production safety-check --dry-run
@@ -79,7 +83,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "worker", "production", "production-ops", "context", "autopilot", "debug", "console", "pilot"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "worker", "mobile", "production", "production-ops", "context", "autopilot", "debug", "console", "pilot"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -94,6 +98,7 @@ function parseArgs(argv) {
     skill: "",
     runtime: "",
     worker: "",
+    platform: "",
     capability: "",
     region: "local",
     budgetUsd: null,
@@ -119,6 +124,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--worker") {
       args.worker = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--platform") {
+      args.platform = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--skill") {
       args.skill = rest[index + 1] ?? "";
@@ -2581,6 +2589,10 @@ function productionOpsUtilsUrl() {
 
 function workerPoolUtilsUrl() {
   return pathToFileURL(resolve(packageDir, "../worker-pool/lib/worker-pool-utils.mjs")).href;
+}
+
+function mobileStackPackUtilsUrl() {
+  return pathToFileURL(resolve(packageDir, "../mobile-stack-pack/lib/mobile-stack-pack-utils.mjs")).href;
 }
 
 function buildPlanningRequest(goal, context, options = {}) {
@@ -7085,6 +7097,12 @@ async function loadWorkerPoolApi() {
   return { api, bundle };
 }
 
+async function loadMobileStackPackApi() {
+  const api = await import(mobileStackPackUtilsUrl());
+  const bundle = await api.loadMobileStackPack();
+  return { api, bundle };
+}
+
 function assertDryRun(args, commandName) {
   if (!args.dryRun) {
     throw new Error(`${commandName} currently supports --dry-run only.`);
@@ -7765,6 +7783,94 @@ async function workerCancel(args) {
   if (cancellation.blocked_reasons.length > 0) process.exitCode = 1;
 }
 
+function printMobileDetection(result, title) {
+  console.log(`# ${title} dry-run`);
+  console.log("");
+  console.log(`status: ${result.status}`);
+  console.log(`platform: ${result.platform}`);
+  console.log(`project_id: ${result.project_id}`);
+  console.log(`source_kind: ${result.source_kind}`);
+  console.log(`project_root: ${result.project_root}`);
+  console.log("real_build: disabled");
+  console.log("simulator_or_emulator: disabled");
+  console.log("credential_values_read: no");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("");
+  console.log("| Detector | Present | Evidence |");
+  console.log("| --- | --- | --- |");
+  for (const item of result.indicators) {
+    console.log(`| ${item.name} | ${item.present ? "yes" : "no"} | ${item.evidence.length > 0 ? item.evidence.join(", ") : "none"} |`);
+  }
+  console.log("");
+  console.log("commands_detected:");
+  for (const [name, command] of Object.entries(result.command_detection)) {
+    console.log(`- ${name}: ${command}`);
+  }
+  console.log("");
+  console.log(`signing: ${result.signing.mode}; references_only=${result.signing.references_only ? "yes" : "no"}`);
+  if (result.status === "FAIL") process.exitCode = 1;
+}
+
+async function mobileIosDetect(args) {
+  assertDryRun(args, "mobile ios-detect");
+  if (!args.project.trim()) {
+    throw new Error("Missing --project for mobile ios-detect.");
+  }
+  const { api } = await loadMobileStackPackApi();
+  const result = await api.detectIosProject(resolveMaybeFromRoot(args.project));
+  printMobileDetection(result, "Mobile iOS Stack Detect");
+}
+
+async function mobileAndroidDetect(args) {
+  assertDryRun(args, "mobile android-detect");
+  if (!args.project.trim()) {
+    throw new Error("Missing --project for mobile android-detect.");
+  }
+  const { api } = await loadMobileStackPackApi();
+  const result = await api.detectAndroidProject(resolveMaybeFromRoot(args.project));
+  printMobileDetection(result, "Mobile Android Stack Detect");
+}
+
+async function mobileValidate(args) {
+  assertDryRun(args, "mobile validate");
+  const platform = args.platform.trim();
+  if (!["ios", "android"].includes(platform)) {
+    throw new Error("Missing or invalid --platform for mobile validate. Expected ios or android.");
+  }
+  const { api, bundle } = await loadMobileStackPackApi();
+  const result = api.validateMobilePlatform(bundle, platform);
+  console.log("# Mobile Stack Pack Validate dry-run");
+  console.log("");
+  console.log(`status: ${result.status}`);
+  console.log(`platform: ${result.platform}`);
+  console.log(`worker_required_os: ${result.worker_requirement?.required_os?.join(", ") ?? "missing"}`);
+  console.log(`simulator_or_emulator_required: ${result.worker_requirement?.simulator_or_emulator_required ? "yes" : "no"}`);
+  console.log(`signing_reference_only: ${result.worker_requirement?.signing_reference_only ? "yes" : "no"}`);
+  console.log("xcode_invocation: disabled");
+  console.log("gradle_invocation: disabled");
+  console.log("simulator_invocation: disabled");
+  console.log("emulator_invocation: disabled");
+  console.log("credential_values_read: no");
+  console.log("release_operation: disabled");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("");
+  console.log("| Action | Risk | Gate | Approval |");
+  console.log("| --- | --- | --- | --- |");
+  for (const gate of result.governance_gates) {
+    console.log(`| ${gate.action} | ${gate.risk} | ${gate.gate_action} | ${gate.approval_required ? "yes" : "no"} |`);
+  }
+  console.log("");
+  console.log("findings:");
+  if (result.findings.length === 0) {
+    console.log("- none");
+  } else {
+    for (const finding of result.findings) console.log(`- ${finding}`);
+  }
+  if (result.status !== "PASS") process.exitCode = 1;
+}
+
 async function productionServerList(args) {
   assertDryRun(args, "production server-list");
   const { api, bundle } = await loadProductionOpsApi();
@@ -8434,6 +8540,9 @@ async function main() {
   if (args.command === "worker" && args.subcommand === "health") return workerHealth(args);
   if (args.command === "worker" && args.subcommand === "assign") return workerAssign(args);
   if (args.command === "worker" && args.subcommand === "cancel") return workerCancel(args);
+  if (args.command === "mobile" && args.subcommand === "ios-detect") return mobileIosDetect(args);
+  if (args.command === "mobile" && args.subcommand === "android-detect") return mobileAndroidDetect(args);
+  if (args.command === "mobile" && args.subcommand === "validate") return mobileValidate(args);
   if (args.command === "production" && args.subcommand === "server-list") return productionServerList(args);
   if (args.command === "production" && args.subcommand === "deploy-plan") return productionDeployPlan(args);
   if (args.command === "production" && args.subcommand === "safety-check") return productionSafetyCheck(args);

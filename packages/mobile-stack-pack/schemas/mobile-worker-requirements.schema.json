@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/mobile-stack-pack/mobile-worker-requirements.schema.json",
+  "title": "Mobile Worker Requirements",
+  "type": "object",
+  "required": ["schema_version", "requirements"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["platform", "required_os", "simulator_or_emulator_required", "signing_reference_only"],
+        "properties": {
+          "platform": { "type": "string", "enum": ["ios", "android"] },
+          "required_os": { "type": "array", "items": { "type": "string", "enum": ["macOS", "Linux"] } },
+          "simulator_or_emulator_required": { "type": "boolean" },
+          "signing_reference_only": { "type": "boolean" },
+          "notes": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

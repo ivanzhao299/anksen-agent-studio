@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/mobile-stack-pack/ios-stack-detection.schema.json",
+  "title": "iOS Stack Detection",
+  "type": "object",
+  "required": ["schema_version", "platform", "project_id", "indicators", "commands", "safety"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "platform": { "type": "string", "const": "ios" },
+    "project_id": { "type": "string", "minLength": 1 },
+    "project_root": { "type": "string" },
+    "indicators": {
+      "type": "object",
+      "required": ["xcode_projects", "xcode_workspaces", "languages", "dependency_files", "simulator_targets"],
+      "properties": {
+        "xcode_projects": { "type": "array", "items": { "type": "string" } },
+        "xcode_workspaces": { "type": "array", "items": { "type": "string" } },
+        "languages": { "type": "array", "items": { "type": "string", "enum": ["Swift", "SwiftUI", "Objective-C"] } },
+        "dependency_files": { "type": "array", "items": { "type": "string", "enum": ["Podfile", "Package.swift"] } },
+        "simulator_targets": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "required": ["build", "test", "simulator_list"],
+      "properties": {
+        "build": { "type": "string" },
+        "test": { "type": "string" },
+        "simulator_list": { "type": "string" }
+      }
+    },
+    "signing": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string", "const": "reference_only" },
+        "certificate_ref": { "type": "string" },
+        "provisioning_profile_ref": { "type": "string" }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": ["xcodebuild_invocation", "simulator_invocation", "credential_values"],
+      "properties": {
+        "xcodebuild_invocation": { "type": "string", "const": "disabled" },
+        "simulator_invocation": { "type": "string", "const": "disabled" },
+        "credential_values": { "type": "string", "const": "not_read" }
+      }
+    }
+  }
+}

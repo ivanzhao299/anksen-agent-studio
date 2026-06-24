@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "platform": "ios",
+  "project_id": "sample-ios-app",
+  "project_root": "examples/mobile/sample-ios-app",
+  "source_kind": "example_spec",
+  "indicators": {
+    "xcode_projects": ["SampleIOSApp.xcodeproj"],
+    "xcode_workspaces": ["SampleIOSApp.xcworkspace"],
+    "languages": ["Swift", "SwiftUI"],
+    "dependency_files": ["Podfile", "Package.swift"],
+    "simulator_targets": ["iPhone 15", "iPhone 15 Pro"]
+  },
+  "commands": {
+    "build": "xcodebuild -workspace SampleIOSApp.xcworkspace -scheme SampleIOSApp -sdk iphonesimulator build",
+    "test": "xcodebuild test -workspace SampleIOSApp.xcworkspace -scheme SampleIOSApp -destination 'platform=iOS Simulator,name=iPhone 15'",
+    "simulator_list": "xcrun simctl list devices"
+  },
+  "signing": {
+    "mode": "reference_only",
+    "certificate_ref": "keychain_ref://ios-distribution-certificate-placeholder",
+    "provisioning_profile_ref": "external_vault_ref://mobile/ios/provisioning-profile-placeholder"
+  },
+  "safety": {
+    "xcodebuild_invocation": "disabled",
+    "simulator_invocation": "disabled",
+    "credential_values": "not_read"
+  }
+}

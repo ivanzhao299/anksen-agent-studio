@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen-agent-studio.local/schemas/mobile-stack-pack/mobile-governance-gates.schema.json",
+  "title": "Mobile Governance Gates",
+  "type": "object",
+  "required": ["schema_version", "gates"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action", "risk", "gate_action", "approval_required"],
+        "properties": {
+          "action": { "type": "string", "enum": ["build", "simulator_test", "signing", "testflight_release", "app_store_release", "google_play_release"] },
+          "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          "gate_action": { "type": "string", "enum": ["allowed_dry_run", "proposal_only", "human_approval_required"] },
+          "approval_required": { "type": "boolean" },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

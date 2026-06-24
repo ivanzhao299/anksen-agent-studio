@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "platform": "android",
+  "project_id": "sample-android-app",
+  "project_root": "examples/mobile/sample-android-app",
+  "source_kind": "example_spec",
+  "indicators": {
+    "gradle_files": ["settings.gradle.kts", "build.gradle.kts", "app/build.gradle.kts"],
+    "languages": ["Kotlin", "Java"],
+    "android_manifests": ["app/src/main/AndroidManifest.xml"],
+    "sdk": "android-sdk-reference-only",
+    "gradle_wrapper": true,
+    "emulator_targets": ["Pixel_8_API_35", "Pixel_Tablet_API_35"]
+  },
+  "commands": {
+    "assemble": "./gradlew :app:assembleDebug",
+    "test": "./gradlew :app:testDebugUnitTest",
+    "emulator_list": "emulator -list-avds"
+  },
+  "signing": {
+    "mode": "reference_only",
+    "keystore_ref": "external_vault_ref://mobile/android/debug-keystore-placeholder"
+  },
+  "safety": {
+    "gradle_invocation": "disabled",
+    "emulator_invocation": "disabled",
+    "credential_values": "not_read"
+  }
+}
