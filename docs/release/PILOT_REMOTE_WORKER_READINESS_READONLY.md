@@ -1,6 +1,6 @@
 # Pilot Remote Worker Readiness Read-Only Evidence
 
-- batch_id: batch-plan-9327842d0f
+- batch_id: batch-plan-f761fb471d
 - owner_agent: agent-5
 - split_from: pilot-batch-agent-5-remote-worker-production-readiness
 - parent_risk: HIGH

@@ -1,0 +1,354 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-plan-f761fb471d",
+  "goal": "继续推进 Pilot",
+  "execution_strategy": "true_parallel_executor_parallel_4",
+  "parallel_requested": 4,
+  "actual_parallelism": 4,
+  "true_parallel": true,
+  "parallel_mode": "real_child_process",
+  "parallel_evidence": {
+    "parallel_mode": "real_child_process",
+    "agent_pids": {
+      "agent-1": 58173,
+      "agent-2": 58175,
+      "agent-3": 58174,
+      "agent-4": 58176,
+      "agent-5": 58264
+    },
+    "observed_child_pids": {
+      "agent-1": 58173,
+      "agent-2": 58175,
+      "agent-3": 58174,
+      "agent-4": 58176,
+      "agent-5": 58264
+    },
+    "time_overlap_matrix": {
+      "agents": [
+        "agent-1",
+        "agent-2",
+        "agent-3",
+        "agent-4",
+        "agent-5"
+      ],
+      "matrix": {
+        "agent-1": {
+          "agent-1": "self",
+          "agent-2": true,
+          "agent-3": true,
+          "agent-4": true,
+          "agent-5": false
+        },
+        "agent-2": {
+          "agent-1": true,
+          "agent-2": "self",
+          "agent-3": true,
+          "agent-4": true,
+          "agent-5": false
+        },
+        "agent-3": {
+          "agent-1": true,
+          "agent-2": true,
+          "agent-3": "self",
+          "agent-4": true,
+          "agent-5": false
+        },
+        "agent-4": {
+          "agent-1": true,
+          "agent-2": true,
+          "agent-3": true,
+          "agent-4": "self",
+          "agent-5": false
+        },
+        "agent-5": {
+          "agent-1": false,
+          "agent-2": false,
+          "agent-3": false,
+          "agent-4": false,
+          "agent-5": "self"
+        }
+      },
+      "overlap_pairs": [
+        [
+          "agent-1",
+          "agent-2"
+        ],
+        [
+          "agent-1",
+          "agent-3"
+        ],
+        [
+          "agent-1",
+          "agent-4"
+        ],
+        [
+          "agent-2",
+          "agent-3"
+        ],
+        [
+          "agent-2",
+          "agent-4"
+        ],
+        [
+          "agent-3",
+          "agent-4"
+        ]
+      ]
+    },
+    "independent_workspaces": true,
+    "independent_run_logs": true,
+    "independent_processes": true,
+    "time_overlap_detected": true,
+    "sequential_simulation_detected": false,
+    "workspaces": {
+      "agent-1": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence",
+      "agent-2": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence",
+      "agent-3": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence",
+      "agent-4": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence",
+      "agent-5": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly"
+    },
+    "run_logs": {
+      "agent-1": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.json",
+      "agent-2": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.json",
+      "agent-3": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.json",
+      "agent-4": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.json",
+      "agent-5": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.json"
+    },
+    "log_markdown": {
+      "agent-1": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.md",
+      "agent-2": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.md",
+      "agent-3": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.md",
+      "agent-4": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.md",
+      "agent-5": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.md"
+    },
+    "agents": [
+      {
+        "agent": "agent-1",
+        "task_id": "pilot-batch-agent-1-runtime-chain-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-1-pilot-batch-agent-1-runtime-chain-evidence",
+        "pid": 58173,
+        "observed_child_pid": 58173,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence",
+        "log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.json",
+        "log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.843Z",
+        "completed_at": "2026-06-24T05:44:11.695Z",
+        "duration_ms": 852,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/runtime-center/examples/runtime-health.example.json",
+        "bytes_read": 965
+      },
+      {
+        "agent": "agent-2",
+        "task_id": "pilot-batch-agent-2-worker-pool-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-2-pilot-batch-agent-2-worker-pool-evidence",
+        "pid": 58175,
+        "observed_child_pid": 58175,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence",
+        "log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.json",
+        "log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.841Z",
+        "completed_at": "2026-06-24T05:44:11.819Z",
+        "duration_ms": 978,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/worker-pool/examples/worker-registry.example.json",
+        "bytes_read": 2280
+      },
+      {
+        "agent": "agent-3",
+        "task_id": "pilot-batch-agent-3-credential-policy-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-3-pilot-batch-agent-3-credential-policy-evidence",
+        "pid": 58174,
+        "observed_child_pid": 58174,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence",
+        "log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.json",
+        "log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.843Z",
+        "completed_at": "2026-06-24T05:44:11.945Z",
+        "duration_ms": 1102,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/credential-vault/examples/credential-references.example.json",
+        "bytes_read": 2395
+      },
+      {
+        "agent": "agent-4",
+        "task_id": "pilot-batch-agent-4-console-action-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-4-pilot-batch-agent-4-console-action-evidence",
+        "pid": 58176,
+        "observed_child_pid": 58176,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence",
+        "log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.json",
+        "log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.841Z",
+        "completed_at": "2026-06-24T05:44:12.069Z",
+        "duration_ms": 1228,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "apps/console/src/view-model.ts",
+        "bytes_read": 5023
+      },
+      {
+        "agent": "agent-5",
+        "task_id": "pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "run_id": "batch-plan-f761fb471d-agent-5-pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "pid": 58264,
+        "observed_child_pid": 58264,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.json",
+        "log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.md",
+        "started_at": "2026-06-24T05:44:12.102Z",
+        "completed_at": "2026-06-24T05:44:13.455Z",
+        "duration_ms": 1353,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/worker-pool/examples/worker-registry.example.json",
+        "bytes_read": 2280
+      }
+    ],
+    "run_root": "autopilot-runs/parallel-batch/batch-plan-f761fb471d",
+    "by_task_id": {
+      "pilot-batch-agent-1-runtime-chain-evidence": {
+        "agent": "agent-1",
+        "task_id": "pilot-batch-agent-1-runtime-chain-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-1-pilot-batch-agent-1-runtime-chain-evidence",
+        "pid": 58173,
+        "observed_child_pid": 58173,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence",
+        "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.json",
+        "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-1/pilot-batch-agent-1-runtime-chain-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.843Z",
+        "completed_at": "2026-06-24T05:44:11.695Z",
+        "duration_ms": 852,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/runtime-center/examples/runtime-health.example.json",
+        "bytes_read": 965
+      },
+      "pilot-batch-agent-2-worker-pool-evidence": {
+        "agent": "agent-2",
+        "task_id": "pilot-batch-agent-2-worker-pool-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-2-pilot-batch-agent-2-worker-pool-evidence",
+        "pid": 58175,
+        "observed_child_pid": 58175,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence",
+        "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.json",
+        "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-2/pilot-batch-agent-2-worker-pool-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.841Z",
+        "completed_at": "2026-06-24T05:44:11.819Z",
+        "duration_ms": 978,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/worker-pool/examples/worker-registry.example.json",
+        "bytes_read": 2280
+      },
+      "pilot-batch-agent-3-credential-policy-evidence": {
+        "agent": "agent-3",
+        "task_id": "pilot-batch-agent-3-credential-policy-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-3-pilot-batch-agent-3-credential-policy-evidence",
+        "pid": 58174,
+        "observed_child_pid": 58174,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence",
+        "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.json",
+        "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-3/pilot-batch-agent-3-credential-policy-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.843Z",
+        "completed_at": "2026-06-24T05:44:11.945Z",
+        "duration_ms": 1102,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/credential-vault/examples/credential-references.example.json",
+        "bytes_read": 2395
+      },
+      "pilot-batch-agent-4-console-action-evidence": {
+        "agent": "agent-4",
+        "task_id": "pilot-batch-agent-4-console-action-evidence",
+        "run_id": "batch-plan-f761fb471d-agent-4-pilot-batch-agent-4-console-action-evidence",
+        "pid": 58176,
+        "observed_child_pid": 58176,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence",
+        "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.json",
+        "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-4/pilot-batch-agent-4-console-action-evidence/run-log.md",
+        "started_at": "2026-06-24T05:44:10.841Z",
+        "completed_at": "2026-06-24T05:44:12.069Z",
+        "duration_ms": 1228,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "apps/console/src/view-model.ts",
+        "bytes_read": 5023
+      },
+      "pilot-batch-agent-5-remote-worker-readiness-readonly": {
+        "agent": "agent-5",
+        "task_id": "pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "run_id": "batch-plan-f761fb471d-agent-5-pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "pid": 58264,
+        "observed_child_pid": 58264,
+        "workspace": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly",
+        "run_log_json": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.json",
+        "run_log_markdown": "autopilot-runs/parallel-batch/batch-plan-f761fb471d/workspaces/agent-5/pilot-batch-agent-5-remote-worker-readiness-readonly/run-log.md",
+        "started_at": "2026-06-24T05:44:12.102Z",
+        "completed_at": "2026-06-24T05:44:13.455Z",
+        "duration_ms": 1353,
+        "status": "PASS",
+        "exit_code": 0,
+        "source_path": "packages/worker-pool/examples/worker-registry.example.json",
+        "bytes_read": 2280
+      }
+    }
+  },
+  "path_overlap": {
+    "detected": false,
+    "overlaps": [],
+    "degraded_task_ids": [],
+    "unaffected_task_ids": [
+      "pilot-batch-agent-1-runtime-chain-evidence",
+      "pilot-batch-agent-2-worker-pool-evidence",
+      "pilot-batch-agent-3-credential-policy-evidence",
+      "pilot-batch-agent-4-console-action-evidence",
+      "pilot-batch-agent-5-remote-worker-readiness-readonly"
+    ]
+  },
+  "parallel_batches": [
+    [
+      "pilot-batch-agent-1-runtime-chain-evidence",
+      "pilot-batch-agent-2-worker-pool-evidence",
+      "pilot-batch-agent-3-credential-policy-evidence",
+      "pilot-batch-agent-4-console-action-evidence"
+    ],
+    [
+      "pilot-batch-agent-5-remote-worker-readiness-readonly"
+    ]
+  ],
+  "degraded_batches": [],
+  "high_risk_decomposition": [
+    {
+      "parent_task_id": "pilot-batch-agent-5-remote-worker-production-readiness",
+      "owner_agent": "agent-5",
+      "parent_risk": "HIGH",
+      "status": "SPLIT_TO_SAFE_SUBTASKS",
+      "child_task_ids": [
+        "pilot-batch-agent-5-remote-worker-readiness-readonly"
+      ],
+      "direct_execution": false
+    }
+  ],
+  "task_counts": {
+    "planned": 5,
+    "expanded": 5,
+    "executable": 5,
+    "proposal_only": 0,
+    "split_parent": 1,
+    "split_child": 1
+  },
+  "validation_status": "PASS",
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled",
+    "managed_project_writes": "disabled",
+    "local_child_process_worker": "enabled",
+    "remote_worker_execution": "disabled",
+    "external_model_call": "disabled"
+  }
+}

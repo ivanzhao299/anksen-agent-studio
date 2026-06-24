@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "batch_id": "batch-plan-9327842d0f",
+  "batch_id": "batch-plan-f761fb471d",
   "owner_agent": "agent-2",
   "evidence_id": "pilot-worker-pool-parallel",
   "worker_scope": "local_only",
