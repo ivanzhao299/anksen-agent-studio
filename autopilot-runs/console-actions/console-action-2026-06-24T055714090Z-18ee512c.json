@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "kind": "console_action_run",
+  "plan": {
+    "schema_version": 1,
+    "plan_id": "console-action-2026-06-24T055714090Z-18ee512c",
+    "created_at": "2026-06-24T05:57:14.090Z",
+    "action_id": "smart-park-go-live-plan-dry-run",
+    "action_label": "smart-park go-live plan dry-run",
+    "target_project": "jinhu-smart-park",
+    "target_project_status": "connected",
+    "goal_summary": "生成 jinhu-smart-park 上线计划 dry-run",
+    "command": "node packages/orchestrator-core/bin/studio.mjs project chain-validate --project jinhu-smart-park --dry-run",
+    "risk": "MEDIUM",
+    "approval_required": false,
+    "mode": "dry_run",
+    "write_enabled": false,
+    "production_enabled": false,
+    "log_path": "autopilot-runs/console-actions/console-action-2026-06-24T055714090Z-18ee512c.json",
+    "safety": {
+      "bind_address": "127.0.0.1",
+      "dry_run_only": true,
+      "deploy": "disabled",
+      "production_operation": "disabled",
+      "server_access": "disabled",
+      "credential_values": "not_read",
+      "credential_storage": "disabled",
+      "managed_project_writes": "disabled",
+      "external_model_call": "disabled"
+    }
+  },
+  "result": {
+    "status": "PASS",
+    "exit_code": 0,
+    "stdout_summary": "# Project Chain Validate dry-run\nproject_id: jinhu-smart-park\nstatus: PASS\ntask_id: JINHU-SMART-PARK-TASK-2A48545294\n| Check | Status | Evidence |\n| --- | --- | --- |\n| project_connected | PASS | project_exists=yes |\n| runtime_memory_present | PASS | runtime/projects/jinhu-smart-park/project-state.json, runtime/projects/jinhu-smart-park/agent-studio-status.json, runtime/projects/jinhu-smart-park/architecture.json, runtime/projects/jinhu-smart-park/handoff-summary.md |\n| proposal_exists | PASS | examples/jinhu-smart-park/task-proposals/JINHU-SMART-PARK-TASK-2A48545294.json |\n| approval_exists | PASS | approval_status=APPROVED; approved_at=2026-06-23T07:22:04.307Z |\n| remote_execute_report_exists | PASS | examples/jinhu-smart-park/execution-reports/JINHU-SMART-PARK-TASK-2A48545294.md |\n| remote_execute_evidence_pass | PASS | finalize=PASS; audit_status=PASS; run_log_exit_code=0 |\n| doctor_go | PASS | doctor_status=GO |\n| no_active_locks | PASS | active_locks=0 |\n| machine_readable_evidence_present | PASS | runtime/projects/jinhu-smart-park/project-chain-evidence.json=present; runtime/projects/jinhu-smart-park/proposal-approval-evidence.json=present |\nblocked_operations:\n- agent_execution\n- deploy\n- production_operations\n- credential_value_read\n- real_model_call",
+    "stderr_summary": ""
+  },
+  "smart_park": {
+    "quick_entries": [
+      "生成上线计划 dry-run",
+      "检查项目状态",
+      "查看阻断项",
+      "生成下一步任务 proposal"
+    ],
+    "next_proposal_command": "node packages/orchestrator-core/bin/studio.mjs project task-plan --config examples/jinhu-smart-park/project.config.example.json --text \"<下一步任务>\" --dry-run"
+  }
+}

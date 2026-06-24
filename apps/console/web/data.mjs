@@ -2,7 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { actionServerSummary } from "./action-server.mjs";
+import { actionServerSummary, latestActionLog } from "./action-server.mjs";
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(webDir, "../../..");
@@ -98,7 +98,8 @@ export async function loadConsoleLocalData() {
     workerPoolExamples,
     governanceCenterExamples,
     credentialVaultExamples,
-    latestRun
+    latestRun,
+    latestConsoleActionLog
   ] = await Promise.all([
     readJson(dataFiles.platformState, {}),
     readJson(dataFiles.roadmapMemory, {}),
@@ -111,7 +112,8 @@ export async function loadConsoleLocalData() {
     readExampleDirectory(exampleDirs.workerPool),
     readExampleDirectory(exampleDirs.governanceCenter),
     readExampleDirectory(exampleDirs.credentialVault),
-    latestAutopilotRun()
+    latestAutopilotRun(),
+    latestActionLog()
   ]);
 
   const runtimeProfiles = runtimeCenterExamples.find((item) => item.path.endsWith("runtime-profiles.example.json"))?.data;
@@ -163,8 +165,14 @@ export async function loadConsoleLocalData() {
       latest_summary: latestRun ? {
         id: firstValue(latestRun.data, ["run_id", "batch_id", "id"], latestRun.path),
         execution_mode: firstValue(latestRun.data, ["execution_mode", "execution.mode"], "unknown"),
-        next_recommendation: firstValue(latestRun.data, ["next_recommendation.title", "next_recommendation", "summary.next_recommendation"], "unknown")
+        next_recommendation: firstValue(latestRun.data, ["next_recommendation.title", "next_recommendation", "summary.next_recommendation"], "unknown"),
+        validation: firstValue(latestRun.data, ["validation_result.status", "validation.status"], "unknown")
       } : null
+    },
+    action_log: {
+      latest: latestConsoleActionLog,
+      latest_path: latestConsoleActionLog?.path ?? "not_found",
+      latest_summary: latestConsoleActionLog?.data?.result?.stdout_summary ?? "not_found"
     },
     safety: {
       database: "not_connected",

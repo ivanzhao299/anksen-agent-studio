@@ -7860,8 +7860,10 @@ async function consoleSmoke(args) {
   const data = await dataModule.loadConsoleLocalData();
   const actionsHtml = await renderModule.renderConsolePage("/actions");
   const configHtml = await renderModule.renderConsolePage("/config");
+  const dashboardHtml = await renderModule.renderConsolePage("/");
   const interactiveControlsPresent = [
-    "目标/任务描述",
+    "目标输入区",
+    "输入目标，例如：生成 Smart Park 上线计划 / 检查项目阻断项 / 继续推进 Pilot",
     "项目选择",
     "操作类型",
     "生成计划",
@@ -7870,10 +7872,23 @@ async function consoleSmoke(args) {
   ].every((text) => actionsHtml.includes(text));
   const smartParkControlsPresent = [
     "生成上线计划 dry-run",
-    "检查项目状态",
-    "查看阻断项",
-    "生成下一步任务 proposal"
+    "检查 Smart Park",
+    "Governance 检查",
+    "查看 Proposal"
   ].every((text) => actionsHtml.includes(text));
+  const controlTowerPresent = [
+    "企业级 AI 软件工厂控制塔",
+    "中央任务工作台",
+    "推荐动作区",
+    "执行时间线",
+    "Worker 面板",
+    "Proposal 审批区",
+    "项目工作台",
+    "平台状态",
+    "V5 / Pilot",
+    "风险闸门"
+  ].every((text) => dashboardHtml.includes(text));
+  const darkThemePresent = dashboardHtml.includes("color-scheme: dark") && dashboardHtml.includes("--bg: #0b0f14");
   const configCenterPresent = [
     "项目配置",
     "Runtime 配置",
@@ -7894,6 +7909,8 @@ async function consoleSmoke(args) {
     && dashboardGenerated
     && interactiveControlsPresent
     && smartParkControlsPresent
+    && controlTowerPresent
+    && darkThemePresent
     && configCenterPresent
     && safetyPass
     ? "PASS"
@@ -7911,6 +7928,8 @@ async function consoleSmoke(args) {
   console.log(`dashboard_model_generated: ${dashboardGenerated ? "yes" : "no"}`);
   console.log(`interactive_controls: ${interactiveControlsPresent ? "yes" : "no"}`);
   console.log(`smart_park_quick_entries: ${smartParkControlsPresent ? "yes" : "no"}`);
+  console.log(`control_tower_modules: ${controlTowerPresent ? "yes" : "no"}`);
+  console.log(`dark_professional_theme: ${darkThemePresent ? "yes" : "no"}`);
   console.log(`config_center: ${configCenterPresent ? "yes" : "no"}`);
   console.log(`action_log_dir: ${data.actionServer.action_log_dir}`);
   console.log(`latest_autopilot_source: ${data.data_sources.autopilot_latest}`);

@@ -8,6 +8,8 @@ export type ConsoleActionId =
   | "autopilot-run"
   | "smart-park-go-live-plan-dry-run"
   | "proposal-review"
+  | "proposal-approve-dry-run"
+  | "proposal-reject-draft"
   | "proposal-approve";
 
 export type ConsoleActionScope =
@@ -223,6 +225,40 @@ export const consoleActions: readonly ConsoleActionDescriptor[] = [
     production_enabled: false,
     source: "runtime/projects",
     governance_gate: "ALLOW_DRY_RUN"
+  },
+  {
+    id: "proposal-approve-dry-run",
+    label: "Proposal Approve Dry Run",
+    intent: "proposal approve dry-run",
+    scope: "proposal",
+    command: "node packages/orchestrator-core/bin/studio.mjs project proposals --config examples/jinhu-smart-park/project.config.example.json",
+    risk: "HIGH",
+    mode: "dry_run",
+    executionMode: "proposal_only",
+    requiresApproval: true,
+    readOnly: true,
+    write_enabled: false,
+    production_enabled: false,
+    source: "runtime/projects",
+    governance_gate: "PROPOSAL_ONLY",
+    disabledReason: "Console can only generate an approval dry-run. Real approval requires a separate explicit proposal id and approved command."
+  },
+  {
+    id: "proposal-reject-draft",
+    label: "Proposal Reject Draft",
+    intent: "proposal reject draft",
+    scope: "proposal",
+    command: "node packages/orchestrator-core/bin/studio.mjs project proposals --config examples/jinhu-smart-park/project.config.example.json",
+    risk: "MEDIUM",
+    mode: "dry_run",
+    executionMode: "dry_run_only",
+    requiresApproval: false,
+    readOnly: true,
+    write_enabled: false,
+    production_enabled: false,
+    source: "runtime/projects",
+    governance_gate: "ALLOW_DRY_RUN",
+    disabledReason: "Reject draft is logged as a Console draft only and does not mutate proposal state."
   },
   {
     id: "proposal-approve",

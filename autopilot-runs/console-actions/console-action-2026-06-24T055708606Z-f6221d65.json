@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "kind": "console_action_run",
+  "plan": {
+    "schema_version": 1,
+    "plan_id": "console-action-2026-06-24T055708606Z-f6221d65",
+    "created_at": "2026-06-24T05:57:08.606Z",
+    "action_id": "governance-check",
+    "action_label": "governance check",
+    "target_project": "jinhu-smart-park",
+    "target_project_status": "connected",
+    "goal_summary": "查看 jinhu-smart-park 上线阻断项",
+    "command": "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
+    "risk": "LOW",
+    "approval_required": false,
+    "mode": "dry_run",
+    "write_enabled": false,
+    "production_enabled": false,
+    "log_path": "autopilot-runs/console-actions/console-action-2026-06-24T055708606Z-f6221d65.json",
+    "safety": {
+      "bind_address": "127.0.0.1",
+      "dry_run_only": true,
+      "deploy": "disabled",
+      "production_operation": "disabled",
+      "server_access": "disabled",
+      "credential_values": "not_read",
+      "credential_storage": "disabled",
+      "managed_project_writes": "disabled",
+      "external_model_call": "disabled"
+    }
+  },
+  "result": {
+    "status": "PASS",
+    "exit_code": 0,
+    "stdout_summary": "# Governance Center Check dry-run\nstatus: PASS\npolicy_id: governance-policy-v4-m-unified\nrisk_level_count: 4\napproval_rule_count: 4\nrelease_gate_count: 8\ndeploy_enabled: no\nproduction_operations_enabled: no\nserver_access_enabled: no\ncredential_values_read: no\nmanaged_project_writes: disabled_without_explicit_approval\nfindings:\n- none",
+    "stderr_summary": ""
+  },
+  "smart_park": null
+}

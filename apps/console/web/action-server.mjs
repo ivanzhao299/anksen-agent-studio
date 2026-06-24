@@ -19,9 +19,14 @@ const projects = {
     config: "examples/jinhu-smart-park/project.config.example.json"
   },
   "phoenix-erp": {
-    label: "phoenix-erp planned",
-    status: "planned / not_connected",
+    label: "phoenix-erp",
+    status: "WAITING_FOR_GITHUB_REPO",
     config: "examples/phoenix-erp/project.config.example.json"
+  },
+  "group-portal": {
+    label: "group-portal",
+    status: "PLANNED",
+    config: ""
   }
 };
 
@@ -32,7 +37,10 @@ export const consoleActionOptions = [
   { id: "worker-health", label: "worker health", risk: "MEDIUM" },
   { id: "governance-check", label: "governance check", risk: "LOW" },
   { id: "autopilot-dry-run", label: "autopilot dry-run", risk: "MEDIUM" },
-  { id: "smart-park-go-live-plan-dry-run", label: "smart-park go-live plan dry-run", risk: "MEDIUM" }
+  { id: "smart-park-go-live-plan-dry-run", label: "smart-park go-live plan dry-run", risk: "MEDIUM" },
+  { id: "proposal-review", label: "查看 Proposal", risk: "MEDIUM" },
+  { id: "proposal-approve-dry-run", label: "dry-run 批准", risk: "HIGH" },
+  { id: "proposal-reject-draft", label: "拒绝草稿", risk: "MEDIUM" }
 ];
 
 function timestampForFile(value = new Date().toISOString()) {
@@ -54,6 +62,7 @@ function safeGoal(goal) {
 
 function normalizeActionId(actionId) {
   if (actionId === "autopilot-run") return "autopilot-dry-run";
+  if (actionId === "proposal-approve") return "proposal-approve-dry-run";
   return consoleActionOptions.some((action) => action.id === actionId) ? actionId : "context-summary";
 }
 
@@ -75,7 +84,7 @@ function commandFor(input) {
     };
   }
   if (actionId === "project-inspect") {
-    if (projectId === "phoenix-erp" || !existsSync(resolve(repoRoot, project.config))) {
+    if (projectId !== "jinhu-smart-park" || !project.config || !existsSync(resolve(repoRoot, project.config))) {
       return {
         command: process.execPath,
         args: [studioScript, "context", "project", "--project", projectId],
@@ -116,10 +125,17 @@ function commandFor(input) {
       display: `node ${studioScript} autopilot batch --goal "${goal}" --dry-run --parallel 4`
     };
   }
+  if (actionId === "smart-park-go-live-plan-dry-run") {
+    return {
+      command: process.execPath,
+      args: [studioScript, "project", "chain-validate", "--project", "jinhu-smart-park", "--dry-run"],
+      display: `node ${studioScript} project chain-validate --project jinhu-smart-park --dry-run`
+    };
+  }
   return {
     command: process.execPath,
-    args: [studioScript, "project", "chain-validate", "--project", "jinhu-smart-park", "--dry-run"],
-    display: `node ${studioScript} project chain-validate --project jinhu-smart-park --dry-run`
+    args: [studioScript, "project", "proposals", "--config", "examples/jinhu-smart-park/project.config.example.json"],
+    display: `node ${studioScript} project proposals --config examples/jinhu-smart-park/project.config.example.json`
   };
 }
 

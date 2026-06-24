@@ -5,7 +5,7 @@ export const zhCN = {
   localeName: "简体中文",
   app: {
     title: "ANKSEN Agent Studio 控制台",
-    subtitle: "本地试运行控制台。数据来自仓库文件。写入、部署、生产操作、外部调用、模型调用和密钥读取均已禁用。"
+    subtitle: "企业级 AI 软件工厂控制塔。本地 dry-run 模式，数据来自仓库文件。写入、部署、生产操作、外部调用、模型调用和密钥读取均已禁用。"
   },
   nav: {
     dashboard: "总览",
@@ -55,7 +55,7 @@ export const zhCN = {
       title: "项目",
       connectedProject: "已连接项目",
       phoenixErp: "Phoenix ERP",
-      phoenixStatus: "本轮未接入",
+      phoenixStatus: "WAITING_FOR_GITHUB_REPO",
       writes: "写入",
       runtimeMemory: "jinhu-smart-park 运行记忆"
     },

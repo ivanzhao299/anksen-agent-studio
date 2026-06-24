@@ -36,8 +36,163 @@ function jsonBlock(value) {
   return `<pre>${escapeHtml(JSON.stringify(value, null, 2))}</pre>`;
 }
 
+function badge(label, value, tone = "neutral") {
+  return `<div class="status-chip ${tone}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+}
+
 function formOption(value, label, selected = false) {
   return `<option value="${escapeHtml(value)}"${selected ? " selected" : ""}>${escapeHtml(label)}</option>`;
+}
+
+function topStatusBar(model, data) {
+  return `<div class="top-status">
+    ${badge("平台状态", model.platform_status, "good")}
+    ${badge("V5 / Pilot", `${model.v5_status} / READY`, "good")}
+    ${badge("当前项目", model.active_project, "neutral")}
+    ${badge("Worker", model.modules.workers, "neutral")}
+    ${badge("风险闸门", "PASS", "good")}
+    ${badge("最近运行", data.autopilot.latest_summary?.validation ?? "unknown", data.autopilot.latest_summary?.validation === "PASS" ? "good" : "warn")}
+  </div>`;
+}
+
+function actionWorkbench(data, title = "中央任务工作台") {
+  const actionOptions = data.actionServer.actions.map((item) => formOption(item.id, item.label));
+  const projectOptions = data.actionServer.projects.map((item) => formOption(item.project_id, `${item.label} (${item.status})`));
+  return `<section class="workbench">
+    <div class="section-head">
+      <div>
+        <h2>${escapeHtml(title)}</h2>
+        <p>输入目标，生成计划，执行本地 dry-run，并把结果写入 Action Log。</p>
+      </div>
+      <span class="pill">127.0.0.1 / dry-run only</span>
+    </div>
+    <label for="action-goal">目标输入区</label>
+    <textarea id="action-goal" class="goal-box" placeholder="输入目标，例如：生成 Smart Park 上线计划 / 检查项目阻断项 / 继续推进 Pilot">继续推进 Pilot</textarea>
+    <div class="form-grid control-grid">
+      <div>
+        <label for="action-project">项目选择</label>
+        <select id="action-project">${projectOptions.join("")}</select>
+      </div>
+      <div>
+        <label for="action-type">操作类型</label>
+        <select id="action-type">${actionOptions.join("")}</select>
+      </div>
+      <div class="button-row compact">
+        <button type="button" data-console-action="plan">生成计划</button>
+        <button type="button" data-console-action="run">执行 dry-run</button>
+        <button type="button" class="secondary" data-console-action="logs">查看日志</button>
+      </div>
+    </div>
+    <div class="quick-row">
+      <button type="button" class="secondary" data-quick-action="context-summary" data-goal="读取全局上下文">读取上下文</button>
+      <button type="button" class="secondary" data-quick-action="project-inspect" data-goal="检查 Smart Park 项目状态">检查 Smart Park</button>
+      <button type="button" class="secondary" data-quick-action="smart-park-go-live-plan-dry-run" data-goal="生成 Smart Park 上线计划 dry-run">生成上线计划 dry-run</button>
+      <button type="button" class="secondary" data-quick-action="runtime-health" data-goal="Runtime 健康检查">Runtime 健康检查</button>
+      <button type="button" class="secondary" data-quick-action="worker-health" data-goal="Worker 健康检查">Worker 健康检查</button>
+      <button type="button" class="secondary" data-quick-action="governance-check" data-goal="Governance 检查">Governance 检查</button>
+      <button type="button" class="secondary" data-quick-action="autopilot-dry-run" data-goal="继续推进 Pilot">Autopilot dry-run</button>
+      <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="查看 Smart Park Proposal">查看 Proposal</button>
+    </div>
+    <div class="output-card">
+      <div class="section-head small"><h3>Action Log 摘要</h3><span>${escapeHtml(data.actionServer.action_log_dir)}</span></div>
+      <pre id="action-output">${escapeHtml(data.action_log.latest_summary ?? "等待操作...")}</pre>
+    </div>
+  </section>`;
+}
+
+function recommendationPanel(data) {
+  const recommendation = data.autopilot.latest_summary?.next_recommendation ?? "运行 Autopilot dry-run 以刷新下一步建议。";
+  return `<section>
+    <div class="section-head"><h2>推荐动作区</h2><span class="pill">Planning / Governance</span></div>
+    <div class="kanban-grid">
+      <div class="panel"><h3>下一步建议</h3><p>${escapeHtml(recommendation)}</p></div>
+      <div class="panel"><h3>可自动执行任务</h3>${list(["LOW / MEDIUM 本仓库 dry-run", "Runtime health", "Worker health", "Autopilot dry-run"])}</div>
+      <div class="panel"><h3>需审批任务</h3>${list(["HIGH remote worker", "CRITICAL production operation", "真实凭证后端接入"])}</div>
+      <div class="panel"><h3>最近失败项</h3>${list(["无活动失败项", "SSH/production 相关动作保持 HOLD 或 proposal_only"])}</div>
+    </div>
+  </section>`;
+}
+
+function executionTimeline() {
+  const steps = [
+    ["Planning", "READY", "目标解析与 batch plan"],
+    ["Governance", "PASS", "LOW/MEDIUM dry-run 放行"],
+    ["Worker", "LOCAL", "仅本地 child_process / dry-run"],
+    ["Validation", "PASS", "typecheck / lint / smoke"],
+    ["Report", "RECORDED", "Action Log + run summary"]
+  ];
+  return `<section>
+    <div class="section-head"><h2>执行时间线</h2><span class="pill">可观察</span></div>
+    <div class="timeline">${steps.map(([name, status, detail]) => `<div class="timeline-step"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(status)}</span><p>${escapeHtml(detail)}</p></div>`).join("")}</div>
+  </section>`;
+}
+
+function workerRows(data) {
+  const latest = data.autopilot.latest?.data ?? {};
+  const pids = latest.agent_pids ?? latest.parallel_evidence?.agent_pids ?? {};
+  const logs = latest.parallel_evidence?.run_logs ?? {};
+  const agents = ["agent-1", "agent-2", "agent-3", "agent-4", "agent-5"];
+  return agents.map((agent, index) => ({
+    agent,
+    pid: pids[agent] ?? "idle",
+    status: pids[agent] ? "PASS" : "READY",
+    task: ["Docs / Runtime", "Governance", "Credential / Project", "Console UI", "Proposal / Architecture"][index],
+    log: logs[agent] ?? data.autopilot.latest?.path ?? data.action_log.latest_path,
+    duration: pids[agent] ? "overlap" : "n/a"
+  }));
+}
+
+function workerPanel(data) {
+  return `<section>
+    <div class="section-head"><h2>Worker 面板</h2><span class="pill">agent-1~5</span></div>
+    ${table(workerRows(data), [
+      { key: "agent", label: "Agent" },
+      { key: "pid", label: "PID" },
+      { key: "status", label: "状态" },
+      { key: "task", label: "任务" },
+      { key: "log", label: "日志路径" },
+      { key: "duration", label: "耗时" }
+    ])}
+  </section>`;
+}
+
+function proposalPanel() {
+  const proposals = [
+    { id: "smart-park-go-live-plan", risk: "MEDIUM", approval: "no", status: "DRAFT_DRY_RUN" },
+    { id: "remote-worker-runtime", risk: "HIGH", approval: "yes", status: "PROPOSAL_ONLY" },
+    { id: "production-operation", risk: "CRITICAL", approval: "yes", status: "BLOCKED" }
+  ];
+  return `<section>
+    <div class="section-head"><h2>Proposal 审批区</h2><span class="pill warn-pill">真实写入禁用</span></div>
+    ${table(proposals, [
+      { key: "id", label: "proposal list" },
+      { key: "risk", label: "risk" },
+      { key: "approval", label: "approval_required" },
+      { key: "status", label: "status" }
+    ])}
+    <div class="button-row">
+      <button type="button" class="secondary" data-proposal-action="proposal-review">查看</button>
+      <button type="button" class="secondary" data-proposal-action="proposal-approve-dry-run">dry-run 批准</button>
+      <button type="button" class="danger" data-proposal-action="proposal-reject-draft">拒绝草稿</button>
+    </div>
+  </section>`;
+}
+
+function projectWorkbench(data) {
+  const rows = [
+    { project: "jinhu-smart-park", status: "CONNECTED", policy: "read-only / dry-run", next: "go-live plan dry-run" },
+    { project: "phoenix-erp", status: "WAITING_FOR_GITHUB_REPO", policy: "planned", next: "GitHub Repo Connector" },
+    { project: "group-portal", status: "PLANNED", policy: "not_connected", next: "project intake" }
+  ];
+  return `<section>
+    <div class="section-head"><h2>项目工作台</h2><span class="pill">Multi Project</span></div>
+    ${table(rows, [
+      { key: "project", label: "项目" },
+      { key: "status", label: "状态" },
+      { key: "policy", label: "策略" },
+      { key: "next", label: "下一步" }
+    ])}
+  </section>`;
 }
 
 function interactiveScript() {
@@ -92,6 +247,15 @@ function interactiveScript() {
     });
   });
 
+  document.querySelectorAll("[data-proposal-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (project) project.value = "jinhu-smart-park";
+      if (action) action.value = button.getAttribute("data-proposal-action");
+      if (goal) goal.value = button.textContent + " Smart Park proposal dry-run";
+      show(await postJson("/api/action-plan", payload()));
+    });
+  });
+
   const draftKey = "anksen-console-config-drafts";
   const draftFields = [...document.querySelectorAll("[data-config-draft]")];
   if (draftFields.length > 0) {
@@ -114,7 +278,7 @@ function interactiveScript() {
 </script>`;
 }
 
-function shell(content, activeId, model) {
+function shell(content, activeId, model, data) {
   const route = consoleWebRoutes.find((item) => item.id === activeId) ?? consoleWebRoutes[0];
   return `<!doctype html>
 <html lang="${messages.locale}">
@@ -123,43 +287,69 @@ function shell(content, activeId, model) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(route.label)} - ${escapeHtml(messages.app.title)}</title>
   <style>
-    :root { color-scheme: light; --bg: #f7f8fa; --panel: #ffffff; --text: #1f2933; --muted: #52606d; --line: #d9e2ec; --blue: #1261a6; --green: #1f7a4d; --red: #b42318; }
+    :root { color-scheme: dark; --bg: #0b0f14; --nav: #0f141b; --panel: #121922; --panel-2: #16202b; --text: #e5edf5; --muted: #94a3b8; --line: #263241; --blue: #5aa9ff; --green: #34d399; --yellow: #fbbf24; --red: #fb7185; --shadow: rgba(0, 0, 0, 0.24); }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
-    header { padding: 18px 24px 12px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+    header { padding: 18px 24px 12px; border-bottom: 1px solid var(--line); background: #0d1218; position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 28px var(--shadow); }
     h1 { margin: 0 0 4px; font-size: 22px; font-weight: 700; letter-spacing: 0; }
     .subhead { color: var(--muted); font-size: 13px; }
-    .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: calc(100vh - 76px); }
-    nav { border-right: 1px solid var(--line); background: #fff; padding: 12px; }
-    nav a { display: block; color: var(--text); text-decoration: none; padding: 9px 10px; border-radius: 6px; font-size: 14px; }
-    nav a.active { background: #e7f0fa; color: var(--blue); font-weight: 700; }
-    main { padding: 20px 24px 36px; max-width: 1280px; width: 100%; }
+    .top-status { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; margin-top: 14px; }
+    .status-chip { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 9px 10px; min-width: 0; }
+    .status-chip span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 3px; }
+    .status-chip strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
+    .status-chip.good strong { color: var(--green); }
+    .status-chip.warn strong { color: var(--yellow); }
+    .layout { display: grid; grid-template-columns: 244px minmax(0, 1fr); min-height: calc(100vh - 122px); }
+    nav { border-right: 1px solid var(--line); background: var(--nav); padding: 14px 12px; position: sticky; top: 123px; height: calc(100vh - 123px); align-self: start; }
+    nav a { display: block; color: var(--muted); text-decoration: none; padding: 9px 10px; border-radius: 6px; font-size: 14px; margin-bottom: 3px; }
+    nav a:hover { color: var(--text); background: #182231; }
+    nav a.active { background: #203149; color: var(--blue); font-weight: 700; }
+    main { padding: 22px 24px 40px; max-width: 1480px; width: 100%; }
     section { margin-bottom: 18px; }
     h2 { font-size: 18px; margin: 0 0 10px; }
+    h3 { font-size: 14px; margin: 0 0 8px; }
+    p { color: var(--muted); line-height: 1.55; margin: 0; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
-    .metric, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+    .metric, .panel, .workbench, .output-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; box-shadow: 0 10px 26px var(--shadow); }
     .metric span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
     .metric strong { display: block; font-size: 18px; overflow-wrap: anywhere; }
-    table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 26px var(--shadow); }
     th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 9px 10px; font-size: 13px; vertical-align: top; }
-    th { color: var(--muted); background: #f0f4f8; font-weight: 700; }
+    th { color: var(--muted); background: #172231; font-weight: 700; }
     tr:last-child td { border-bottom: 0; }
-    pre { background: #101828; color: #f8fafc; padding: 12px; border-radius: 8px; overflow: auto; font-size: 12px; line-height: 1.45; }
-    .pill { display: inline-block; padding: 2px 7px; border-radius: 999px; background: #e7f0fa; color: var(--blue); font-size: 12px; font-weight: 700; }
+    pre { background: #070b10; color: #dbeafe; border: 1px solid #1f2a37; padding: 12px; border-radius: 8px; overflow: auto; font-size: 12px; line-height: 1.45; }
+    .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #172b42; color: var(--blue); font-size: 12px; font-weight: 700; }
+    .warn-pill { background: #3a2630; color: var(--red); }
     .safe { color: var(--green); font-weight: 700; }
     .warn { color: var(--red); font-weight: 700; }
     label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
-    input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; color: var(--text); background: #fff; }
+    input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; color: var(--text); background: #0c1219; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid rgba(90, 169, 255, 0.32); border-color: var(--blue); }
     textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
+    .goal-box { min-height: 128px; font-size: 15px; }
     .form-grid { display: grid; grid-template-columns: minmax(220px, 1.5fr) minmax(180px, 0.8fr) minmax(220px, 1fr); gap: 12px; align-items: end; }
+    .control-grid { grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(280px, auto); margin-top: 12px; }
     .button-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-    button { border: 1px solid var(--blue); background: var(--blue); color: #fff; border-radius: 6px; padding: 9px 12px; font: inherit; font-weight: 700; cursor: pointer; }
-    button.secondary { background: #fff; color: var(--blue); }
-    button.danger { border-color: var(--red); color: var(--red); background: #fff; }
-    .quick-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+    .button-row.compact { align-items: end; margin-top: 0; }
+    button { border: 1px solid #326ba8; background: #1d4f86; color: #f8fbff; border-radius: 6px; padding: 9px 12px; font: inherit; font-weight: 700; cursor: pointer; }
+    button:hover { background: #2364a8; }
+    button.secondary { background: #111a25; color: var(--blue); }
+    button.danger { border-color: #753241; color: var(--red); background: #1d1116; }
+    .quick-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .draft-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
     .help { color: var(--muted); font-size: 12px; margin-top: 6px; }
-    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } nav { border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } }
+    .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .section-head.small { align-items: center; }
+    .section-head h2, .section-head h3 { margin: 0; }
+    .kanban-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .timeline { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+    .timeline-step { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; position: relative; }
+    .timeline-step strong { display: block; margin-bottom: 6px; }
+    .timeline-step span { color: var(--green); font-size: 12px; font-weight: 700; }
+    .output-card { margin-top: 14px; }
+    ul { margin: 0; padding-left: 18px; color: var(--muted); }
+    li { margin: 5px 0; }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } .top-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } .timeline { grid-template-columns: 1fr; } }
     @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -167,6 +357,7 @@ function shell(content, activeId, model) {
   <header>
     <h1>${escapeHtml(messages.app.title)}</h1>
     <div class="subhead">${escapeHtml(messages.app.subtitle)}</div>
+    ${topStatusBar(model, data)}
   </header>
   <div class="layout">
     ${nav(activeId)}
@@ -178,7 +369,13 @@ function shell(content, activeId, model) {
 }
 
 function pageDashboard(model, data) {
-  return `<section><h2>${messages.pages.dashboard.title}</h2><div class="grid">
+  return `${actionWorkbench(data, "中央任务工作台")}
+  ${recommendationPanel(data)}
+  ${executionTimeline()}
+  ${workerPanel(data)}
+  ${proposalPanel()}
+  ${projectWorkbench(data)}
+  <section><h2>${messages.pages.dashboard.title}</h2><div class="grid">
     ${metric(messages.pages.dashboard.platform, model.platform_status)}
     ${metric("V5", model.v5_status)}
     ${metric(messages.pages.dashboard.activeProject, model.active_project)}
@@ -196,7 +393,8 @@ function pageDashboard(model, data) {
 
 function pageProjects(data) {
   const project = data.jinhuProjectState ?? {};
-  return `<section><h2>${messages.pages.projects.title}</h2><div class="grid">
+  return `${projectWorkbench(data)}
+  <section><h2>${messages.pages.projects.title}</h2><div class="grid">
     ${metric(messages.pages.projects.connectedProject, "jinhu-smart-park")}
     ${metric(messages.pages.projects.phoenixErp, messages.pages.projects.phoenixStatus)}
     ${metric(messages.pages.projects.writes, data.safety.managed_project_writes)}
@@ -220,7 +418,8 @@ function pageWorkers(data) {
     risk: worker.risk,
     status: worker.status
   }));
-  return `<section><h2>${messages.pages.workers.title}</h2><div class="grid">${metric(messages.pages.dashboard.workers, rows.length)}${metric(messages.pages.workers.serverAccess, data.safety.server_access)}${metric(messages.pages.workers.modelCalls, data.safety.model_invocation)}</div></section>
+  return `${workerPanel(data)}
+  <section><h2>${messages.pages.workers.title}</h2><div class="grid">${metric(messages.pages.dashboard.workers, rows.length)}${metric(messages.pages.workers.serverAccess, data.safety.server_access)}${metric(messages.pages.workers.modelCalls, data.safety.model_invocation)}</div></section>
   <section>${table(rows, [{ key: "worker_id", label: messages.pages.workers.worker }, { key: "kind", label: messages.pages.workers.kind }, { key: "os", label: messages.pages.workers.os }, { key: "capabilities", label: messages.pages.workers.capabilities }, { key: "risk", label: messages.common.risk }, { key: "status", label: messages.common.status }])}</section>`;
 }
 
@@ -262,38 +461,9 @@ function pageAutopilot(data) {
 
 function pageActions(data) {
   const actions = data.consoleActions?.actions ?? [];
-  const actionOptions = data.actionServer.actions.map((item) => formOption(item.id, item.label));
-  const projectOptions = data.actionServer.projects.map((item) => formOption(item.project_id, `${item.label} (${item.status})`));
   return `<section><h2>${messages.pages.actions.title}</h2><div class="grid">${metric(messages.pages.actions.actions, data.actionServer.actions.length)}${metric(messages.pages.actions.defaultMode, "dry_run")}${metric(messages.pages.actions.writes, messages.common.falseValue)}${metric("Action Log", data.actionServer.action_log_dir)}</div></section>
-  <section class="panel">
-    <div class="form-grid">
-      <div>
-        <label for="action-goal">目标/任务描述</label>
-        <textarea id="action-goal" placeholder="输入要推进的目标，例如：继续推进 Pilot">继续推进 Pilot</textarea>
-      </div>
-      <div>
-        <label for="action-project">项目选择</label>
-        <select id="action-project">${projectOptions.join("")}</select>
-      </div>
-      <div>
-        <label for="action-type">操作类型</label>
-        <select id="action-type">${actionOptions.join("")}</select>
-      </div>
-    </div>
-    <div class="button-row">
-      <button type="button" data-console-action="plan">生成计划</button>
-      <button type="button" data-console-action="run">执行 dry-run</button>
-      <button type="button" class="secondary" data-console-action="logs">查看日志</button>
-    </div>
-    <p class="help">本地 Action Server 只监听 127.0.0.1；所有操作强制 dry-run，写入 action log，不读取密钥，不部署，不执行生产操作。</p>
-  </section>
-  <section><h2>Smart Park 快捷入口</h2><div class="quick-grid">
-    <button type="button" data-quick-action="smart-park-go-live-plan-dry-run" data-goal="生成 jinhu-smart-park 上线计划 dry-run">生成上线计划 dry-run</button>
-    <button type="button" class="secondary" data-quick-action="project-inspect" data-goal="检查 jinhu-smart-park 项目状态">检查项目状态</button>
-    <button type="button" class="secondary" data-quick-action="governance-check" data-goal="查看 jinhu-smart-park 上线阻断项">查看阻断项</button>
-    <button type="button" class="secondary" data-quick-action="autopilot-dry-run" data-goal="生成 jinhu-smart-park 下一步任务 proposal">生成下一步任务 proposal</button>
-  </div></section>
-  <section><h2>命令输出摘要 / 风险 / 审批 / 日志</h2><pre id="action-output">等待操作...</pre></section>
+  ${actionWorkbench(data, "操作中心")}
+  ${proposalPanel()}
   <section>${table(actions.map((action) => ({
     id: action.id,
     intent: action.intent,
@@ -307,7 +477,8 @@ function pageConfig(data) {
   const projectDraft = {
     project_id: "jinhu-smart-park",
     connected: true,
-    phoenix_erp: "planned / not_connected",
+    phoenix_erp: "WAITING_FOR_GITHUB_REPO",
+    group_portal: "PLANNED",
     managed_project_writes: false
   };
   const runtimeDraft = {
@@ -387,5 +558,5 @@ export async function renderConsolePage(pathname = "/") {
     pilotStatus: () => pagePilotStatus(data)
   };
   const body = await (contentById[route.id] ?? contentById.dashboard)();
-  return shell(body, route.id, model);
+  return shell(body, route.id, model, data);
 }
