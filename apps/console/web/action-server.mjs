@@ -13,6 +13,7 @@ export const actionLogDir = "autopilot-runs/console-actions";
 const studioScript = "packages/orchestrator-core/bin/studio.mjs";
 const actionRuns = new Map();
 const terminalRunStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED"]);
+const actionTimeoutMs = 180000;
 
 const projects = {
   "jinhu-smart-park": {
@@ -459,7 +460,7 @@ function runTimeline(status, resultStatus = "PENDING") {
 
 function publicRun(run) {
   if (!run) return null;
-  const { child: _child, stdout: _stdout, stderr: _stderr, ...value } = run;
+  const { child: _child, timeout: _timeout, stdout: _stdout, stderr: _stderr, ...value } = run;
   return value;
 }
 
@@ -676,7 +677,7 @@ async function runConversationCommand(runId, input, command) {
   run.result = {
     status: "RUNNING",
     exit_code: null,
-    stdout_summary: "正在执行本地安全任务...",
+    stdout_summary: "正在执行本地安全任务，等待命令输出...",
     stderr_summary: ""
   };
   run.messages.push({
@@ -695,17 +696,47 @@ async function runConversationCommand(runId, input, command) {
   run.child = child;
   run.child_pid = child.pid;
   run.updated_at = new Date().toISOString();
+  run.started_at = run.updated_at;
   run.stdout = "";
   run.stderr = "";
+  run.result.stdout_summary = `命令已启动。PID: ${child.pid ?? "unknown"}。正在等待输出...`;
+
+  run.timeout = setTimeout(async () => {
+    if (run.status !== "RUNNING") return;
+    run.status = "FAIL";
+    run.phase = "failed";
+    run.result = {
+      status: "FAIL",
+      exit_code: null,
+      stdout_summary: summarizeStdout(run.stdout) || "命令超过 180 秒仍未完成，已自动停止，避免页面长时间无反馈。",
+      stderr_summary: summarizeStdout(run.stderr) || "TIMEOUT"
+    };
+    run.messages.push({
+      role: "assistant",
+      content: `执行超时：${run.result.stdout_summary}`,
+      at: new Date().toISOString(),
+      phase: "failed"
+    });
+    run.timeline = runTimeline(run.status, run.result.status);
+    if (run.child && !run.child.killed) run.child.kill("SIGTERM");
+    delete run.child;
+    delete run.timeout;
+    await persistConversationRun(run);
+  }, actionTimeoutMs);
 
   child.stdout.on("data", (chunk) => {
     run.stdout += chunk.toString("utf8");
+    run.result.stdout_summary = summarizeStdout(run.stdout) || `命令已启动。PID: ${run.child_pid ?? "unknown"}。正在等待输出...`;
+    run.updated_at = new Date().toISOString();
   });
   child.stderr.on("data", (chunk) => {
     run.stderr += chunk.toString("utf8");
+    run.result.stderr_summary = summarizeStdout(run.stderr);
+    run.updated_at = new Date().toISOString();
   });
   child.on("error", async (error) => {
     if (run.status === "CANCELLED") return;
+    if (run.timeout) clearTimeout(run.timeout);
     run.status = "FAIL";
     run.phase = "failed";
     run.result = {
@@ -722,10 +753,12 @@ async function runConversationCommand(runId, input, command) {
     });
     run.timeline = runTimeline(run.status, run.result.status);
     delete run.child;
+    delete run.timeout;
     await persistConversationRun(run);
   });
   child.on("close", async (code, signal) => {
     if (run.status === "CANCELLED") return;
+    if (run.timeout) clearTimeout(run.timeout);
     const combinedOutput = `${run.stdout}\n${run.stderr}`;
     let fallbackSummary = "";
     let fallbackStatus = code === 0 ? "PASS" : "FAIL";
@@ -774,6 +807,7 @@ async function runConversationCommand(runId, input, command) {
     });
     run.timeline = runTimeline(run.status, run.result.status);
     delete run.child;
+    delete run.timeout;
     await persistConversationRun(run);
   });
 }
@@ -854,8 +888,10 @@ export async function cancelConversationAction(runId) {
     phase: "cancelled"
   });
   run.timeline = runTimeline(run.status, run.result.status);
+  if (run.timeout) clearTimeout(run.timeout);
   if (run.child && !run.child.killed) run.child.kill("SIGTERM");
   delete run.child;
+  delete run.timeout;
   await persistConversationRun(run);
   return publicRun(run);
 }

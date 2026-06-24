@@ -395,6 +395,11 @@ function interactiveScript() {
       .replaceAll("'", "&#39;");
   }
 
+  function clipClient(value, maxLength) {
+    const text = String(value == null ? "" : value);
+    return text.length > maxLength ? text.slice(0, maxLength) + "\\n...输出已截断，完整内容见 action log。" : text;
+  }
+
   function setStatus(value) {
     if (!statusEl) return;
     const statusClass = {
@@ -473,15 +478,25 @@ function interactiveScript() {
   function renderConversation(record) {
     if (!conversationStream) return;
     const messages = Array.isArray(record && record.messages) ? record.messages : [];
-    if (messages.length === 0) return;
-    conversationStream.innerHTML = messages.map((message) => {
+    const lines = messages.map((message) => {
       const role = message.role === "user" ? "user" : "assistant";
       const prefix = role === "user" ? "> " : "$ ";
       const phase = message.phase ? "[" + escapeClient(message.phase) + "] " : "";
       return '<div class="terminal-line ' + role + '">' + prefix + phase + escapeClient(message.content) + '</div>';
-    }).join("");
+    });
+    const logPath = record && record.logs ? (record.logs.json || record.logs.markdown || "") : (record && record.plan ? record.plan.log_path : "");
+    const result = record && record.result ? record.result : {};
+    if (record && record.run_id) lines.push('<div class="terminal-line assistant">$ run_id ' + escapeClient(record.run_id) + '</div>');
+    if (logPath) lines.push('<div class="terminal-line assistant">$ log ' + escapeClient(logPath) + '</div>');
+    if (result.stdout_summary) {
+      lines.push('<div class="terminal-line assistant">$ 输出\\n' + escapeClient(clipClient(result.stdout_summary, 2200)) + '</div>');
+    }
+    if (result.stderr_summary) {
+      lines.push('<div class="terminal-line fail">$ error\\n' + escapeClient(clipClient(result.stderr_summary, 1200)) + '</div>');
+    }
+    conversationStream.innerHTML = lines.join("");
     if (!terminalStatuses.has(record.status || "")) {
-      conversationStream.innerHTML += '<div class="terminal-line running">$ 运行中 ...</div>';
+      conversationStream.innerHTML += '<div class="terminal-line running">$ 运行中 ... 正在刷新状态</div>';
     }
     conversationStream.scrollTop = conversationStream.scrollHeight;
   }
@@ -737,6 +752,7 @@ function shell(content, activeId, model, data) {
     .terminal-line.user { color: #8bd3ff; }
     .terminal-line.assistant { color: #d7e2ef; }
     .terminal-line.running { color: var(--green); }
+    .terminal-line.fail { color: var(--red); }
     .chat-message { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 10px; align-items: start; }
     .chat-message.user { grid-template-columns: minmax(0, 1fr) 36px; }
     .chat-message.user .message-avatar { grid-column: 2; grid-row: 1; background: #132947; color: var(--blue); border-color: rgba(90, 169, 255, 0.35); }
