@@ -1,76 +1,60 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-23T15:59:16.528Z",
-  "goal": "继续推进 V4",
-  "current_stage": "V4-O Production Operations Center approval gate",
-  "next_stage": "Await explicit approval for V4-O Production Operations Center implementation",
+  "generated_at": "2026-06-29T03:58:28Z",
+  "goal": "保持 Agent Studio Pilot 控制面与 managed project 上下文同步，准备接管后续开发任务",
+  "current_stage": "V5 closure complete; Pilot local control plane active; managed-project branch sync pending",
+  "next_stage": "Continue single-worktree development on jinhu-smart-park feature branch; resync stale agent worktrees before any multi-agent dispatch.",
   "milestones": [
     {
-      "id": "extraction",
-      "title": "Standalone Agent Studio extraction",
+      "id": "v5-closure",
+      "title": "V5 productization closure",
       "completed": true
     },
     {
-      "id": "remote-execute-smoke",
-      "title": "Managed project remote execute smoke",
+      "id": "pilot-console-local-service",
+      "title": "Pilot local console and action server",
       "completed": true
     },
     {
-      "id": "runtime-center",
-      "title": "V4-I Runtime Center routing and health gates",
+      "id": "managed-project-context-refresh",
+      "title": "Managed project runtime memory imported into Agent Studio",
       "completed": true
     },
     {
-      "id": "credential-vault",
-      "title": "V4-J Credential Vault MVP",
+      "id": "feature-branch-baseline",
+      "title": "jinhu-smart-park feature branch baseline established",
       "completed": true
     },
     {
-      "id": "autopilot-runner",
-      "title": "V4-J Autopilot Runner",
-      "completed": true
-    },
-    {
-      "id": "console-read-only",
-      "title": "V4-K Console Read-Only MVP",
-      "completed": true
-    },
-    {
-      "id": "multi-project-workspace",
-      "title": "V4-L Multi-Project Workspace",
-      "completed": true
-    },
-    {
-      "id": "governance-release-gates",
-      "title": "V4-M Governance and Release Gates",
-      "completed": true
+      "id": "agent-worktree-resync",
+      "title": "Resync agent-1..5 worktrees to the active managed-project branch",
+      "completed": false
     }
   ],
   "next_recommended_action": {
-    "title": "Await explicit approval for V4-O Production Operations Center implementation",
-    "reason": "The Production Operations Center proposal exists, but the capability touches deploy, production operation, server access, credential value, and managed-project write semantics. It must remain blocked until a separate explicit approval defines an implementation boundary.",
-    "target_project": "anksen-agent-studio",
-    "target_package": "docs/release",
+    "title": "Stabilize jinhu-smart-park branch topology before multi-agent execution",
+    "reason": "The platform is ready for pilot use and the managed-project context is refreshed, but orchestrated multi-agent execution should not resume until stale agent worktrees are resynced to feature/engineering-project-delivery-runtime. Continue direct development on the active feature branch meanwhile, and do not push directly to main.",
+    "target_project": "jinhu-smart-park",
+    "target_package": "ops/agent-orchestrator",
     "expected_files": [
-      "docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md",
-      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+      "runtime/projects/jinhu-smart-park/project-state.json",
+      "runtime/projects/jinhu-smart-park/handoff-summary.md"
     ],
     "validation_commands": [
-      "pnpm typecheck",
-      "pnpm lint:check",
-      "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
-      "node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run",
-      "git diff --check"
+      "node packages/orchestrator-core/bin/studio.mjs context summary",
+      "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
+      "git -C ../jinhu-smart-park worktree list",
+      "node ../jinhu-smart-park/ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
     ],
-    "risk": "HIGH",
-    "approval_required": true,
-    "execution_mode": "blocked"
+    "risk": "MEDIUM",
+    "approval_required": false,
+    "execution_mode": "single_worktree_until_resynced"
   },
   "validation_commands": [
-    "pnpm typecheck",
-    "pnpm lint:check",
     "node packages/orchestrator-core/bin/studio.mjs context summary",
-    "git diff --check"
+    "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
+    "git -C ../jinhu-smart-park worktree list",
+    "node ../jinhu-smart-park/ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
   ],
-  "stop_policy": "max_steps=1 for automated runner apply mode"
+  "stop_policy": "single-worktree mode until managed-project agent worktrees are resynced; no direct push to main"
 }

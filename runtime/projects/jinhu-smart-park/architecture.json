@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "imported_at": "2026-06-23T09:38:06.901Z",
+  "imported_at": "2026-06-29T03:55:05.560Z",
   "project_id": "jinhu-smart-park",
   "detected_stack": [
     "Agent Orchestrator project state",
@@ -126,8 +126,8 @@
     "exists": "yes",
     "summary": "present",
     "platform_state": "present",
-    "generated_at": "2026-06-23T09:35:45.828Z",
-    "head_summary": "002bb91 chore(orchestrator): finalize external task event projection",
+    "generated_at": "2026-06-29T03:51:32.046Z",
+    "head_summary": "206b132 feat(mobile): add workflow inbox digest",
     "event_count": "180"
   }
 }

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-23T15:59:16.528Z",
+  "generated_at": "2026-06-29T03:58:28Z",
   "decisions": [
     {
       "date": "2026-06-23",
@@ -19,6 +19,24 @@
       "title": "Autopilot remains single-step and approval-gated",
       "decision": "Autopilot Runner may execute only safe local repository actions; managed project, HIGH risk, deploy, production, and secret-value work remains proposal-only.",
       "source": "docs/release/AUTOPILOT_RUNNER_MVP.md"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Treat feature/engineering-project-delivery-runtime as the active Jinhu development line",
+      "decision": "Do not push jinhu-smart-park directly to main during takeover. Continue managed-project development on the active feature branch until an explicit merge or integration step is prepared.",
+      "source": "runtime refresh and branch audit"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Refresh both business-repo runtime memory and Agent Studio imported project memory before takeover",
+      "decision": "Before resuming development, rebuild ops/agent-orchestrator/runtime in jinhu-smart-park, then re-import that memory into examples/jinhu-smart-park/runtime-memory and runtime/projects/jinhu-smart-park.",
+      "source": "runtime refresh and branch audit"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Do not resume multi-agent orchestration until agent worktrees are resynced",
+      "decision": "The main managed-project worktree is current, but agent-1 through agent-5 worktrees lag the active feature branch. Use single-worktree development for now and resync or recreate agent worktrees before dispatching orchestrated runs.",
+      "source": "jinhu orchestrator doctor"
     }
   ]
 }

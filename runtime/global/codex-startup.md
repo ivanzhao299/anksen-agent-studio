@@ -14,11 +14,11 @@ node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-s
 
 ## Current State
 
-- platform_status: GO
-- current_v4_stage: V4-O Production Operations Center approval gate
-- next_stage: Await explicit approval for V4-O Production Operations Center implementation
-- next_action: Await explicit approval for V4-O Production Operations Center implementation
-- managed_projects: jinhu-smart-park
+- platform_status: READY_FOR_PILOT
+- current_stage: V5 closure complete; Pilot local control plane active; managed-project branch sync pending
+- next_stage: Continue single-worktree development on jinhu-smart-park feature branch; resync stale agent worktrees before any multi-agent dispatch.
+- next_action: Stabilize jinhu-smart-park branch topology before multi-agent execution
+- active_managed_project_branch: feature/engineering-project-delivery-runtime
 
 ## Required Reading
 
@@ -27,12 +27,14 @@ node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-s
 - runtime/global/platform-state.json
 - runtime/global/roadmap-memory.json
 - runtime/projects/jinhu-smart-park/handoff-summary.md
+- docs/release/V5_PRODUCTIZATION_CLOSURE_REPORT.md
+- docs/release/PILOT_5_CONSOLE_PRODUCTIZATION.md
 - README.md
 
 ## Safety
 
-- Do not modify jinhu-smart-park unless an explicit proposal is approved.
-- Do not execute Agents from context commands.
+- Do not push jinhu-smart-park directly to main; keep active development on reviewed feature or integration branches until merge time.
+- Do not dispatch stale agent worktrees until they are resynced to the active managed-project branch.
 - Do not deploy.
 - Do not run production migration, seed, reset, cleanup, or production operations.
 - Do not read or write real credential values.

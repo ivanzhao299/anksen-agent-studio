@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "imported_at": "2026-06-23T09:38:06.901Z",
+  "imported_at": "2026-06-29T03:55:05.560Z",
   "project_id": "jinhu-smart-park",
   "local_orchestrator_status": {
     "exists": true,
     "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator",
     "doctor_can_run": true,
-    "doctor_status": "GO",
+    "doctor_status": "CONDITIONAL_GO",
     "check_status_can_run": true,
     "check_dispatch_status_can_run": true,
-    "findings_count": 0,
+    "findings_count": 3,
     "candidate_agent_branches": 0,
     "command_status": {
       "doctor": 0,
@@ -49,13 +49,14 @@
     "exists": "yes",
     "summary": "present",
     "platform_state": "present",
-    "generated_at": "2026-06-23T09:35:45.828Z",
-    "head_summary": "002bb91 chore(orchestrator): finalize external task event projection",
+    "generated_at": "2026-06-29T03:51:32.046Z",
+    "head_summary": "206b132 feat(mobile): add workflow inbox digest",
     "event_count": "180"
   },
   "recommended_next_actions": [
     "Use project inspect/parity/import-memory as read-only migration gates.",
     "Keep writes in the business repository disabled until adapter apply flows have dedicated approval.",
-    "Run project memory --summary before handing this adapter to a new Agent Studio session."
+    "Run project memory --summary before handing this adapter to a new Agent Studio session.",
+    "Run local doctor and check-status inside the business repository before relying on imported memory."
   ]
 }

@@ -1,60 +1,50 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-23T15:59:16.528Z",
-  "source": "context bootstrap",
+  "generated_at": "2026-06-29T03:58:28Z",
+  "source": "manual_context_refresh",
   "platform_id": "anksen-agent-studio",
   "workspace_root": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio",
+  "status": "READY_FOR_PILOT",
+  "platform_status": "READY_FOR_PILOT",
   "repo_status": {
     "branch": "main",
-    "head": "89d0bdf chore(project-connector): add stack detector and debug specialist mvp",
-    "clean": "no",
-    "dirty_files": [
-      "M docs/release/AGENT_STUDIO_V4_ROADMAP.md",
-      " M packages/orchestrator-core/bin/studio.mjs",
-      " M packages/planning-center/lib/planning-engine.mjs",
-      "?? autopilot-runs/autopilot-run-2026-06-23T155807637Z-53456a6a.json",
-      "?? autopilot-runs/autopilot-run-2026-06-23T155807637Z-53456a6a.md",
-      "?? docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md"
-    ],
-    "ahead_behind": "unknown"
+    "head": "ac88a23 chore(context): refresh platform and project memory",
+    "clean": "yes",
+    "dirty_files": [],
+    "ahead_behind": "not_configured"
   },
-  "current_platform_status": "GO",
+  "current_platform_status": "READY_FOR_PILOT",
   "current_v4_stage": {
-    "stage_name": "V4-O Production Operations Center approval gate",
-    "extraction_completed": true,
-    "remote_execute_completed": true,
-    "next_stage": "Await explicit approval for V4-O Production Operations Center implementation",
-    "runtime_center_bootstrapped": true,
-    "credential_vault_completed": true,
-    "autopilot_runner_completed": true,
-    "console_read_only_completed": true,
-    "multi_project_workspace_completed": true,
-    "governance_release_gates_completed": true,
-    "platform_hardening_review_completed": true,
-    "production_operations_center_proposal_prepared": true,
-    "planning_center_exists": true,
-    "managed_project_doctor": "GO"
+    "stage_name": "V5 closure complete; Pilot local control plane active; managed-project branch sync pending",
+    "next_stage": "Continue single-worktree development on jinhu-smart-park feature branch; resync stale agent worktrees before any multi-agent dispatch.",
+    "v5_productization_closure_completed": true,
+    "pilot_console_local_service_completed": true,
+    "managed_project_context_refreshed": true,
+    "managed_project_runtime_memory_refreshed": true,
+    "branch_sync_pending": true,
+    "multi_agent_dispatch_ready": false
   },
-  "planning_output_id": "planning-output-1c106655dd",
+  "planning_output_id": "manual-refresh-2026-06-29",
   "next_recommended_action": {
-    "title": "Await explicit approval for V4-O Production Operations Center implementation",
-    "reason": "The Production Operations Center proposal exists, but the capability touches deploy, production operation, server access, credential value, and managed-project write semantics. It must remain blocked until a separate explicit approval defines an implementation boundary.",
-    "target_project": "anksen-agent-studio",
-    "target_package": "docs/release",
+    "title": "Stabilize jinhu-smart-park branch topology before multi-agent execution",
+    "reason": "The managed project context is refreshed and V5 platform closure is pilot-ready, but the active business repository is on feature/engineering-project-delivery-runtime while agent-1~5 worktrees remain behind that branch. Continue direct development on the active feature branch for now, and resync or recreate agent worktrees before any orchestrated multi-agent run. Do not push directly to main.",
+    "target_project": "jinhu-smart-park",
+    "target_package": "ops/agent-orchestrator",
     "expected_files": [
-      "docs/release/PRODUCTION_OPERATIONS_CENTER_PROPOSAL.md",
-      "docs/release/AGENT_STUDIO_V4_ROADMAP.md"
+      "runtime/projects/jinhu-smart-park/project-state.json",
+      "runtime/projects/jinhu-smart-park/handoff-summary.md",
+      "docs/release/V5_PRODUCTIZATION_CLOSURE_REPORT.md",
+      "docs/release/PILOT_5_CONSOLE_PRODUCTIZATION.md"
     ],
     "validation_commands": [
-      "pnpm typecheck",
-      "pnpm lint:check",
-      "node packages/orchestrator-core/bin/studio.mjs governance check --dry-run",
-      "node packages/orchestrator-core/bin/studio.mjs release-gate check --dry-run",
-      "git diff --check"
+      "node packages/orchestrator-core/bin/studio.mjs context summary",
+      "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
+      "git -C ../jinhu-smart-park worktree list",
+      "node ../jinhu-smart-park/ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
     ],
-    "risk": "HIGH",
-    "approval_required": true,
-    "execution_mode": "blocked"
+    "risk": "MEDIUM",
+    "approval_required": false,
+    "execution_mode": "single_worktree_until_resynced"
   },
   "managed_projects": [
     {
@@ -63,7 +53,8 @@
       "source_memory_dir": "examples/jinhu-smart-park/runtime-memory",
       "status": "CONNECTED",
       "connection_status": "CONNECTED",
-      "doctor_status": "GO",
+      "doctor_status": "CONDITIONAL_GO",
+      "repo_branch": "feature/engineering-project-delivery-runtime",
       "repo_clean": "yes",
       "queue_status_counts": {
         "AUDITED": 35,
@@ -104,8 +95,8 @@
     "schema_or_example_count": 75
   },
   "safety_boundaries": [
-    "Do not modify jinhu-smart-park unless an explicit proposal is approved.",
-    "Do not execute Agents from context commands.",
+    "Do not push jinhu-smart-park directly to main; keep active development on reviewed feature or integration branches until merge time.",
+    "Do not dispatch stale agent worktrees until they are resynced to the active managed-project branch.",
     "Do not deploy.",
     "Do not run production migration, seed, reset, cleanup, or production operations.",
     "Do not read or write real credential values.",
