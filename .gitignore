@@ -4,7 +4,9 @@ dist/
 .next/
 coverage/
 *.log
+*.pid
 .env
 .env.*
 !.env.example
 autopilot-runs/console-actions/
+runtime/local-services/

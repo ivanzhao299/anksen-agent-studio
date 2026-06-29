@@ -452,6 +452,7 @@ function interactiveScript() {
       plan.action_label ? "动作：" + plan.action_label : "",
       plan.target_project ? "项目：" + plan.target_project : "",
       plan.agent ? "Agent：" + plan.agent : "",
+      plan.agent_fallback ? plan.agent_fallback : "",
       plan.workspace_mode ? "模式：" + plan.workspace_mode : "",
       plan.governance_gate ? "治理闸门：" + plan.governance_gate : ""
     ].filter(Boolean).join("\\n");
@@ -478,6 +479,7 @@ function interactiveScript() {
   function renderConversation(record) {
     if (!conversationStream) return;
     const messages = Array.isArray(record && record.messages) ? record.messages : [];
+    const transcript = Array.isArray(record && record.transcript) ? record.transcript : [];
     const lines = messages.map((message) => {
       const role = message.role === "user" ? "user" : "assistant";
       const prefix = role === "user" ? "> " : "$ ";
@@ -488,7 +490,13 @@ function interactiveScript() {
     const result = record && record.result ? record.result : {};
     if (record && record.run_id) lines.push('<div class="terminal-line assistant">$ run_id ' + escapeClient(record.run_id) + '</div>');
     if (logPath) lines.push('<div class="terminal-line assistant">$ log ' + escapeClient(logPath) + '</div>');
-    if (result.stdout_summary) {
+    if (transcript.length) {
+      transcript.forEach((entry) => {
+        const cssClass = escapeClient(entry.className || entry.source || "assistant");
+        const prefix = entry.source === "stderr" ? "! " : (entry.source === "user" ? "> " : "$ ");
+        lines.push('<div class="terminal-line ' + cssClass + '">' + prefix + escapeClient(entry.content) + '</div>');
+      });
+    } else if (result.stdout_summary) {
       lines.push('<div class="terminal-line assistant">$ 输出\\n' + escapeClient(clipClient(result.stdout_summary, 2200)) + '</div>');
     }
     if (result.stderr_summary) {
@@ -517,7 +525,10 @@ function interactiveScript() {
   }
 
   function actionForMode() {
-    if (modeSelect && modeSelect.value === "plan_only") return "workspace-goal";
+    const selectedMode = modeSelect ? modeSelect.value : "auto";
+    const selectedAgent = agent ? agent.value : "auto";
+    if (selectedMode === "plan_only") return "goal-plan";
+    if (selectedMode === "agent" || selectedAgent !== "auto") return "agent-real-plan";
     return "workspace-goal";
   }
 

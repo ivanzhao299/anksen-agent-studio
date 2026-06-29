@@ -14,6 +14,7 @@ const studioScript = "packages/orchestrator-core/bin/studio.mjs";
 const actionRuns = new Map();
 const terminalRunStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED"]);
 const actionTimeoutMs = 180000;
+const liveAgentRuntimeIds = new Set(["codex-cli", "claude-code"]);
 
 const projects = {
   "jinhu-smart-park": {
@@ -71,23 +72,43 @@ function safeGoal(goal) {
   return value || "继续推进 Pilot";
 }
 
+function normalizeWorkspaceMode(input = {}) {
+  return String(input.workspace_mode || input.mode || "auto");
+}
+
+function normalizeRequestedAgent(input = {}) {
+  return String(input.agent || "auto");
+}
+
+function resolveExecutionAgent(input = {}) {
+  const requested = normalizeRequestedAgent(input);
+  if (liveAgentRuntimeIds.has(requested)) {
+    return { requested, effective: requested, fallback: false };
+  }
+  if (!requested || requested === "auto") {
+    return { requested: "auto", effective: "codex-cli", fallback: false };
+  }
+  return { requested, effective: "codex-cli", fallback: true };
+}
+
 function inferWorkspaceActionId(input = {}) {
   const goal = safeGoal(input.goal).toLowerCase();
-  const mode = String(input.workspace_mode || input.mode || "auto");
-  const agent = String(input.agent || "auto");
-  if (mode === "agent" && ["codex-cli", "claude-code"].includes(agent)) return "agent-real-plan";
+  const mode = normalizeWorkspaceMode(input);
+  const requestedAgent = normalizeRequestedAgent(input);
+  if (mode === "plan_only") return "goal-plan";
+  if (mode === "agent") return "agent-real-plan";
+  if (liveAgentRuntimeIds.has(requestedAgent)) return "agent-real-plan";
   if (goal.includes("阻断") || goal.includes("blocker") || goal.includes("blocked")) return "smart-park-blockers";
   if (goal.includes("上线") || goal.includes("go-live") || goal.includes("golive")) return "smart-park-go-live-plan";
-  if (goal.includes("smart park") || goal.includes("智慧园区") || goal.includes("金湖")) return "project-inspect";
+  if (goal.includes("project inspect") || goal.includes("项目状态") || goal.includes("项目概况")) return "project-inspect";
   if (goal.includes("worker") || goal.includes("agent 状态") || goal.includes("agent状态")) return "worker-health";
   if (goal.includes("runtime") || goal.includes("运行时")) return "runtime-health";
   if (goal.includes("governance") || goal.includes("治理") || goal.includes("审批")) return "governance-check";
   if (goal.includes("context") || goal.includes("上下文") || goal.includes("记忆")) return "context-summary";
   if (goal.includes("proposal") || goal.includes("待审批")) return "proposal-review";
-  if (goal.includes("继续推进 pilot") || goal.includes("继续推进 v5") || goal.includes("继续推进 v4")) {
-    return mode === "plan_only" ? "autopilot-dry-run" : "autopilot-dry-run";
-  }
-  return "goal-plan";
+  if (goal.includes("autopilot") || goal.includes("batch") || goal.includes("批处理")) return "autopilot-dry-run";
+  if (goal.includes("生成计划") || goal.includes("只生成计划")) return "goal-plan";
+  return "agent-real-plan";
 }
 
 function normalizeActionId(actionId, input = {}) {
@@ -118,7 +139,7 @@ function commandFor(input) {
     };
   }
   if (actionId === "agent-real-plan") {
-    return realAgentCommandFor(input);
+    return realAgentCommandFor({ ...input, agent: resolveExecutionAgent(input).effective });
   }
   if (actionId === "context-summary") {
     return {
@@ -214,11 +235,17 @@ function realAgentPromptFor(input) {
     `项目：${projectId}`,
     `目标：${goal}`,
     "",
-    "请用中文输出：",
-    "1. 已理解目标",
-    "2. 建议计划",
-    "3. 风险等级",
-    "4. 下一步操作"
+    "请全程使用中文，并显式输出可见进度，不要隐藏在内部：",
+    "阶段 1/5：已理解目标",
+    "阶段 2/5：选择项目与运行时",
+    "阶段 3/5：分析当前缺口",
+    "阶段 4/5：给出安全执行计划",
+    "阶段 5/5：输出结论、风险等级、下一步建议",
+    "",
+    "要求：",
+    "- 输出可以逐段简短更新，像终端任务流。",
+    "- 不要输出隐私、密钥、生产凭证。",
+    "- 不要编造已执行的仓库改动。"
   ].join("\n");
 }
 
@@ -292,6 +319,7 @@ function buildPlan(input) {
   const meta = actionMeta(actionId);
   const command = commandFor({ ...input, action_id: actionId, project_id: projectId });
   const gate = governanceGateForRisk(meta.risk);
+  const agentSelection = resolveExecutionAgent(input);
   const now = new Date().toISOString();
   const planId = `console-action-${timestampForFile(now)}-${createHash("sha1").update(`${actionId}:${projectId}:${now}`).digest("hex").slice(0, 8)}`;
   return {
@@ -303,8 +331,12 @@ function buildPlan(input) {
     target_project: projectId,
     target_project_status: projects[projectId].status,
     goal_summary: safeGoal(input.goal).slice(0, 240),
-    workspace_mode: String(input.workspace_mode || input.mode || "auto"),
-    agent: String(input.agent || "auto"),
+    workspace_mode: normalizeWorkspaceMode(input),
+    requested_agent: agentSelection.requested,
+    agent: actionId === "agent-real-plan" ? agentSelection.effective : normalizeRequestedAgent(input),
+    agent_fallback: actionId === "agent-real-plan" && agentSelection.fallback
+      ? `所选 Agent 当前未接本地执行，已回退到 ${agentSelection.effective}`
+      : null,
     command: command.display,
     risk: meta.risk,
     approval_required: gate.approval_required,
@@ -430,12 +462,59 @@ function summarizeStdout(stdout) {
   const lines = redactSensitive(stdout)
     .split("\n")
     .map((line) => line.trimEnd())
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((line) => !isConsoleNoiseLine(line));
   return lines.slice(0, 30).join("\n");
 }
 
-function runMessagesForPlan(plan) {
+function isConsoleNoiseLine(line) {
   return [
+    /Reading additional input from stdin/i,
+    /codex_core_plugins::manifest: ignoring interface\.defaultPrompt/i,
+    /codex_core_skills::loader: ignoring interface\.icon_(small|large)/i
+  ].some((pattern) => pattern.test(line));
+}
+
+function transcriptClassFor(source) {
+  if (source === "stderr") return "fail";
+  if (source === "running") return "running";
+  if (source === "user") return "user";
+  return "assistant";
+}
+
+function pushTranscriptLine(run, source, content) {
+  const text = redactSensitive(content).replace(/\r/g, "").trim();
+  if (!text) return;
+  if (source === "stderr" && isConsoleNoiseLine(text)) return;
+  run.transcript.push({
+    source,
+    className: transcriptClassFor(source),
+    content: text.slice(0, 4000),
+    at: new Date().toISOString()
+  });
+  if (run.transcript.length > 240) {
+    run.transcript = run.transcript.slice(-240);
+  }
+}
+
+function appendTranscript(run, source, chunk) {
+  const bufferKey = source === "stderr" ? "stderr_buffer" : "stdout_buffer";
+  const buffered = `${run[bufferKey] ?? ""}${chunk.toString("utf8")}`.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const parts = buffered.split("\n");
+  run[bufferKey] = parts.pop() ?? "";
+  for (const part of parts) pushTranscriptLine(run, source, part);
+}
+
+function flushTranscript(run, source) {
+  const bufferKey = source === "stderr" ? "stderr_buffer" : "stdout_buffer";
+  if (run[bufferKey]) {
+    pushTranscriptLine(run, source, run[bufferKey]);
+    run[bufferKey] = "";
+  }
+}
+
+function runMessagesForPlan(plan) {
+  const messages = [
     { role: "user", content: plan.goal_summary, at: plan.created_at },
     { role: "assistant", content: `已理解目标：${plan.goal_summary}`, at: plan.created_at, phase: "understood" },
     { role: "assistant", content: `正在选择项目：${plan.target_project}（${plan.target_project_status}）`, at: plan.created_at, phase: "project" },
@@ -443,6 +522,10 @@ function runMessagesForPlan(plan) {
     { role: "assistant", content: `正在生成计划：${plan.action_label}`, at: plan.created_at, phase: "planning" },
     { role: "assistant", content: `正在通过 Governance 检查：${plan.governance_gate}，风险 ${plan.risk}`, at: plan.created_at, phase: "governance" }
   ];
+  if (plan.agent_fallback) {
+    messages.push({ role: "assistant", content: plan.agent_fallback, at: plan.created_at, phase: "agent" });
+  }
+  return messages;
 }
 
 function runTimeline(status, resultStatus = "PENDING") {
@@ -460,7 +543,7 @@ function runTimeline(status, resultStatus = "PENDING") {
 
 function publicRun(run) {
   if (!run) return null;
-  const { child: _child, timeout: _timeout, stdout: _stdout, stderr: _stderr, ...value } = run;
+  const { child: _child, timeout: _timeout, heartbeat: _heartbeat, stdout: _stdout, stderr: _stderr, stdout_buffer: _stdoutBuffer, stderr_buffer: _stderrBuffer, ...value } = run;
   return value;
 }
 
@@ -686,6 +769,7 @@ async function runConversationCommand(runId, input, command) {
     at: new Date().toISOString(),
     phase: "executing"
   });
+  pushTranscriptLine(run, "running", "已通过 Governance Gate，正在启动本地 Agent / CLI 任务...");
   run.timeline = runTimeline(run.status, run.result.status);
   await persistConversationRun(run);
 
@@ -699,7 +783,10 @@ async function runConversationCommand(runId, input, command) {
   run.started_at = run.updated_at;
   run.stdout = "";
   run.stderr = "";
+  run.stdout_buffer = "";
+  run.stderr_buffer = "";
   run.result.stdout_summary = `命令已启动。PID: ${child.pid ?? "unknown"}。正在等待输出...`;
+  pushTranscriptLine(run, "system", `命令已启动，PID=${child.pid ?? "unknown"}，正在持续接收输出。`);
 
   run.timeout = setTimeout(async () => {
     if (run.status !== "RUNNING") return;
@@ -717,20 +804,39 @@ async function runConversationCommand(runId, input, command) {
       at: new Date().toISOString(),
       phase: "failed"
     });
+    pushTranscriptLine(run, "stderr", run.result.stderr_summary || "TIMEOUT");
     run.timeline = runTimeline(run.status, run.result.status);
+    if (run.heartbeat) clearInterval(run.heartbeat);
     if (run.child && !run.child.killed) run.child.kill("SIGTERM");
     delete run.child;
+    delete run.heartbeat;
     delete run.timeout;
     await persistConversationRun(run);
   }, actionTimeoutMs);
 
+  run.heartbeat = setInterval(() => {
+    if (run.status !== "RUNNING") return;
+    const elapsedSeconds = Math.max(1, Math.round((Date.now() - Date.parse(run.started_at || run.created_at)) / 1000));
+    const hasVisibleStdout = run.transcript.some((entry) => entry.source === "stdout");
+    const heartbeatContent = hasVisibleStdout
+      ? `Agent 正在继续输出，已运行 ${elapsedSeconds}s。`
+      : `Agent 已启动，正在读取上下文与分析目标，已运行 ${elapsedSeconds}s。`;
+    const last = run.transcript.at(-1);
+    if (!last || last.content !== heartbeatContent) {
+      pushTranscriptLine(run, "running", heartbeatContent);
+      run.updated_at = new Date().toISOString();
+    }
+  }, 4000);
+
   child.stdout.on("data", (chunk) => {
     run.stdout += chunk.toString("utf8");
+    appendTranscript(run, "stdout", chunk);
     run.result.stdout_summary = summarizeStdout(run.stdout) || `命令已启动。PID: ${run.child_pid ?? "unknown"}。正在等待输出...`;
     run.updated_at = new Date().toISOString();
   });
   child.stderr.on("data", (chunk) => {
     run.stderr += chunk.toString("utf8");
+    appendTranscript(run, "stderr", chunk);
     run.result.stderr_summary = summarizeStdout(run.stderr);
     run.updated_at = new Date().toISOString();
   });
@@ -751,14 +857,19 @@ async function runConversationCommand(runId, input, command) {
       at: new Date().toISOString(),
       phase: "failed"
     });
+    pushTranscriptLine(run, "stderr", run.result.stderr_summary || error.message);
     run.timeline = runTimeline(run.status, run.result.status);
+    if (run.heartbeat) clearInterval(run.heartbeat);
     delete run.child;
+    delete run.heartbeat;
     delete run.timeout;
     await persistConversationRun(run);
   });
   child.on("close", async (code, signal) => {
     if (run.status === "CANCELLED") return;
     if (run.timeout) clearTimeout(run.timeout);
+    flushTranscript(run, "stdout");
+    flushTranscript(run, "stderr");
     const combinedOutput = `${run.stdout}\n${run.stderr}`;
     let fallbackSummary = "";
     let fallbackStatus = code === 0 ? "PASS" : "FAIL";
@@ -776,12 +887,14 @@ async function runConversationCommand(runId, input, command) {
           "",
           summarizeStdout(fallback.stdout)
         ].join("\n");
+        pushTranscriptLine(run, "system", "Planning Center 未返回可直接执行的 batch_plan，已回退为安全计划模式。");
       } catch (error) {
         fallbackSummary = [
           "Planning Center 没有为该目标返回可直接执行的 batch_plan。",
           "已停止直接执行；请先生成更明确的计划或选择 Smart Park 快捷入口。",
           summarizeStdout(error?.stdout ?? error?.stderr ?? error?.message ?? "")
         ].filter(Boolean).join("\n");
+        pushTranscriptLine(run, "stderr", "Planning Center 未返回 batch_plan，且安全回退计划生成失败。");
       }
     }
     const commandResult = {
@@ -805,8 +918,19 @@ async function runConversationCommand(runId, input, command) {
       at: new Date().toISOString(),
       phase: "report"
     });
+    pushTranscriptLine(
+      run,
+      commandResult.status === "PASS" ? "system" : (commandResult.status === "NEEDS_APPROVAL" ? "running" : "stderr"),
+      commandResult.status === "PASS"
+        ? "任务已完成，正在整理结果摘要。"
+        : (commandResult.status === "NEEDS_APPROVAL"
+            ? "当前任务需要进一步确认或审批。"
+            : "任务执行失败，请查看错误摘要。")
+    );
     run.timeline = runTimeline(run.status, run.result.status);
+    if (run.heartbeat) clearInterval(run.heartbeat);
     delete run.child;
+    delete run.heartbeat;
     delete run.timeout;
     await persistConversationRun(run);
   });
@@ -835,8 +959,11 @@ export async function startConversationAction(input) {
     messages: runMessagesForPlan(plan),
     timeline: runTimeline("QUEUED", "QUEUED"),
     smart_park: null,
+    transcript: [],
     stdout: "",
-    stderr: ""
+    stderr: "",
+    stdout_buffer: "",
+    stderr_buffer: ""
   };
   actionRuns.set(run.run_id, run);
   await persistConversationRun(run);
@@ -888,9 +1015,11 @@ export async function cancelConversationAction(runId) {
     phase: "cancelled"
   });
   run.timeline = runTimeline(run.status, run.result.status);
+  if (run.heartbeat) clearInterval(run.heartbeat);
   if (run.timeout) clearTimeout(run.timeout);
   if (run.child && !run.child.killed) run.child.kill("SIGTERM");
   delete run.child;
+  delete run.heartbeat;
   delete run.timeout;
   await persistConversationRun(run);
   return publicRun(run);

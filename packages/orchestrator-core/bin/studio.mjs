@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, openSync } from "node:fs";
 import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -7911,6 +7911,7 @@ function consoleServicePaths(args) {
     launchAgentsDir,
     plistPath: join(launchAgentsDir, `${CONSOLE_SERVICE_LABEL}.plist`),
     serviceLogDir,
+    pidPath: join(serviceLogDir, "console.pid"),
     stdoutPath: join(serviceLogDir, "console.out.log"),
     stderrPath: join(serviceLogDir, "console.err.log"),
     serverPath: resolveFromRoot("apps/console/web/server.mjs"),
@@ -8007,6 +8008,49 @@ async function stopManualConsoleProcesses(port) {
   return stopped;
 }
 
+async function readManualConsolePid(paths) {
+  if (!existsSync(paths.pidPath)) return "";
+  try {
+    return (await readFile(paths.pidPath, "utf8")).trim();
+  } catch {
+    return "";
+  }
+}
+
+async function clearManualConsolePid(paths) {
+  if (!existsSync(paths.pidPath)) return;
+  try {
+    await unlink(paths.pidPath);
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
+async function startManualConsoleService(paths) {
+  await mkdir(paths.serviceLogDir, { recursive: true });
+  const stdoutFd = openSync(paths.stdoutPath, "a");
+  const stderrFd = openSync(paths.stderrPath, "a");
+  const child = spawn(paths.nodePath, [paths.serverPath], {
+    cwd: repoRoot,
+    detached: true,
+    stdio: ["ignore", stdoutFd, stderrFd],
+    env: {
+      ...process.env,
+      PORT: String(paths.port),
+      NODE_ENV: "production"
+    }
+  });
+  child.unref();
+  await writeFile(paths.pidPath, `${child.pid ?? ""}\n`, "utf8");
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  const pids = await listeningPids(paths.port);
+  return {
+    ok: Boolean(child.pid) && pids.includes(String(child.pid)),
+    pid: child.pid ? String(child.pid) : "",
+    pids
+  };
+}
+
 async function consoleAgentStatus(args) {
   assertDryRun(args, "console agent-status");
   const actionServer = await import(pathToFileURL(resolveFromRoot("apps/console/web/action-server.mjs")).href);
@@ -8049,12 +8093,14 @@ async function consoleService(args) {
       ? await runOptional("launchctl", ["print", `${paths.domain}/${paths.label}`], { timeout: 10000 })
       : { ok: false, stdout: "", stderr: "missing launchd domain" };
     const pids = await listeningPids(paths.port);
+    const manualPid = await readManualConsolePid(paths);
     console.log("# Console Local Service Status");
     console.log("");
     console.log(`label: ${paths.label}`);
     console.log(`plist: ${paths.plistPath}`);
     console.log(`url: http://127.0.0.1:${paths.port}`);
     console.log(`launchd_loaded: ${launchctl.ok ? "yes" : "no"}`);
+    console.log(`manual_fallback_pid: ${manualPid || "none"}`);
     console.log(`listening_pids: ${pids.length ? pids.join(", ") : "none"}`);
     console.log(`stdout_log: ${paths.stdoutPath}`);
     console.log(`stderr_log: ${paths.stderrPath}`);
@@ -8081,12 +8127,16 @@ async function consoleService(args) {
     await mkdir(paths.serviceLogDir, { recursive: true });
     await writeFile(paths.plistPath, plist, "utf8");
     const stopped = await stopManualConsoleProcesses(paths.port);
+    await clearManualConsolePid(paths);
     await runOptional("launchctl", ["bootout", paths.domain, paths.plistPath], { timeout: 10000 });
     const bootstrap = await runOptional("launchctl", ["bootstrap", paths.domain, paths.plistPath], { timeout: 30000 });
     const kickstart = await runOptional("launchctl", ["kickstart", "-k", `${paths.domain}/${paths.label}`], { timeout: 30000 });
+    const manualFallback = !bootstrap.ok && !kickstart.ok
+      ? await startManualConsoleService(paths)
+      : { ok: false, pid: "", pids: [] };
     console.log("# Console Local Service Install apply");
     console.log("");
-    console.log(`status: ${bootstrap.ok || kickstart.ok ? "PASS" : "FAIL"}`);
+    console.log(`status: ${bootstrap.ok || kickstart.ok || manualFallback.ok ? "PASS" : "FAIL"}`);
     console.log(`plist: ${paths.plistPath}`);
     console.log(`url: http://127.0.0.1:${paths.port}`);
     console.log(`stopped_manual_pids: ${stopped.map((item) => item.pid).join(", ") || "none"}`);
@@ -8094,7 +8144,13 @@ async function consoleService(args) {
     if (!bootstrap.ok) console.log(`bootstrap_error: ${bootstrap.stderr.trim()}`);
     console.log(`kickstart: ${kickstart.ok ? "PASS" : "FAIL"}`);
     if (!kickstart.ok) console.log(`kickstart_error: ${kickstart.stderr.trim()}`);
-    if (!bootstrap.ok && !kickstart.ok) process.exitCode = 1;
+    if (manualFallback.ok) {
+      console.log("manual_fallback: PASS");
+      console.log(`manual_fallback_pid: ${manualFallback.pid}`);
+    } else if (!bootstrap.ok && !kickstart.ok) {
+      console.log("manual_fallback: FAIL");
+      process.exitCode = 1;
+    }
     return;
   }
 
@@ -8106,15 +8162,24 @@ async function consoleService(args) {
       return;
     }
     const stopped = await stopManualConsoleProcesses(paths.port);
+    await clearManualConsolePid(paths);
     const result = await runOptional("launchctl", ["kickstart", "-k", `${paths.domain}/${paths.label}`], { timeout: 30000 });
+    const manualFallback = !result.ok
+      ? await startManualConsoleService(paths)
+      : { ok: false, pid: "", pids: [] };
     console.log("# Console Local Service Start apply");
     console.log("");
-    console.log(`status: ${result.ok ? "PASS" : "FAIL"}`);
+    console.log(`status: ${result.ok || manualFallback.ok ? "PASS" : "FAIL"}`);
     console.log(`stopped_manual_pids: ${stopped.map((item) => item.pid).join(", ") || "none"}`);
     console.log(`url: http://127.0.0.1:${paths.port}`);
     if (!result.ok) {
       console.log(`error: ${result.stderr.trim()}`);
-      process.exitCode = 1;
+      if (manualFallback.ok) {
+        console.log("fallback: manual_process");
+        console.log(`manual_fallback_pid: ${manualFallback.pid}`);
+      } else {
+        process.exitCode = 1;
+      }
     }
     return;
   }
@@ -8126,10 +8191,13 @@ async function consoleService(args) {
       console.log(`would_bootout: ${paths.domain}/${paths.label}`);
       return;
     }
+    const stopped = await stopManualConsoleProcesses(paths.port);
+    await clearManualConsolePid(paths);
     const result = await runOptional("launchctl", ["bootout", paths.domain, paths.plistPath], { timeout: 30000 });
     console.log("# Console Local Service Stop apply");
     console.log("");
-    console.log(`status: ${result.ok ? "PASS" : "FAIL"}`);
+    console.log(`status: ${result.ok || stopped.length ? "PASS" : "FAIL"}`);
+    console.log(`stopped_manual_pids: ${stopped.map((item) => item.pid).join(", ") || "none"}`);
     if (!result.ok) console.log(`note: ${result.stderr.trim()}`);
     return;
   }
@@ -8341,6 +8409,13 @@ async function consoleActionServerSmoke(args) {
     workspace_mode: "auto",
     agent: "auto"
   });
+  const planOnlyWorkspaceGoalPlan = await actionServer.createActionPlan({
+    action_id: "workspace-goal",
+    project_id: "jinhu-smart-park",
+    goal: "只生成一个普通开发任务计划",
+    workspace_mode: "plan_only",
+    agent: "auto"
+  });
   const smartParkBlockerPlan = await actionServer.createActionPlan({
     action_id: "workspace-goal",
     project_id: "jinhu-smart-park",
@@ -8379,8 +8454,10 @@ async function consoleActionServerSmoke(args) {
   );
   const commandMappingCheck = runtimePlan.plan.command.includes("runtime health --dry-run")
     && smartParkPlan.plan.command.includes("project chain-validate --project jinhu-smart-park --dry-run")
-    && workspaceGoalPlan.plan.action_id === "goal-plan"
-    && workspaceGoalPlan.plan.command.includes(" plan --goal ")
+    && workspaceGoalPlan.plan.action_id === "agent-real-plan"
+    && workspaceGoalPlan.plan.command.includes("codex exec --sandbox read-only")
+    && planOnlyWorkspaceGoalPlan.plan.action_id === "goal-plan"
+    && planOnlyWorkspaceGoalPlan.plan.command.includes(" plan --goal ")
     && smartParkBlockerPlan.plan.action_id === "smart-park-blockers"
     && smartParkBlockerPlan.plan.command.includes("project chain-validate --project jinhu-smart-park --dry-run")
     && aiRuntimeStatusPlan.plan.command.includes("console agent-status --dry-run")
