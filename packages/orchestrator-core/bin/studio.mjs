@@ -8266,11 +8266,11 @@ async function consoleSmoke(args) {
   const configHtml = await renderModule.renderConsolePage("/config");
   const dashboardHtml = await renderModule.renderConsolePage("/");
   const interactiveControlsPresent = [
-    "统一 AI 开发工作台",
-    "输入目标",
-    "选择项目",
-    "选择模式",
-    "Agent / AI",
+    "操作中心",
+    "目标",
+    "项目",
+    "模式",
+    "Agent",
     "自动选择",
     "Codex CLI",
     "Claude Code",
@@ -8294,7 +8294,8 @@ async function consoleSmoke(args) {
     "统一 AI 开发工作台",
     "ANKSEN Logo",
     "/assets/anksen-logo.svg",
-    "Pilot Production",
+    "Antigravity Mode",
+    "LOCAL",
     "nav-toggle",
     "运行环境",
     "Agent 调度",
@@ -8307,11 +8308,12 @@ async function consoleSmoke(args) {
     "Governance",
     "执行/审批",
     "结果报告",
-    "Smart Park 上线入口",
-    "平台",
-    "闸门"
+    "状态",
+    "闸门",
+    "读取上下文",
+    "继续 Smart Park"
   ].every((text) => dashboardHtml.includes(text));
-  const darkThemePresent = dashboardHtml.includes("color-scheme: dark") && dashboardHtml.includes("--bg: #0b0f14");
+  const darkThemePresent = dashboardHtml.includes("color-scheme: dark") && dashboardHtml.includes("--bg: #06080c");
   const configCenterPresent = [
     "项目配置",
     "Runtime 配置",

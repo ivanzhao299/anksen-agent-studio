@@ -100,50 +100,62 @@ function aiAgentOptions() {
 }
 
 function topStatusBar(model, data) {
-  return `<div class="top-status">
-    <span>平台 ${escapeHtml(model.platform_status)}</span>
-    <span>Pilot ENABLED</span>
-    <span>项目 ${escapeHtml(model.active_project)}</span>
-    <span>Agent ${escapeHtml(model.modules.workers)}</span>
-    <span>闸门 LOW/MEDIUM 直执</span>
-    <span>最近 ${escapeHtml(data.autopilot.latest_summary?.validation ?? "unknown")}</span>
+  return `<div class="top-status compact">
+    <span class="top-status-item"><strong>状态</strong>${escapeHtml(model.platform_status)}</span>
+    <span class="top-status-sep">/</span>
+    <span class="top-status-item"><strong>Pilot</strong>ENABLED</span>
+    <span class="top-status-sep">/</span>
+    <span class="top-status-item"><strong>项目</strong>${escapeHtml(model.active_project)}</span>
+    <span class="top-status-sep">/</span>
+    <span class="top-status-item"><strong>Worker</strong>${escapeHtml(model.modules.workers)}</span>
+    <span class="top-status-sep">/</span>
+    <span class="top-status-item"><strong>闸门</strong>LOW/MEDIUM 直执</span>
+    <span class="top-status-sep">/</span>
+    <span class="top-status-item"><strong>最近</strong>${escapeHtml(data.autopilot.latest_summary?.validation ?? "unknown")}</span>
   </div>`;
 }
 
 function actionWorkbench(data, title = "统一 AI 开发工作台") {
   const projectOptions = data.actionServer.projects.map((item) => formOption(item.project_id, projectDisplayLabel(item)));
-  const projectCards = data.actionServer.projects.map((item) => `<button type="button" class="project-card${item.project_id === "jinhu-smart-park" ? " active" : ""}" data-project-select="${escapeHtml(item.project_id)}">
+  const projectCards = data.actionServer.projects.map((item) => `<button type="button" class="project-row${item.project_id === "jinhu-smart-park" ? " active" : ""}" data-project-select="${escapeHtml(item.project_id)}">
     <strong>${escapeHtml(item.label)}</strong>
-    <span>${escapeHtml(item.project_id === "phoenix-erp" ? "GitHub 远程待接入" : item.status)}</span>
+    <span>${escapeHtml(item.project_id === "phoenix-erp" ? "WAITING_FOR_GITHUB_REPO" : item.status)}</span>
   </button>`);
   const flowSteps = ["已理解目标", "选择项目", "Agent/Runtime", "生成计划", "Governance", "执行/审批", "结果报告"];
+  const quickActions = [
+    ["context-summary", "读取上下文"],
+    ["smart-park-continue", "继续 Smart Park"],
+    ["smart-park-blockers", "阻断项"],
+    ["smart-park-go-live-plan", "上线 Proposal"],
+    ["proposal-review", "待审批 Proposal"],
+    ["worker-health", "Worker 状态"],
+    ["ai-runtime-status", "Codex / Claude"]
+  ];
   return `<section class="workspace-shell">
     <aside class="project-rail">
-      <div class="section-head small">
-        <h3>项目</h3>
+      <div class="rail-header">
+        <span class="rail-label">项目</span>
         <span class="pill">Pilot</span>
       </div>
       <div class="project-list">${projectCards.join("")}</div>
     </aside>
     <div class="ai-workspace chat-workspace">
-      <div class="workspace-hero">
-        <div>
-          <span class="eyebrow">ANKSEN Agent Studio</span>
+      <div class="workspace-hero compact-hero">
+        <div class="workspace-title">
+          <span class="eyebrow">Antigravity Mode</span>
           <h2>${escapeHtml(title)}</h2>
         </div>
-        <span class="pill">Pilot Production / 127.0.0.1</span>
+        <div class="workspace-meta">
+          <span class="meta-chip">127.0.0.1</span>
+          <span class="meta-chip">LOCAL</span>
+          <span class="meta-chip">READ-SAFE</span>
+        </div>
+      </div>
+      <div class="quick-row compact-quick-row">
+        ${quickActions.map(([id, label]) => `<button type="button" class="quick-chip" data-quick-action="${escapeHtml(id)}" data-goal="${escapeHtml(label === "阻断项" ? "检查 Smart Park 上线阻断项" : label === "上线 Proposal" ? "生成 Smart Park 上线计划 Proposal" : label === "Codex / Claude" ? "检查 Codex / Claude 接入状态" : label)}">${escapeHtml(label)}</button>`).join("")}
       </div>
       <div id="conversation-stream" class="conversation-stream" aria-live="polite">
         <div class="terminal-line assistant">$ READY</div>
-      </div>
-      <div class="quick-row mission-row">
-        <button type="button" data-quick-action="context-summary" data-goal="读取上下文">读取上下文</button>
-        <button type="button" class="secondary" data-quick-action="smart-park-continue" data-goal="继续 Smart Park">继续 Smart Park</button>
-        <button type="button" class="secondary" data-quick-action="smart-park-blockers" data-goal="检查 Smart Park 上线阻断项">检查上线阻断项</button>
-        <button type="button" class="secondary" data-quick-action="smart-park-go-live-plan" data-goal="生成 Smart Park 上线计划 Proposal">Smart Park 上线入口</button>
-        <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="查看待审批 Proposal">查看待审批 Proposal</button>
-        <button type="button" class="secondary" data-quick-action="worker-health" data-goal="查看 Worker 状态">查看 Worker 状态</button>
-        <button type="button" class="secondary" data-quick-action="ai-runtime-status" data-goal="检查 Codex / Claude 接入状态">Codex / Claude</button>
       </div>
       <div class="execution-console">
         <div class="timeline-strip">
@@ -168,19 +180,19 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
         </details>
       </div>
       <div class="composer">
-        <label for="action-goal">输入目标</label>
-        <textarea id="action-goal" class="goal-box command-input" placeholder="输入目标，例如：生成 Smart Park 上线计划 / 检查项目阻断项 / 继续推进 Pilot">继续推进 Pilot</textarea>
+        <label for="action-goal">目标</label>
+        <textarea id="action-goal" class="goal-box command-input" placeholder="输入目标，例如：继续推进 Smart Park 巡检闭环">继续推进 Pilot</textarea>
         <div class="workspace-controls">
           <div>
-            <label for="action-project">选择项目</label>
+            <label for="action-project">项目</label>
             <select id="action-project">${projectOptions.join("")}</select>
           </div>
           <div>
-            <label for="action-mode">选择模式</label>
+            <label for="action-mode">模式</label>
             <select id="action-mode">${workspaceModeOptions()}</select>
           </div>
           <div>
-            <label for="action-agent">Agent / AI</label>
+            <label for="action-agent">Agent</label>
             <select id="action-agent">${aiAgentOptions()}</select>
           </div>
           <input type="hidden" id="action-type" value="workspace-default">
@@ -190,15 +202,24 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
       </div>
     </div>
     <aside class="advanced-config">
-      <div class="section-head small">
-        <h3>Agent / 配置 / 日志</h3>
-        <span class="pill">默认折叠</span>
+      <div class="rail-header">
+        <span class="rail-label">侧栏</span>
+        <span class="pill">折叠信息</span>
       </div>
-      <div class="policy-strip compact-policy">
-        <span>${riskBadge("LOW")} 本地执行</span>
-        <span>${riskBadge("MEDIUM")} 本地执行</span>
-        <span>${riskBadge("HIGH")} Proposal</span>
-        <span>${riskBadge("CRITICAL")} 人工审批</span>
+      <div class="side-stack">
+        <div class="side-panel">
+          <span class="side-kicker">当前策略</span>
+          <div class="policy-strip compact-policy">
+            <span>${riskBadge("LOW")} 直执</span>
+            <span>${riskBadge("MEDIUM")} 直执</span>
+            <span>${riskBadge("HIGH")} Proposal</span>
+            <span>${riskBadge("CRITICAL")} 审批</span>
+          </div>
+        </div>
+        <div class="side-panel">
+          <span class="side-kicker">日志</span>
+          <p id="side-log-path">${escapeHtml(data.action_log.latest_path ?? data.actionServer.action_log_dir)}</p>
+        </div>
       </div>
       <details>
         <summary>运行环境</summary>
@@ -214,10 +235,6 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
       </details>
       <details>
         <summary>项目配置</summary>
-      </details>
-      <details open>
-        <summary>日志</summary>
-        <p id="side-log-path">${escapeHtml(data.action_log.latest_path ?? data.actionServer.action_log_dir)}</p>
       </details>
     </aside>
   </section>`;
@@ -707,58 +724,69 @@ function shell(content, activeId, model, data) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(route.label)} - ${escapeHtml(messages.app.title)}</title>
   <style>
-    :root { color-scheme: dark; --bg: #0b0f14; --nav: #0f141b; --panel: #121922; --panel-2: #16202b; --text: #e5edf5; --muted: #94a3b8; --line: #263241; --blue: #5aa9ff; --green: #34d399; --yellow: #fbbf24; --red: #fb7185; --shadow: rgba(0, 0, 0, 0.24); }
+    :root { color-scheme: dark; --bg: #06080c; --nav: #0a0d12; --panel: #0d1117; --panel-2: #10151d; --text: #edf2f8; --muted: #8491a2; --line: #1c2430; --blue: #85b7ff; --green: #4ade80; --yellow: #fbbf24; --red: #fb7185; --shadow: rgba(0, 0, 0, 0.34); }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
-    header { padding: 10px 18px 8px; border-bottom: 1px solid var(--line); background: #0d1218; position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 28px var(--shadow); }
+    body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top, rgba(61, 98, 164, 0.12), transparent 28%), var(--bg); color: var(--text); }
+    header { padding: 10px 16px 8px; border-bottom: 1px solid var(--line); background: rgba(6, 8, 12, 0.92); backdrop-filter: blur(16px); position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 28px var(--shadow); }
     .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .brand-lockup { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .logo-frame { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 40px; flex: 0 0 auto; border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; }
     .brand-logo { display: block; width: 100%; height: 100%; object-fit: contain; }
     .brand-copy { min-width: 0; }
-    h1 { margin: 0 0 2px; font-size: 18px; font-weight: 700; letter-spacing: 0; }
+    h1 { margin: 0 0 2px; font-size: 16px; font-weight: 700; letter-spacing: 0; }
     .subhead { color: var(--muted); font-size: 12px; }
-    .top-status { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.35; }
-    .top-status span { white-space: nowrap; }
+    .top-status { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+    .top-status.compact { align-items: center; }
+    .top-status-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .top-status-item strong { color: #b8c6d8; font-size: 11px; font-weight: 700; }
+    .top-status-sep { color: #334155; }
     .status-chip { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 9px 10px; min-width: 0; }
     .status-chip span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 3px; }
     .status-chip strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
     .status-chip.good strong { color: var(--green); }
     .status-chip.warn strong { color: var(--yellow); }
-    .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100vh - 84px); transition: grid-template-columns 0.18s ease; }
-    nav { border-right: 1px solid var(--line); background: var(--nav); padding: 10px; position: sticky; top: 84px; height: calc(100vh - 84px); align-self: start; overflow: hidden; }
+    .layout { display: grid; grid-template-columns: 176px minmax(0, 1fr); min-height: calc(100vh - 78px); transition: grid-template-columns 0.18s ease; }
+    nav { border-right: 1px solid var(--line); background: rgba(10, 13, 18, 0.78); padding: 10px; position: sticky; top: 78px; height: calc(100vh - 78px); align-self: start; overflow: hidden; }
     .nav-toggle { width: 100%; min-height: 32px; margin: 0 0 8px; border-color: var(--line); background: #0b1118; color: var(--muted); }
-    nav a { display: block; color: var(--muted); text-decoration: none; padding: 8px 10px; border-radius: 6px; font-size: 14px; margin-bottom: 3px; white-space: nowrap; }
-    nav a:hover { color: var(--text); background: #182231; }
-    nav a.active { background: #203149; color: var(--blue); font-weight: 700; }
+    nav a { display: block; color: var(--muted); text-decoration: none; padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 4px; white-space: nowrap; }
+    nav a:hover { color: var(--text); background: #10151d; }
+    nav a.active { background: #121924; color: #dbeafe; font-weight: 700; }
     body.nav-collapsed .layout { grid-template-columns: 56px minmax(0, 1fr); }
     body.nav-collapsed nav { padding: 8px; }
     body.nav-collapsed nav a { text-align: center; padding: 8px 0; }
     body.nav-collapsed nav a .nav-label { display: none; }
     body.nav-collapsed nav a::after { content: attr(data-short); font-size: 12px; }
-    main { padding: 14px 16px 28px; max-width: 1480px; width: 100%; }
-    section { margin-bottom: 18px; }
+    main { padding: 12px 14px 24px; max-width: 1480px; width: 100%; }
+    section { margin-bottom: 14px; }
     h2 { font-size: 18px; margin: 0 0 10px; }
     h3 { font-size: 14px; margin: 0 0 8px; }
     p { color: var(--muted); line-height: 1.55; margin: 0; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
-    .metric, .panel, .workbench, .smart-entry, .output-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; box-shadow: 0 10px 26px var(--shadow); }
-    .workspace-shell { display: grid; grid-template-columns: 180px minmax(0, 1fr) 260px; gap: 12px; align-items: start; }
-    .ai-workspace, .advanced-config, .project-rail { background: #101720; border: 1px solid #26364a; border-radius: 8px; padding: 12px; box-shadow: 0 12px 24px var(--shadow); }
-    .project-rail { position: sticky; top: 98px; }
+    .metric, .panel, .workbench, .smart-entry, .output-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; box-shadow: 0 8px 22px var(--shadow); }
+    .workspace-shell { display: grid; grid-template-columns: 160px minmax(0, 1fr) 220px; gap: 10px; align-items: start; }
+    .ai-workspace, .advanced-config, .project-rail { background: linear-gradient(180deg, rgba(16, 21, 29, 0.92), rgba(11, 14, 20, 0.96)); border: 1px solid var(--line); border-radius: 10px; padding: 10px; box-shadow: 0 8px 22px var(--shadow); }
+    .project-rail { position: sticky; top: 90px; }
+    .rail-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .rail-label { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
     .project-list { display: grid; gap: 10px; }
-    .project-card { text-align: left; border: 1px solid var(--line); background: #0b1118; color: var(--text); border-radius: 8px; padding: 11px; }
-    .project-card.active { border-color: rgba(52, 211, 153, 0.55); background: rgba(52, 211, 153, 0.08); }
-    .project-card strong, .project-card span { display: block; overflow-wrap: anywhere; }
-    .project-card span { color: var(--muted); font-size: 12px; margin-top: 5px; }
+    .project-row { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; border: 1px solid transparent; background: transparent; color: var(--muted); border-radius: 8px; padding: 8px 10px; box-shadow: none; }
+    .project-row:hover { background: #0f131a; color: var(--text); }
+    .project-row.active { border-color: #243041; background: #0f141c; color: var(--text); }
+    .project-row strong, .project-row span { display: block; overflow-wrap: anywhere; }
+    .project-row strong { font-size: 13px; font-weight: 700; }
+    .project-row span { color: inherit; font-size: 11px; opacity: 0.74; }
     .chat-workspace { min-height: calc(100vh - 118px); display: flex; flex-direction: column; }
-    .workspace-hero { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-    .workspace-hero h2 { font-size: 22px; line-height: 1.15; margin: 3px 0 0; }
-    .eyebrow { color: var(--green); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+    .workspace-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .workspace-hero.compact-hero { padding-bottom: 2px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
+    .workspace-title { min-width: 0; }
+    .workspace-hero h2 { font-size: 16px; line-height: 1.15; margin: 3px 0 0; letter-spacing: 0; }
+    .eyebrow { color: #a7b9d3; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; }
+    .workspace-meta { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .meta-chip { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid #223043; color: #a7b9d3; background: #0a0e14; font-size: 11px; font-weight: 700; }
     .capability-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
     .capability-strip span { border: 1px solid #2b3b50; background: #0b1118; color: #c7d2df; border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 700; }
-    .command-input { min-height: 104px; font-size: 15px; background: #090f16; border-color: #314258; }
-    .conversation-stream { display: block; flex: 1 1 auto; min-height: 280px; max-height: 48vh; overflow: auto; padding: 12px 14px; border: 0; border-radius: 0; background: #030507; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03); }
+    .command-input { min-height: 92px; font-size: 14px; background: #090d13; border-color: #233041; }
+    .conversation-stream { display: block; flex: 1 1 auto; min-height: 320px; max-height: 54vh; overflow: auto; padding: 10px 12px; border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 8px; background: #05070a; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02); }
     .terminal-line { color: #d7e2ef; font-size: 13px; line-height: 1.58; white-space: pre-wrap; overflow-wrap: anywhere; padding: 1px 0; }
     .terminal-line.user { color: #8bd3ff; }
     .terminal-line.assistant { color: #d7e2ef; }
@@ -777,10 +805,10 @@ function shell(content, activeId, model, data) {
     .typing span:nth-child(2) { animation-delay: 0.15s; }
     .typing span:nth-child(3) { animation-delay: 0.3s; }
     @keyframes pulse { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
-    .workspace-controls { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(120px, 0.7fr) minmax(150px, 0.8fr) minmax(72px, auto) minmax(72px, auto); gap: 8px; align-items: end; margin-top: 10px; }
+    .workspace-controls { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(120px, 0.7fr) minmax(150px, 0.8fr) minmax(72px, auto) minmax(72px, auto); gap: 8px; align-items: end; margin-top: 8px; }
     .workspace-controls button { white-space: nowrap; min-width: 72px; }
     .start-button, .cancel-button { min-height: 40px; }
-    .execution-console { margin-top: 8px; border: 0; border-radius: 0; background: #030507; padding: 7px 10px; }
+    .execution-console { margin-top: 8px; border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 8px; background: #06080b; padding: 7px 10px; }
     .timeline-strip { display: flex; align-items: center; gap: 9px; min-width: 0; white-space: nowrap; }
     .timeline-label { color: var(--text); font-size: 12px; font-weight: 800; flex: 0 0 auto; }
     .timeline-state { display: inline-flex; align-items: center; min-height: 20px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 800; color: var(--muted); background: #0b1118; flex: 0 0 auto; }
@@ -804,11 +832,11 @@ function shell(content, activeId, model, data) {
     .conversation-result { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; align-items: start; }
     .assistant-avatar { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 8px; background: #12301f; color: var(--green); font-weight: 900; border: 1px solid rgba(52, 211, 153, 0.35); }
     .assistant-message { min-width: 0; }
-    .advanced-config { position: sticky; top: 98px; }
-    .advanced-config details { border: 1px solid var(--line); border-radius: 8px; background: #0b1118; margin-top: 10px; overflow: hidden; }
+    .advanced-config { position: sticky; top: 90px; }
+    .advanced-config details { border: 1px solid var(--line); border-radius: 8px; background: #090d13; margin-top: 8px; overflow: hidden; }
     .advanced-config summary { cursor: pointer; padding: 11px 12px; font-weight: 800; color: var(--text); }
     .advanced-config p { border-top: 1px solid var(--line); padding: 11px 12px; font-size: 12px; }
-    .composer { position: sticky; bottom: 0; margin-top: 10px; padding-top: 10px; background: linear-gradient(180deg, rgba(16, 23, 32, 0.72), #101720 28%); border-top: 1px solid var(--line); }
+    .composer { position: sticky; bottom: 0; margin-top: 8px; padding-top: 10px; background: linear-gradient(180deg, rgba(13, 17, 23, 0.18), rgba(13, 17, 23, 0.92) 24%, rgba(13, 17, 23, 0.98)); border-top: 1px solid rgba(255, 255, 255, 0.03); }
     .run-details summary { cursor: pointer; color: var(--blue); font-size: 13px; font-weight: 800; margin-bottom: 10px; }
     .hero-workbench { border-color: #315a82; background: #101923; }
     .smart-entry { border-color: #315a82; background: #111923; }
@@ -820,8 +848,8 @@ function shell(content, activeId, model, data) {
     th { color: var(--muted); background: #172231; font-weight: 700; }
     tr:last-child td { border-bottom: 0; }
     pre { background: #070b10; color: #dbeafe; border: 1px solid #1f2a37; padding: 12px; border-radius: 8px; overflow: auto; font-size: 12px; line-height: 1.45; }
-    .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #172b42; color: var(--blue); font-size: 12px; font-weight: 700; }
-    .warn-pill { background: #3a2630; color: var(--red); }
+    .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #0f141c; color: #b8c6d8; font-size: 11px; font-weight: 700; border: 1px solid #223043; }
+    .warn-pill { background: #191117; color: var(--red); }
     .safe { color: var(--green); font-weight: 700; }
     .warn { color: var(--red); font-weight: 700; }
     .risk-badge, .status-label { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; border: 1px solid var(--line); white-space: nowrap; }
@@ -831,7 +859,7 @@ function shell(content, activeId, model, data) {
     .risk-badge.critical, .status-label.blocked, .status-label.cancelled { color: var(--red); background: rgba(251, 113, 133, 0.1); border-color: rgba(251, 113, 133, 0.35); }
     .status-label.no { color: var(--green); background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.35); }
     label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
-    input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; color: var(--text); background: #0c1219; }
+    input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; font: inherit; color: var(--text); background: #0a0e14; }
     input:focus, select:focus, textarea:focus { outline: 2px solid rgba(90, 169, 255, 0.32); border-color: var(--blue); }
     textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
     .goal-box { min-height: 128px; font-size: 15px; }
@@ -839,16 +867,21 @@ function shell(content, activeId, model, data) {
     .control-grid { grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(280px, auto); margin-top: 12px; }
     .button-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .button-row.compact { align-items: end; margin-top: 0; }
-    button { border: 1px solid #326ba8; background: #1d4f86; color: #f8fbff; border-radius: 6px; padding: 9px 12px; font: inherit; font-weight: 700; cursor: pointer; }
-    button:hover { background: #2364a8; }
-    button.primary-action { background: #0f7a4f; border-color: #1f9f6b; }
-    button.primary-action:hover { background: #12875a; }
-    button.secondary { background: #111a25; color: var(--blue); }
-    button.danger { border-color: #753241; color: var(--red); background: #1d1116; }
-    .quick-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-    .mission-row button { min-height: 42px; }
-    .policy-strip { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #0c1219; }
+    button { border: 1px solid #223043; background: #121821; color: #e8eef7; border-radius: 8px; padding: 9px 12px; font: inherit; font-weight: 700; cursor: pointer; box-shadow: none; }
+    button:hover { background: #171e29; }
+    button.primary-action { background: linear-gradient(180deg, #1e3a5f, #173253); border-color: #29496f; }
+    button.primary-action:hover { background: linear-gradient(180deg, #21426b, #1a3a61); }
+    button.secondary { background: #0a0e14; color: #c8d3e2; }
+    button.danger { border-color: #4b2430; color: #fda4af; background: #140c10; }
+    .quick-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .compact-quick-row { margin-bottom: 8px; }
+    .quick-chip { min-height: 30px; padding: 6px 10px; border-radius: 999px; background: #090d13; color: #b8c6d8; font-size: 12px; font-weight: 600; }
+    .quick-chip:hover { color: var(--text); background: #0d1218; }
+    .policy-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding: 0; border: 0; border-radius: 0; background: transparent; }
     .policy-strip span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+    .side-stack { display: grid; gap: 8px; margin-bottom: 8px; }
+    .side-panel { border: 1px solid var(--line); border-radius: 8px; background: #090d13; padding: 10px; }
+    .side-kicker { display: block; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
     .draft-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
     .help { color: var(--muted); font-size: 12px; margin-top: 6px; }
     .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
@@ -869,8 +902,8 @@ function shell(content, activeId, model, data) {
     .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
-    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .layout { grid-template-columns: 1fr; } .top-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px; } main { padding: 16px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } }
-    @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell { grid-template-columns: 1fr; } .advanced-config { position: static; } }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .layout { grid-template-columns: 1fr; } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 4px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } }
+    @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell { grid-template-columns: 1fr; } .advanced-config, .project-rail { position: static; } }
   </style>
 </head>
 <body>
