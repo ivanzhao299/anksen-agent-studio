@@ -214,53 +214,24 @@ function accessLoginPage(data) {
         <span class="eyebrow">Pilot Console</span>
         <span class="auth-chip subtle">受控访问</span>
       </div>
-      <h2>把规划、执行与交付收进一个真正能落地的入口</h2>
-      <p class="auth-lead">登录后直接进入统一工作台，用一个入口完成目标拆解、执行调度、治理审批与交付回报。</p>
+      <h2>统一 AI 工作台</h2>
+      <p class="auth-lead">登录后直接进入工作台，开始规划、执行与交付。</p>
       <div class="auth-chip-row">
         <span class="auth-chip">jinhu-smart-park 已接入</span>
         <span class="auth-chip">LOW / MEDIUM 本地执行</span>
         <span class="auth-chip">HIGH Proposal / CRITICAL 审批</span>
       </div>
-      <div class="auth-hero-surface">
-        <div class="auth-proof-stack">
-          <article class="auth-proof-item">
-            <strong>统一入口</strong>
-            <span>项目、Agent、Proposal 与运行日志在同一界面协同。</span>
-          </article>
-          <article class="auth-proof-item">
-            <strong>安全执行</strong>
-            <span>真实凭证不在界面暴露，执行边界由 Governance Gate 统一控制。</span>
-          </article>
-          <article class="auth-proof-item">
-            <strong>团队试运行</strong>
-            <span>按角色、套餐与项目范围加载能力，适合内测和真实交付推进。</span>
-          </article>
-        </div>
-        <div class="auth-hero-grid">
-          <article class="auth-hero-tile">
-            <span>当前阶段</span>
-            <strong>Pilot 就绪</strong>
-          </article>
-          <article class="auth-hero-tile">
-            <span>直执上限</span>
-            <strong>${escapeHtml(directExecute)} / MEDIUM</strong>
-          </article>
-          <article class="auth-hero-tile">
-            <span>访问模式</span>
-            <strong>团队内测</strong>
-          </article>
-          <article class="auth-hero-tile">
-            <span>权限加载</span>
-            <strong>登录即生效</strong>
-          </article>
-        </div>
+      <div class="auth-minimal-meta">
+        <span>阶段：Pilot 就绪</span>
+        <span>直执：${escapeHtml(directExecute)} / MEDIUM</span>
+        <span>模式：团队内测</span>
       </div>
     </div>
     <div class="auth-side">
       <div class="auth-card-head">
         <span class="eyebrow">Console Access</span>
         <h3>登录 Studio</h3>
-        <p class="auth-login-sub">使用已分配账号进入控制台，系统会自动加载角色权限、套餐边界和项目范围。</p>
+        <p class="auth-login-sub">使用已分配账号进入控制台。</p>
       </div>
       <form id="auth-login-form" class="auth-form">
         <div>
@@ -280,16 +251,7 @@ function accessLoginPage(data) {
         </div>
         <p id="auth-status" class="help auth-status-copy">请使用已分配的内测账号登录。</p>
       </form>
-      <div class="auth-access-grid">
-        <article class="auth-access-card">
-          <strong>登录后进入</strong>
-          <span>统一工作台、项目入口、Console Action Server 与运行日志。</span>
-        </article>
-        <article class="auth-access-card">
-          <strong>安全边界</strong>
-          <span>LOW / MEDIUM 可本地执行，HIGH 自动转 Proposal，CRITICAL 保持人工审批。</span>
-        </article>
-      </div>
+      <p class="auth-footnote">登录后自动加载角色权限、套餐边界和项目范围。</p>
     </div>
   </section>`;
 }
@@ -1180,20 +1142,13 @@ function shell(content, activeId, model, data, auth = {}) {
     .auth-brand-copy strong { font-size: 18px; line-height: 1.1; }
     .auth-brand-copy span { color: #8ea4bb; font-size: 13px; }
     .auth-eyebrow-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .auth-panel h2 { margin: 8px 0 10px; font-size: 42px; line-height: 1.02; letter-spacing: 0; max-width: 12ch; }
-    .auth-lead { max-width: 620px; font-size: 15px; line-height: 1.7; color: #bcc9d9; }
+    .auth-panel h2 { margin: 8px 0 10px; font-size: 56px; line-height: 0.98; letter-spacing: 0; max-width: 10ch; }
+    .auth-lead { max-width: 520px; font-size: 16px; line-height: 1.6; color: #bcc9d9; }
     .auth-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
     .auth-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 11px; border-radius: 999px; background: rgba(8, 12, 18, 0.88); border: 1px solid #2a3950; color: #d7e2ef; font-size: 12px; font-weight: 700; }
     .auth-chip.subtle { background: rgba(255, 255, 255, 0.03); color: #a9bbd2; border-color: rgba(255, 255, 255, 0.08); }
-    .auth-hero-surface { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr); gap: 14px; margin-top: 22px; }
-    .auth-proof-stack { display: grid; gap: 10px; }
-    .auth-proof-item { border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(8, 12, 18, 0.58); padding: 14px 15px; }
-    .auth-proof-item strong { display: block; font-size: 14px; margin-bottom: 6px; }
-    .auth-proof-item span { display: block; color: #aebccd; font-size: 13px; line-height: 1.6; }
-    .auth-hero-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .auth-hero-tile { border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.07); background: linear-gradient(180deg, rgba(10, 15, 22, 0.92), rgba(8, 12, 18, 0.94)); padding: 14px; min-height: 112px; display: flex; flex-direction: column; justify-content: space-between; }
-    .auth-hero-tile span { display: block; color: #8ea4bb; font-size: 12px; margin-bottom: 10px; }
-    .auth-hero-tile strong { display: block; font-size: 17px; line-height: 1.25; letter-spacing: 0; overflow-wrap: anywhere; }
+    .auth-minimal-meta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 22px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+    .auth-minimal-meta span { color: #9cb0c7; font-size: 13px; line-height: 1.5; }
     .auth-card-head h3 { font-size: 34px; line-height: 1.04; margin: 8px 0 8px; letter-spacing: 0; }
     .auth-login-sub { font-size: 14px; line-height: 1.7; color: #b7c5d6; }
     .auth-form { display: grid; gap: 14px; margin-top: 18px; }
@@ -1203,10 +1158,7 @@ function shell(content, activeId, model, data, auth = {}) {
     .auth-submit-button:hover { background: linear-gradient(180deg, #295d95, #204a78); }
     .auth-help-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.06); color: #8ea4bb; font-size: 12px; }
     .auth-status-copy { margin-top: 0; }
-    .auth-access-grid { display: grid; gap: 10px; margin-top: 18px; }
-    .auth-access-card { border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(9, 13, 19, 0.82); padding: 14px; }
-    .auth-access-card strong { display: block; font-size: 14px; margin-bottom: 6px; }
-    .auth-access-card span { display: block; color: #aebccd; font-size: 13px; line-height: 1.6; }
+    .auth-footnote { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.06); font-size: 13px; color: #8ea4bb; }
     .auth-status.error { color: var(--red); }
     .auth-status.success { color: var(--green); }
     .auth-status.pending { color: var(--blue); }
@@ -1364,8 +1316,8 @@ function shell(content, activeId, model, data, auth = {}) {
     .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
-    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .top-nav { margin-top: 8px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user, .attachment-bubble, .attachment-list, .auth-hero-surface, .auth-hero-grid { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } .auth-strip, .auth-actions, .auth-help-row, .auth-eyebrow-row { align-items: flex-start; flex-direction: column; } .auth-panel h2 { font-size: 34px; max-width: none; } .auth-card-head h3 { font-size: 28px; } .auth-hero-tile { min-height: auto; } }
-    @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell, .auth-shell, .auth-hero-surface { grid-template-columns: 1fr; } .advanced-config, .project-rail { position: static; } .auth-side { order: -1; } }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .top-nav { margin-top: 8px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user, .attachment-bubble, .attachment-list { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } .auth-strip, .auth-actions, .auth-help-row, .auth-eyebrow-row, .auth-minimal-meta { align-items: flex-start; flex-direction: column; } .auth-panel h2 { font-size: 38px; max-width: none; } .auth-card-head h3 { font-size: 28px; } }
+    @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell, .auth-shell { grid-template-columns: 1fr; } .advanced-config, .project-rail { position: static; } .auth-side { order: -1; } }
   </style>
 </head>
 <body class="${gated ? "login-gated" : ""}">
