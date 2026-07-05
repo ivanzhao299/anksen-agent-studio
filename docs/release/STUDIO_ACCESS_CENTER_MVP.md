@@ -159,6 +159,10 @@
    - 执行动作前会校验 runtime 是否在套餐 allowlist 内
    - 执行动作会按 `worker_parallel_limit` 自动收敛并发，不再固定 `--parallel 4`
    - 日志里会写明 requested/effective parallel，便于审计
+5. Console 工作台
+   - 登录后会显示“当前套餐边界”
+   - 自动提示 seat、项目范围、并发和 runtime allowlist 的临界状态
+   - 当套餐即将用尽或已触顶时，直接给出升级建议
 
 ## Console 裁剪
 

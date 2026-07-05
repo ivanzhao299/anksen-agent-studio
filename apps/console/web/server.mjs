@@ -184,6 +184,7 @@ const server = createServer(async (request, response) => {
     const sessionSummary = await currentSessionSummary(accessBundle, sessionToken, { allow_default_user: false });
     const html = await renderConsolePage(pathname, {
       ...accessContext,
+      entitlement: sessionSummary.entitlement ?? accessContext.entitlement ?? null,
       session: sessionSummary.session ?? null,
       membership: sessionSummary.membership ?? accessContext.membership ?? null
     });

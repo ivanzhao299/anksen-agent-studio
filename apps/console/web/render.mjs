@@ -147,6 +147,47 @@ function authHeaderBar(auth = {}) {
   </div>`;
 }
 
+function alertTone(level = "info") {
+  if (level === "warning") return "warn-pill";
+  if (level === "notice") return "pill";
+  return "pill";
+}
+
+function accessEntitlementPanel(auth = {}) {
+  const entitlement = auth.entitlement ?? null;
+  if (!auth.authenticated || !entitlement) return "";
+  const alerts = Array.isArray(entitlement.alerts) ? entitlement.alerts : [];
+  const runtimeText = Array.isArray(entitlement.runtime_allowlist) && entitlement.runtime_allowlist.length > 0
+    ? (entitlement.runtime_allowlist.includes("*") ? "全 Runtime" : entitlement.runtime_allowlist.join(" / "))
+    : "未配置";
+  const projectScopeText = entitlement.project_scope_limit == null || entitlement.project_scope_usage == null
+    ? "不限"
+    : `${entitlement.project_scope_usage}/${entitlement.project_scope_limit}`;
+  const seatsText = entitlement.seat_limit == null || entitlement.seat_usage == null
+    ? "不限"
+    : `${entitlement.seat_usage}/${entitlement.seat_limit}`;
+  return `<section class="panel access-entitlement-panel">
+    <div class="section-head small">
+      <h2>当前套餐边界</h2>
+      <span class="pill">${escapeHtml(entitlement.plan_name)}</span>
+    </div>
+    <div class="grid">
+      ${metric("席位", seatsText)}
+      ${metric("项目范围", projectScopeText)}
+      ${metric("并发上限", entitlement.worker_parallel_limit ?? "不限")}
+      ${metric("Runtime", runtimeText)}
+    </div>
+    ${alerts.length > 0 ? `<div class="entitlement-alerts">${alerts.map((alert) => `<div class="entitlement-alert ${alert.level}">
+      <div class="entitlement-alert-head">
+        <strong>${escapeHtml(alert.title)}</strong>
+        <span class="${alertTone(alert.level)}">${escapeHtml(alert.level === "warning" ? "需处理" : alert.level === "notice" ? "关注" : "提示")}</span>
+      </div>
+      <p>${escapeHtml(alert.detail)}</p>
+      ${alert.action ? `<p class="help">${escapeHtml(alert.action)}</p>` : ""}
+    </div>`).join("")}</div>` : `<p class="help">当前套餐额度运行正常，可继续本地安全执行。</p>`}
+  </section>`;
+}
+
 function routeForbiddenPage(route, auth = {}) {
   const decision = evaluateConsoleRouteAccess(route.id, auth);
   return `<section class="panel">
@@ -244,6 +285,7 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
           <span class="meta-chip">READ-SAFE</span>
         </div>
       </div>
+      ${accessEntitlementPanel(data.renderAuth ?? {})}
       <div class="quick-row compact-quick-row">
         ${quickActions.map(([id, label]) => `<button type="button" class="quick-chip" data-quick-action="${escapeHtml(id)}" data-goal="${escapeHtml(label === "阻断项" ? "检查 Smart Park 上线阻断项" : label === "上线 Proposal" ? "生成 Smart Park 上线计划 Proposal" : label === "Codex / Claude" ? "检查 Codex / Claude 接入状态" : label)}">${escapeHtml(label)}</button>`).join("")}
       </div>
@@ -1053,6 +1095,14 @@ function shell(content, activeId, model, data, auth = {}) {
     p { color: var(--muted); line-height: 1.55; margin: 0; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
     .metric, .panel, .workbench, .smart-entry, .output-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; box-shadow: 0 8px 22px var(--shadow); }
+    .access-entitlement-panel { margin-bottom: 8px; padding: 10px 12px; }
+    .entitlement-alerts { display: grid; gap: 8px; margin-top: 10px; }
+    .entitlement-alert { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #0c1219; }
+    .entitlement-alert.warning { border-color: rgba(251, 191, 36, 0.24); background: rgba(33, 23, 8, 0.35); }
+    .entitlement-alert.notice { border-color: rgba(133, 183, 255, 0.22); background: rgba(17, 25, 39, 0.52); }
+    .entitlement-alert.info { border-color: rgba(148, 163, 184, 0.18); background: rgba(12, 18, 25, 0.9); }
+    .entitlement-alert-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+    .entitlement-alert-head strong { font-size: 13px; }
     .workspace-shell { display: grid; grid-template-columns: 160px minmax(0, 1fr) 220px; gap: 10px; align-items: start; }
     .auth-shell { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr); gap: 14px; align-items: start; }
     .auth-panel, .auth-side { background: linear-gradient(180deg, rgba(16, 21, 29, 0.92), rgba(11, 14, 20, 0.96)); border: 1px solid var(--line); border-radius: 12px; padding: 16px; box-shadow: 0 10px 28px var(--shadow); }
@@ -1397,7 +1447,24 @@ function pagePilotStatus(data) {
 }
 
 function normalizeRenderAuth(auth, data) {
-  if (auth && typeof auth.authenticated === "boolean" && auth.user) return auth;
+  if (auth && typeof auth.authenticated === "boolean" && auth.user) {
+    return {
+      authenticated: auth.authenticated,
+      auth_source: auth.auth_source ?? "local_password_session",
+      user: auth.user ?? null,
+      membership: auth.membership ?? null,
+      roles: auth.roles ?? [],
+      plan: auth.plan ?? null,
+      capabilities: auth.capabilities ?? [],
+      feature_flags: auth.feature_flags ?? [],
+      project_allowlist: auth.project_allowlist ?? [],
+      can_manage_access: auth.can_manage_access ?? false,
+      direct_execute_max_risk: auth.direct_execute_max_risk ?? "LOW",
+      entitlement: auth.entitlement ?? null,
+      session: auth.session ?? null,
+      workspace_id: auth.workspace_id ?? null
+    };
+  }
   if (auth && auth.authenticated === false) {
     return {
       authenticated: false,
@@ -1411,6 +1478,7 @@ function normalizeRenderAuth(auth, data) {
       project_allowlist: [],
       can_manage_access: false,
       direct_execute_max_risk: "LOW",
+      entitlement: null,
       session: auth.session ?? null,
       workspace_id: null
     };
@@ -1428,6 +1496,7 @@ function normalizeRenderAuth(auth, data) {
       project_allowlist: auth.session.project_allowlist ?? [],
       can_manage_access: auth.session.can_manage_access ?? false,
       direct_execute_max_risk: auth.session.direct_execute_max_risk ?? "LOW",
+      entitlement: auth.session.entitlement ?? null,
       session: auth.session.session ?? null,
       workspace_id: auth.session.workspace_id ?? null
     };
@@ -1453,13 +1522,15 @@ function normalizeRenderAuth(auth, data) {
     feature_flags: ["*"],
     project_allowlist: ["*"],
     can_manage_access: true,
-    direct_execute_max_risk: data.access?.summary?.direct_execute_max_risk ?? "MEDIUM"
+    direct_execute_max_risk: data.access?.summary?.direct_execute_max_risk ?? "MEDIUM",
+    entitlement: data.access?.summary?.current_entitlement ?? null
   };
 }
 
 export async function renderConsolePage(pathname = "/", auth = null) {
   const data = await loadConsoleLocalData();
   const resolvedAuth = normalizeRenderAuth(auth, data);
+  data.renderAuth = resolvedAuth;
   const model = await buildConsoleDashboardModel();
   const route = consoleWebRoutes.find((item) => item.path === pathname) ?? consoleWebRoutes[0];
   const contentById = {

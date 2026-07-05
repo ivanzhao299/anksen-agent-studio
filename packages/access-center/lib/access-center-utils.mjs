@@ -262,6 +262,23 @@ function planAllowsRuntime(plan, runtimeId) {
   return allowlist.includes("*") || allowlist.includes(runtimeId);
 }
 
+function planTierRank(plan) {
+  const tier = String(plan?.tier ?? "").toLowerCase();
+  if (tier === "internal") return 0;
+  if (tier === "starter") return 1;
+  if (tier === "team") return 2;
+  if (tier === "enterprise") return 3;
+  return 999;
+}
+
+function nextPlanDefinition(bundle, currentPlan) {
+  if (!currentPlan) return null;
+  const ordered = [...(bundle.plans.plans ?? [])].sort((left, right) => planTierRank(left) - planTierRank(right));
+  const currentIndex = ordered.findIndex((plan) => plan.plan_id === currentPlan.plan_id);
+  if (currentIndex < 0) return null;
+  return ordered[currentIndex + 1] ?? null;
+}
+
 function enforceProjectScopeLimit(plan, projectAllowlist) {
   const normalized = normalizeProjectAllowlist(projectAllowlist);
   const limit = Number(plan?.project_scope_limit ?? 0);
@@ -434,6 +451,7 @@ export function listPlanEntitlements(bundle) {
 
 export function accessSummary(bundle, context = null) {
   const current = context?.user ? context : defaultAnonymousContext(bundle);
+  const entitlement = current.user ? currentPlanEntitlement(bundle, current) : null;
   return {
     policy_id: bundle.policy.policy_id,
     workspace_id: bundle.state.workspace_id ?? bundle.policy.default_workspace_id,
@@ -455,7 +473,8 @@ export function accessSummary(bundle, context = null) {
     } : null,
     current_roles: current.roles.map((role) => role.role_id),
     direct_execute_max_risk: current.direct_execute_max_risk,
-    current_plan_limits: current.plan ? planLimits(current.plan) : null
+    current_plan_limits: current.plan ? planLimits(current.plan) : null,
+    current_entitlement: entitlement
   };
 }
 
@@ -551,6 +570,7 @@ export async function currentSessionSummary(bundle, token, options = {}) {
     session_token: token,
     allow_default_user: options.allow_default_user === true
   });
+  const entitlement = context.user ? currentPlanEntitlement(bundle, context) : null;
   return {
     authenticated: context.authenticated,
     auth_source: context.auth_source,
@@ -576,6 +596,7 @@ export async function currentSessionSummary(bundle, token, options = {}) {
     feature_flags: context.feature_flags,
     project_allowlist: context.project_allowlist,
     can_manage_access: context.can_manage_access,
+    entitlement,
     workspace_id: context.workspace_id,
     session: context.session ?? null
   };
@@ -936,6 +957,99 @@ export function workspaceEntitlementUsage(bundle, workspaceId = null) {
       runtime_allowlist: Array.isArray(plan.runtime_allowlist) ? plan.runtime_allowlist : []
     };
   });
+}
+
+export function currentPlanEntitlement(bundle, context = null) {
+  if (!context?.user || !context?.plan) return null;
+  const workspaceId = context.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id;
+  const usage = workspaceEntitlementUsage(bundle, workspaceId).find((item) => item.plan_id === context.plan.plan_id) ?? null;
+  const projectAllowlist = Array.isArray(context.project_allowlist) ? context.project_allowlist : [];
+  const projectScopeUsage = projectAllowlist.includes("*") ? null : projectAllowlist.length;
+  const projectScopeRemaining = usage?.project_scope_limit == null || usage.project_scope_limit <= 0 || projectScopeUsage == null
+    ? null
+    : Math.max(usage.project_scope_limit - projectScopeUsage, 0);
+  const nextPlan = nextPlanDefinition(bundle, context.plan);
+  const alerts = [];
+
+  if (usage?.seat_limit != null) {
+    if (usage.seats_remaining === 0) {
+      alerts.push({
+        level: "warning",
+        code: "seat_full",
+        title: "当前套餐席位已满",
+        detail: `套餐 ${context.plan.display_name} 已用 ${usage.seat_usage}/${usage.seat_limit} 席位。`,
+        action: nextPlan ? `建议升级到 ${nextPlan.display_name}` : "建议释放或扩容席位"
+      });
+    } else if (usage.seats_remaining <= 2) {
+      alerts.push({
+        level: "notice",
+        code: "seat_low",
+        title: "席位余量较少",
+        detail: `套餐 ${context.plan.display_name} 还剩 ${usage.seats_remaining} 个席位。`,
+        action: nextPlan ? `新增成员前可评估升级到 ${nextPlan.display_name}` : "新增成员前请先检查席位"
+      });
+    }
+  }
+
+  if (usage?.project_scope_limit != null && usage.project_scope_limit > 0 && projectScopeUsage != null) {
+    if (projectScopeRemaining === 0) {
+      alerts.push({
+        level: "warning",
+        code: "project_scope_full",
+        title: "项目范围已达上限",
+        detail: `当前账号已绑定 ${projectScopeUsage}/${usage.project_scope_limit} 个项目。`,
+        action: nextPlan ? `如需增加项目，请升级到 ${nextPlan.display_name}` : "请联系管理员调整项目范围"
+      });
+    } else if (projectScopeRemaining === 1) {
+      alerts.push({
+        level: "notice",
+        code: "project_scope_low",
+        title: "项目范围即将用尽",
+        detail: `当前账号还可再绑定 ${projectScopeRemaining} 个项目。`,
+        action: "新增项目前请先核对当前 project scope"
+      });
+    }
+  }
+
+  if (usage?.worker_parallel_limit != null && usage.worker_parallel_limit <= 1) {
+    alerts.push({
+      level: "info",
+      code: "parallel_limited",
+      title: "并发执行受限",
+      detail: `当前套餐最多允许 ${usage.worker_parallel_limit} 并发任务。`,
+      action: nextPlan ? `需要批处理能力时可升级到 ${nextPlan.display_name}` : "需要更高并发时请联系管理员"
+    });
+  }
+
+  if (Array.isArray(usage?.runtime_allowlist) && !usage.runtime_allowlist.includes("*") && usage.runtime_allowlist.length > 0) {
+    alerts.push({
+      level: "info",
+      code: "runtime_allowlist",
+      title: "Runtime 有限额",
+      detail: `当前可用 runtime：${usage.runtime_allowlist.join(", ")}。`,
+      action: "如需更多 Agent/Runtime，请调整套餐或角色"
+    });
+  }
+
+  return {
+    plan_id: context.plan.plan_id,
+    plan_name: context.plan.display_name,
+    tier: context.plan.tier,
+    seat_limit: usage?.seat_limit ?? null,
+    seat_usage: usage?.seat_usage ?? null,
+    seats_remaining: usage?.seats_remaining ?? null,
+    project_scope_limit: usage?.project_scope_limit ?? null,
+    project_scope_usage: projectScopeUsage,
+    project_scope_remaining: projectScopeRemaining,
+    worker_parallel_limit: usage?.worker_parallel_limit ?? null,
+    runtime_allowlist: usage?.runtime_allowlist ?? [],
+    next_plan: nextPlan ? {
+      plan_id: nextPlan.plan_id,
+      display_name: nextPlan.display_name,
+      tier: nextPlan.tier
+    } : null,
+    alerts
+  };
 }
 
 export async function loginToAccessCenter(username, password, metadata = {}) {
