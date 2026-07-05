@@ -12,13 +12,15 @@ const examplePaths = {
   policy: resolve(packageRoot, "examples/access-policy.example.json"),
   users: resolve(packageRoot, "examples/studio-users.example.json"),
   memberships: resolve(packageRoot, "examples/workspace-memberships.example.json"),
-  plans: resolve(packageRoot, "examples/plan-entitlements.example.json")
+  plans: resolve(packageRoot, "examples/plan-entitlements.example.json"),
+  invites: resolve(packageRoot, "examples/access-invites.example.json")
 };
 
 const runtimePaths = {
   state: resolve(repoRoot, "runtime/global/access-state.json"),
   users: resolve(repoRoot, "runtime/global/access-users.json"),
-  memberships: resolve(repoRoot, "runtime/global/access-memberships.json")
+  memberships: resolve(repoRoot, "runtime/global/access-memberships.json"),
+  invites: resolve(repoRoot, "runtime/global/access-invites.json")
 };
 
 const riskOrder = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
@@ -109,6 +111,11 @@ async function persistMembershipsDocument(document) {
   return runtimePaths.memberships;
 }
 
+async function persistInvitesDocument(document) {
+  await writeJson(runtimePaths.invites, document);
+  return runtimePaths.invites;
+}
+
 function maskSession(session) {
   if (!session) return null;
   return {
@@ -166,6 +173,12 @@ function membershipDefinition(bundle, userId, workspaceId) {
   ) ?? null;
 }
 
+function findInviteRecord(bundle, inviteId) {
+  const value = String(inviteId ?? "").trim();
+  if (!value) return null;
+  return (bundle.invites.invites ?? []).find((invite) => invite.invite_id === value) ?? null;
+}
+
 function capabilitySetFromProfile(profile) {
   const set = new Set(profile?.capabilities ?? []);
   return set;
@@ -195,6 +208,14 @@ function ensureMembershipDocument(bundle) {
     schema_version: bundle.memberships.schema_version ?? 1,
     workspace_id: bundle.memberships.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id,
     memberships: [...(bundle.memberships.memberships ?? [])]
+  };
+}
+
+function ensureInviteDocument(bundle) {
+  return {
+    schema_version: bundle.invites.schema_version ?? 1,
+    workspace_id: bundle.invites.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id,
+    invites: [...(bundle.invites.invites ?? [])]
   };
 }
 
@@ -254,6 +275,76 @@ function planLimits(plan) {
     project_scope_limit: Number.isFinite(Number(plan?.project_scope_limit)) ? Number(plan.project_scope_limit) : null,
     worker_parallel_limit: Number.isFinite(Number(plan?.worker_parallel_limit)) ? Number(plan.worker_parallel_limit) : null,
     runtime_allowlist: Array.isArray(plan?.runtime_allowlist) ? [...plan.runtime_allowlist] : []
+  };
+}
+
+function inviteImpactSummary(bundle, plan, workspaceId, projectAllowlist) {
+  const usage = workspaceEntitlementUsage(bundle, workspaceId).find((item) => item.plan_id === plan.plan_id) ?? null;
+  const nextPlan = nextPlanDefinition(bundle, plan);
+  const reservedInviteCount = (bundle.invites.invites ?? []).filter((invite) =>
+    invite.workspace_id === workspaceId
+    && invite.requested_plan_id === plan.plan_id
+    && invite.status === "APPROVED"
+  ).length;
+  const seatsRemainingBeforeReservations = usage?.seats_remaining ?? null;
+  const seatsRemaining = seatsRemainingBeforeReservations == null
+    ? null
+    : Math.max(seatsRemainingBeforeReservations - reservedInviteCount, 0);
+  const requestedProjectScopeCount = projectAllowlist.includes("*") ? null : projectAllowlist.length;
+  return {
+    plan_id: plan.plan_id,
+    plan_name: plan.display_name,
+    seat_limit: usage?.seat_limit ?? null,
+    seat_usage: usage?.seat_usage ?? 0,
+    reserved_invite_count: reservedInviteCount,
+    seats_remaining: seatsRemaining,
+    fits_seat_limit: seatsRemaining == null ? true : seatsRemaining > 0,
+    project_scope_limit: usage?.project_scope_limit ?? null,
+    requested_project_scope_count: requestedProjectScopeCount,
+    worker_parallel_limit: usage?.worker_parallel_limit ?? null,
+    runtime_allowlist: usage?.runtime_allowlist ?? [],
+    next_plan: nextPlan
+      ? {
+          plan_id: nextPlan.plan_id,
+          display_name: nextPlan.display_name
+        }
+      : null
+  };
+}
+
+function summarizeInvite(bundle, invite) {
+  const role = roleDefinition(bundle, invite.requested_role_id);
+  const plan = planDefinition(bundle, invite.requested_plan_id);
+  const impact = plan
+    ? inviteImpactSummary(bundle, plan, invite.workspace_id, normalizeProjectAllowlist(invite.requested_project_allowlist, ["jinhu-smart-park"]))
+    : null;
+  const nextAction = invite.status === "PENDING_APPROVAL"
+    ? "review_invite"
+    : invite.status === "APPROVED"
+      ? "create_user_from_invite"
+      : "none";
+  return {
+    invite_id: invite.invite_id,
+    workspace_id: invite.workspace_id,
+    username: invite.username,
+    display_name: invite.display_name,
+    requested_role_id: invite.requested_role_id,
+    requested_role_name: role?.display_name ?? invite.requested_role_id,
+    requested_plan_id: invite.requested_plan_id,
+    requested_plan_name: plan?.display_name ?? invite.requested_plan_id,
+    requested_project_allowlist: invite.requested_project_allowlist ?? [],
+    status: invite.status,
+    approval_required: invite.approval_required !== false,
+    requested_by_user_id: invite.requested_by_user_id,
+    requested_by_name: invite.requested_by_name,
+    request_comment: invite.request_comment ?? "",
+    review_comment: invite.review_comment ?? "",
+    reviewed_by_user_id: invite.reviewed_by_user_id ?? "",
+    reviewed_by_name: invite.reviewed_by_name ?? "",
+    created_at: invite.created_at,
+    reviewed_at: invite.reviewed_at ?? "",
+    impact,
+    next_action: nextAction
   };
 }
 
@@ -390,12 +481,13 @@ async function writeSessionStore(bundle, sessions) {
 }
 
 export async function loadAccessCenter() {
-  const [policy, plans, state, users, memberships] = await Promise.all([
+  const [policy, plans, state, users, memberships, invites] = await Promise.all([
     readJson(examplePaths.policy, {}),
     readJson(examplePaths.plans, {}),
     readJson(runtimePaths.state, {}),
     readJson(existsSync(runtimePaths.users) ? runtimePaths.users : examplePaths.users, {}),
-    readJson(existsSync(runtimePaths.memberships) ? runtimePaths.memberships : examplePaths.memberships, {})
+    readJson(existsSync(runtimePaths.memberships) ? runtimePaths.memberships : examplePaths.memberships, {}),
+    readJson(existsSync(runtimePaths.invites) ? runtimePaths.invites : examplePaths.invites, {})
   ]);
 
   const bundle = {
@@ -404,11 +496,13 @@ export async function loadAccessCenter() {
     state,
     users,
     memberships,
+    invites,
     paths: {
       ...examplePaths,
       state: runtimePaths.state,
       users: existsSync(runtimePaths.users) ? runtimePaths.users : examplePaths.users,
-      memberships: existsSync(runtimePaths.memberships) ? runtimePaths.memberships : examplePaths.memberships
+      memberships: existsSync(runtimePaths.memberships) ? runtimePaths.memberships : examplePaths.memberships,
+      invites: existsSync(runtimePaths.invites) ? runtimePaths.invites : examplePaths.invites
     }
   };
   return {
@@ -452,6 +546,7 @@ export function listPlanEntitlements(bundle) {
 export function accessSummary(bundle, context = null) {
   const current = context?.user ? context : defaultAnonymousContext(bundle);
   const entitlement = current.user ? currentPlanEntitlement(bundle, current) : null;
+  const inviteSummary = accessInviteSummary(bundle, bundle.state.workspace_id ?? bundle.policy.default_workspace_id);
   return {
     policy_id: bundle.policy.policy_id,
     workspace_id: bundle.state.workspace_id ?? bundle.policy.default_workspace_id,
@@ -464,6 +559,9 @@ export function accessSummary(bundle, context = null) {
     user_count: (bundle.users.users ?? []).length,
     membership_count: (bundle.memberships.memberships ?? []).length,
     plan_count: (bundle.plans.plans ?? []).length,
+    invite_count: inviteSummary.invite_count,
+    pending_invite_count: inviteSummary.pending_invite_count,
+    approved_invite_count: inviteSummary.approved_invite_count,
     authenticated: current.authenticated,
     current_user: current.user,
     current_plan: current.plan ? {
@@ -474,7 +572,8 @@ export function accessSummary(bundle, context = null) {
     current_roles: current.roles.map((role) => role.role_id),
     direct_execute_max_risk: current.direct_execute_max_risk,
     current_plan_limits: current.plan ? planLimits(current.plan) : null,
-    current_entitlement: entitlement
+    current_entitlement: entitlement,
+    invite_summary: inviteSummary
   };
 }
 
@@ -959,6 +1058,36 @@ export function workspaceEntitlementUsage(bundle, workspaceId = null) {
   });
 }
 
+export function listAccessInvites(bundle, options = {}) {
+  const workspaceId = options.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id;
+  const includeTerminal = options.include_terminal === true;
+  const terminalStatuses = new Set(["REJECTED", "CANCELLED"]);
+  return (bundle.invites.invites ?? [])
+    .filter((invite) => invite.workspace_id === workspaceId)
+    .filter((invite) => includeTerminal || !terminalStatuses.has(invite.status))
+    .map((invite) => summarizeInvite(bundle, invite))
+    .sort((left, right) => String(right.created_at).localeCompare(String(left.created_at)));
+}
+
+export function accessInviteSummary(bundle, workspaceId = null) {
+  const workspaceInvites = (bundle.invites.invites ?? []).filter((invite) =>
+    invite.workspace_id === (workspaceId ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id)
+  );
+  const byStatus = Object.fromEntries(["PENDING_APPROVAL", "APPROVED", "REJECTED", "CANCELLED"].map((status) => [
+    status,
+    workspaceInvites.filter((invite) => invite.status === status).length
+  ]));
+  return {
+    invite_count: workspaceInvites.length,
+    pending_invite_count: byStatus.PENDING_APPROVAL ?? 0,
+    approved_invite_count: byStatus.APPROVED ?? 0,
+    rejected_invite_count: byStatus.REJECTED ?? 0,
+    cancelled_invite_count: byStatus.CANCELLED ?? 0,
+    by_status: byStatus,
+    invites: workspaceInvites.map((invite) => summarizeInvite(bundle, invite))
+  };
+}
+
 export function currentPlanEntitlement(bundle, context = null) {
   if (!context?.user || !context?.plan) return null;
   const workspaceId = context.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id;
@@ -1049,6 +1178,113 @@ export function currentPlanEntitlement(bundle, context = null) {
       tier: nextPlan.tier
     } : null,
     alerts
+  };
+}
+
+export async function createAccessInvite(bundle, input = {}) {
+  const username = String(input.username ?? "").trim().toLowerCase();
+  const displayName = String(input.display_name ?? input.displayName ?? "").trim();
+  const roleId = String(input.role_id ?? input.roleId ?? "").trim();
+  const planId = String(input.plan_id ?? input.planId ?? "").trim();
+  const workspaceId = String(input.workspace_id ?? input.workspaceId ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id).trim();
+  const requestComment = String(input.request_comment ?? input.requestComment ?? "").trim();
+  const requestedByUserId = String(input.requested_by_user_id ?? input.requestedByUserId ?? bundle.policy.default_console_user_id).trim();
+  const requestedByName = String(input.requested_by_name ?? input.requestedByName ?? resolveUserProfile(bundle, requestedByUserId).user?.display_name ?? requestedByUserId).trim();
+  const projectAllowlist = normalizeProjectAllowlist(input.project_allowlist ?? input.projectAllowlist, defaultProjectAllowlistForRole(roleId));
+
+  if (!username) throw new Error("Username is required.");
+  if (!displayName) throw new Error("Display name is required.");
+  if (!roleId) throw new Error("Role is required.");
+  if (!planId) throw new Error("Plan is required.");
+  if (findUserRecord(bundle, username)) throw new Error(`Studio user already exists: ${username}`);
+  if (!requestedByUserId || !requestedByName) throw new Error("Requested by identity is required.");
+
+  const role = roleDefinition(bundle, roleId);
+  if (!role) throw new Error(`Role not found: ${roleId}`);
+  const plan = planDefinition(bundle, planId);
+  if (!plan) throw new Error(`Plan not found: ${planId}`);
+  const normalizedProjects = enforceProjectScopeLimit(plan, projectAllowlist);
+
+  const existingInvite = (bundle.invites.invites ?? []).find((invite) =>
+    String(invite.username).toLowerCase() === username
+    && invite.workspace_id === workspaceId
+    && ["PENDING_APPROVAL", "APPROVED"].includes(invite.status)
+  );
+  if (existingInvite) {
+    throw new Error(`Active invite already exists for ${username}: ${existingInvite.invite_id}`);
+  }
+
+  const createdAt = new Date().toISOString();
+  const invite = {
+    invite_id: `invite-${slugifySegment(username, "user")}-${createdAt.slice(0, 10).replaceAll("-", "")}-${Date.now().toString(36)}`,
+    workspace_id: workspaceId,
+    username,
+    display_name: displayName,
+    requested_role_id: role.role_id,
+    requested_plan_id: plan.plan_id,
+    requested_project_allowlist: normalizedProjects,
+    status: "PENDING_APPROVAL",
+    approval_required: true,
+    requested_by_user_id: requestedByUserId,
+    requested_by_name: requestedByName,
+    request_comment: requestComment,
+    created_at: createdAt
+  };
+  const document = ensureInviteDocument(bundle);
+  document.invites.push(invite);
+  const writtenPath = await persistInvitesDocument(document);
+  return {
+    invite: summarizeInvite({
+      ...bundle,
+      invites: document
+    }, invite),
+    written_path: writtenPath
+  };
+}
+
+export async function reviewAccessInvite(bundle, inviteId, decision, options = {}) {
+  const normalizedDecision = String(decision ?? "").trim().toUpperCase();
+  if (!["APPROVED", "REJECTED", "CANCELLED"].includes(normalizedDecision)) {
+    throw new Error(`Unsupported invite decision: ${decision}`);
+  }
+  const invite = findInviteRecord(bundle, inviteId);
+  if (!invite) throw new Error(`Access invite not found: ${inviteId}`);
+  if (invite.status !== "PENDING_APPROVAL") {
+    throw new Error(`Access invite ${inviteId} is already ${invite.status}.`);
+  }
+  if (findUserRecord(bundle, invite.username)) {
+    throw new Error(`Studio user already exists for invite username: ${invite.username}`);
+  }
+
+  const reviewedByUserId = String(options.reviewed_by_user_id ?? options.reviewedByUserId ?? bundle.policy.default_console_user_id).trim();
+  const reviewedByName = String(options.reviewed_by_name ?? options.reviewedByName ?? resolveUserProfile(bundle, reviewedByUserId).user?.display_name ?? reviewedByUserId).trim();
+  const reviewComment = String(options.review_comment ?? options.reviewComment ?? "").trim();
+  const document = ensureInviteDocument(bundle);
+  const inviteIndex = document.invites.findIndex((item) => item.invite_id === invite.invite_id);
+  const plan = planDefinition(bundle, invite.requested_plan_id);
+  if (!plan) throw new Error(`Plan not found for invite ${invite.invite_id}: ${invite.requested_plan_id}`);
+  if (normalizedDecision === "APPROVED") {
+    const impact = inviteImpactSummary(bundle, plan, invite.workspace_id, normalizeProjectAllowlist(invite.requested_project_allowlist, ["jinhu-smart-park"]));
+    if (!impact.fits_seat_limit) {
+      throw new Error(`Plan ${plan.plan_id} has no remaining seat for invite ${invite.invite_id}.`);
+    }
+  }
+  const nextInvite = {
+    ...document.invites[inviteIndex],
+    status: normalizedDecision,
+    review_comment: reviewComment,
+    reviewed_by_user_id: reviewedByUserId,
+    reviewed_by_name: reviewedByName,
+    reviewed_at: new Date().toISOString()
+  };
+  document.invites[inviteIndex] = nextInvite;
+  const writtenPath = await persistInvitesDocument(document);
+  return {
+    invite: summarizeInvite({
+      ...bundle,
+      invites: document
+    }, nextInvite),
+    written_path: writtenPath
   };
 }
 

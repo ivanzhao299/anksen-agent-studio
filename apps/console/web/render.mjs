@@ -1378,6 +1378,19 @@ function pageActions(data) {
 }
 
 function pageConfig(data) {
+  const inviteSummary = data.access.invite_summary ?? { invite_count: 0, pending_invite_count: 0, approved_invite_count: 0, invites: [] };
+  const inviteRows = (inviteSummary.invites ?? []).slice(0, 6).map((invite) => ({
+    username: invite.username,
+    role: invite.requested_role_name,
+    plan: invite.requested_plan_name,
+    scope: (invite.requested_project_allowlist ?? []).join(", ") || "none",
+    status: statusLabel(invite.status),
+    next: invite.next_action === "review_invite"
+      ? `review ${invite.invite_id}`
+      : invite.next_action === "create_user_from_invite"
+        ? `create-user ${invite.username}`
+        : "none"
+  }));
   const projectDraft = {
     project_id: "jinhu-smart-park",
     connected: true,
@@ -1415,6 +1428,23 @@ function pageConfig(data) {
     ${metric(messages.pages.config.credentials, "reference_only")}
     ${metric(messages.pages.config.governance, data.governance.policy_id)}
   </div><p class="help">${messages.pages.config.draftOnly}</p></section>
+  <section>
+    <div class="section-head"><h2>团队邀请与审批草稿</h2><span class="pill">Access Center</span></div>
+    <div class="grid">
+      ${metric("邀请总数", inviteSummary.invite_count ?? 0)}
+      ${metric("待审批", inviteSummary.pending_invite_count ?? 0)}
+      ${metric("已批准", inviteSummary.approved_invite_count ?? 0)}
+      ${metric("建议", inviteSummary.pending_invite_count > 0 ? "先 review-invite" : "可创建新 invite")}
+    </div>
+    ${inviteRows.length > 0 ? table(inviteRows, [
+      { key: "username", label: "用户名" },
+      { key: "role", label: "角色" },
+      { key: "plan", label: "套餐" },
+      { key: "scope", label: "项目范围" },
+      { key: "status", label: "状态", html: true },
+      { key: "next", label: "下一步" }
+    ]) : `<div class="panel"><p class="help">当前没有 invite 草稿。可通过 CLI 先创建：<code>studio access invite-user --user ... --dry-run</code></p></div>`}
+  </section>
   <section class="draft-grid">
     <div class="panel"><label for="draft-project">${messages.pages.config.projects}</label><textarea id="draft-project" data-config-draft>${escapeHtml(JSON.stringify(projectDraft, null, 2))}</textarea></div>
     <div class="panel"><label for="draft-runtime">${messages.pages.config.runtime}</label><textarea id="draft-runtime" data-config-draft>${escapeHtml(JSON.stringify(runtimeDraft, null, 2))}</textarea></div>

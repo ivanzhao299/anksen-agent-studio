@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { actionServerSummary, latestActionLog } from "./action-server.mjs";
-import { accessSummary, loadAccessCenter, resolveUserProfile } from "../../../packages/access-center/lib/access-center-utils.mjs";
+import { accessInviteSummary, accessSummary, loadAccessCenter, resolveUserProfile } from "../../../packages/access-center/lib/access-center-utils.mjs";
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(webDir, "../../..");
@@ -18,6 +18,7 @@ const dataFiles = {
   accessState: "runtime/global/access-state.json",
   accessUsers: "runtime/global/access-users.json",
   accessMemberships: "runtime/global/access-memberships.json",
+  accessInvites: "runtime/global/access-invites.json",
   consoleActions: "apps/console/examples/console-actions.example.json"
 };
 
@@ -101,6 +102,7 @@ export async function loadConsoleLocalData() {
     accessState,
     accessUsers,
     accessMemberships,
+    accessInvites,
     consoleActions,
     runtimeCenterExamples,
     workerPoolExamples,
@@ -119,6 +121,7 @@ export async function loadConsoleLocalData() {
     readJson(dataFiles.accessState, {}),
     readJson(dataFiles.accessUsers, {}),
     readJson(dataFiles.accessMemberships, {}),
+    readJson(dataFiles.accessInvites, {}),
     readJson(dataFiles.consoleActions, {}),
     readExampleDirectory(exampleDirs.runtimeCenter),
     readExampleDirectory(exampleDirs.workerPool),
@@ -155,6 +158,7 @@ export async function loadConsoleLocalData() {
     accessState,
     accessUsers,
     accessMemberships,
+    accessInvites,
     consoleActions,
     actionServer: actionServerSummary(),
     runtime: {
@@ -181,8 +185,10 @@ export async function loadConsoleLocalData() {
     access: {
       examples: accessCenterExamples,
       summary: accessSummary(accessBundle, bootstrapAccessProfile),
+      invite_summary: accessInviteSummary(accessBundle),
       user_count: countArray(accessUsers?.users, "users"),
       membership_count: countArray(accessMemberships?.memberships, "memberships"),
+      invite_count: countArray(accessInvites?.invites, "invites"),
       plan_count: countArray(accessBundle.plans?.plans, "plans"),
       default_console_user: bootstrapAccessProfile.user ?? null
     },

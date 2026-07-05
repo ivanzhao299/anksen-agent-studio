@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "workspace_id": "anksen-agent-studio-local",
+  "invites": [
+    {
+      "invite_id": "invite-mobile-uat-20260705-001",
+      "workspace_id": "anksen-agent-studio-local",
+      "username": "mobile-uat",
+      "display_name": "移动端 UAT",
+      "requested_role_id": "operator",
+      "requested_plan_id": "team",
+      "requested_project_allowlist": ["jinhu-smart-park", "phoenix-erp"],
+      "status": "PENDING_APPROVAL",
+      "approval_required": true,
+      "requested_by_user_id": "studio-owner",
+      "requested_by_name": "Studio 平台所有者",
+      "request_comment": "为移动作业终端联调预留团队席位。",
+      "created_at": "2026-07-05T10:00:00Z"
+    }
+  ]
+}

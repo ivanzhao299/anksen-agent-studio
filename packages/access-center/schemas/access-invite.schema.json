@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/access-invite.schema.json",
+  "title": "Access Invites",
+  "type": "object",
+  "required": ["schema_version", "workspace_id", "invites"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "workspace_id": { "type": "string", "minLength": 1 },
+    "invites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "invite_id",
+          "workspace_id",
+          "username",
+          "display_name",
+          "requested_role_id",
+          "requested_plan_id",
+          "requested_project_allowlist",
+          "status",
+          "approval_required",
+          "requested_by_user_id",
+          "requested_by_name",
+          "created_at"
+        ],
+        "properties": {
+          "invite_id": { "type": "string", "minLength": 1 },
+          "workspace_id": { "type": "string", "minLength": 1 },
+          "username": { "type": "string", "minLength": 1 },
+          "display_name": { "type": "string", "minLength": 1 },
+          "requested_role_id": { "type": "string", "minLength": 1 },
+          "requested_plan_id": { "type": "string", "minLength": 1 },
+          "requested_project_allowlist": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "status": {
+            "enum": ["PENDING_APPROVAL", "APPROVED", "REJECTED", "CANCELLED"]
+          },
+          "approval_required": { "type": "boolean" },
+          "requested_by_user_id": { "type": "string", "minLength": 1 },
+          "requested_by_name": { "type": "string", "minLength": 1 },
+          "request_comment": { "type": "string" },
+          "review_comment": { "type": "string" },
+          "reviewed_by_user_id": { "type": "string", "minLength": 1 },
+          "reviewed_by_name": { "type": "string", "minLength": 1 },
+          "created_at": { "type": "string", "format": "date-time" },
+          "reviewed_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

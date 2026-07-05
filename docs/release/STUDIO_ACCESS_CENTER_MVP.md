@@ -98,6 +98,7 @@
 - `runtime/global/access-state.json`
 - `runtime/global/access-users.json`
 - `runtime/global/access-memberships.json`
+- `runtime/global/access-invites.json`
 - `runtime/local-services/access-sessions.json`（本地生成，已忽略）
 
 ## Console 登录方式
@@ -115,6 +116,7 @@
 - `node packages/orchestrator-core/bin/studio.mjs access summary --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access users --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access plans --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs access invites --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access check --user operator --action smart-park-continue --project jinhu-smart-park --dry-run`
 
 ### 本地账号管理
@@ -125,6 +127,8 @@
 - `node packages/orchestrator-core/bin/studio.mjs access enable-user --user viewer --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access disable-user --user viewer --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access create-user --user uat-reviewer --display-name "UAT 审阅者" --role reviewer --plan starter --password "UatReviewer!2026" --projects jinhu-smart-park --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs access invite-user --user mobile-uat --display-name "移动端 UAT" --role operator --plan team --projects jinhu-smart-park,phoenix-erp --comment "移动终端联调" --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs access review-invite --invite-id invite-mobile-uat-20260705-001 --approve --comment "通过内测审批" --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access set-project-scope --user operator --projects jinhu-smart-park,phoenix-erp --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access suspend-membership --user viewer --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access resume-membership --user viewer --dry-run`
@@ -163,6 +167,22 @@
    - 登录后会显示“当前套餐边界”
    - 自动提示 seat、项目范围、并发和 runtime allowlist 的临界状态
    - 当套餐即将用尽或已触顶时，直接给出升级建议
+
+### Phase 4 团队邀请与审批草稿
+
+本轮继续补上团队扩容前置流程：
+
+1. `access invite-user`
+   - 先创建 invite draft，不直接落成真实用户
+   - 会预校验目标角色、套餐和项目范围是否合法
+   - 不读取真实外部身份目录
+2. `access review-invite`
+   - 对 invite 做批准 / 驳回
+   - 批准时会再次校验 seat 是否还有余量
+   - 已批准 invite 会视为 seat 预占，避免后续超卖
+3. Console 配置页
+   - 显示待审批 invite、已批准 invite 和下一步建议
+   - 管理员可以先看清扩容边界，再决定是否升级套餐或正式建号
 
 ## Console 裁剪
 

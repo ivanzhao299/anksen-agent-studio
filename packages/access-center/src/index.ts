@@ -2,6 +2,7 @@ export type AccessRiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 export type StudioUserStatus = "ACTIVE" | "INVITED" | "DISABLED";
 export type WorkspaceMembershipStatus = "ACTIVE" | "PENDING" | "SUSPENDED";
+export type AccessInviteStatus = "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "CANCELLED";
 export type AccessAuthMode = "local_password_session" | "local_session_only";
 export type ConsoleAccessMode = "dry_run_only" | "direct_execute" | "proposal_only" | "human_approval_required";
 
@@ -35,6 +36,26 @@ export interface WorkspaceMembership {
   readonly role_ids: readonly string[];
   readonly project_allowlist: readonly string[];
   readonly beta_features: readonly string[];
+}
+
+export interface AccessInvite {
+  readonly invite_id: string;
+  readonly workspace_id: string;
+  readonly username: string;
+  readonly display_name: string;
+  readonly requested_role_id: string;
+  readonly requested_plan_id: string;
+  readonly requested_project_allowlist: readonly string[];
+  readonly status: AccessInviteStatus;
+  readonly approval_required: boolean;
+  readonly requested_by_user_id: string;
+  readonly requested_by_name: string;
+  readonly request_comment?: string;
+  readonly review_comment?: string;
+  readonly reviewed_by_user_id?: string;
+  readonly reviewed_by_name?: string;
+  readonly created_at: string;
+  readonly reviewed_at?: string;
 }
 
 export interface PlanEntitlement {

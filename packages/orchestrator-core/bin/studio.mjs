@@ -70,6 +70,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs access summary --dry-run
   node packages/orchestrator-core/bin/studio.mjs access users --dry-run
   node packages/orchestrator-core/bin/studio.mjs access plans --dry-run
+  node packages/orchestrator-core/bin/studio.mjs access invites --dry-run
   node packages/orchestrator-core/bin/studio.mjs access check --user <username> --action <action_id> [--project <project_id>] --dry-run
   node packages/orchestrator-core/bin/studio.mjs access grant --user <username> --role <role_id> [--workspace <workspace_id>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access set-plan --user <username> --plan <plan_id> [--workspace <workspace_id>] [--dry-run|--apply]
@@ -77,6 +78,8 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs access enable-user --user <username> [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access disable-user --user <username> [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access create-user --user <username> --display-name <name> --role <role_id> --plan <plan_id> --password <initial_password> [--projects <csv|*>] [--workspace <workspace_id>] [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs access invite-user --user <username> --display-name <name> --role <role_id> --plan <plan_id> [--projects <csv|*>] [--comment <text>] [--workspace <workspace_id>] [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs access review-invite --invite-id <invite_id> [--approve|--reject] [--comment <text>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access set-project-scope --user <username> --projects <csv|*> [--workspace <workspace_id>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access suspend-membership --user <username> [--workspace <workspace_id>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access resume-membership --user <username> [--workspace <workspace_id>] [--dry-run|--apply]
@@ -140,6 +143,10 @@ function parseArgs(argv) {
     workspace: "",
     displayName: "",
     projects: "",
+    inviteId: "",
+    comment: "",
+    approve: rest.includes("--approve"),
+    reject: rest.includes("--reject"),
     serviceAction: command === "console" && subcommand === "service" ? rest[1] ?? "status" : "",
     region: "local",
     port: 4317,
@@ -205,6 +212,12 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--projects") {
       args.projects = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--invite-id") {
+      args.inviteId = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--comment") {
+      args.comment = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--port") {
       args.port = Number(rest[index + 1] ?? "4317");
@@ -8145,6 +8158,8 @@ async function accessSummaryDryRun(args) {
   console.log(`user_count: ${summary.user_count}`);
   console.log(`membership_count: ${summary.membership_count}`);
   console.log(`plan_count: ${summary.plan_count}`);
+  console.log(`invite_count: ${summary.invite_count ?? 0}`);
+  console.log(`pending_invite_count: ${summary.pending_invite_count ?? 0}`);
   if (args.user.trim()) {
     console.log(`selected_user: ${summary.current_user?.username ?? "not_found"}`);
     console.log(`authenticated_profile: ${summary.authenticated ? "yes" : "no"}`);
@@ -8194,6 +8209,27 @@ async function accessPlansDryRun(args) {
   for (const plan of plans) {
     const seatUsage = plan.seat_limit == null ? `${plan.seat_usage}/unlimited` : `${plan.seat_usage}/${plan.seat_limit}`;
     console.log(`| ${plan.display_name} | ${plan.tier} | ${plan.capability_count} | ${plan.beta_feature_count} | ${plan.direct_execute_max_risk} | ${seatUsage} | ${plan.project_scope_limit ?? "unlimited"} | ${plan.worker_parallel_limit ?? "unlimited"} | ${(plan.runtime_allowlist ?? []).join(", ") || "none"} |`);
+  }
+}
+
+async function accessInvitesDryRun(args) {
+  assertDryRun(args, "access invites");
+  const { api, bundle } = await loadAccessCenterApi();
+  const summary = api.accessInviteSummary(bundle);
+  const invites = api.listAccessInvites(bundle, { include_terminal: true });
+  console.log("# Access Center Invites dry-run");
+  console.log("");
+  console.log(`workspace_id: ${bundle.state.workspace_id ?? bundle.policy.default_workspace_id}`);
+  console.log(`invites: ${summary.invite_count}`);
+  console.log(`pending: ${summary.pending_invite_count}`);
+  console.log(`approved: ${summary.approved_invite_count}`);
+  console.log(`rejected: ${summary.rejected_invite_count}`);
+  console.log(`cancelled: ${summary.cancelled_invite_count}`);
+  console.log("");
+  console.log("| Invite | Username | Role | Plan | Scope | Status | Seats Remaining | Next |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
+  for (const invite of invites) {
+    console.log(`| ${invite.invite_id} | ${invite.username} | ${invite.requested_role_name} | ${invite.requested_plan_name} | ${(invite.requested_project_allowlist ?? []).join(", ") || "none"} | ${invite.status} | ${invite.impact?.seats_remaining ?? "unlimited"} | ${invite.next_action} |`);
   }
 }
 
@@ -8274,6 +8310,14 @@ function accessProjectScopeList(args) {
 function printAccessMutationHeader(title, mode) {
   console.log(`# ${title} ${mode}`);
   console.log("");
+}
+
+function accessReviewDecision(args) {
+  if (args.approve && args.reject) {
+    throw new Error("Choose either --approve or --reject, not both.");
+  }
+  if (args.reject) return "REJECTED";
+  return "APPROVED";
 }
 
 async function accessGrant(args) {
@@ -8442,6 +8486,100 @@ async function accessCreateUser(args) {
   console.log(`written_paths: ${result.written_paths.map((file) => relative(repoRoot, file)).join(", ")}`);
   console.log("secret_values_read: no");
   console.log("secret_values_stored: password_hash_only");
+}
+
+async function accessInviteUser(args) {
+  assertDryRunOrApply(args, "access invite-user");
+  if (!args.user.trim()) throw new Error("Missing --user for access invite-user.");
+  if (!args.displayName.trim()) throw new Error("Missing --display-name for access invite-user.");
+  if (!args.role.trim()) throw new Error("Missing --role for access invite-user.");
+  if (!args.plan.trim()) throw new Error("Missing --plan for access invite-user.");
+
+  const { api, bundle } = await loadAccessCenterApi();
+  const workspaceId = accessWorkspaceId(args, bundle);
+  const projectAllowlist = accessProjectScopeList(args);
+  const role = (bundle.policy.roles ?? []).find((item) => item.role_id === args.role.trim());
+  const plan = (bundle.plans.plans ?? []).find((item) => item.plan_id === args.plan.trim());
+  if (!role) throw new Error(`Role not found: ${args.role.trim()}`);
+  if (!plan) throw new Error(`Plan not found: ${args.plan.trim()}`);
+
+  printAccessMutationHeader("Access Invite User", args.apply ? "apply" : "dry-run");
+  console.log(`username: ${args.user.trim().toLowerCase()}`);
+  console.log(`display_name: ${args.displayName.trim()}`);
+  console.log(`workspace_id: ${workspaceId}`);
+  console.log(`role_id: ${role.role_id}`);
+  console.log(`plan_id: ${plan.plan_id}`);
+  console.log(`project_allowlist: ${(projectAllowlist.length > 0 ? projectAllowlist : ["default"]).join(", ")}`);
+  console.log(`comment: ${args.comment.trim() || "none"}`);
+
+  if (args.dryRun) {
+    const impact = api.listPlanEntitlements(bundle).find((item) => item.plan_id === plan.plan_id);
+    console.log("status: READY");
+    console.log(`seat_usage: ${impact?.seat_usage ?? "unknown"}`);
+    console.log(`seat_limit: ${impact?.seat_limit ?? "unlimited"}`);
+    console.log(`project_scope_limit: ${impact?.project_scope_limit ?? "unlimited"}`);
+    console.log("writes: runtime/global/access-invites.json");
+    return;
+  }
+
+  const actorProfile = api.resolveUserProfile(bundle, bundle.policy.default_console_user_id);
+  const result = await api.createAccessInvite(bundle, {
+    username: args.user.trim(),
+    display_name: args.displayName.trim(),
+    role_id: role.role_id,
+    plan_id: plan.plan_id,
+    workspace_id: workspaceId,
+    project_allowlist: projectAllowlist.length > 0 ? projectAllowlist : undefined,
+    request_comment: args.comment.trim(),
+    requested_by_user_id: actorProfile.user?.user_id ?? bundle.policy.default_console_user_id,
+    requested_by_name: actorProfile.user?.display_name ?? "Studio 平台所有者"
+  });
+  console.log("status: PASS");
+  console.log(`invite_id: ${result.invite.invite_id}`);
+  console.log(`invite_status: ${result.invite.status}`);
+  console.log(`requested_role: ${result.invite.requested_role_name}`);
+  console.log(`requested_plan: ${result.invite.requested_plan_name}`);
+  console.log(`written_path: ${relative(repoRoot, result.written_path)}`);
+}
+
+async function accessReviewInvite(args) {
+  assertDryRunOrApply(args, "access review-invite");
+  if (!args.inviteId.trim()) throw new Error("Missing --invite-id for access review-invite.");
+  const decision = accessReviewDecision(args);
+
+  const { api, bundle } = await loadAccessCenterApi();
+  const invite = api.listAccessInvites(bundle, { include_terminal: true }).find((item) => item.invite_id === args.inviteId.trim());
+  if (!invite) throw new Error(`Access invite not found: ${args.inviteId.trim()}`);
+
+  printAccessMutationHeader("Access Review Invite", args.apply ? "apply" : "dry-run");
+  console.log(`invite_id: ${invite.invite_id}`);
+  console.log(`username: ${invite.username}`);
+  console.log(`decision: ${decision}`);
+  console.log(`current_status: ${invite.status}`);
+  console.log(`comment: ${args.comment.trim() || "none"}`);
+
+  if (args.dryRun) {
+    console.log("status: READY");
+    console.log(`seat_remaining: ${invite.impact?.seats_remaining ?? "unlimited"}`);
+    console.log(`next_action: ${invite.next_action}`);
+    console.log("writes: runtime/global/access-invites.json");
+    return;
+  }
+
+  const actorProfile = api.resolveUserProfile(bundle, bundle.policy.default_console_user_id);
+  const result = await api.reviewAccessInvite(bundle, invite.invite_id, decision, {
+    review_comment: args.comment.trim(),
+    reviewed_by_user_id: actorProfile.user?.user_id ?? bundle.policy.default_console_user_id,
+    reviewed_by_name: actorProfile.user?.display_name ?? "Studio 平台所有者"
+  });
+  console.log("status: PASS");
+  console.log(`invite_id: ${result.invite.invite_id}`);
+  console.log(`invite_status: ${result.invite.status}`);
+  console.log(`reviewed_by: ${result.invite.reviewed_by_name}`);
+  console.log(`written_path: ${relative(repoRoot, result.written_path)}`);
+  if (result.invite.status === "APPROVED") {
+    console.log(`next_step_hint: studio access create-user --user ${result.invite.username} --display-name "${result.invite.display_name}" --role ${result.invite.requested_role_id} --plan ${result.invite.requested_plan_id} --password "<initial_password>" --projects ${(result.invite.requested_project_allowlist ?? []).join(",") || "jinhu-smart-park"} --apply`);
+  }
 }
 
 async function accessSetProjectScope(args) {
@@ -11120,6 +11258,7 @@ async function main() {
   if (args.command === "access" && args.subcommand === "summary") return accessSummaryDryRun(args);
   if (args.command === "access" && args.subcommand === "users") return accessUsersDryRun(args);
   if (args.command === "access" && args.subcommand === "plans") return accessPlansDryRun(args);
+  if (args.command === "access" && args.subcommand === "invites") return accessInvitesDryRun(args);
   if (args.command === "access" && args.subcommand === "check") return accessCheckDryRun(args);
   if (args.command === "access" && args.subcommand === "grant") return accessGrant(args);
   if (args.command === "access" && args.subcommand === "set-plan") return accessSetPlan(args);
@@ -11127,6 +11266,8 @@ async function main() {
   if (args.command === "access" && args.subcommand === "enable-user") return accessToggleUser(args, "ACTIVE");
   if (args.command === "access" && args.subcommand === "disable-user") return accessToggleUser(args, "DISABLED");
   if (args.command === "access" && args.subcommand === "create-user") return accessCreateUser(args);
+  if (args.command === "access" && args.subcommand === "invite-user") return accessInviteUser(args);
+  if (args.command === "access" && args.subcommand === "review-invite") return accessReviewInvite(args);
   if (args.command === "access" && args.subcommand === "set-project-scope") return accessSetProjectScope(args);
   if (args.command === "access" && args.subcommand === "suspend-membership") return accessToggleMembership(args, "SUSPENDED");
   if (args.command === "access" && args.subcommand === "resume-membership") return accessToggleMembership(args, "ACTIVE");
