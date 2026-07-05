@@ -206,11 +206,68 @@ function routeForbiddenPage(route, auth = {}) {
 
 function accessLoginPage(data) {
   const summary = data.access?.summary ?? {};
+  const directExecute = summary.direct_execute_max_risk ?? "MEDIUM";
+  const anonymousMode = summary.allow_anonymous_console_read ? "允许" : "禁用";
   return `<section class="auth-shell">
     <div class="auth-panel">
-      <span class="eyebrow">Local Access</span>
-      <h2>登录 ANKSEN Agent Studio</h2>
-      <p>当前控制台仅允许本机访问，且必须先通过本地账号完成角色、套餐和项目范围校验。</p>
+      <div class="auth-brand-mark">
+        <span class="auth-brand-seal"><img src="/assets/anksen-logo.svg" alt="ANKSEN Logo"></span>
+        <div class="auth-brand-copy">
+          <strong>ANKSEN Agent Studio</strong>
+          <span>统一 AI 开发入口</span>
+        </div>
+      </div>
+      <span class="eyebrow">Pilot Console</span>
+      <h2>让项目、Agent 与治理闸门在一个工作台里协同</h2>
+      <p class="auth-lead">本地登录后直接进入统一控制台，用一个入口完成规划、执行、验证、Proposal 与交付报告，不再在多个 AI 工具之间来回切换。</p>
+      <div class="auth-chip-row">
+        <span class="auth-chip">jinhu-smart-park 已接入</span>
+        <span class="auth-chip">LOW / MEDIUM 可本地直执</span>
+        <span class="auth-chip">HIGH Proposal / CRITICAL 审批</span>
+      </div>
+      <div class="auth-stat-grid">
+        <article class="auth-stat-card">
+          <span>角色策略</span>
+          <strong>${escapeHtml(summary.role_count ?? 0)}</strong>
+          <em>已配置访问角色</em>
+        </article>
+        <article class="auth-stat-card">
+          <span>本地账号</span>
+          <strong>${escapeHtml(summary.user_count ?? 0)}</strong>
+          <em>可登录内测用户</em>
+        </article>
+        <article class="auth-stat-card">
+          <span>套餐权限</span>
+          <strong>${escapeHtml(summary.plan_count ?? 0)}</strong>
+          <em>按套餐控制能力</em>
+        </article>
+        <article class="auth-stat-card">
+          <span>直执上限</span>
+          <strong>${escapeHtml(directExecute)}</strong>
+          <em>匿名访问 ${escapeHtml(anonymousMode)}</em>
+        </article>
+      </div>
+      <div class="auth-strip-grid">
+        <article class="auth-feature-card">
+          <strong>统一入口</strong>
+          <span>项目、运行时、Worker 和 Proposal 放进同一个控制面。</span>
+        </article>
+        <article class="auth-feature-card">
+          <strong>安全边界</strong>
+          <span>真实凭证不落盘，生产动作继续经过 Governance Gate。</span>
+        </article>
+        <article class="auth-feature-card">
+          <strong>交付节奏</strong>
+          <span>适合团队内测、项目推进和上线前联调的工作方式。</span>
+        </article>
+      </div>
+    </div>
+    <div class="auth-side">
+      <div class="auth-card-head">
+        <span class="eyebrow">Console Access</span>
+        <h3>登录控制台</h3>
+        <p class="auth-login-sub">使用已分配的本地账号进入 Studio，角色、套餐与项目范围会自动生效。</p>
+      </div>
       <form id="auth-login-form" class="auth-form">
         <div>
           <label for="auth-username">用户名</label>
@@ -221,29 +278,23 @@ function accessLoginPage(data) {
           <input id="auth-password" name="password" type="password" placeholder="请输入密码" autocomplete="current-password">
         </div>
         <div class="button-row">
-          <button type="submit" class="primary-action">登录 Studio</button>
+          <button type="submit" class="primary-action auth-submit-button">登录 Studio</button>
         </div>
-        <p id="auth-status" class="help">请使用已分配的内测账号登录。当前不会读取真实业务系统凭证。</p>
+        <div class="auth-help-row">
+          <span>仅监听 127.0.0.1</span>
+          <span>不读取真实业务系统凭证</span>
+        </div>
+        <p id="auth-status" class="help auth-status-copy">请使用已分配的内测账号登录。</p>
       </form>
-    </div>
-    <div class="auth-side">
-      <div class="panel">
-        <span class="side-kicker">访问策略</span>
-        <div class="grid">
-          ${metric("角色", summary.role_count ?? 0)}
-          ${metric("用户", summary.user_count ?? 0)}
-          ${metric("套餐", summary.plan_count ?? 0)}
-          ${metric("匿名访问", summary.allow_anonymous_console_read ? "允许" : "禁用")}
-        </div>
-      </div>
-      <div class="panel">
-        <span class="side-kicker">登录后开放</span>
-        ${list([
-          "统一 AI 工作台与项目入口",
-          "Console Action Server 本地动作执行",
-          "按角色和套餐限制的 LOW/MEDIUM 安全动作",
-          "HIGH proposal_only / CRITICAL 人工审批"
-        ])}
+      <div class="auth-access-grid">
+        <article class="auth-access-card">
+          <strong>进入后可用</strong>
+          <span>统一 AI 工作台、项目入口、Console Action Server 与运行日志。</span>
+        </article>
+        <article class="auth-access-card">
+          <strong>执行策略</strong>
+          <span>LOW / MEDIUM 可本地执行，HIGH 自动转 Proposal，CRITICAL 保持人工审批。</span>
+        </article>
       </div>
     </div>
   </section>`;
@@ -1048,6 +1099,12 @@ function shell(content, activeId, model, data, auth = {}) {
   const gated = data.access?.summary?.allow_anonymous_console_read !== true && !auth.authenticated;
   const forbidden = !gated && !evaluateConsoleRouteAccess(route.id, auth).allowed;
   const mainContent = gated ? accessLoginPage(data) : (forbidden ? routeForbiddenPage(route, auth) : content);
+  const headerClass = gated ? "login-header" : "";
+  const headerMeta = gated
+    ? authHeaderBar(auth)
+    : `${authHeaderBar(auth)}
+    ${topStatusBar(model, data, auth)}
+    ${nav(activeId, auth)}`;
   return `<!doctype html>
 <html lang="${messages.locale}">
 <head>
@@ -1059,6 +1116,7 @@ function shell(content, activeId, model, data, auth = {}) {
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top, rgba(61, 98, 164, 0.12), transparent 28%), var(--bg); color: var(--text); }
     header { padding: 10px 16px 8px; border-bottom: 1px solid var(--line); background: rgba(6, 8, 12, 0.92); backdrop-filter: blur(16px); position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 28px var(--shadow); }
+    header.login-header { padding-bottom: 14px; }
     .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .brand-lockup { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .logo-frame { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 40px; flex: 0 0 auto; border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; }
@@ -1104,10 +1162,47 @@ function shell(content, activeId, model, data, auth = {}) {
     .entitlement-alert-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
     .entitlement-alert-head strong { font-size: 13px; }
     .workspace-shell { display: grid; grid-template-columns: 160px minmax(0, 1fr) 220px; gap: 10px; align-items: start; }
-    .auth-shell { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr); gap: 14px; align-items: start; }
-    .auth-panel, .auth-side { background: linear-gradient(180deg, rgba(16, 21, 29, 0.92), rgba(11, 14, 20, 0.96)); border: 1px solid var(--line); border-radius: 12px; padding: 16px; box-shadow: 0 10px 28px var(--shadow); }
-    .auth-panel h2 { margin-top: 6px; margin-bottom: 8px; }
-    .auth-form { display: grid; gap: 12px; margin-top: 12px; }
+    .auth-shell { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr); gap: 16px; align-items: stretch; }
+    .auth-panel, .auth-side { position: relative; overflow: hidden; border-radius: 18px; border: 1px solid #243041; box-shadow: 0 18px 42px rgba(3, 7, 18, 0.32); }
+    .auth-panel { padding: 22px; background:
+      radial-gradient(circle at 86% 18%, rgba(90, 169, 255, 0.22), transparent 28%),
+      radial-gradient(circle at 12% 82%, rgba(52, 211, 153, 0.12), transparent 24%),
+      linear-gradient(160deg, rgba(10, 16, 25, 0.98), rgba(8, 12, 18, 0.98)); }
+    .auth-panel::after { content: ""; position: absolute; inset: auto -14% -26% 48%; height: 240px; background: radial-gradient(circle, rgba(90, 169, 255, 0.18), transparent 62%); pointer-events: none; }
+    .auth-side { padding: 22px; background:
+      radial-gradient(circle at top, rgba(90, 169, 255, 0.14), transparent 30%),
+      linear-gradient(180deg, rgba(17, 23, 34, 0.98), rgba(9, 13, 19, 0.98)); }
+    .auth-brand-mark { display: inline-flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+    .auth-brand-seal { display: inline-flex; align-items: center; justify-content: center; width: 72px; height: 72px; padding: 12px; border-radius: 18px; background: linear-gradient(180deg, rgba(21, 30, 43, 0.94), rgba(10, 14, 21, 0.96)); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+    .auth-brand-seal img { width: 100%; height: 100%; object-fit: contain; }
+    .auth-brand-copy { display: grid; gap: 4px; }
+    .auth-brand-copy strong { font-size: 18px; line-height: 1.1; }
+    .auth-brand-copy span { color: #8ea4bb; font-size: 13px; }
+    .auth-panel h2 { margin: 8px 0 10px; font-size: 38px; line-height: 1.04; letter-spacing: 0; max-width: 11ch; }
+    .auth-lead { max-width: 620px; font-size: 15px; line-height: 1.7; color: #bcc9d9; }
+    .auth-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .auth-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 11px; border-radius: 999px; background: rgba(8, 12, 18, 0.88); border: 1px solid #2a3950; color: #d7e2ef; font-size: 12px; font-weight: 700; }
+    .auth-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+    .auth-stat-card { position: relative; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); background: linear-gradient(180deg, rgba(12, 18, 27, 0.96), rgba(9, 13, 19, 0.96)); padding: 14px; }
+    .auth-stat-card span { display: block; color: #8ea4bb; font-size: 12px; margin-bottom: 10px; }
+    .auth-stat-card strong { display: block; font-size: 28px; line-height: 1; letter-spacing: 0; }
+    .auth-stat-card em { display: block; margin-top: 10px; color: #aebccd; font-size: 12px; font-style: normal; line-height: 1.5; }
+    .auth-strip-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+    .auth-feature-card { border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.07); background: rgba(8, 12, 18, 0.72); padding: 14px; }
+    .auth-feature-card strong { display: block; font-size: 14px; margin-bottom: 8px; }
+    .auth-feature-card span { display: block; color: #aebccd; font-size: 13px; line-height: 1.6; }
+    .auth-card-head h3 { font-size: 32px; line-height: 1.06; margin: 8px 0 8px; letter-spacing: 0; }
+    .auth-login-sub { font-size: 14px; line-height: 1.7; color: #b7c5d6; }
+    .auth-form { display: grid; gap: 14px; margin-top: 18px; }
+    .auth-form input { min-height: 48px; border-radius: 12px; background: #0a1017; border-color: #263343; padding: 11px 12px; font-size: 14px; }
+    .auth-submit-button { width: 100%; min-height: 48px; border-radius: 12px; background: linear-gradient(180deg, #235182, #1a4068); border-color: #2f5f8f; }
+    .auth-submit-button:hover { background: linear-gradient(180deg, #295d95, #204a78); }
+    .auth-help-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.06); color: #8ea4bb; font-size: 12px; }
+    .auth-status-copy { margin-top: 0; }
+    .auth-access-grid { display: grid; gap: 10px; margin-top: 18px; }
+    .auth-access-card { border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(9, 13, 19, 0.82); padding: 14px; }
+    .auth-access-card strong { display: block; font-size: 14px; margin-bottom: 6px; }
+    .auth-access-card span { display: block; color: #aebccd; font-size: 13px; line-height: 1.6; }
     .auth-status.error { color: var(--red); }
     .auth-status.success { color: var(--green); }
     .auth-status.pending { color: var(--blue); }
@@ -1265,12 +1360,12 @@ function shell(content, activeId, model, data, auth = {}) {
     .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
-    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .top-nav { margin-top: 8px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user, .attachment-bubble, .attachment-list { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } .auth-strip, .auth-actions { align-items: flex-start; flex-direction: column; } }
-    @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell, .auth-shell { grid-template-columns: 1fr; } .advanced-config, .project-rail { position: static; } }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .top-nav { margin-top: 8px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user, .attachment-bubble, .attachment-list, .auth-stat-grid, .auth-strip-grid { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } .auth-strip, .auth-actions, .auth-help-row { align-items: flex-start; flex-direction: column; } .auth-panel h2 { font-size: 32px; max-width: none; } .auth-card-head h3 { font-size: 28px; } }
+    @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell, .auth-shell { grid-template-columns: 1fr; } .advanced-config, .project-rail { position: static; } .auth-side { order: -1; } }
   </style>
 </head>
 <body>
-  <header>
+  <header class="${headerClass}">
     <div class="brand-row">
       <div class="brand-lockup">
         <span class="logo-frame"><img class="brand-logo" src="/assets/anksen-logo.svg" alt="ANKSEN Logo"></span>
@@ -1280,9 +1375,7 @@ function shell(content, activeId, model, data, auth = {}) {
         </div>
       </div>
     </div>
-    ${authHeaderBar(auth)}
-    ${topStatusBar(model, data, auth)}
-    ${nav(activeId, auth)}
+    ${headerMeta}
   </header>
   <main>${mainContent}</main>
   ${interactiveScript()}

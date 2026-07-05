@@ -21,7 +21,7 @@ import {
 } from "./action-server.mjs";
 
 const port = Number(process.env.PORT ?? 4317);
-const allowedPaths = new Set(consoleWebRoutes.map((route) => route.path));
+const allowedPaths = new Set([...consoleWebRoutes.map((route) => route.path), "/login"]);
 const webDir = dirname(fileURLToPath(import.meta.url));
 const logoPath = join(webDir, "assets", "anksen-logo.svg");
 
@@ -85,7 +85,7 @@ const server = createServer(async (request, response) => {
       return;
     }
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
-    const pathname = url.pathname === "/dashboard" ? "/" : url.pathname;
+    const pathname = url.pathname === "/dashboard" || url.pathname === "/login" ? "/" : url.pathname;
     const accessBundle = await loadAccessCenter();
     const sessionToken = sessionTokenFromRequest(request);
     const accessContext = await resolveSessionContext(accessBundle, {
