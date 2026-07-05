@@ -22,6 +22,8 @@ const runtimePaths = {
 };
 
 const riskOrder = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+const directExecuteActionIds = new Set(["autopilot-execute", "smart-park-continue", "smart-park-blockers", "agent-real-plan"]);
+const agentRuntimeIds = new Set(["auto", "codex-cli", "claude-code", "gemini", "openhands", "aider", "local-agent"]);
 
 const consoleActionCatalog = {
   "workspace-goal": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
@@ -140,6 +142,14 @@ function planDefinition(bundle, planId) {
   return (bundle.plans.plans ?? []).find((plan) => plan.plan_id === planId) ?? null;
 }
 
+function activeMembershipsForPlan(bundle, planId, workspaceId = null) {
+  return (bundle.memberships.memberships ?? []).filter((membership) =>
+    membership.plan_id === planId
+    && membership.status === "ACTIVE"
+    && (!workspaceId || membership.workspace_id === workspaceId)
+  );
+}
+
 function findUserRecord(bundle, userOrUsername) {
   const value = String(userOrUsername ?? "").trim();
   if (!value) return null;
@@ -224,6 +234,42 @@ function normalizeProjectAllowlist(projects, fallback = ["jinhu-smart-park"]) {
   if (!raw) return [...fallback];
   if (raw === "*") return ["*"];
   return unique(raw.split(",").map((item) => item.trim()).filter(Boolean));
+}
+
+function requestedRuntimeId(input = {}) {
+  const runtime = String(input.runtime_id ?? input.runtimeId ?? input.agent ?? input.requested_agent ?? "auto").trim() || "auto";
+  return agentRuntimeIds.has(runtime) ? runtime : "auto";
+}
+
+function requestedParallelCount(input = {}) {
+  const explicit = Number(input.parallel_count ?? input.parallelCount ?? input.parallel ?? 0);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  const actionId = String(input.action_id ?? input.actionId ?? "").trim();
+  return directExecuteActionIds.has(actionId) ? 4 : 1;
+}
+
+function planLimits(plan) {
+  return {
+    seat_limit: Number.isFinite(Number(plan?.seat_limit)) ? Number(plan.seat_limit) : null,
+    project_scope_limit: Number.isFinite(Number(plan?.project_scope_limit)) ? Number(plan.project_scope_limit) : null,
+    worker_parallel_limit: Number.isFinite(Number(plan?.worker_parallel_limit)) ? Number(plan.worker_parallel_limit) : null,
+    runtime_allowlist: Array.isArray(plan?.runtime_allowlist) ? [...plan.runtime_allowlist] : []
+  };
+}
+
+function planAllowsRuntime(plan, runtimeId) {
+  const allowlist = Array.isArray(plan?.runtime_allowlist) ? plan.runtime_allowlist : [];
+  return allowlist.includes("*") || allowlist.includes(runtimeId);
+}
+
+function enforceProjectScopeLimit(plan, projectAllowlist) {
+  const normalized = normalizeProjectAllowlist(projectAllowlist);
+  const limit = Number(plan?.project_scope_limit ?? 0);
+  if (!Number.isFinite(limit) || limit <= 0 || normalized.includes("*")) return normalized;
+  if (normalized.length > limit) {
+    throw new Error(`Plan ${plan.plan_id} allows at most ${limit} project scopes, received ${normalized.length}.`);
+  }
+  return normalized;
 }
 
 function defaultAnonymousContext(bundle) {
@@ -378,7 +424,11 @@ export function listPlanEntitlements(bundle) {
     capability_count: (plan.capabilities ?? []).length,
     beta_feature_count: (plan.beta_features ?? []).length,
     direct_execute_max_risk: plan.direct_execute_max_risk,
-    seat_limit: plan.seat_limit
+    seat_limit: plan.seat_limit,
+    seat_usage: activeMembershipsForPlan(bundle, plan.plan_id, bundle.state.workspace_id ?? bundle.policy.default_workspace_id).length,
+    project_scope_limit: plan.project_scope_limit ?? null,
+    worker_parallel_limit: plan.worker_parallel_limit ?? null,
+    runtime_allowlist: Array.isArray(plan.runtime_allowlist) ? plan.runtime_allowlist : []
   }));
 }
 
@@ -404,7 +454,8 @@ export function accessSummary(bundle, context = null) {
       tier: current.plan.tier
     } : null,
     current_roles: current.roles.map((role) => role.role_id),
-    direct_execute_max_risk: current.direct_execute_max_risk
+    direct_execute_max_risk: current.direct_execute_max_risk,
+    current_plan_limits: current.plan ? planLimits(current.plan) : null
   };
 }
 
@@ -517,7 +568,8 @@ export async function currentSessionSummary(bundle, token, options = {}) {
     plan: context.plan ? {
       plan_id: context.plan.plan_id,
       display_name: context.plan.display_name,
-      tier: context.plan.tier
+      tier: context.plan.tier,
+      limits: planLimits(context.plan)
     } : null,
     capabilities: context.capabilities,
     direct_execute_max_risk: context.direct_execute_max_risk,
@@ -553,6 +605,8 @@ export async function evaluateConsoleActionAccess(bundle, input = {}, options = 
   const projectId = String(input.project_id ?? input.projectId ?? "").trim();
   const risk = riskOrder.includes(input.risk) ? input.risk : "LOW";
   const attachmentCount = Number(input.attachment_count ?? input.attachmentCount ?? 0);
+  const runtimeId = requestedRuntimeId(input);
+  const parallelCount = requestedParallelCount({ ...input, action_id: actionId });
   const context = options.user_context
     ?? await resolveSessionContext(bundle, {
       session_token: options.session_token,
@@ -569,6 +623,7 @@ export async function evaluateConsoleActionAccess(bundle, input = {}, options = 
       effective_capabilities: [],
       direct_execute_max_risk: "LOW",
       project_scope: [],
+      plan_limits: null,
       reason: "当前 Console 动作需要先登录本地 Studio 账号。"
     };
   }
@@ -581,6 +636,7 @@ export async function evaluateConsoleActionAccess(bundle, input = {}, options = 
       effective_capabilities: context.capabilities,
       direct_execute_max_risk: context.direct_execute_max_risk,
       project_scope: context.project_allowlist,
+      plan_limits: context.plan ? planLimits(context.plan) : null,
       reason: `未注册的 Console 动作：${actionId}`
     };
   }
@@ -593,6 +649,7 @@ export async function evaluateConsoleActionAccess(bundle, input = {}, options = 
       effective_capabilities: context.capabilities,
       direct_execute_max_risk: context.direct_execute_max_risk,
       project_scope: context.project_allowlist,
+      plan_limits: context.plan ? planLimits(context.plan) : null,
       reason: `账号 ${context.user.username} 未被授权访问项目 ${projectId}。`
     };
   }
@@ -609,7 +666,37 @@ export async function evaluateConsoleActionAccess(bundle, input = {}, options = 
       effective_capabilities: context.capabilities,
       direct_execute_max_risk: context.direct_execute_max_risk,
       project_scope: context.project_allowlist,
+      plan_limits: context.plan ? planLimits(context.plan) : null,
       reason: `缺少能力：${missingCapabilities.join(", ")}`
+    };
+  }
+
+  if (context.plan && !planAllowsRuntime(context.plan, runtimeId)) {
+    return {
+      status: "DENY",
+      execution_mode: action.execution_mode,
+      required_capabilities: requiredCapabilities,
+      missing_capabilities: [],
+      effective_capabilities: context.capabilities,
+      direct_execute_max_risk: context.direct_execute_max_risk,
+      project_scope: context.project_allowlist,
+      plan_limits: planLimits(context.plan),
+      reason: `当前套餐 ${context.plan.display_name} 不允许使用 runtime ${runtimeId}。`
+    };
+  }
+
+  const workerParallelLimit = Number(context.plan?.worker_parallel_limit ?? 0);
+  if (action.execution_mode === "direct_execute" && Number.isFinite(workerParallelLimit) && workerParallelLimit > 0 && parallelCount > workerParallelLimit) {
+    return {
+      status: "DENY",
+      execution_mode: action.execution_mode,
+      required_capabilities: requiredCapabilities,
+      missing_capabilities: [],
+      effective_capabilities: context.capabilities,
+      direct_execute_max_risk: context.direct_execute_max_risk,
+      project_scope: context.project_allowlist,
+      plan_limits: planLimits(context.plan),
+      reason: `当前套餐 ${context.plan.display_name} 最多允许 ${workerParallelLimit} 并发，本次请求为 ${parallelCount}。`
     };
   }
 
@@ -622,6 +709,7 @@ export async function evaluateConsoleActionAccess(bundle, input = {}, options = 
       effective_capabilities: context.capabilities,
       direct_execute_max_risk: context.direct_execute_max_risk,
       project_scope: context.project_allowlist,
+      plan_limits: context.plan ? planLimits(context.plan) : null,
       reason: `当前账号最高只允许直接执行 ${context.direct_execute_max_risk} 风险动作，不能直接执行 ${risk}。`
     };
   }
@@ -634,6 +722,7 @@ export async function evaluateConsoleActionAccess(bundle, input = {}, options = 
     effective_capabilities: context.capabilities,
     direct_execute_max_risk: context.direct_execute_max_risk,
     project_scope: context.project_allowlist,
+    plan_limits: context.plan ? planLimits(context.plan) : null,
     reason: `账号 ${context.user.username} 已通过 Access Center 校验。`
   };
 }
@@ -695,8 +784,13 @@ export async function assignWorkspacePlan(bundle, userOrUsername, planId, option
 
   const membershipsDocument = ensureMembershipDocument(bundle);
   const membership = ensureMembershipRecord(bundle, membershipsDocument, usersDocument.users[userIndex], workspaceId);
+  const seatUsage = activeMembershipsForPlan(bundle, plan.plan_id, workspaceId).filter((item) => item.user_id !== user.user_id).length;
+  if (Number.isFinite(Number(plan.seat_limit)) && seatUsage >= Number(plan.seat_limit)) {
+    throw new Error(`Plan ${plan.plan_id} has reached seat limit ${plan.seat_limit} in workspace ${workspaceId}.`);
+  }
   membership.plan_id = plan.plan_id;
   membership.status = membership.status === "SUSPENDED" ? "ACTIVE" : membership.status;
+  membership.project_allowlist = enforceProjectScopeLimit(plan, membership.project_allowlist ?? defaultProjectAllowlistForRole(usersDocument.users[userIndex].primary_role_id));
 
   const usersPath = await persistUsersDocument(usersDocument);
   const membershipsPath = await persistMembershipsDocument(membershipsDocument);
@@ -748,6 +842,10 @@ export async function createStudioUser(bundle, input = {}) {
   if (!role) throw new Error(`Role not found: ${roleId}`);
   const plan = planDefinition(bundle, planId);
   if (!plan) throw new Error(`Plan not found: ${planId}`);
+  const seatUsage = activeMembershipsForPlan(bundle, plan.plan_id, workspaceId).length;
+  if (Number.isFinite(Number(plan.seat_limit)) && seatUsage >= Number(plan.seat_limit)) {
+    throw new Error(`Plan ${plan.plan_id} has reached seat limit ${plan.seat_limit} in workspace ${workspaceId}.`);
+  }
 
   const usersDocument = ensureUserDocument(bundle);
   const userId = `studio-${slugifySegment(username, "user")}`;
@@ -776,7 +874,7 @@ export async function createStudioUser(bundle, input = {}) {
     status: "ACTIVE",
     plan_id: plan.plan_id,
     role_ids: [role.role_id],
-    project_allowlist: projectAllowlist,
+    project_allowlist: enforceProjectScopeLimit(plan, projectAllowlist),
     beta_features: []
   });
 
@@ -795,7 +893,8 @@ export async function updateWorkspaceProjectScope(bundle, userOrUsername, projec
   const workspaceId = options.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id;
   const membershipsDocument = ensureMembershipDocument(bundle);
   const membership = ensureMembershipRecord(bundle, membershipsDocument, user, workspaceId);
-  membership.project_allowlist = normalizeProjectAllowlist(projects, membership.project_allowlist ?? defaultProjectAllowlistForRole(user.primary_role_id));
+  const plan = planDefinition(bundle, membership.plan_id ?? user.default_plan_id);
+  membership.project_allowlist = enforceProjectScopeLimit(plan, normalizeProjectAllowlist(projects, membership.project_allowlist ?? defaultProjectAllowlistForRole(user.primary_role_id)));
   const writtenPath = await persistMembershipsDocument(membershipsDocument);
   return {
     user: sanitizeUser(user),
@@ -820,6 +919,23 @@ export async function updateWorkspaceMembershipStatus(bundle, userOrUsername, st
     membership,
     written_path: writtenPath
   };
+}
+
+export function workspaceEntitlementUsage(bundle, workspaceId = null) {
+  const effectiveWorkspaceId = workspaceId ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id;
+  return (bundle.plans.plans ?? []).map((plan) => {
+    const memberships = activeMembershipsForPlan(bundle, plan.plan_id, effectiveWorkspaceId);
+    return {
+      plan_id: plan.plan_id,
+      display_name: plan.display_name,
+      seat_limit: Number.isFinite(Number(plan.seat_limit)) ? Number(plan.seat_limit) : null,
+      seat_usage: memberships.length,
+      seats_remaining: Number.isFinite(Number(plan.seat_limit)) ? Math.max(Number(plan.seat_limit) - memberships.length, 0) : null,
+      project_scope_limit: Number.isFinite(Number(plan.project_scope_limit)) ? Number(plan.project_scope_limit) : null,
+      worker_parallel_limit: Number.isFinite(Number(plan.worker_parallel_limit)) ? Number(plan.worker_parallel_limit) : null,
+      runtime_allowlist: Array.isArray(plan.runtime_allowlist) ? plan.runtime_allowlist : []
+    };
+  });
 }
 
 export async function loginToAccessCenter(username, password, metadata = {}) {

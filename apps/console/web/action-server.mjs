@@ -223,11 +223,38 @@ function normalizeProject(projectId) {
   return projects[projectId] ? projectId : "jinhu-smart-park";
 }
 
+function desiredParallelCountForAction(actionId, input = {}) {
+  const explicit = Number(input.parallel_count ?? input.parallelCount ?? input.parallel ?? 0);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  return ["autopilot-dry-run", "autopilot-execute", "agent-real-plan"].includes(actionId) ? 4 : 1;
+}
+
+function effectiveParallelCountForPlan(actionId, input = {}, userContext = null) {
+  const requested = desiredParallelCountForAction(actionId, input);
+  const workerLimit = Number(userContext?.plan?.worker_parallel_limit ?? 0);
+  if (!Number.isFinite(workerLimit) || workerLimit <= 0) {
+    return {
+      requested,
+      effective: requested,
+      adjusted: false,
+      limit: null
+    };
+  }
+  const effective = Math.max(1, Math.min(requested, workerLimit));
+  return {
+    requested,
+    effective,
+    adjusted: effective !== requested,
+    limit: workerLimit
+  };
+}
+
 function commandFor(input, plan = null) {
   const actionId = normalizeActionId(input.action_id, input);
   const projectId = normalizeProject(input.project_id);
   const goal = safeGoal(input.goal);
   const project = projects[projectId];
+  const effectiveParallel = Number(plan?.effective_parallel ?? input.parallel ?? input.parallel_count ?? 0) || 1;
 
   if (actionId === "ai-runtime-status") {
     return {
@@ -237,7 +264,7 @@ function commandFor(input, plan = null) {
     };
   }
   if (actionId === "agent-real-plan") {
-    return realAgentCommandFor({ ...input, agent: resolveExecutionAgent(input).effective }, plan?.attachments ?? []);
+    return realAgentCommandFor({ ...input, agent: plan?.agent ?? resolveExecutionAgent(input).effective }, plan?.attachments ?? []);
   }
   if (actionId === "context-summary") {
     return {
@@ -291,15 +318,15 @@ function commandFor(input, plan = null) {
   if (actionId === "autopilot-dry-run") {
     return {
       command: process.execPath,
-      args: [studioScript, "autopilot", "batch", "--goal", goal, "--dry-run", "--parallel", "4"],
-      display: `node ${studioScript} autopilot batch --goal "${goal}" --dry-run --parallel 4`
+      args: [studioScript, "autopilot", "batch", "--goal", goal, "--dry-run", "--parallel", String(effectiveParallel)],
+      display: `node ${studioScript} autopilot batch --goal "${goal}" --dry-run --parallel ${effectiveParallel}`
     };
   }
   if (actionId === "autopilot-execute") {
     return {
       command: process.execPath,
-      args: [studioScript, "autopilot", "batch", "--goal", goal, "--apply", "--parallel", "4"],
-      display: `node ${studioScript} autopilot batch --goal "${goal}" --apply --parallel 4`
+      args: [studioScript, "autopilot", "batch", "--goal", goal, "--apply", "--parallel", String(effectiveParallel)],
+      display: `node ${studioScript} autopilot batch --goal "${goal}" --apply --parallel ${effectiveParallel}`
     };
   }
   if (actionId === "smart-park-continue") {
@@ -419,23 +446,26 @@ async function resolveActionAccess(input, actionId, meta, options = {}) {
     session_token: options.session_token,
     allow_default_user: options.allow_default_user !== false
   });
+  const agentSelection = resolveExecutionAgent(input);
+  const parallel = effectiveParallelCountForPlan(actionId, input, context);
   const decision = await evaluateConsoleActionAccess(bundle, {
     action_id: actionId,
     project_id: normalizeProject(input.project_id),
     risk: meta.risk,
-    attachment_count: Array.isArray(input.attachments) ? input.attachments.length : 0
+    attachment_count: Array.isArray(input.attachments) ? input.attachments.length : 0,
+    runtime_id: agentSelection.effective,
+    parallel_count: parallel.effective
   }, {
     user_context: context,
     allow_default_user: options.allow_default_user !== false
   });
-  return { bundle, context, decision };
+  return { bundle, context, decision, agentSelection, parallel };
 }
 
 function buildPlan(input, access = {}) {
   const actionId = normalizeActionId(input.action_id, input);
   const projectId = normalizeProject(input.project_id);
   const meta = actionMeta(actionId);
-  const command = commandFor({ ...input, action_id: actionId, project_id: projectId });
   const gate = governanceGateForRisk(meta.risk);
   const accessContext = access.context ?? null;
   const accessDecision = access.decision ?? {
@@ -446,14 +476,15 @@ function buildPlan(input, access = {}) {
     missing_capabilities: [],
     effective_capabilities: [],
     direct_execute_max_risk: "MEDIUM",
-    project_scope: ["*"]
+      project_scope: ["*"]
   };
-  const agentSelection = resolveExecutionAgent(input);
+  const agentSelection = access.agentSelection ?? resolveExecutionAgent(input);
+  const parallel = access.parallel ?? effectiveParallelCountForPlan(actionId, input, accessContext);
   const now = new Date().toISOString();
   const planId = `console-action-${timestampForFile(now)}-${createHash("sha1").update(`${actionId}:${projectId}:${now}`).digest("hex").slice(0, 8)}`;
   const accessBlocked = accessDecision.status !== "ALLOW";
   const blockedReason = accessBlocked ? accessDecision.reason : gate.blocked_reason;
-  return {
+  const plan = {
     schema_version: 1,
     plan_id: planId,
     created_at: now,
@@ -465,10 +496,10 @@ function buildPlan(input, access = {}) {
     workspace_mode: normalizeWorkspaceMode(input),
     requested_agent: agentSelection.requested,
     agent: actionId === "agent-real-plan" ? agentSelection.effective : normalizeRequestedAgent(input),
+    runtime_id: agentSelection.effective,
     agent_fallback: actionId === "agent-real-plan" && agentSelection.fallback
       ? `所选 Agent 当前未接本地执行，已回退到 ${agentSelection.effective}`
       : null,
-    command: command.display,
     risk: meta.risk,
     approval_required: gate.approval_required,
     mode: gate.execution_mode,
@@ -500,8 +531,20 @@ function buildPlan(input, access = {}) {
       required_capabilities: accessDecision.required_capabilities,
       missing_capabilities: accessDecision.missing_capabilities,
       direct_execute_max_risk: accessDecision.direct_execute_max_risk,
-      project_scope: accessDecision.project_scope
+      project_scope: accessDecision.project_scope,
+      plan_limits: accessDecision.plan_limits ?? null
     },
+    requested_parallel: parallel.requested,
+    effective_parallel: parallel.effective,
+    limit_adjustments: parallel.adjusted
+      ? {
+          parallel: {
+            requested: parallel.requested,
+            effective: parallel.effective,
+            reason: `当前套餐并发上限为 ${parallel.limit}，已按套餐额度自动收敛。`
+          }
+        }
+      : null,
     safety: {
       bind_address: "127.0.0.1",
       pilot_production_mode: true,
@@ -516,6 +559,11 @@ function buildPlan(input, access = {}) {
       managed_project_writes: "disabled",
       external_model_call: actionId === "agent-real-plan" ? "user_selected_local_cli_runtime" : "disabled"
     }
+  };
+  const command = commandFor({ ...input, action_id: actionId, project_id: projectId }, plan);
+  return {
+    ...plan,
+    command: command.display
   };
 }
 
@@ -825,6 +873,8 @@ function markdownLog(record) {
 - target_project: ${record.plan.target_project}
 - workspace_mode: ${record.plan.workspace_mode}
 - agent: ${record.plan.agent}
+- runtime_id: ${record.plan.runtime_id}
+- parallel: ${record.plan.effective_parallel}${record.plan.requested_parallel !== record.plan.effective_parallel ? ` (requested ${record.plan.requested_parallel})` : ""}
 - risk: ${record.plan.risk}
 - approval_required: ${record.plan.approval_required ? "yes" : "no"}
 - mode: ${record.plan.mode}

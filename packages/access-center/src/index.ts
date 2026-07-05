@@ -45,6 +45,9 @@ export interface PlanEntitlement {
   readonly beta_features: readonly string[];
   readonly direct_execute_max_risk: AccessRiskLevel;
   readonly seat_limit: number;
+  readonly project_scope_limit?: number;
+  readonly worker_parallel_limit?: number;
+  readonly runtime_allowlist?: readonly string[];
 }
 
 export interface AccessPolicy {
@@ -91,6 +94,12 @@ export interface ConsoleActionAccessDecision {
   readonly effective_capabilities: readonly string[];
   readonly direct_execute_max_risk: AccessRiskLevel;
   readonly project_scope: readonly string[];
+  readonly plan_limits?: {
+    readonly seat_limit: number | null;
+    readonly project_scope_limit: number | null;
+    readonly worker_parallel_limit: number | null;
+    readonly runtime_allowlist: readonly string[];
+  };
   readonly reason: string;
 }
 

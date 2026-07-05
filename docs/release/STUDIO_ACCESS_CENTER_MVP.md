@@ -11,6 +11,7 @@
 - Console Action Server 接入登录态与动作判定
 - CLI 增加 Access Center 只读检查命令
 - CLI 增加本地账号管理命令
+- 套餐接入 seat 数、项目范围数、Worker 并发数、Runtime allowlist 限额
 - Console 页面增加本地登录门禁、会话显示与基于 access profile 的页面裁剪
 - 不读取真实外部身份系统
 - 不接企业 SSO
@@ -42,6 +43,33 @@
 - `starter`
 - `team`
 - `enterprise`
+
+## 套餐限额
+
+本轮已把套餐从“只定义能力集合”补到“真实约束执行边界”：
+
+- `seat_limit`
+  - 控制当前 workspace 可激活成员数
+- `project_scope_limit`
+  - 控制单个成员最多可绑定多少项目
+- `worker_parallel_limit`
+  - 控制本地安全执行动作的最大并发
+- `runtime_allowlist`
+  - 控制当前套餐允许使用哪些 AI Runtime
+
+当前默认示例：
+
+- `starter`
+  - 1 个项目范围
+  - 1 并发
+  - `codex-cli` / `auto`
+- `team`
+  - 3 个项目范围
+  - 2 并发
+  - `codex-cli` / `claude-code` / `local-agent` / `auto`
+- `enterprise`
+  - 高并发
+  - 全 runtime
 
 ## 默认本地账号
 
@@ -116,6 +144,22 @@
    - 用项目 allowlist 控制用户只看到或只操作指定项目
    - 支持 `*` 全项目和逗号分隔列表
 
+### Phase 3 套餐执行约束
+
+本轮继续把套餐额度接入真实执行路径：
+
+1. `access set-plan`
+   - 切套餐时会校验目标套餐 seat 是否已满
+   - 同时校验既有项目范围是否超出套餐上限
+2. `access create-user`
+   - 创建本地内测账号时立即校验 seat 和项目范围额度
+3. `access set-project-scope`
+   - 编辑项目范围时立即校验项目数是否超限
+4. Console Action Server
+   - 执行动作前会校验 runtime 是否在套餐 allowlist 内
+   - 执行动作会按 `worker_parallel_limit` 自动收敛并发，不再固定 `--parallel 4`
+   - 日志里会写明 requested/effective parallel，便于审计
+
 ## Console 裁剪
 
 登录后，Console 会按当前账号的角色、套餐和 capability 自动裁剪：
@@ -128,6 +172,6 @@
 ## 下一步
 
 1. 接企业用户目录或 SSO
-2. 增加 seat 使用量统计、套餐升级和超额提醒
-3. 把套餐能力继续接到项目数量、Worker 并发数、Runtime 使用额度
+2. 增加 seat、项目额度和并发超额提醒 UI
+3. 把套餐限制继续接到团队邀请、审批流和账单模型
 4. 把审批、团队邀请和账单边界接到正式 Product Access Center

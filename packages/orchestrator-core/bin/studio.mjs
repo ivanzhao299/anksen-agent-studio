@@ -8132,6 +8132,7 @@ async function accessSummaryDryRun(args) {
   const { api, bundle } = await loadAccessCenterApi();
   const context = args.user.trim() ? api.resolveUserProfile(bundle, args.user.trim()) : null;
   const summary = api.accessSummary(bundle, context);
+  const entitlementUsage = api.workspaceEntitlementUsage(bundle, summary.workspace_id);
   console.log("# Access Center Summary dry-run");
   console.log("");
   console.log(`policy_id: ${summary.policy_id}`);
@@ -8150,6 +8151,19 @@ async function accessSummaryDryRun(args) {
     console.log(`selected_plan: ${summary.current_plan?.display_name ?? "none"}`);
     console.log(`selected_roles: ${summary.current_roles.length > 0 ? summary.current_roles.join(", ") : "none"}`);
     console.log(`direct_execute_max_risk: ${summary.direct_execute_max_risk}`);
+    if (summary.current_plan_limits) {
+      console.log(`seat_limit: ${summary.current_plan_limits.seat_limit ?? "unlimited"}`);
+      console.log(`project_scope_limit: ${summary.current_plan_limits.project_scope_limit ?? "unlimited"}`);
+      console.log(`worker_parallel_limit: ${summary.current_plan_limits.worker_parallel_limit ?? "unlimited"}`);
+      console.log(`runtime_allowlist: ${summary.current_plan_limits.runtime_allowlist?.join(", ") || "none"}`);
+    }
+  }
+  console.log("");
+  console.log("| Plan | Seats | Project Scope | Worker Parallel | Runtime Allowlist |");
+  console.log("| --- | --- | --- | --- | --- |");
+  for (const item of entitlementUsage) {
+    const seats = item.seat_limit == null ? `${item.seat_usage}/unlimited` : `${item.seat_usage}/${item.seat_limit}`;
+    console.log(`| ${item.display_name} | ${seats} | ${item.project_scope_limit ?? "unlimited"} | ${item.worker_parallel_limit ?? "unlimited"} | ${(item.runtime_allowlist ?? []).join(", ") || "none"} |`);
   }
 }
 
@@ -8175,10 +8189,11 @@ async function accessPlansDryRun(args) {
   console.log("# Access Center Plans dry-run");
   console.log("");
   console.log(`plans: ${plans.length}`);
-  console.log("| Plan | Tier | Capabilities | Beta Features | Direct Execute | Seats |");
-  console.log("| --- | --- | --- | --- | --- | --- |");
+  console.log("| Plan | Tier | Capabilities | Beta Features | Direct Execute | Seats | Project Scope | Worker Parallel | Runtime Allowlist |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const plan of plans) {
-    console.log(`| ${plan.display_name} | ${plan.tier} | ${plan.capability_count} | ${plan.beta_feature_count} | ${plan.direct_execute_max_risk} | ${plan.seat_limit} |`);
+    const seatUsage = plan.seat_limit == null ? `${plan.seat_usage}/unlimited` : `${plan.seat_usage}/${plan.seat_limit}`;
+    console.log(`| ${plan.display_name} | ${plan.tier} | ${plan.capability_count} | ${plan.beta_feature_count} | ${plan.direct_execute_max_risk} | ${seatUsage} | ${plan.project_scope_limit ?? "unlimited"} | ${plan.worker_parallel_limit ?? "unlimited"} | ${(plan.runtime_allowlist ?? []).join(", ") || "none"} |`);
   }
 }
 
@@ -8193,11 +8208,18 @@ async function accessCheckDryRun(args) {
   const action = (actionCenter.actions ?? []).find((item) => item.id === normalizedActionId) ?? null;
   const projectId = args.project && args.project !== DEFAULT_PROJECT ? args.project : "jinhu-smart-park";
   const context = api.resolveUserProfile(bundle, args.user.trim());
+  const requestedParallel = ["autopilot-execute", "smart-park-continue", "smart-park-blockers", "agent-real-plan"].includes(normalizedActionId) ? 4 : 1;
+  const workerParallelLimit = Number(context.plan?.worker_parallel_limit ?? 0);
+  const effectiveParallel = Number.isFinite(workerParallelLimit) && workerParallelLimit > 0
+    ? Math.max(1, Math.min(requestedParallel, workerParallelLimit))
+    : requestedParallel;
   const decision = await api.evaluateConsoleActionAccess(bundle, {
     action_id: normalizedActionId,
     project_id: projectId,
     risk: action?.risk ?? "LOW",
-    attachment_count: 0
+    attachment_count: 0,
+    runtime_id: "codex-cli",
+    parallel_count: effectiveParallel
   }, {
     user_context: context,
     allow_default_user: false
@@ -8212,6 +8234,8 @@ async function accessCheckDryRun(args) {
   console.log(`action_label: ${action?.label ?? "not_registered"}`);
   console.log(`target_project: ${projectId}`);
   console.log(`risk: ${action?.risk ?? "LOW"}`);
+  console.log(`requested_parallel: ${requestedParallel}`);
+  console.log(`effective_parallel: ${effectiveParallel}`);
   console.log(`status: ${decision.status}`);
   console.log(`execution_mode: ${decision.execution_mode}`);
   console.log(`reason: ${decision.reason}`);
@@ -8222,6 +8246,12 @@ async function accessCheckDryRun(args) {
   console.log(`direct_execute_max_risk: ${decision.direct_execute_max_risk}`);
   console.log(`roles: ${context.roles.map((role) => role.role_id).join(", ") || "none"}`);
   console.log(`plan: ${context.plan?.display_name ?? "none"}`);
+  if (decision.plan_limits) {
+    console.log(`seat_limit: ${decision.plan_limits.seat_limit ?? "unlimited"}`);
+    console.log(`project_scope_limit: ${decision.plan_limits.project_scope_limit ?? "unlimited"}`);
+    console.log(`worker_parallel_limit: ${decision.plan_limits.worker_parallel_limit ?? "unlimited"}`);
+    console.log(`runtime_allowlist: ${decision.plan_limits.runtime_allowlist?.join(", ") || "none"}`);
+  }
 }
 
 function assertDryRunOrApply(args, commandName) {

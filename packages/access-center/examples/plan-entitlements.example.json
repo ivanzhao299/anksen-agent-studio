@@ -29,7 +29,10 @@
       ],
       "beta_features": ["console_live_execute", "multi_project_beta", "real_runtime_visibility"],
       "direct_execute_max_risk": "MEDIUM",
-      "seat_limit": 25
+      "seat_limit": 25,
+      "project_scope_limit": 999,
+      "worker_parallel_limit": 4,
+      "runtime_allowlist": ["codex-cli", "claude-code", "gemini", "openhands", "aider", "local-agent", "auto"]
     },
     {
       "plan_id": "starter",
@@ -53,7 +56,10 @@
       ],
       "beta_features": [],
       "direct_execute_max_risk": "LOW",
-      "seat_limit": 5
+      "seat_limit": 5,
+      "project_scope_limit": 1,
+      "worker_parallel_limit": 1,
+      "runtime_allowlist": ["codex-cli", "auto"]
     },
     {
       "plan_id": "team",
@@ -81,7 +87,10 @@
       ],
       "beta_features": ["beta_console_actions"],
       "direct_execute_max_risk": "MEDIUM",
-      "seat_limit": 15
+      "seat_limit": 15,
+      "project_scope_limit": 3,
+      "worker_parallel_limit": 2,
+      "runtime_allowlist": ["codex-cli", "claude-code", "local-agent", "auto"]
     },
     {
       "plan_id": "enterprise",
@@ -90,7 +99,10 @@
       "capabilities": ["*"],
       "beta_features": ["*"],
       "direct_execute_max_risk": "MEDIUM",
-      "seat_limit": 200
+      "seat_limit": 200,
+      "project_scope_limit": 999,
+      "worker_parallel_limit": 8,
+      "runtime_allowlist": ["*"]
     }
   ]
 }
