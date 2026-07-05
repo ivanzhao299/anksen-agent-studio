@@ -68,6 +68,21 @@
         "jinhu-smart-park"
       ],
       "beta_features": []
+    },
+    {
+      "membership_id": "membership-anksen-agent-studio-local-studio-uat-reviewer",
+      "workspace_id": "anksen-agent-studio-local",
+      "user_id": "studio-uat-reviewer",
+      "status": "ACTIVE",
+      "plan_id": "starter",
+      "role_ids": [
+        "reviewer"
+      ],
+      "project_allowlist": [
+        "jinhu-smart-park",
+        "phoenix-erp"
+      ],
+      "beta_features": []
     }
   ]
 }

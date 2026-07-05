@@ -215,6 +215,17 @@ function ensureMembershipRecord(bundle, document, user, workspaceId) {
   return membership;
 }
 
+function normalizeProjectAllowlist(projects, fallback = ["jinhu-smart-park"]) {
+  if (Array.isArray(projects)) {
+    const values = unique(projects.map((item) => String(item ?? "").trim()).filter(Boolean));
+    return values.includes("*") ? ["*"] : values;
+  }
+  const raw = String(projects ?? "").trim();
+  if (!raw) return [...fallback];
+  if (raw === "*") return ["*"];
+  return unique(raw.split(",").map((item) => item.trim()).filter(Boolean));
+}
+
 function defaultAnonymousContext(bundle) {
   return {
     authenticated: false,
@@ -709,6 +720,100 @@ export async function assignWorkspaceRole(bundle, userOrUsername, roleId, option
     membership.project_allowlist = defaultProjectAllowlistForRole(role.role_id);
   }
   membership.status = "ACTIVE";
+  const writtenPath = await persistMembershipsDocument(membershipsDocument);
+  return {
+    user: sanitizeUser(user),
+    membership,
+    written_path: writtenPath
+  };
+}
+
+export async function createStudioUser(bundle, input = {}) {
+  const username = String(input.username ?? "").trim().toLowerCase();
+  const displayName = String(input.display_name ?? input.displayName ?? "").trim();
+  const roleId = String(input.role_id ?? input.roleId ?? "").trim();
+  const planId = String(input.plan_id ?? input.planId ?? "").trim();
+  const password = String(input.password ?? "").trim();
+  const workspaceId = String(input.workspace_id ?? input.workspaceId ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id).trim();
+  const projectAllowlist = normalizeProjectAllowlist(input.project_allowlist ?? input.projectAllowlist, defaultProjectAllowlistForRole(roleId));
+
+  if (!username) throw new Error("Username is required.");
+  if (!displayName) throw new Error("Display name is required.");
+  if (!roleId) throw new Error("Role is required.");
+  if (!planId) throw new Error("Plan is required.");
+  if (password.length < 8) throw new Error("Password must contain at least 8 characters.");
+  if (findUserRecord(bundle, username)) throw new Error(`Studio user already exists: ${username}`);
+
+  const role = roleDefinition(bundle, roleId);
+  if (!role) throw new Error(`Role not found: ${roleId}`);
+  const plan = planDefinition(bundle, planId);
+  if (!plan) throw new Error(`Plan not found: ${planId}`);
+
+  const usersDocument = ensureUserDocument(bundle);
+  const userId = `studio-${slugifySegment(username, "user")}`;
+  if ((usersDocument.users ?? []).some((item) => item.user_id === userId)) {
+    throw new Error(`Generated user_id already exists: ${userId}`);
+  }
+  const salt = `anksen-${slugifySegment(username, "user")}-${Date.now().toString(36)}`;
+  const nextUser = {
+    user_id: userId,
+    username,
+    display_name: displayName,
+    status: "ACTIVE",
+    primary_role_id: role.role_id,
+    role_ids: [role.role_id],
+    default_plan_id: plan.plan_id,
+    feature_overrides: [],
+    password_hash: passwordHash(password, salt)
+  };
+  usersDocument.users.push(nextUser);
+
+  const membershipsDocument = ensureMembershipDocument(bundle);
+  membershipsDocument.memberships.push({
+    membership_id: `membership-${slugifySegment(workspaceId, "workspace")}-${slugifySegment(userId, "user")}`,
+    workspace_id: workspaceId,
+    user_id: userId,
+    status: "ACTIVE",
+    plan_id: plan.plan_id,
+    role_ids: [role.role_id],
+    project_allowlist: projectAllowlist,
+    beta_features: []
+  });
+
+  const usersPath = await persistUsersDocument(usersDocument);
+  const membershipsPath = await persistMembershipsDocument(membershipsDocument);
+  return {
+    user: sanitizeUser(nextUser),
+    membership: membershipsDocument.memberships.at(-1),
+    written_paths: [usersPath, membershipsPath]
+  };
+}
+
+export async function updateWorkspaceProjectScope(bundle, userOrUsername, projects, options = {}) {
+  const user = findUserRecord(bundle, userOrUsername);
+  if (!user) throw new Error(`Studio user not found: ${userOrUsername}`);
+  const workspaceId = options.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id;
+  const membershipsDocument = ensureMembershipDocument(bundle);
+  const membership = ensureMembershipRecord(bundle, membershipsDocument, user, workspaceId);
+  membership.project_allowlist = normalizeProjectAllowlist(projects, membership.project_allowlist ?? defaultProjectAllowlistForRole(user.primary_role_id));
+  const writtenPath = await persistMembershipsDocument(membershipsDocument);
+  return {
+    user: sanitizeUser(user),
+    membership,
+    written_path: writtenPath
+  };
+}
+
+export async function updateWorkspaceMembershipStatus(bundle, userOrUsername, status, options = {}) {
+  if (!["ACTIVE", "PENDING", "SUSPENDED"].includes(status)) {
+    throw new Error(`Unsupported workspace membership status: ${status}`);
+  }
+  const user = findUserRecord(bundle, userOrUsername);
+  if (!user) throw new Error(`Studio user not found: ${userOrUsername}`);
+  const workspaceId = options.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id;
+  const membershipsDocument = ensureMembershipDocument(bundle);
+  const membership = ensureMembershipRecord(bundle, membershipsDocument, user, workspaceId);
+  membership.status = status;
   const writtenPath = await persistMembershipsDocument(membershipsDocument);
   return {
     user: sanitizeUser(user),

@@ -63,6 +63,19 @@
       "default_plan_id": "starter",
       "feature_overrides": [],
       "password_hash": "scrypt$anksen-viewer$9ccf2f80d9af01c47469f47ce09b6759e2f0badb5003f1485026f2c3e6dfc1e08ac87f1d49e6376d9395c11811e6dbfa0c2459cccfad99c19e7e5e5f7411167d"
+    },
+    {
+      "user_id": "studio-uat-reviewer",
+      "username": "uat-reviewer",
+      "display_name": "UAT 审阅者",
+      "status": "ACTIVE",
+      "primary_role_id": "reviewer",
+      "role_ids": [
+        "reviewer"
+      ],
+      "default_plan_id": "starter",
+      "feature_overrides": [],
+      "password_hash": "scrypt$anksen-uat-reviewer-mr7pfidq$f098e1f924e97b4540525cb326bf97a31b3ec143534339b7c73a44468bf1089296400b2735c948b23922ace7504bc4fb92fdbce9b8230b86b8051f14e2eb74d2"
     }
   ]
 }

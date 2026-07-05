@@ -76,6 +76,10 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs access reset-password --user <username> --password <new_password> [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access enable-user --user <username> [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access disable-user --user <username> [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs access create-user --user <username> --display-name <name> --role <role_id> --plan <plan_id> --password <initial_password> [--projects <csv|*>] [--workspace <workspace_id>] [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs access set-project-scope --user <username> --projects <csv|*> [--workspace <workspace_id>] [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs access suspend-membership --user <username> [--workspace <workspace_id>] [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs access resume-membership --user <username> [--workspace <workspace_id>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs runtime list
   node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run
   node packages/orchestrator-core/bin/studio.mjs runtime select --skill <skill_type> [--dry-run]
@@ -134,6 +138,8 @@ function parseArgs(argv) {
     role: "",
     plan: "",
     workspace: "",
+    displayName: "",
+    projects: "",
     serviceAction: command === "console" && subcommand === "service" ? rest[1] ?? "status" : "",
     region: "local",
     port: 4317,
@@ -193,6 +199,12 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--workspace") {
       args.workspace = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--display-name") {
+      args.displayName = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--projects") {
+      args.projects = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--port") {
       args.port = Number(rest[index + 1] ?? "4317");
@@ -8222,6 +8234,13 @@ function accessWorkspaceId(args, bundle) {
   return args.workspace.trim() || bundle.state.workspace_id || bundle.policy.default_workspace_id;
 }
 
+function accessProjectScopeList(args) {
+  const raw = args.projects.trim();
+  if (!raw) return [];
+  if (raw === "*") return ["*"];
+  return [...new Set(raw.split(",").map((item) => item.trim()).filter(Boolean))];
+}
+
 function printAccessMutationHeader(title, mode) {
   console.log(`# ${title} ${mode}`);
   console.log("");
@@ -8342,6 +8361,113 @@ async function accessToggleUser(args, status) {
   console.log("status: PASS");
   console.log(`user_id: ${result.user.user_id}`);
   console.log(`updated_status: ${result.user.status}`);
+  console.log(`written_path: ${relative(repoRoot, result.written_path)}`);
+}
+
+async function accessCreateUser(args) {
+  assertDryRunOrApply(args, "access create-user");
+  if (!args.user.trim()) throw new Error("Missing --user for access create-user.");
+  if (!args.displayName.trim()) throw new Error("Missing --display-name for access create-user.");
+  if (!args.role.trim()) throw new Error("Missing --role for access create-user.");
+  if (!args.plan.trim()) throw new Error("Missing --plan for access create-user.");
+  if (!args.password.trim()) throw new Error("Missing --password for access create-user.");
+
+  const { api, bundle } = await loadAccessCenterApi();
+  const workspaceId = accessWorkspaceId(args, bundle);
+  const projectAllowlist = accessProjectScopeList(args);
+  const role = (bundle.policy.roles ?? []).find((item) => item.role_id === args.role.trim());
+  const plan = (bundle.plans.plans ?? []).find((item) => item.plan_id === args.plan.trim());
+  if (!role) throw new Error(`Role not found: ${args.role.trim()}`);
+  if (!plan) throw new Error(`Plan not found: ${args.plan.trim()}`);
+
+  printAccessMutationHeader("Access Create User", args.apply ? "apply" : "dry-run");
+  console.log(`username: ${args.user.trim().toLowerCase()}`);
+  console.log(`display_name: ${args.displayName.trim()}`);
+  console.log(`workspace_id: ${workspaceId}`);
+  console.log(`role_id: ${role.role_id}`);
+  console.log(`plan_id: ${plan.plan_id}`);
+  console.log(`project_allowlist: ${(projectAllowlist.length > 0 ? projectAllowlist : ["default"]).join(", ")}`);
+  console.log(`password_length: ${args.password.trim().length}`);
+
+  if (args.dryRun) {
+    console.log("status: READY");
+    console.log("writes: runtime/global/access-users.json, runtime/global/access-memberships.json");
+    console.log("secret_values_read: no");
+    console.log("secret_values_stored: password_hash_only");
+    return;
+  }
+
+  const result = await api.createStudioUser(bundle, {
+    username: args.user.trim(),
+    display_name: args.displayName.trim(),
+    role_id: role.role_id,
+    plan_id: plan.plan_id,
+    password: args.password.trim(),
+    workspace_id: workspaceId,
+    project_allowlist: projectAllowlist.length > 0 ? projectAllowlist : undefined
+  });
+  console.log("status: PASS");
+  console.log(`user_id: ${result.user.user_id}`);
+  console.log(`membership_id: ${result.membership.membership_id}`);
+  console.log(`written_paths: ${result.written_paths.map((file) => relative(repoRoot, file)).join(", ")}`);
+  console.log("secret_values_read: no");
+  console.log("secret_values_stored: password_hash_only");
+}
+
+async function accessSetProjectScope(args) {
+  assertDryRunOrApply(args, "access set-project-scope");
+  if (!args.user.trim()) throw new Error("Missing --user for access set-project-scope.");
+  if (!args.projects.trim()) throw new Error("Missing --projects for access set-project-scope.");
+
+  const { api, bundle } = await loadAccessCenterApi();
+  const user = api.findStudioUser(bundle, args.user.trim());
+  if (!user) throw new Error(`Studio user not found: ${args.user.trim()}`);
+  const workspaceId = accessWorkspaceId(args, bundle);
+  const projects = accessProjectScopeList(args);
+
+  printAccessMutationHeader("Access Set Project Scope", args.apply ? "apply" : "dry-run");
+  console.log(`user: ${user.username}`);
+  console.log(`workspace_id: ${workspaceId}`);
+  console.log(`projects: ${projects.join(", ")}`);
+
+  if (args.dryRun) {
+    console.log("status: READY");
+    console.log("writes: runtime/global/access-memberships.json");
+    return;
+  }
+
+  const result = await api.updateWorkspaceProjectScope(bundle, user.user_id, projects, { workspace_id: workspaceId });
+  console.log("status: PASS");
+  console.log(`membership_id: ${result.membership.membership_id}`);
+  console.log(`project_allowlist: ${(result.membership.project_allowlist ?? []).join(", ")}`);
+  console.log(`written_path: ${relative(repoRoot, result.written_path)}`);
+}
+
+async function accessToggleMembership(args, status) {
+  const actionName = status === "ACTIVE" ? "access resume-membership" : "access suspend-membership";
+  assertDryRunOrApply(args, actionName);
+  if (!args.user.trim()) throw new Error(`Missing --user for ${actionName}.`);
+
+  const { api, bundle } = await loadAccessCenterApi();
+  const user = api.findStudioUser(bundle, args.user.trim());
+  if (!user) throw new Error(`Studio user not found: ${args.user.trim()}`);
+  const workspaceId = accessWorkspaceId(args, bundle);
+
+  printAccessMutationHeader(status === "ACTIVE" ? "Access Resume Membership" : "Access Suspend Membership", args.apply ? "apply" : "dry-run");
+  console.log(`user: ${user.username}`);
+  console.log(`workspace_id: ${workspaceId}`);
+  console.log(`next_status: ${status}`);
+
+  if (args.dryRun) {
+    console.log("status: READY");
+    console.log("writes: runtime/global/access-memberships.json");
+    return;
+  }
+
+  const result = await api.updateWorkspaceMembershipStatus(bundle, user.user_id, status, { workspace_id: workspaceId });
+  console.log("status: PASS");
+  console.log(`membership_id: ${result.membership.membership_id}`);
+  console.log(`updated_status: ${result.membership.status}`);
   console.log(`written_path: ${relative(repoRoot, result.written_path)}`);
 }
 
@@ -10970,6 +11096,10 @@ async function main() {
   if (args.command === "access" && args.subcommand === "reset-password") return accessResetPassword(args);
   if (args.command === "access" && args.subcommand === "enable-user") return accessToggleUser(args, "ACTIVE");
   if (args.command === "access" && args.subcommand === "disable-user") return accessToggleUser(args, "DISABLED");
+  if (args.command === "access" && args.subcommand === "create-user") return accessCreateUser(args);
+  if (args.command === "access" && args.subcommand === "set-project-scope") return accessSetProjectScope(args);
+  if (args.command === "access" && args.subcommand === "suspend-membership") return accessToggleMembership(args, "SUSPENDED");
+  if (args.command === "access" && args.subcommand === "resume-membership") return accessToggleMembership(args, "ACTIVE");
   if (args.command === "runtime" && args.subcommand === "list") return runtimeList();
   if (args.command === "runtime" && args.subcommand === "health") return runtimeHealth(args);
   if (args.command === "runtime" && args.subcommand === "select") return runtimeSelect(args);

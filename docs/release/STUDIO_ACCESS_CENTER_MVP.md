@@ -96,8 +96,25 @@
 - `node packages/orchestrator-core/bin/studio.mjs access reset-password --user viewer --password "NewPassword!2026" --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access enable-user --user viewer --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access disable-user --user viewer --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs access create-user --user uat-reviewer --display-name "UAT 审阅者" --role reviewer --plan starter --password "UatReviewer!2026" --projects jinhu-smart-park --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs access set-project-scope --user operator --projects jinhu-smart-park,phoenix-erp --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs access suspend-membership --user viewer --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs access resume-membership --user viewer --dry-run`
 
 这些命令默认操作本地 runtime JSON，不会接外部身份系统，不会写真实业务系统账号。
+
+### Phase 2 管理能力
+
+本轮已补齐三类高频动作：
+
+1. 本地创建内测账号
+   - 同时写入 `access-users.json` 与 `access-memberships.json`
+   - 初始密码只存 `scrypt` hash，不存明文
+2. workspace membership 冻结 / 恢复
+   - 可快速暂停某个内测账号在当前 workspace 的使用权
+3. 项目范围编辑
+   - 用项目 allowlist 控制用户只看到或只操作指定项目
+   - 支持 `*` 全项目和逗号分隔列表
 
 ## Console 裁剪
 
@@ -111,6 +128,6 @@
 ## 下一步
 
 1. 接企业用户目录或 SSO
-2. 增加 Access Center 的用户创建、套餐升级和 seat 分配命令
+2. 增加 seat 使用量统计、套餐升级和超额提醒
 3. 把套餐能力继续接到项目数量、Worker 并发数、Runtime 使用额度
 4. 把审批、团队邀请和账单边界接到正式 Product Access Center
