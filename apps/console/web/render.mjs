@@ -138,16 +138,7 @@ function authHeaderBar(auth = {}) {
       </div>
     </div>`;
   }
-  return `<div class="auth-strip unauth">
-    <div class="auth-identity compact">
-      <strong>受控访问</strong>
-      <span>团队内测账号登录后自动加载角色、套餐与项目范围。</span>
-    </div>
-    <div class="auth-actions">
-      <span class="pill">团队内测</span>
-      <span class="pill">角色授权</span>
-    </div>
-  </div>`;
+  return "";
 }
 
 function alertTone(level = "info") {
@@ -210,7 +201,6 @@ function routeForbiddenPage(route, auth = {}) {
 function accessLoginPage(data) {
   const summary = data.access?.summary ?? {};
   const directExecute = summary.direct_execute_max_risk ?? "MEDIUM";
-  const anonymousMode = summary.allow_anonymous_console_read ? "开放" : "禁用";
   return `<section class="auth-shell">
     <div class="auth-panel">
       <div class="auth-brand-mark">
@@ -220,56 +210,57 @@ function accessLoginPage(data) {
           <span>企业级 AI 协同工作台</span>
         </div>
       </div>
-      <span class="eyebrow">Pilot Console</span>
-      <h2>把项目推进、Agent 执行与治理审批放进一个专业工作台</h2>
-      <p class="auth-lead">登录后直接进入统一控制台，用一个入口完成规划、执行、验证、Proposal 与交付报告，让团队在同一个产品界面里推进真实交付。</p>
+      <div class="auth-eyebrow-row">
+        <span class="eyebrow">Pilot Console</span>
+        <span class="auth-chip subtle">受控访问</span>
+      </div>
+      <h2>把规划、执行与交付收进一个真正能落地的入口</h2>
+      <p class="auth-lead">登录后直接进入统一工作台，用一个入口完成目标拆解、执行调度、治理审批与交付回报。</p>
       <div class="auth-chip-row">
-        <span class="auth-chip">已接入 jinhu-smart-park</span>
-        <span class="auth-chip">LOW / MEDIUM 可执行</span>
+        <span class="auth-chip">jinhu-smart-park 已接入</span>
+        <span class="auth-chip">LOW / MEDIUM 本地执行</span>
         <span class="auth-chip">HIGH Proposal / CRITICAL 审批</span>
       </div>
-      <div class="auth-stat-grid">
-        <article class="auth-stat-card">
-          <span>角色策略</span>
-          <strong>${escapeHtml(summary.role_count ?? 0)}</strong>
-          <em>已配置访问角色</em>
-        </article>
-        <article class="auth-stat-card">
-          <span>本地账号</span>
-          <strong>${escapeHtml(summary.user_count ?? 0)}</strong>
-          <em>可登录内测用户</em>
-        </article>
-        <article class="auth-stat-card">
-          <span>套餐权限</span>
-          <strong>${escapeHtml(summary.plan_count ?? 0)}</strong>
-          <em>按套餐控制能力</em>
-        </article>
-        <article class="auth-stat-card">
-          <span>直执上限</span>
-          <strong>${escapeHtml(directExecute)}</strong>
-          <em>匿名读取 ${escapeHtml(anonymousMode)}</em>
-        </article>
-      </div>
-      <div class="auth-strip-grid">
-        <article class="auth-feature-card">
-          <strong>统一入口</strong>
-          <span>项目、运行时、Worker 和 Proposal 收拢到同一个交互入口。</span>
-        </article>
-        <article class="auth-feature-card">
-          <strong>安全边界</strong>
-          <span>真实凭证不落盘，生产动作继续经过 Governance Gate。</span>
-        </article>
-        <article class="auth-feature-card">
-          <strong>交付模式</strong>
-          <span>适合团队内测、项目推进、联调验证和上线前收口。</span>
-        </article>
+      <div class="auth-hero-surface">
+        <div class="auth-proof-stack">
+          <article class="auth-proof-item">
+            <strong>统一入口</strong>
+            <span>项目、Agent、Proposal 与运行日志在同一界面协同。</span>
+          </article>
+          <article class="auth-proof-item">
+            <strong>安全执行</strong>
+            <span>真实凭证不在界面暴露，执行边界由 Governance Gate 统一控制。</span>
+          </article>
+          <article class="auth-proof-item">
+            <strong>团队试运行</strong>
+            <span>按角色、套餐与项目范围加载能力，适合内测和真实交付推进。</span>
+          </article>
+        </div>
+        <div class="auth-hero-grid">
+          <article class="auth-hero-tile">
+            <span>当前阶段</span>
+            <strong>Pilot 就绪</strong>
+          </article>
+          <article class="auth-hero-tile">
+            <span>直执上限</span>
+            <strong>${escapeHtml(directExecute)} / MEDIUM</strong>
+          </article>
+          <article class="auth-hero-tile">
+            <span>访问模式</span>
+            <strong>团队内测</strong>
+          </article>
+          <article class="auth-hero-tile">
+            <span>权限加载</span>
+            <strong>登录即生效</strong>
+          </article>
+        </div>
       </div>
     </div>
     <div class="auth-side">
       <div class="auth-card-head">
         <span class="eyebrow">Console Access</span>
-        <h3>登录控制台</h3>
-        <p class="auth-login-sub">输入已分配账号后即可进入工作台，系统会自动加载角色权限、套餐边界和项目范围。</p>
+        <h3>登录 Studio</h3>
+        <p class="auth-login-sub">使用已分配账号进入控制台，系统会自动加载角色权限、套餐边界和项目范围。</p>
       </div>
       <form id="auth-login-form" class="auth-form">
         <div>
@@ -284,18 +275,18 @@ function accessLoginPage(data) {
           <button type="submit" class="primary-action auth-submit-button">登录 Studio</button>
         </div>
         <div class="auth-help-row">
-          <span>受控访问</span>
-          <span>不读取真实业务系统凭证</span>
+          <span>仅限授权内测账号</span>
+          <span>真实业务凭证保持隔离</span>
         </div>
         <p id="auth-status" class="help auth-status-copy">请使用已分配的内测账号登录。</p>
       </form>
       <div class="auth-access-grid">
         <article class="auth-access-card">
-          <strong>进入后可用</strong>
-          <span>统一 AI 工作台、项目入口、Console Action Server 与运行日志。</span>
+          <strong>登录后进入</strong>
+          <span>统一工作台、项目入口、Console Action Server 与运行日志。</span>
         </article>
         <article class="auth-access-card">
-          <strong>执行策略</strong>
+          <strong>安全边界</strong>
           <span>LOW / MEDIUM 可本地执行，HIGH 自动转 Proposal，CRITICAL 保持人工审批。</span>
         </article>
       </div>
@@ -1104,7 +1095,7 @@ function shell(content, activeId, model, data, auth = {}) {
   const mainContent = gated ? accessLoginPage(data) : (forbidden ? routeForbiddenPage(route, auth) : content);
   const headerClass = gated ? "login-header" : "";
   const headerMeta = gated
-    ? authHeaderBar(auth)
+    ? ""
     : `${authHeaderBar(auth)}
     ${topStatusBar(model, data, auth)}
     ${nav(activeId, auth)}`;
@@ -1119,8 +1110,12 @@ function shell(content, activeId, model, data, auth = {}) {
     :root { color-scheme: dark; --bg: #06080c; --nav: #0a0d12; --panel: #0d1117; --panel-2: #10151d; --text: #edf2f8; --muted: #8491a2; --line: #1c2430; --blue: #85b7ff; --green: #4ade80; --yellow: #fbbf24; --red: #fb7185; --shadow: rgba(0, 0, 0, 0.34); }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top, rgba(61, 98, 164, 0.12), transparent 28%), var(--bg); color: var(--text); }
+    body.login-gated { background:
+      radial-gradient(circle at 14% 18%, rgba(50, 86, 148, 0.22), transparent 34%),
+      radial-gradient(circle at 84% 14%, rgba(120, 158, 219, 0.12), transparent 28%),
+      linear-gradient(180deg, #05070b 0%, #07101a 54%, #06080c 100%); }
     header { padding: 10px 16px 8px; border-bottom: 1px solid var(--line); background: rgba(6, 8, 12, 0.92); backdrop-filter: blur(16px); position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 28px var(--shadow); }
-    header.login-header { padding-bottom: 14px; }
+    header.login-header { padding: 16px 18px 14px; background: transparent; border-bottom-color: rgba(255, 255, 255, 0.05); box-shadow: none; position: relative; }
     .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .brand-lockup { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .logo-frame { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 40px; flex: 0 0 auto; border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; }
@@ -1184,19 +1179,21 @@ function shell(content, activeId, model, data, auth = {}) {
     .auth-brand-copy { display: grid; gap: 4px; }
     .auth-brand-copy strong { font-size: 18px; line-height: 1.1; }
     .auth-brand-copy span { color: #8ea4bb; font-size: 13px; }
+    .auth-eyebrow-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .auth-panel h2 { margin: 8px 0 10px; font-size: 42px; line-height: 1.02; letter-spacing: 0; max-width: 12ch; }
     .auth-lead { max-width: 620px; font-size: 15px; line-height: 1.7; color: #bcc9d9; }
     .auth-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
     .auth-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 11px; border-radius: 999px; background: rgba(8, 12, 18, 0.88); border: 1px solid #2a3950; color: #d7e2ef; font-size: 12px; font-weight: 700; }
-    .auth-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
-    .auth-stat-card { position: relative; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); background: linear-gradient(180deg, rgba(12, 18, 27, 0.96), rgba(9, 13, 19, 0.96)); padding: 14px; }
-    .auth-stat-card span { display: block; color: #8ea4bb; font-size: 12px; margin-bottom: 10px; }
-    .auth-stat-card strong { display: block; font-size: 28px; line-height: 1; letter-spacing: 0; }
-    .auth-stat-card em { display: block; margin-top: 10px; color: #aebccd; font-size: 12px; font-style: normal; line-height: 1.5; }
-    .auth-strip-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
-    .auth-feature-card { border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.07); background: rgba(8, 12, 18, 0.72); padding: 14px; }
-    .auth-feature-card strong { display: block; font-size: 14px; margin-bottom: 8px; }
-    .auth-feature-card span { display: block; color: #aebccd; font-size: 13px; line-height: 1.6; }
+    .auth-chip.subtle { background: rgba(255, 255, 255, 0.03); color: #a9bbd2; border-color: rgba(255, 255, 255, 0.08); }
+    .auth-hero-surface { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr); gap: 14px; margin-top: 22px; }
+    .auth-proof-stack { display: grid; gap: 10px; }
+    .auth-proof-item { border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(8, 12, 18, 0.58); padding: 14px 15px; }
+    .auth-proof-item strong { display: block; font-size: 14px; margin-bottom: 6px; }
+    .auth-proof-item span { display: block; color: #aebccd; font-size: 13px; line-height: 1.6; }
+    .auth-hero-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .auth-hero-tile { border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.07); background: linear-gradient(180deg, rgba(10, 15, 22, 0.92), rgba(8, 12, 18, 0.94)); padding: 14px; min-height: 112px; display: flex; flex-direction: column; justify-content: space-between; }
+    .auth-hero-tile span { display: block; color: #8ea4bb; font-size: 12px; margin-bottom: 10px; }
+    .auth-hero-tile strong { display: block; font-size: 17px; line-height: 1.25; letter-spacing: 0; overflow-wrap: anywhere; }
     .auth-card-head h3 { font-size: 34px; line-height: 1.04; margin: 8px 0 8px; letter-spacing: 0; }
     .auth-login-sub { font-size: 14px; line-height: 1.7; color: #b7c5d6; }
     .auth-form { display: grid; gap: 14px; margin-top: 18px; }
@@ -1367,11 +1364,11 @@ function shell(content, activeId, model, data, auth = {}) {
     .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
-    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .top-nav { margin-top: 8px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user, .attachment-bubble, .attachment-list, .auth-stat-grid, .auth-strip-grid { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } .auth-strip, .auth-actions, .auth-help-row { align-items: flex-start; flex-direction: column; } .auth-panel h2 { font-size: 34px; max-width: none; } .auth-card-head h3 { font-size: 28px; } }
-    @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell, .auth-shell { grid-template-columns: 1fr; } .advanced-config, .project-rail { position: static; } .auth-side { order: -1; } }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .top-nav { margin-top: 8px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user, .attachment-bubble, .attachment-list, .auth-hero-surface, .auth-hero-grid { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } .auth-strip, .auth-actions, .auth-help-row, .auth-eyebrow-row { align-items: flex-start; flex-direction: column; } .auth-panel h2 { font-size: 34px; max-width: none; } .auth-card-head h3 { font-size: 28px; } .auth-hero-tile { min-height: auto; } }
+    @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell, .auth-shell, .auth-hero-surface { grid-template-columns: 1fr; } .advanced-config, .project-rail { position: static; } .auth-side { order: -1; } }
   </style>
 </head>
-<body>
+<body class="${gated ? "login-gated" : ""}">
   <header class="${headerClass}">
     <div class="brand-row">
       <div class="brand-lockup">
