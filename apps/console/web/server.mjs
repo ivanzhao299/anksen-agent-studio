@@ -23,7 +23,11 @@ import {
 const port = Number(process.env.PORT ?? 4317);
 const allowedPaths = new Set([...consoleWebRoutes.map((route) => route.path), "/login"]);
 const webDir = dirname(fileURLToPath(import.meta.url));
-const logoPath = join(webDir, "assets", "anksen-logo.svg");
+const assetsDir = join(webDir, "assets");
+const staticAssets = new Map([
+  ["/assets/anksen-logo.svg", { path: join(assetsDir, "anksen-logo.svg"), type: "image/svg+xml; charset=utf-8" }],
+  ["/assets/login-panel-image.png", { path: join(assetsDir, "login-panel-image.png"), type: "image/png" }]
+]);
 
 function localOnly(request) {
   return ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.socket.remoteAddress ?? "");
@@ -168,12 +172,13 @@ const server = createServer(async (request, response) => {
       sendJson(response, 200, await latestActionLog() ?? { status: "EMPTY", path: null });
       return;
     }
-    if ((request.method === "GET" || request.method === "HEAD") && pathname === "/assets/anksen-logo.svg") {
+    if ((request.method === "GET" || request.method === "HEAD") && staticAssets.has(pathname)) {
+      const asset = staticAssets.get(pathname);
       response.writeHead(200, {
-        "content-type": "image/svg+xml; charset=utf-8",
+        "content-type": asset.type,
         "cache-control": "no-store"
       });
-      response.end(request.method === "HEAD" ? undefined : await readFile(logoPath));
+      response.end(request.method === "HEAD" ? undefined : await readFile(asset.path));
       return;
     }
     if (!allowedPaths.has(pathname)) {
