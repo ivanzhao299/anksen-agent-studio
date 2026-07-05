@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/studio-user.schema.json",
+  "title": "Studio Users",
+  "type": "object",
+  "required": ["schema_version", "password_algorithm", "users"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "password_algorithm": { "const": "scrypt" },
+    "users": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "username",
+          "display_name",
+          "status",
+          "primary_role_id",
+          "role_ids",
+          "default_plan_id",
+          "feature_overrides",
+          "password_hash"
+        ],
+        "properties": {
+          "user_id": { "type": "string", "minLength": 1 },
+          "username": { "type": "string", "minLength": 1 },
+          "display_name": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["ACTIVE", "INVITED", "DISABLED"] },
+          "primary_role_id": { "type": "string", "minLength": 1 },
+          "role_ids": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "default_plan_id": { "type": "string", "minLength": 1 },
+          "feature_overrides": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "password_hash": { "type": "string", "pattern": "^scrypt\\$[^$]+\\$[a-f0-9]+$" }
+        }
+      }
+    }
+  }
+}

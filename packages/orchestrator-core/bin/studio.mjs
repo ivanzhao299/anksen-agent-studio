@@ -67,6 +67,10 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs context bootstrap --apply
   node packages/orchestrator-core/bin/studio.mjs context summary
   node packages/orchestrator-core/bin/studio.mjs context project --project <project_id>
+  node packages/orchestrator-core/bin/studio.mjs access summary --dry-run
+  node packages/orchestrator-core/bin/studio.mjs access users --dry-run
+  node packages/orchestrator-core/bin/studio.mjs access plans --dry-run
+  node packages/orchestrator-core/bin/studio.mjs access check --user <username> --action <action_id> [--project <project_id>] --dry-run
   node packages/orchestrator-core/bin/studio.mjs runtime list
   node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run
   node packages/orchestrator-core/bin/studio.mjs runtime select --skill <skill_type> [--dry-run]
@@ -100,7 +104,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "worker", "mobile", "production", "production-ops", "context", "autopilot", "debug", "console", "pilot"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "worker", "mobile", "production", "production-ops", "context", "access", "autopilot", "debug", "console", "pilot"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -120,6 +124,8 @@ function parseArgs(argv) {
     action: "",
     platform: "",
     capability: "",
+    user: "",
+    password: "",
     serviceAction: command === "console" && subcommand === "service" ? rest[1] ?? "status" : "",
     region: "local",
     port: 4317,
@@ -164,6 +170,12 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--capability") {
       args.capability = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--user") {
+      args.user = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--password") {
+      args.password = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--port") {
       args.port = Number(rest[index + 1] ?? "4317");
@@ -2629,6 +2641,10 @@ function mobileStackPackUtilsUrl() {
   return pathToFileURL(resolve(packageDir, "../mobile-stack-pack/lib/mobile-stack-pack-utils.mjs")).href;
 }
 
+function accessCenterUtilsUrl() {
+  return pathToFileURL(resolve(packageDir, "../access-center/lib/access-center-utils.mjs")).href;
+}
+
 function buildPlanningRequest(goal, context, options = {}) {
   const createdAt = new Date().toISOString();
   return {
@@ -2842,19 +2858,48 @@ function printAutopilot(run, files = null) {
 async function localExecutionGate(action) {
   const { api, bundle } = await loadGovernanceCenterApi();
   const governance = api.evaluateActionGovernance(bundle, action);
-  if (action.target_project !== "anksen-agent-studio") {
+  const executionTarget = await resolveExecutionTarget(action);
+
+  if (!executionTarget.resolved) {
     return {
       allowed: false,
       execution_mode: "proposal_only",
-      reason: "Action targets a managed or external project, so Autopilot Runner may only generate a proposal.",
-      governance
+      execution_route: executionTarget.execution_route,
+      reason: `Execution target for ${action.target_project} is not resolved to a local repository path, so Autopilot Runner can only generate a proposal.`,
+      governance,
+      execution_target: executionTarget
     };
   }
+
+  if (executionTarget.kind === "managed_project_repo" && executionTarget.write_policy === "disabled") {
+    return {
+      allowed: false,
+      execution_mode: "proposal_only",
+      execution_route: executionTarget.execution_route,
+      reason: `Action is correctly routed to managed project repo ${executionTarget.repo_path}, but managed project writes are still disabled in runtime memory.`,
+      governance,
+      execution_target: executionTarget
+    };
+  }
+
+  if (executionTarget.kind === "managed_project_repo" && executionTarget.write_policy === "approval_required") {
+    return {
+      allowed: false,
+      execution_mode: "proposal_only",
+      execution_route: executionTarget.execution_route,
+      reason: `Action is correctly routed to managed project repo ${executionTarget.repo_path}, but the project write policy still requires explicit approval.`,
+      governance,
+      execution_target: executionTarget
+    };
+  }
+
   return {
     allowed: Boolean(governance.execution_allowed),
     execution_mode: governance.execution_mode,
+    execution_route: executionTarget.execution_route,
     reason: governance.reason,
-    governance
+    governance,
+    execution_target: executionTarget
   };
 }
 
@@ -2900,7 +2945,7 @@ function commandSpec(command) {
   return specs.get(command) ?? null;
 }
 
-async function runAllowedCommand(command) {
+async function runAllowedCommand(command, cwd = repoRoot) {
   const spec = commandSpec(command);
   if (!spec) {
     return {
@@ -2913,15 +2958,24 @@ async function runAllowedCommand(command) {
     };
   }
   const [bin, args, timeout] = spec;
-  const result = await execReadOnly(repoRoot, bin, args, timeout);
+  const executionCwd = command.startsWith("node packages/") ? repoRoot : cwd;
+  const result = await execReadOnly(executionCwd, bin, args, timeout);
   return {
     command,
+    cwd: executionCwd,
     ok: result.ok,
     status: result.status,
     blocked: false,
     stdout_tail: stdoutTail(result.stdout, 40),
     stderr_tail: stdoutTail(result.stderr, 40)
   };
+}
+
+function executionRepoPath(executionTarget) {
+  if (executionTarget?.kind === "managed_project_repo" && executionTarget.repo_path) {
+    return executionTarget.repo_path;
+  }
+  return repoRoot;
 }
 
 function runnerValidationCommands(action, goal) {
@@ -2934,10 +2988,10 @@ function runnerValidationCommands(action, goal) {
   return commands.filter((command) => commandSpec(command) && !command.includes("--apply"));
 }
 
-async function gitStatusShort() {
+async function gitStatusShort(cwd = repoRoot) {
   try {
     const { stdout } = await execFileAsync("git", ["status", "--short"], {
-      cwd: repoRoot,
+      cwd,
       timeout: 120000,
       maxBuffer: 1024 * 1024 * 20
     });
@@ -2959,11 +3013,11 @@ function changedFilesFromStatus(status) {
     .sort();
 }
 
-async function currentChangedFiles() {
-  return changedFilesFromStatus(await gitStatusShort());
+async function currentChangedFiles(cwd = repoRoot) {
+  return changedFilesFromStatus(await gitStatusShort(cwd));
 }
 
-function internalTaskFromAction(goal, action, route) {
+function internalTaskFromAction(goal, action, route, executionTarget = null) {
   const seed = stableHash({ goal, title: action.title, target_package: action.target_package }).slice(0, 10).toUpperCase();
   return {
     task_id: `INTERNAL-${seed}`,
@@ -2977,29 +3031,38 @@ function internalTaskFromAction(goal, action, route) {
     risk: action.risk,
     approval_required: action.approval_required,
     expected_files: action.expected_files,
-    validation_commands: action.validation_commands
+    validation_commands: action.validation_commands,
+    execution_target: executionTarget
   };
 }
 
-function executorRunPlan(goal, action, internalTask) {
+function executorRunPlan(goal, action, internalTask, executionTarget = null) {
+  const executionSummary = executionTarget
+    ? `Execution route: ${executionTarget.execution_route}; repo: ${executionTarget.repo_path}; branch: ${executionTarget.repo_branch}; project context: ${executionTarget.project_context_dir}.`
+    : "Execution route: unresolved.";
   return {
-    runtime_strategy: "safe-local-repository-executor",
+    runtime_strategy: executionTarget?.kind === "managed_project_repo"
+      ? "repo-routed-autopilot-executor"
+      : "safe-local-repository-executor",
     executor_prompt: [
       `Goal: ${goal}`,
       `Task: ${action.title}`,
       `Reason: ${action.reason}`,
       `Target package: ${action.target_package}`,
+      `Target project: ${action.target_project}`,
       `Expected files: ${(action.expected_files ?? []).join(", ")}`,
+      executionSummary,
       "Safety: do not deploy, do not run production operations, do not read or write secret values, and do not modify managed projects."
     ].join("\n"),
     steps: [
       "Read runtime/global context files.",
       "Confirm Planning Center selected one bounded next_action.",
       `Create internal task ${internalTask.task_id}.`,
-      "Execute the allowed local repository action when safety gates allow it.",
-      "Run pnpm typecheck, pnpm lint:check, and git diff --check.",
-      "Commit the local repository implementation.",
-      "Write Autopilot run JSON and Markdown evidence.",
+      `Resolve execution workspace to ${executionTarget?.repo_path ?? repoRoot}.`,
+      "Execute the allowed repository action when safety gates allow it.",
+      "Run pnpm typecheck, pnpm lint:check, and git diff --check in the resolved execution repository.",
+      "Commit the implementation in the resolved target repository when execution is allowed.",
+      "Write Autopilot run JSON and Markdown evidence back into Studio runtime memory.",
       "Stop before Agent execution, deploy, production operations, credential reads, or managed-project writes."
     ]
   };
@@ -3546,14 +3609,15 @@ async function executeLocalRepoAction(action, globalContext, planningOutput) {
   };
 }
 
-async function commitPaths(paths, message, commandsRun) {
+async function commitPaths(paths, message, commandsRun, cwd = repoRoot) {
   const uniquePaths = unique(paths).filter(Boolean);
   if (uniquePaths.length === 0) {
     return { ok: false, hash: "", message: "No paths to commit." };
   }
-  const addResult = await execReadOnly(repoRoot, "git", ["add", "--", ...uniquePaths], 120000);
+  const addResult = await execReadOnly(cwd, "git", ["add", "--", ...uniquePaths], 120000);
   commandsRun.push({
     command: `git add -- ${uniquePaths.join(" ")}`,
+    cwd,
     ok: addResult.ok,
     status: addResult.status,
     blocked: false,
@@ -3562,16 +3626,17 @@ async function commitPaths(paths, message, commandsRun) {
   });
   if (!addResult.ok) return { ok: false, hash: "", message: addResult.stderr || "git add failed" };
 
-  const commitResult = await execReadOnly(repoRoot, "git", ["commit", "-m", message], 120000);
+  const commitResult = await execReadOnly(cwd, "git", ["commit", "-m", message], 120000);
   commandsRun.push({
     command: `git commit -m "${message}"`,
+    cwd,
     ok: commitResult.ok,
     status: commitResult.status,
     blocked: false,
     stdout_tail: stdoutTail(commitResult.stdout, 40),
     stderr_tail: stdoutTail(commitResult.stderr, 40)
   });
-  const hash = commitResult.ok ? await execGit(repoRoot, ["rev-parse", "HEAD"]) : "";
+  const hash = commitResult.ok ? await execGit(cwd, ["rev-parse", "HEAD"]) : "";
   return { ok: commitResult.ok, hash, message: commitResult.stderr || commitResult.stdout };
 }
 
@@ -3624,12 +3689,14 @@ function buildAutopilotRunnerRun({
     planning_output: planningOutput,
     selected_action: selectedAction,
     execution_mode: gate.execution_mode,
+    execution_route: gate.execution_route ?? "studio_repo",
+    execution_target: gate.execution_target ?? null,
     execution_gate: gate,
     internal_task: internalTask,
     executor_run_plan: runPlan,
     execution_result: executionResult,
     commands_run: commandsRun,
-    changed_files: unique([...changedFiles, workspaceFile]).sort(),
+    changed_files: unique(changedFiles).sort(),
     validation_result: validationResult,
     commit_hash: commitHash,
     commit_hash_note: commitHash
@@ -3670,6 +3737,7 @@ function autopilotRunnerMarkdown(run) {
 - goal: ${run.goal}
 - max_steps: ${run.max_steps}
 - execution_mode: ${run.execution_mode}
+- execution_route: ${run.execution_route ?? "unknown"}
 - commit_hash: ${run.commit_hash ?? "none"}
 
 ## Global Context
@@ -3688,6 +3756,16 @@ function autopilotRunnerMarkdown(run) {
 - risk: ${run.selected_action.risk}
 - approval_required: ${run.selected_action.approval_required ? "yes" : "no"}
 - gate: ${run.execution_gate.reason}
+
+## Execution Target
+
+- route: ${run.execution_route ?? "unknown"}
+- repo_path: ${run.execution_target?.repo_path ?? "unresolved"}
+- repo_branch: ${run.execution_target?.repo_branch ?? "unknown"}
+- project_context_dir: ${run.execution_target?.project_context_dir ?? "unknown"}
+- runtime_memory_dir: ${run.execution_target?.runtime_memory_dir ?? "unknown"}
+- doctor_status: ${run.execution_target?.doctor_status ?? "unknown"}
+- write_policy: ${run.execution_target?.write_policy ?? "unknown"}
 
 ## Internal Task
 
@@ -4254,18 +4332,48 @@ async function writeContinuousStepReport(report) {
   return { jsonPath, markdownPath };
 }
 
-async function runContinuousValidation(commandsRun) {
+async function runContinuousValidation(commandsRun, cwd = repoRoot) {
   const results = [];
   for (const command of ["pnpm typecheck", "pnpm lint:check", "git diff --check"]) {
-    const result = await runAllowedCommand(command);
+    const result = await runAllowedCommand(command, cwd);
     commandsRun.push(result);
     results.push(result);
   }
   return validationSummary(results);
 }
 
-async function lastCommitForPath(path) {
-  return execGit(repoRoot, ["log", "-1", "--format=%H", "--", path]);
+async function lastCommitForPath(path, cwd = repoRoot) {
+  return execGit(cwd, ["log", "-1", "--format=%H", "--", path]);
+}
+
+function batchWriterSupportsExecutionTarget(executionTarget) {
+  return executionTarget?.kind !== "managed_project_repo";
+}
+
+function batchValidationTargets(results) {
+  const executableResults = results.filter((result) => result.status === "EXECUTED");
+  if (executableResults.length === 0) {
+    return [{
+      repo_path: repoRoot,
+      execution_route: "studio_repo",
+      project_id: "anksen-agent-studio"
+    }];
+  }
+
+  const seen = new Set();
+  const targets = [];
+  for (const result of executableResults) {
+    const target = result.execution_target ?? null;
+    const repoPath = executionRepoPath(target);
+    if (seen.has(repoPath)) continue;
+    seen.add(repoPath);
+    targets.push({
+      repo_path: repoPath,
+      execution_route: target?.execution_route ?? "studio_repo",
+      project_id: target?.project_id ?? "anksen-agent-studio"
+    });
+  }
+  return targets;
 }
 
 async function buildContinuousStepReport({
@@ -4301,6 +4409,7 @@ async function buildContinuousStepReport({
     selected_action: step.action,
     execution_mode: executionMode,
     execution_gate: gate,
+    execution_target: gate.execution_target ?? null,
     commands_run: commandsRun,
     changed_files: changedFiles,
     validation_result: validationResult,
@@ -4433,6 +4542,7 @@ async function autopilotContinuousRunner(args) {
     const step = steps[index];
     const planning = await runPlanningCenter(goal);
     const gate = await localExecutionGate(step.action);
+    const executionRepo = executionRepoPath(gate.execution_target);
     const commandsRun = [
       {
         command: "read runtime/global/*",
@@ -4485,17 +4595,17 @@ async function autopilotContinuousRunner(args) {
 
     if (step.is_complete()) {
       status = step.status_if_complete ?? "SKIPPED";
-      validationResult = await runContinuousValidation(commandsRun);
-      commitHash = await lastCommitForPath(step.action.expected_files.at(-1) ?? ".");
+      validationResult = await runContinuousValidation(commandsRun, executionRepo);
+      commitHash = await lastCommitForPath(step.action.expected_files.at(-1) ?? ".", executionRepo);
     } else if (!gate.allowed) {
       status = "PROPOSAL_ONLY";
       executionMode = "proposal_only";
       const proposal = await step.write(parentRunId, gate);
       changedFiles = proposal.files ?? [];
       proposalId = proposal.proposal_id ?? "";
-      validationResult = await runContinuousValidation(commandsRun);
+      validationResult = await runContinuousValidation(commandsRun, executionRepo);
       if (validationResult.status === "PASS") {
-        const proposalCommit = await commitPaths(changedFiles, step.commit_message, commandsRun);
+        const proposalCommit = await commitPaths(changedFiles, step.commit_message, commandsRun, executionRepo);
         commitHash = proposalCommit.hash;
         if (!proposalCommit.ok) {
           validationResult = {
@@ -4511,9 +4621,9 @@ async function autopilotContinuousRunner(args) {
       const written = await step.write(parentRunId, gate);
       changedFiles = Array.isArray(written) ? written : written.files ?? [];
       proposalId = Array.isArray(written) ? "" : written.proposal_id ?? "";
-      validationResult = await runContinuousValidation(commandsRun);
+      validationResult = await runContinuousValidation(commandsRun, executionRepo);
       if (validationResult.status === "PASS") {
-        const implementationCommit = await commitPaths(changedFiles, step.commit_message, commandsRun);
+        const implementationCommit = await commitPaths(changedFiles, step.commit_message, commandsRun, executionRepo);
         commitHash = implementationCommit.hash;
         if (!implementationCommit.ok) {
           validationResult = {
@@ -4596,11 +4706,15 @@ function printAutopilotRunner(run, files = null) {
   console.log(`global_context_files_read: ${run.global_context.files.length}`);
   console.log(`global_context_stage: ${run.global_context.current_v4_stage}`);
   console.log(`execution_mode: ${run.execution_mode}`);
+  console.log(`execution_route: ${run.execution_route ?? "unknown"}`);
   console.log(`selected_action: ${run.selected_action.title}`);
   console.log(`target_project: ${run.selected_action.target_project}`);
   console.log(`target_package: ${run.selected_action.target_package}`);
   console.log(`risk: ${run.selected_action.risk}`);
   console.log(`gate: ${run.execution_gate.reason}`);
+  console.log(`execution_repo_path: ${run.execution_target?.repo_path ?? "unresolved"}`);
+  console.log(`execution_repo_branch: ${run.execution_target?.repo_branch ?? "unknown"}`);
+  console.log(`execution_write_policy: ${run.execution_target?.write_policy ?? "unknown"}`);
   console.log(`executed: ${run.execution_result.executed ? "yes" : "no"}`);
   console.log(`implementation: ${run.execution_result.implementation}`);
   console.log(`validation: ${run.validation_result.status}`);
@@ -4624,10 +4738,11 @@ function printAutopilotRunner(run, files = null) {
   }
 }
 
-async function commitAutopilotRunnerResult(message, commandsRun) {
-  const addResult = await execReadOnly(repoRoot, "git", ["add", "--all", "--", "."], 120000);
+async function commitAutopilotRunnerResult(message, commandsRun, cwd = repoRoot) {
+  const addResult = await execReadOnly(cwd, "git", ["add", "--all", "--", "."], 120000);
   commandsRun.push({
     command: "git add --all -- .",
+    cwd,
     ok: addResult.ok,
     status: addResult.status,
     blocked: false,
@@ -4636,16 +4751,17 @@ async function commitAutopilotRunnerResult(message, commandsRun) {
   });
   if (!addResult.ok) return { ok: false, hash: "", result: addResult };
 
-  const commitResult = await execReadOnly(repoRoot, "git", ["commit", "-m", message], 120000);
+  const commitResult = await execReadOnly(cwd, "git", ["commit", "-m", message], 120000);
   commandsRun.push({
     command: `git commit -m "${message}"`,
+    cwd,
     ok: commitResult.ok,
     status: commitResult.status,
     blocked: false,
     stdout_tail: stdoutTail(commitResult.stdout, 40),
     stderr_tail: stdoutTail(commitResult.stderr, 40)
   });
-  const hash = commitResult.ok ? await execGit(repoRoot, ["rev-parse", "HEAD"]) : "";
+  const hash = commitResult.ok ? await execGit(cwd, ["rev-parse", "HEAD"]) : "";
   return { ok: commitResult.ok, hash, result: commitResult };
 }
 
@@ -4659,6 +4775,76 @@ function projectsContextDir() {
 
 function projectContextDir(projectId) {
   return join(projectsContextDir(), safeSegment(projectId));
+}
+
+function normalizedProjectWritePolicy(value) {
+  if (value === "enabled" || value === "approval_required" || value === "disabled") {
+    return value;
+  }
+  return "disabled";
+}
+
+async function loadManagedProjectContext(projectId) {
+  const contextDir = projectContextDir(projectId);
+  const [projectState, architecture, status] = await Promise.all([
+    readJsonIfExists(join(contextDir, "project-state.json")),
+    readJsonIfExists(join(contextDir, "architecture.json")),
+    readJsonIfExists(join(contextDir, "agent-studio-status.json"))
+  ]);
+  return {
+    project_id: projectId,
+    context_dir: contextDir,
+    project_state: projectState,
+    architecture,
+    status
+  };
+}
+
+async function resolveExecutionTarget(action) {
+  if (!action?.target_project || action.target_project === "anksen-agent-studio") {
+    const studioRepo = await repoStatus(repoRoot);
+    return {
+      kind: "studio_repo",
+      execution_route: "studio_repo",
+      project_id: "anksen-agent-studio",
+      label: "ANKSEN Agent Studio",
+      repo_path: repoRoot,
+      repo_branch: studioRepo.branch,
+      repo_clean: studioRepo.clean,
+      project_context_dir: "runtime/global",
+      runtime_memory_dir: globalContextDir(),
+      connection_status: "CONNECTED",
+      doctor_status: "GO",
+      write_policy: "enabled",
+      resolved: true
+    };
+  }
+
+  const managed = await loadManagedProjectContext(action.target_project);
+  const projectState = managed.project_state ?? {};
+  const projectPath = String(projectState.project_path ?? "");
+  const runtimeMemoryDir = String(projectState.runtime_memory_status?.directory ?? "");
+  const resolved = projectPath.length > 0 && existsSync(projectPath);
+
+  return {
+    kind: "managed_project_repo",
+    execution_route: "managed_project_repo",
+    project_id: action.target_project,
+    label: String(projectState.project_name ?? action.target_project),
+    repo_path: projectPath,
+    repo_branch: String(projectState.repo_status?.branch ?? "unknown"),
+    repo_clean: String(projectState.repo_status?.clean ?? "unknown"),
+    project_context_dir: relativePath(managed.context_dir),
+    runtime_memory_dir: runtimeMemoryDir,
+    connection_status: String(projectState.project_exists === false ? "NOT_CONNECTED" : "CONNECTED"),
+    doctor_status: String(
+      projectState.local_orchestrator_status?.doctor_status
+        ?? managed.status?.local_orchestrator_status?.doctor_status
+        ?? "unknown"
+    ),
+    write_policy: normalizedProjectWritePolicy(projectState.safety?.project_writes),
+    resolved
+  };
 }
 
 async function writeJsonFile(path, value) {
@@ -5065,7 +5251,10 @@ async function contextSummary() {
   for (const project of platformState.managed_projects ?? []) {
     const status = String(project.status ?? project.connection_status ?? "connected").toLowerCase();
     const connectionStatus = String(project.connection_status ?? status).toLowerCase();
-    console.log(`- ${project.project_id}: status=${status}, connection=${connectionStatus}, doctor=${project.doctor_status}, repo_clean=${project.repo_clean}, memory=${project.memory_dir}`);
+    const projectState = await readJsonIfExists(join(projectContextDir(project.project_id), "project-state.json"));
+    const projectPath = projectState?.project_path ?? "unknown";
+    const writePolicy = projectState?.safety?.project_writes ?? "disabled";
+    console.log(`- ${project.project_id}: status=${status}, connection=${connectionStatus}, doctor=${project.doctor_status}, repo_clean=${project.repo_clean}, memory=${project.memory_dir}, repo=${projectPath}, write_policy=${writePolicy}`);
   }
   console.log("");
   console.log("next_recommended_action:");
@@ -5101,9 +5290,11 @@ async function contextProject(args) {
   console.log(`handoff_summary: ${existsSync(handoffPath) ? "present" : "missing"}`);
   console.log("");
   console.log("summary:");
+  console.log(`- project_path: ${state?.project_path ?? "unknown"}`);
   console.log(`- repo_branch: ${state?.repo_status?.branch ?? "unknown"}`);
   console.log(`- repo_clean: ${state?.repo_status?.clean ?? "unknown"}`);
   console.log(`- doctor_status: ${state?.local_orchestrator_status?.doctor_status ?? status?.local_orchestrator_status?.doctor_status ?? "unknown"}`);
+  console.log(`- project_writes: ${state?.safety?.project_writes ?? "disabled"}`);
   console.log(`- queue_status_counts: ${JSON.stringify(state?.queue_summary?.status_counts ?? status?.queue_summary?.status_counts ?? {})}`);
   console.log(`- event_file_count: ${state?.event_summary?.event_file_count ?? status?.event_summary?.event_file_count ?? "unknown"}`);
   console.log(`- detected_stack_count: ${(architecture?.detected_stack ?? state?.detected_stack ?? []).length}`);
@@ -5276,14 +5467,24 @@ async function evaluateBatchTasks(tasks) {
   for (const task of tasks) {
     const gate = await localExecutionGate(batchTaskAction(task));
     const risk = gate.governance?.risk ?? task.risk;
+    const executorSupported = batchWriterSupportsExecutionTarget(gate.execution_target);
+    const gateReason = executorSupported
+      ? gate.reason
+      : `${gate.reason} Current batch executor can only write implementation files inside the Studio repository; managed project repo execution remains proposal-only until a repo-routed batch writer is implemented.`;
     results.push({
       ...task,
-      execution_gate: gate,
-      automatic_execution_allowed: Boolean(gate.allowed && !["HIGH", "CRITICAL"].includes(risk)),
-      effective_execution_mode: ["HIGH", "CRITICAL"].includes(risk)
+      execution_gate: {
+        ...gate,
+        reason: gateReason
+      },
+      execution_target: gate.execution_target ?? null,
+      execution_route: gate.execution_route,
+      executor_supported: executorSupported,
+      automatic_execution_allowed: Boolean(gate.allowed && executorSupported && !["HIGH", "CRITICAL"].includes(risk)),
+      effective_execution_mode: ["HIGH", "CRITICAL"].includes(risk) || !executorSupported
         ? "proposal_only"
         : gate.execution_mode,
-      proposal_required: Boolean(task.proposal_required || ["HIGH", "CRITICAL"].includes(risk) || !gate.allowed)
+      proposal_required: Boolean(task.proposal_required || ["HIGH", "CRITICAL"].includes(risk) || !gate.allowed || !executorSupported)
     });
   }
   return results;
@@ -6266,7 +6467,9 @@ async function executeBatchTask(task, batchId, strategy) {
       real_worker_execution: "disabled"
     }
   }, null, 2)}\n`, "utf8");
-  const changedFiles = await writeBatchTaskImplementation(task, batchId);
+  const changedFiles = task.executor_supported === false
+    ? []
+    : await writeBatchTaskImplementation(task, batchId);
   const validationResult = {
     status: "PENDING_UNIFIED_VALIDATION",
     command_count: 0,
@@ -6487,6 +6690,7 @@ async function writeBatchTaskReports(results, validationResult, commandsRun) {
       execution_strategy: result.execution_strategy,
       risk: result.risk,
       task_workspace: result.task_workspace,
+      execution_target: result.execution_target ?? null,
       allowed_paths: result.allowed_paths,
       forbidden_paths: result.forbidden_paths,
       dependencies: result.dependencies,
@@ -6515,15 +6719,17 @@ async function writeBatchTaskReports(results, validationResult, commandsRun) {
   return enriched;
 }
 
-async function runBatchUnifiedValidation(commandsRun) {
+async function runBatchUnifiedValidation(results, commandsRun) {
   const validationCommands = ["pnpm typecheck", "pnpm lint:check", "git diff --check"];
-  const results = [];
-  for (const command of validationCommands) {
-    const result = await runAllowedCommand(command);
-    commandsRun.push(result);
-    results.push(result);
+  const validationResults = [];
+  for (const target of batchValidationTargets(results)) {
+    for (const command of validationCommands) {
+      const result = await runAllowedCommand(command, target.repo_path);
+      commandsRun.push(result);
+      validationResults.push(result);
+    }
   }
-  return validationSummary(results);
+  return validationSummary(validationResults);
 }
 
 async function executeBatchTasks(tasks, batchId, parallel) {
@@ -7225,7 +7431,7 @@ async function autopilotBatch(args) {
     stdout_tail: `parallel_mode=${execution.parallel_evidence?.parallel_mode ?? "not_available"}; pids=${Object.entries(execution.parallel_evidence?.agent_pids ?? {}).map(([agent, pid]) => `${agent}:${pid}`).join(",") || "none"}; overlap=${execution.parallel_evidence?.time_overlap_detected ? "yes" : "no"}`,
     stderr_tail: execution.parallel_evidence?.parallel_mode === "real_child_process" ? "" : "Autopilot Batch did not prove real child_process parallel execution."
   });
-  let validationResult = await runBatchUnifiedValidation(commandsRun);
+  let validationResult = await runBatchUnifiedValidation(execution.results, commandsRun);
   let reportedResults = await writeBatchTaskReports(execution.results, validationResult, commandsRun);
   let efficiencyReport = {
     schema_version: 1,
@@ -7412,8 +7618,9 @@ async function autopilotRunner(args) {
   const selectedAction = actionFromPlanningOutput(output);
   const gate = await localExecutionGate(selectedAction);
   const route = await loadSkillRoute(`${selectedAction.title} ${selectedAction.reason}`);
-  const internalTask = internalTaskFromAction(goal, selectedAction, route);
-  const runPlan = executorRunPlan(goal, selectedAction, internalTask);
+  const internalTask = internalTaskFromAction(goal, selectedAction, route, gate.execution_target);
+  const runPlan = executorRunPlan(goal, selectedAction, internalTask, gate.execution_target);
+  const executionRepo = executionRepoPath(gate.execution_target);
   let commandsRun = [
     {
       command: "read runtime/global/*",
@@ -7518,19 +7725,20 @@ async function autopilotRunner(args) {
     });
 
     for (const command of ["pnpm typecheck", "pnpm lint:check", "git diff --check"]) {
-      commandsRun.push(await runAllowedCommand(command));
+      commandsRun.push(await runAllowedCommand(command, executionRepo));
     }
 
     validationResult = validationSummary(commandsRun.filter((command) =>
       ["pnpm typecheck", "pnpm lint:check", "git diff --check"].includes(command.command)
     ));
-    implementationChangedFiles = await currentChangedFiles();
+    implementationChangedFiles = await currentChangedFiles(executionRepo);
 
     if (validationResult.status === "PASS" && executionResult.executed) {
       const implementationCommit = await commitPaths(
         implementationChangedFiles,
         commitMessageForAction(selectedAction),
-        commandsRun
+        commandsRun,
+        executionRepo
       );
       implementationCommitHash = implementationCommit.hash || null;
       if (!implementationCommit.ok) {
@@ -7888,6 +8096,103 @@ async function consoleActionPlan(args) {
     for (const reason of plan.blocked_reasons) console.log(`- ${reason}`);
   }
   if (plan.not_registered) process.exitCode = 1;
+}
+
+async function accessSummaryDryRun(args) {
+  assertDryRun(args, "access summary");
+  const { api, bundle } = await loadAccessCenterApi();
+  const context = args.user.trim() ? api.resolveUserProfile(bundle, args.user.trim()) : null;
+  const summary = api.accessSummary(bundle, context);
+  console.log("# Access Center Summary dry-run");
+  console.log("");
+  console.log(`policy_id: ${summary.policy_id}`);
+  console.log(`workspace_id: ${summary.workspace_id}`);
+  console.log(`auth_mode: ${summary.auth_mode}`);
+  console.log(`allow_anonymous_console_read: ${summary.allow_anonymous_console_read ? "yes" : "no"}`);
+  console.log(`session_ttl_hours: ${summary.session_ttl_hours}`);
+  console.log(`session_store_path: ${relative(repoRoot, summary.session_store_path)}`);
+  console.log(`role_count: ${summary.role_count}`);
+  console.log(`user_count: ${summary.user_count}`);
+  console.log(`membership_count: ${summary.membership_count}`);
+  console.log(`plan_count: ${summary.plan_count}`);
+  if (args.user.trim()) {
+    console.log(`selected_user: ${summary.current_user?.username ?? "not_found"}`);
+    console.log(`authenticated_profile: ${summary.authenticated ? "yes" : "no"}`);
+    console.log(`selected_plan: ${summary.current_plan?.display_name ?? "none"}`);
+    console.log(`selected_roles: ${summary.current_roles.length > 0 ? summary.current_roles.join(", ") : "none"}`);
+    console.log(`direct_execute_max_risk: ${summary.direct_execute_max_risk}`);
+  }
+}
+
+async function accessUsersDryRun(args) {
+  assertDryRun(args, "access users");
+  const { api, bundle } = await loadAccessCenterApi();
+  const users = api.listStudioUsers(bundle);
+  console.log("# Access Center Users dry-run");
+  console.log("");
+  console.log(`users: ${users.length}`);
+  console.log("| Username | Display Name | Status | Plan | Roles | Direct Execute | Projects |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- |");
+  for (const user of users) {
+    const profile = api.resolveUserProfile(bundle, user.user_id);
+    console.log(`| ${user.username} | ${user.display_name} | ${user.status} | ${user.plan_name} | ${(user.effective_roles ?? []).join(", ") || "none"} | ${user.direct_execute_max_risk} | ${(profile.project_allowlist ?? []).join(", ") || "none"} |`);
+  }
+}
+
+async function accessPlansDryRun(args) {
+  assertDryRun(args, "access plans");
+  const { api, bundle } = await loadAccessCenterApi();
+  const plans = api.listPlanEntitlements(bundle);
+  console.log("# Access Center Plans dry-run");
+  console.log("");
+  console.log(`plans: ${plans.length}`);
+  console.log("| Plan | Tier | Capabilities | Beta Features | Direct Execute | Seats |");
+  console.log("| --- | --- | --- | --- | --- | --- |");
+  for (const plan of plans) {
+    console.log(`| ${plan.display_name} | ${plan.tier} | ${plan.capability_count} | ${plan.beta_feature_count} | ${plan.direct_execute_max_risk} | ${plan.seat_limit} |`);
+  }
+}
+
+async function accessCheckDryRun(args) {
+  assertDryRun(args, "access check");
+  if (!args.user.trim()) throw new Error("Missing --user for access check.");
+  if (!args.action.trim()) throw new Error("Missing --action for access check.");
+
+  const { api, bundle } = await loadAccessCenterApi();
+  const actionCenter = await loadConsoleActionCenter();
+  const normalizedActionId = normalizeConsoleActionId(args.action.trim());
+  const action = (actionCenter.actions ?? []).find((item) => item.id === normalizedActionId) ?? null;
+  const projectId = args.project && args.project !== DEFAULT_PROJECT ? args.project : "jinhu-smart-park";
+  const context = api.resolveUserProfile(bundle, args.user.trim());
+  const decision = await api.evaluateConsoleActionAccess(bundle, {
+    action_id: normalizedActionId,
+    project_id: projectId,
+    risk: action?.risk ?? "LOW",
+    attachment_count: 0
+  }, {
+    user_context: context,
+    allow_default_user: false
+  });
+
+  console.log("# Access Center Check dry-run");
+  console.log("");
+  console.log(`user: ${context.user?.username ?? "not_found"}`);
+  console.log(`display_name: ${context.user?.display_name ?? "not_found"}`);
+  console.log(`workspace_id: ${context.workspace_id}`);
+  console.log(`action_id: ${normalizedActionId}`);
+  console.log(`action_label: ${action?.label ?? "not_registered"}`);
+  console.log(`target_project: ${projectId}`);
+  console.log(`risk: ${action?.risk ?? "LOW"}`);
+  console.log(`status: ${decision.status}`);
+  console.log(`execution_mode: ${decision.execution_mode}`);
+  console.log(`reason: ${decision.reason}`);
+  console.log(`required_capabilities: ${decision.required_capabilities.join(", ") || "none"}`);
+  console.log(`missing_capabilities: ${decision.missing_capabilities.join(", ") || "none"}`);
+  console.log(`effective_capabilities: ${decision.effective_capabilities.join(", ") || "none"}`);
+  console.log(`project_scope: ${decision.project_scope.join(", ") || "none"}`);
+  console.log(`direct_execute_max_risk: ${decision.direct_execute_max_risk}`);
+  console.log(`roles: ${context.roles.map((role) => role.role_id).join(", ") || "none"}`);
+  console.log(`plan: ${context.plan?.display_name ?? "none"}`);
 }
 
 const CONSOLE_SERVICE_LABEL = "com.anksen.agent-studio.console";
@@ -8248,6 +8553,9 @@ async function consoleSmoke(args) {
     "runtime/global/platform-state.json",
     "runtime/global/roadmap-memory.json",
     "runtime/global/v5-roadmap.json",
+    "runtime/global/access-state.json",
+    "runtime/global/access-users.json",
+    "runtime/global/access-memberships.json",
     "runtime/projects/jinhu-smart-park/project-state.json",
     "apps/console/web/assets/anksen-logo.svg"
   ];
@@ -8262,15 +8570,25 @@ async function consoleSmoke(args) {
   const dashboardModel = await dataModule.buildConsoleDashboardModel();
   const dashboardGenerated = Boolean(dashboardModel?.title && dashboardModel?.modules);
   const data = await dataModule.loadConsoleLocalData();
-  const actionsHtml = await renderModule.renderConsolePage("/actions");
-  const configHtml = await renderModule.renderConsolePage("/config");
-  const dashboardHtml = await renderModule.renderConsolePage("/");
+  const previewAuth = {
+    authenticated: true,
+    user: { username: "smoke-admin", display_name: "Smoke Admin" },
+    roles: [{ role_id: "workspace_admin", display_name: "Workspace Admin" }],
+    plan: { plan_id: "internal_preview", display_name: "Internal Preview", tier: "internal" },
+    direct_execute_max_risk: "MEDIUM"
+  };
+  const actionsHtml = await renderModule.renderConsolePage("/actions", previewAuth);
+  const configHtml = await renderModule.renderConsolePage("/config", previewAuth);
+  const dashboardHtml = await renderModule.renderConsolePage("/", previewAuth);
+  const unauthHtml = await renderModule.renderConsolePage("/", { authenticated: false });
   const interactiveControlsPresent = [
     "操作中心",
     "目标",
     "项目",
     "模式",
     "Agent",
+    "图片 / 文件",
+    "上传附件",
     "自动选择",
     "Codex CLI",
     "Claude Code",
@@ -8296,7 +8614,7 @@ async function consoleSmoke(args) {
     "/assets/anksen-logo.svg",
     "Antigravity Mode",
     "LOCAL",
-    "nav-toggle",
+    "top-nav",
     "运行环境",
     "Agent 调度",
     "认证与凭证",
@@ -8321,6 +8639,13 @@ async function consoleSmoke(args) {
     "Credential Reference 配置",
     "Governance 策略查看"
   ].every((text) => configHtml.includes(text));
+  const authGatePresent = [
+    "登录 ANKSEN Agent Studio",
+    "用户名",
+    "密码",
+    "登录 Studio",
+    "本地账号登录"
+  ].every((text) => unauthHtml.includes(text));
   const safetyPass = data.safety.external_calls === "disabled"
     && data.safety.credential_values === "not_read"
     && data.safety.managed_project_writes === "disabled"
@@ -8337,6 +8662,7 @@ async function consoleSmoke(args) {
     && controlTowerPresent
     && darkThemePresent
     && configCenterPresent
+    && authGatePresent
     && safetyPass
     ? "PASS"
     : "FAIL";
@@ -8356,6 +8682,7 @@ async function consoleSmoke(args) {
   console.log(`control_tower_modules: ${controlTowerPresent ? "yes" : "no"}`);
   console.log(`dark_professional_theme: ${darkThemePresent ? "yes" : "no"}`);
   console.log(`config_center: ${configCenterPresent ? "yes" : "no"}`);
+  console.log(`auth_gate: ${authGatePresent ? "yes" : "no"}`);
   console.log(`action_log_dir: ${data.actionServer.action_log_dir}`);
   console.log(`latest_autopilot_source: ${data.data_sources.autopilot_latest}`);
   console.log(`phoenix_erp_local_path: ${data.safety.phoenix_erp_local_path}`);
@@ -8397,6 +8724,24 @@ async function consoleActionServerSmoke(args) {
     goal: "让 Codex 生成一个只读任务计划",
     workspace_mode: "agent",
     agent: "codex-cli"
+  });
+  const attachmentPlan = await actionServer.createActionPlan({
+    action_id: "workspace-goal",
+    project_id: "jinhu-smart-park",
+    goal: "读取上传附件并输出摘要",
+    workspace_mode: "auto",
+    agent: "auto",
+    attachments: [
+      {
+        name: "console-upload-smoke.txt",
+        type: "text/plain",
+        size: 28,
+        lastModified: 0,
+        kind: "file",
+        text_excerpt: "Attachment smoke payload",
+        data_url: "data:text/plain;base64,QXR0YWNobWVudCBzbW9rZSBwYXlsb2Fk"
+      }
+    ]
   });
   const aiRuntimeStatus = await actionServer.detectLocalAiRuntimes();
   const highPlan = await actionServer.createActionPlan({
@@ -8441,7 +8786,17 @@ async function consoleActionServerSmoke(args) {
   });
   const cancelledRun = await actionServer.cancelConversationAction(cancelRun.run_id);
   const loadedRun = actionServer.getConversationAction(asyncRun.run_id);
-  const routeCheck = ["/api/actions/start", "/api/actions/", "/cancel", "/api/action-plan", "/api/action-run", "/api/action-log/latest"].every((route) => serverText.includes(route));
+  const routeCheck = [
+    "/api/access/login",
+    "/api/access/logout",
+    "/api/access/session",
+    "/api/actions/start",
+    "/api/actions/",
+    "/cancel",
+    "/api/action-plan",
+    "/api/action-run",
+    "/api/action-log/latest"
+  ].every((route) => serverText.includes(route));
   const localOnlyCheck = serverText.includes("127.0.0.1") && serverText.includes("localOnly");
   const registryCheck = Array.isArray(summary.actions)
     && summary.actions.some((action) => action.id === "smart-park-go-live-plan")
@@ -8464,7 +8819,15 @@ async function consoleActionServerSmoke(args) {
     && smartParkBlockerPlan.plan.command.includes("project chain-validate --project jinhu-smart-park --dry-run")
     && aiRuntimeStatusPlan.plan.command.includes("console agent-status --dry-run")
     && realAgentPlan.plan.action_id === "agent-real-plan"
-    && realAgentPlan.plan.command.includes("codex exec --sandbox read-only");
+    && realAgentPlan.plan.command.includes("codex exec --sandbox read-only")
+    && attachmentPlan.plan.action_id === "agent-real-plan";
+  const attachmentSupportCheck = summary.attachments_enabled === true
+    && Array.isArray(summary.supported_uploads)
+    && summary.supported_uploads.includes("image")
+    && summary.supported_uploads.includes("file")
+    && attachmentPlan.plan.attachment_count === 1
+    && Array.isArray(attachmentPlan.plan.attachments)
+    && attachmentPlan.plan.attachments[0]?.stored_path?.includes("autopilot-runs/console-actions/uploads/");
   const aiRuntimeCheck = aiRuntimeStatus.runtimes.some((runtime) => runtime.runtime_id === "codex-cli")
     && aiRuntimeStatus.runtimes.some((runtime) => runtime.runtime_id === "claude-code")
     && aiRuntimeStatus.safety.console_reads_secret_values === false
@@ -8474,6 +8837,8 @@ async function consoleActionServerSmoke(args) {
     && highPlan.plan.governance_gate === "PROPOSAL_ONLY"
     && highPlan.plan.approval_required === true;
   const safetyCheck = summary.bind_address === "127.0.0.1"
+    && summary.auth_required === true
+    && summary.auth_mode === "local_password_session"
     && summary.direct_execute_allowed_for.includes("LOW")
     && summary.direct_execute_allowed_for.includes("MEDIUM")
     && summary.high_risk_policy === "proposal_only"
@@ -8488,6 +8853,7 @@ async function consoleActionServerSmoke(args) {
     && registryCheck
     && logWriteCheck
     && commandMappingCheck
+    && attachmentSupportCheck
     && aiRuntimeCheck
     && governanceCheck
     && safetyCheck
@@ -8503,6 +8869,7 @@ async function consoleActionServerSmoke(args) {
   console.log(`action_registry: ${registryCheck ? "PASS" : "FAIL"}`);
   console.log(`log_write: ${logWriteCheck ? "PASS" : "FAIL"}`);
   console.log(`command_mapping: ${commandMappingCheck ? "PASS" : "FAIL"}`);
+  console.log(`attachment_support: ${attachmentSupportCheck ? "PASS" : "FAIL"}`);
   console.log(`ai_runtime_status: ${aiRuntimeCheck ? "PASS" : "FAIL"}`);
   console.log(`governance_gate: ${governanceCheck ? "PASS" : "FAIL"}`);
   console.log(`safety_policy: ${safetyCheck ? "PASS" : "FAIL"}`);
@@ -8564,6 +8931,12 @@ async function loadWorkerPoolApi() {
 async function loadMobileStackPackApi() {
   const api = await import(mobileStackPackUtilsUrl());
   const bundle = await api.loadMobileStackPack();
+  return { api, bundle };
+}
+
+async function loadAccessCenterApi() {
+  const api = await import(accessCenterUtilsUrl());
+  const bundle = await api.loadAccessCenter();
   return { api, bundle };
 }
 
@@ -10434,6 +10807,10 @@ async function main() {
   if (args.command === "context" && args.subcommand === "bootstrap") return contextBootstrap(args);
   if (args.command === "context" && args.subcommand === "summary") return contextSummary();
   if (args.command === "context" && args.subcommand === "project") return contextProject(args);
+  if (args.command === "access" && args.subcommand === "summary") return accessSummaryDryRun(args);
+  if (args.command === "access" && args.subcommand === "users") return accessUsersDryRun(args);
+  if (args.command === "access" && args.subcommand === "plans") return accessPlansDryRun(args);
+  if (args.command === "access" && args.subcommand === "check") return accessCheckDryRun(args);
   if (args.command === "runtime" && args.subcommand === "list") return runtimeList();
   if (args.command === "runtime" && args.subcommand === "health") return runtimeHealth(args);
   if (args.command === "runtime" && args.subcommand === "select") return runtimeSelect(args);

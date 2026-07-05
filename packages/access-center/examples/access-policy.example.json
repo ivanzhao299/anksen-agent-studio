@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "policy_id": "studio-access-policy-mvp",
+  "auth_mode": "local_password_session",
+  "default_workspace_id": "anksen-agent-studio-local",
+  "default_console_user_id": "studio-owner",
+  "session_ttl_hours": 12,
+  "allow_anonymous_console_read": false,
+  "capability_catalog": [
+    "console.access",
+    "console.attachments",
+    "context.read",
+    "project.read",
+    "runtime.read",
+    "worker.read",
+    "credential.read",
+    "governance.read",
+    "autopilot.plan",
+    "autopilot.execute.local",
+    "proposal.review",
+    "proposal.create",
+    "proposal.approve",
+    "proposal.reject",
+    "production.request",
+    "agent.runtime.readonly",
+    "agent.runtime.status",
+    "access.manage",
+    "multi_project.visible",
+    "smart_park.workspace"
+  ],
+  "roles": [
+    {
+      "role_id": "platform_owner",
+      "display_name": "平台所有者",
+      "description": "管理 Studio 全局能力、内测权限和关键执行边界。",
+      "capabilities": ["*"],
+      "direct_execute_max_risk": "MEDIUM",
+      "can_manage_access": true
+    },
+    {
+      "role_id": "workspace_admin",
+      "display_name": "工作台管理员",
+      "description": "可管理本地 Console、项目入口和大部分 LOW/MEDIUM 本仓库动作。",
+      "capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "multi_project.visible",
+        "smart_park.workspace"
+      ],
+      "direct_execute_max_risk": "MEDIUM",
+      "can_manage_access": false
+    },
+    {
+      "role_id": "operator",
+      "display_name": "运营执行者",
+      "description": "可以读取上下文、查看运行时和执行受治理的 LOW/MEDIUM 本地动作。",
+      "capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "smart_park.workspace"
+      ],
+      "direct_execute_max_risk": "MEDIUM",
+      "can_manage_access": false
+    },
+    {
+      "role_id": "reviewer",
+      "display_name": "审批审阅者",
+      "description": "查看 Proposal、生成审批草稿和审核治理结果。",
+      "capabilities": [
+        "console.access",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "multi_project.visible",
+        "smart_park.workspace"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "can_manage_access": false
+    },
+    {
+      "role_id": "viewer",
+      "display_name": "只读观察者",
+      "description": "只能查看 Console、上下文和运行态，不可发起执行。",
+      "capabilities": [
+        "console.access",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "multi_project.visible"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "can_manage_access": false
+    },
+    {
+      "role_id": "security_admin",
+      "display_name": "安全管理员",
+      "description": "负责访问策略、账号状态和套餐门禁。",
+      "capabilities": [
+        "console.access",
+        "context.read",
+        "governance.read",
+        "proposal.review",
+        "access.manage"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "can_manage_access": true
+    }
+  ]
+}

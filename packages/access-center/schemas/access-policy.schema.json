@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/access-policy.schema.json",
+  "title": "Access Policy",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "policy_id",
+    "auth_mode",
+    "default_workspace_id",
+    "default_console_user_id",
+    "session_ttl_hours",
+    "allow_anonymous_console_read",
+    "capability_catalog",
+    "roles"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "policy_id": { "type": "string", "minLength": 1 },
+    "auth_mode": { "enum": ["local_password_session", "local_session_only"] },
+    "default_workspace_id": { "type": "string", "minLength": 1 },
+    "default_console_user_id": { "type": "string", "minLength": 1 },
+    "session_ttl_hours": { "type": "integer", "minimum": 1 },
+    "allow_anonymous_console_read": { "type": "boolean" },
+    "capability_catalog": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role_id", "display_name", "description", "capabilities", "direct_execute_max_risk", "can_manage_access"],
+        "properties": {
+          "role_id": { "type": "string", "minLength": 1 },
+          "display_name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "capabilities": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "direct_execute_max_risk": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          "can_manage_access": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

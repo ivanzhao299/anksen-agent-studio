@@ -14,10 +14,9 @@ function escapeHtml(value) {
 }
 
 function nav(activeId) {
-  return `<nav><button type="button" id="nav-toggle" class="nav-toggle" aria-label="折叠侧边栏">‹</button>${consoleWebRoutes.filter((route) => route.showInNav !== false).map((route) => {
+  return `<nav class="top-nav">${consoleWebRoutes.filter((route) => route.showInNav !== false).map((route) => {
     const active = route.id === activeId ? "active" : "";
-    const shortLabel = route.label === "AI 工作台" ? "AI" : route.label.slice(0, 1);
-    return `<a class="${active}" href="${route.navPath}" data-short="${escapeHtml(shortLabel)}"><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
+    return `<a class="${active}" href="${route.navPath}"><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
   }).join("")}</nav>`;
 }
 
@@ -99,20 +98,96 @@ function aiAgentOptions() {
   ].join("");
 }
 
-function topStatusBar(model, data) {
+function topStatusBar(model, data, auth = {}) {
+  const activeUser = auth.authenticated
+    ? (auth.user?.display_name || auth.user?.username || "已登录")
+    : "需登录";
+  const activePlan = auth.authenticated
+    ? (auth.plan?.display_name || auth.plan?.plan_id || "未分配套餐")
+    : "本地登录";
+  const chips = [
+    { value: model.platform_status, tone: "primary" },
+    { value: activeUser, tone: auth.authenticated ? "default" : "warning" },
+    { value: activePlan, tone: "default" },
+    { value: "Pilot", tone: "default" },
+    { value: model.active_project, tone: "default" },
+    { value: `Worker ${model.modules.workers}`, tone: "default" },
+    { value: "LOW/MEDIUM", tone: "default" },
+    { value: data.autopilot.latest_summary?.validation ?? "unknown", tone: "success" }
+  ];
   return `<div class="top-status compact">
-    <span class="top-status-item"><strong>状态</strong>${escapeHtml(model.platform_status)}</span>
-    <span class="top-status-sep">/</span>
-    <span class="top-status-item"><strong>Pilot</strong>ENABLED</span>
-    <span class="top-status-sep">/</span>
-    <span class="top-status-item"><strong>项目</strong>${escapeHtml(model.active_project)}</span>
-    <span class="top-status-sep">/</span>
-    <span class="top-status-item"><strong>Worker</strong>${escapeHtml(model.modules.workers)}</span>
-    <span class="top-status-sep">/</span>
-    <span class="top-status-item"><strong>闸门</strong>LOW/MEDIUM 直执</span>
-    <span class="top-status-sep">/</span>
-    <span class="top-status-item"><strong>最近</strong>${escapeHtml(data.autopilot.latest_summary?.validation ?? "unknown")}</span>
+    ${chips.map((chip) => `<span class="top-status-pill ${chip.tone}">${escapeHtml(chip.value)}</span>`).join("")}
   </div>`;
+}
+
+function authHeaderBar(auth = {}) {
+  if (auth.authenticated) {
+    const primaryRole = Array.isArray(auth.roles) && auth.roles.length > 0
+      ? (auth.roles[0].display_name || auth.roles[0].role_id)
+      : "已授权";
+    return `<div class="auth-strip">
+      <div class="auth-identity">
+        <strong>${escapeHtml(auth.user?.display_name || auth.user?.username || "已登录")}</strong>
+        <span>${escapeHtml(primaryRole)} / ${escapeHtml(auth.plan?.display_name || auth.plan?.plan_id || "未分配套餐")}</span>
+      </div>
+      <div class="auth-actions">
+        <span class="pill">直执 ${escapeHtml(auth.direct_execute_max_risk || "LOW")}</span>
+        <button type="button" id="auth-logout" class="secondary auth-logout">退出</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="auth-strip unauth">
+    <div class="auth-identity">
+      <strong>本地账号登录</strong>
+      <span>启用角色、套餐和项目范围门禁后，未登录用户不能触发 Studio 动作。</span>
+    </div>
+    <span class="pill warn-pill">127.0.0.1 only</span>
+  </div>`;
+}
+
+function accessLoginPage(data) {
+  const summary = data.access?.summary ?? {};
+  return `<section class="auth-shell">
+    <div class="auth-panel">
+      <span class="eyebrow">Local Access</span>
+      <h2>登录 ANKSEN Agent Studio</h2>
+      <p>当前控制台仅允许本机访问，且必须先通过本地账号完成角色、套餐和项目范围校验。</p>
+      <form id="auth-login-form" class="auth-form">
+        <div>
+          <label for="auth-username">用户名</label>
+          <input id="auth-username" name="username" type="text" placeholder="请输入用户名" autocomplete="username">
+        </div>
+        <div>
+          <label for="auth-password">密码</label>
+          <input id="auth-password" name="password" type="password" placeholder="请输入密码" autocomplete="current-password">
+        </div>
+        <div class="button-row">
+          <button type="submit" class="primary-action">登录 Studio</button>
+        </div>
+        <p id="auth-status" class="help">请使用已分配的内测账号登录。当前不会读取真实业务系统凭证。</p>
+      </form>
+    </div>
+    <div class="auth-side">
+      <div class="panel">
+        <span class="side-kicker">访问策略</span>
+        <div class="grid">
+          ${metric("角色", summary.role_count ?? 0)}
+          ${metric("用户", summary.user_count ?? 0)}
+          ${metric("套餐", summary.plan_count ?? 0)}
+          ${metric("匿名访问", summary.allow_anonymous_console_read ? "允许" : "禁用")}
+        </div>
+      </div>
+      <div class="panel">
+        <span class="side-kicker">登录后开放</span>
+        ${list([
+          "统一 AI 工作台与项目入口",
+          "Console Action Server 本地动作执行",
+          "按角色和套餐限制的 LOW/MEDIUM 安全动作",
+          "HIGH proposal_only / CRITICAL 人工审批"
+        ])}
+      </div>
+    </div>
+  </section>`;
 }
 
 function actionWorkbench(data, title = "统一 AI 开发工作台") {
@@ -182,6 +257,16 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
       <div class="composer">
         <label for="action-goal">目标</label>
         <textarea id="action-goal" class="goal-box command-input" placeholder="输入目标，例如：继续推进 Smart Park 巡检闭环">继续推进 Pilot</textarea>
+        <div class="attachment-toolbar">
+          <div class="attachment-toolbar-head">
+            <label class="attachment-label" for="action-attachments">图片 / 文件</label>
+            <button type="button" id="attachment-trigger" class="secondary attach-button">上传附件</button>
+            <input id="action-attachments" type="file" multiple accept="image/*,.pdf,.txt,.md,.json,.csv,.log,.doc,.docx,.xls,.xlsx" hidden>
+          </div>
+          <div id="attachment-list" class="attachment-list empty">
+            <span class="attachment-empty">未添加附件。上传图片后会生成预览，开始执行时会把文件写入本地 action log 附件目录并交给 Agent 读取。</span>
+          </div>
+        </div>
         <div class="workspace-controls">
           <div>
             <label for="action-project">项目</label>
@@ -359,6 +444,11 @@ function projectWorkbench(data) {
 function interactiveScript() {
   return `<script>
 (() => {
+  const authLoginForm = document.getElementById("auth-login-form");
+  const authUsername = document.getElementById("auth-username");
+  const authPassword = document.getElementById("auth-password");
+  const authStatus = document.getElementById("auth-status");
+  const authLogout = document.getElementById("auth-logout");
   const output = document.getElementById("action-output");
   const errorOutput = document.getElementById("action-error");
   const statusEl = document.getElementById("action-status");
@@ -370,34 +460,27 @@ function interactiveScript() {
   const runStateEl = document.getElementById("run-state");
   const conversationStream = document.getElementById("conversation-stream");
   const flowRail = document.getElementById("flow-rail");
+  const attachmentInput = document.getElementById("action-attachments");
+  const attachmentTrigger = document.getElementById("attachment-trigger");
+  const attachmentList = document.getElementById("attachment-list");
   const goal = document.getElementById("action-goal");
   const project = document.getElementById("action-project");
   const action = document.getElementById("action-type");
   const modeSelect = document.getElementById("action-mode");
   const agent = document.getElementById("action-agent");
   const draftStatus = document.getElementById("config-draft-status");
-  const navToggle = document.getElementById("nav-toggle");
   let currentRunId = null;
   let pollTimer = null;
+  let selectedAttachments = [];
+  const runAttachmentCache = new Map();
   const terminalStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED"]);
   const defaultTimeline = ["已理解目标", "选择项目", "Agent/Runtime", "生成计划", "Governance", "执行/审批", "结果报告"];
-  const navCollapsedKey = "anksen-console-nav-collapsed";
 
-  if (localStorage.getItem(navCollapsedKey) === "yes") document.body.classList.add("nav-collapsed");
-
-  function syncNavToggle() {
-    if (!navToggle) return;
-    const collapsed = document.body.classList.contains("nav-collapsed");
-    navToggle.textContent = collapsed ? "›" : "‹";
-    navToggle.setAttribute("aria-label", collapsed ? "展开侧边栏" : "折叠侧边栏");
+  function setAuthStatus(message, tone = "neutral") {
+    if (!authStatus) return;
+    authStatus.textContent = message || "未登录";
+    authStatus.className = "help auth-status " + tone;
   }
-
-  syncNavToggle();
-  navToggle?.addEventListener("click", () => {
-    document.body.classList.toggle("nav-collapsed");
-    localStorage.setItem(navCollapsedKey, document.body.classList.contains("nav-collapsed") ? "yes" : "no");
-    syncNavToggle();
-  });
 
   function normalize(value) {
     return String(value || "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -415,6 +498,120 @@ function interactiveScript() {
   function clipClient(value, maxLength) {
     const text = String(value == null ? "" : value);
     return text.length > maxLength ? text.slice(0, maxLength) + "\\n...输出已截断，完整内容见 action log。" : text;
+  }
+
+  function attachmentFingerprint(attachment) {
+    return [attachment.name || "", attachment.size || attachment.size_bytes || "", attachment.lastModified || "", attachment.stored_path || ""].join("::");
+  }
+
+  function fileKind(attachment) {
+    return String(attachment.kind || "").toLowerCase() === "image" || String(attachment.type || attachment.mime_type || "").startsWith("image/")
+      ? "image"
+      : "file";
+  }
+
+  function attachmentPreviewFor(attachment, cached = []) {
+    const fingerprint = attachmentFingerprint(attachment);
+    return cached.find((item) => attachmentFingerprint(item) === fingerprint || (item.name === attachment.name && Number(item.size || item.size_bytes) === Number(attachment.size || attachment.size_bytes)));
+  }
+
+  function renderAttachmentCard(attachment, options = {}) {
+    const preview = options.preview || null;
+    const kind = fileKind(attachment);
+    const thumb = kind === "image" && preview?.previewUrl
+      ? '<img class="attachment-thumb" src="' + escapeClient(preview.previewUrl) + '" alt="' + escapeClient(attachment.name || "attachment") + '">'
+      : '<span class="attachment-thumb attachment-thumb-fallback">' + (kind === "image" ? "图" : "文") + '</span>';
+    const meta = [
+      attachment.mime_type || attachment.type || "application/octet-stream",
+      attachment.size_label || (attachment.size ? Math.max(1, Math.round(Number(attachment.size) / 1024)) + " KB" : ""),
+      attachment.width && attachment.height ? attachment.width + "×" + attachment.height : "",
+      attachment.stored_path || ""
+    ].filter(Boolean).join(" · ");
+    const excerpt = attachment.text_excerpt || preview?.textExcerpt || "";
+    const removable = options.removable
+      ? '<button type="button" class="attachment-remove" data-attachment-remove="' + escapeClient(attachmentFingerprint(attachment)) + '">移除</button>'
+      : "";
+    return '<div class="attachment-card ' + kind + '">' + thumb + '<div class="attachment-meta"><strong>' + escapeClient(attachment.name || "未命名附件") + '</strong><span>' + escapeClient(meta || kind) + '</span>' + (excerpt ? '<em>' + escapeClient(clipClient(excerpt, 140)) + '</em>' : "") + '</div>' + removable + '</div>';
+  }
+
+  function renderAttachmentList() {
+    if (!attachmentList) return;
+    if (selectedAttachments.length === 0) {
+      attachmentList.className = "attachment-list empty";
+      attachmentList.innerHTML = '<span class="attachment-empty">未添加附件。上传图片后会生成预览，开始执行时会把文件写入本地 action log 附件目录并交给 Agent 读取。</span>';
+      return;
+    }
+    attachmentList.className = "attachment-list";
+    attachmentList.innerHTML = selectedAttachments.map((attachment) => renderAttachmentCard(attachment, {
+      preview: attachment,
+      removable: true
+    })).join("");
+    attachmentList.querySelectorAll("[data-attachment-remove]").forEach((button) => {
+      button.addEventListener("click", () => {
+        selectedAttachments = selectedAttachments.filter((item) => attachmentFingerprint(item) !== button.getAttribute("data-attachment-remove"));
+        renderAttachmentList();
+      });
+    });
+  }
+
+  function readAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error || new Error("readAsDataURL failed"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function readAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error || new Error("readAsText failed"));
+      reader.readAsText(file);
+    });
+  }
+
+  function readImageSize(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+      image.onerror = () => reject(new Error("image decode failed"));
+      image.src = dataUrl;
+    });
+  }
+
+  function isTextLike(file) {
+    return String(file.type || "").startsWith("text/")
+      || String(file.type || "").includes("json")
+      || [".md", ".txt", ".json", ".csv", ".log", ".yaml", ".yml"].some((ext) => file.name.toLowerCase().endsWith(ext));
+  }
+
+  async function normalizeAttachment(file) {
+    const dataUrl = await readAsDataURL(file);
+    const attachment = {
+      name: file.name,
+      type: file.type || "application/octet-stream",
+      size: file.size,
+      lastModified: file.lastModified,
+      kind: String(file.type || "").startsWith("image/") ? "image" : "file",
+      data_url: dataUrl,
+      previewUrl: String(file.type || "").startsWith("image/") ? dataUrl : "",
+      textExcerpt: ""
+    };
+    if (attachment.kind === "image") {
+      try {
+        const size = await readImageSize(dataUrl);
+        attachment.width = size.width;
+        attachment.height = size.height;
+      } catch {}
+    }
+    if (isTextLike(file)) {
+      try {
+        attachment.textExcerpt = clipClient(await readAsText(file), 1200);
+      } catch {}
+    }
+    return attachment;
   }
 
   function setStatus(value) {
@@ -477,7 +674,15 @@ function interactiveScript() {
     setText(errorOutput, result.stderr_summary || result.error || "");
   }
 
-  function optimisticMessages(body) {
+  function renderAttachmentBlock(attachments, runId) {
+    if (!attachments || attachments.length === 0) return "";
+    const cached = runId ? (runAttachmentCache.get(runId) || []) : attachments;
+    return '<div class="attachment-bubble">' + attachments.map((attachment) => renderAttachmentCard(attachment, {
+      preview: attachmentPreviewFor(attachment, cached)
+    })).join("") + '</div>';
+  }
+
+  function optimisticMessages(body, attachments) {
     const text = escapeClient(body.goal || "继续推进 Pilot");
     const projectText = escapeClient(body.project_id || "jinhu-smart-park");
     const agentText = escapeClient(body.agent || "auto");
@@ -485,6 +690,7 @@ function interactiveScript() {
     if (!conversationStream) return;
     conversationStream.innerHTML = [
       '<div class="terminal-line user">> ' + text + '</div>',
+      renderAttachmentBlock(attachments),
       '<div class="terminal-line assistant">$ 已理解目标</div>',
       '<div class="terminal-line assistant">$ 项目 ' + projectText + '</div>',
       '<div class="terminal-line running">$ Agent/Runtime ' + agentText + ' / ' + modeText + ' ...</div>'
@@ -497,12 +703,14 @@ function interactiveScript() {
     if (!conversationStream) return;
     const messages = Array.isArray(record && record.messages) ? record.messages : [];
     const transcript = Array.isArray(record && record.transcript) ? record.transcript : [];
+    const attachments = Array.isArray(record?.plan?.attachments) ? record.plan.attachments : [];
     const lines = messages.map((message) => {
       const role = message.role === "user" ? "user" : "assistant";
       const prefix = role === "user" ? "> " : "$ ";
       const phase = message.phase ? "[" + escapeClient(message.phase) + "] " : "";
       return '<div class="terminal-line ' + role + '">' + prefix + phase + escapeClient(message.content) + '</div>';
     });
+    if (attachments.length) lines.splice(1, 0, renderAttachmentBlock(attachments, record?.run_id));
     const logPath = record && record.logs ? (record.logs.json || record.logs.markdown || "") : (record && record.plan ? record.plan.log_path : "");
     const result = record && record.result ? record.result : {};
     if (record && record.run_id) lines.push('<div class="terminal-line assistant">$ run_id ' + escapeClient(record.run_id) + '</div>');
@@ -545,6 +753,7 @@ function interactiveScript() {
     const selectedMode = modeSelect ? modeSelect.value : "auto";
     const selectedAgent = agent ? agent.value : "auto";
     if (selectedMode === "plan_only") return "goal-plan";
+    if (selectedAttachments.length > 0) return "agent-real-plan";
     if (selectedMode === "agent" || selectedAgent !== "auto") return "agent-real-plan";
     return "workspace-goal";
   }
@@ -555,7 +764,18 @@ function interactiveScript() {
       project_id: project ? project.value : "jinhu-smart-park",
       action_id: actionOverride || actionForMode(),
       workspace_mode: modeSelect ? modeSelect.value : "auto",
-      agent: agent ? agent.value : "auto"
+      agent: agent ? agent.value : "auto",
+      attachments: selectedAttachments.map((attachment) => ({
+        name: attachment.name,
+        type: attachment.type,
+        size: attachment.size,
+        lastModified: attachment.lastModified,
+        kind: attachment.kind,
+        width: attachment.width,
+        height: attachment.height,
+        text_excerpt: attachment.textExcerpt,
+        data_url: attachment.data_url
+      }))
     };
   }
 
@@ -572,18 +792,27 @@ function interactiveScript() {
     } catch (error) {
       value = { status: "FAIL", error: text || String(error) };
     }
-    if (!response.ok) throw new Error(value.error || value.reason || text || "Action Server request failed");
+    if (!response.ok) {
+      if (response.status === 401) {
+        setAuthStatus(value.reason || "登录态失效，请重新登录。", "error");
+      }
+      throw new Error(value.error || value.reason || text || "Action Server request failed");
+    }
     return value;
   }
 
   async function startAction(actionOverride) {
     const body = payload(actionOverride);
+    const submittedAttachments = [...selectedAttachments];
     currentRunId = null;
     if (pollTimer) clearTimeout(pollTimer);
-    optimisticMessages(body);
+    optimisticMessages(body, submittedAttachments);
     setStatus("执行中");
     const record = await postJson("/api/actions/start", body);
     currentRunId = record.run_id;
+    runAttachmentCache.set(currentRunId, submittedAttachments);
+    selectedAttachments = [];
+    renderAttachmentList();
     renderRun(record);
     schedulePoll();
   }
@@ -682,6 +911,45 @@ function interactiveScript() {
     });
   });
 
+  attachmentTrigger?.addEventListener("click", () => attachmentInput?.click());
+  attachmentInput?.addEventListener("change", async () => {
+    const files = [...(attachmentInput.files || [])].slice(0, 6);
+    if (files.length === 0) return;
+    try {
+      const next = await Promise.all(files.map((file) => normalizeAttachment(file)));
+      selectedAttachments = [...selectedAttachments, ...next].slice(0, 6);
+      renderAttachmentList();
+      if (attachmentInput) attachmentInput.value = "";
+    } catch (error) {
+      renderActionResult({ result: { status: "FAIL", stderr_summary: String(error && error.message ? error.message : error) } });
+    }
+  });
+
+  renderAttachmentList();
+
+  authLoginForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      setAuthStatus("登录中...", "pending");
+      await postJson("/api/access/login", {
+        username: authUsername ? authUsername.value.trim() : "",
+        password: authPassword ? authPassword.value : ""
+      });
+      setAuthStatus("登录成功，正在进入工作台...", "success");
+      window.setTimeout(() => window.location.reload(), 180);
+    } catch (error) {
+      setAuthStatus(String(error && error.message ? error.message : error), "error");
+    }
+  });
+
+  authLogout?.addEventListener("click", async () => {
+    try {
+      await postJson("/api/access/logout", {});
+    } finally {
+      window.location.reload();
+    }
+  });
+
   if (goal) {
     goal.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && !event.shiftKey) {
@@ -715,8 +983,10 @@ function interactiveScript() {
 </script>`;
 }
 
-function shell(content, activeId, model, data) {
+function shell(content, activeId, model, data, auth = {}) {
   const route = consoleWebRoutes.find((item) => item.id === activeId) ?? consoleWebRoutes[0];
+  const gated = data.access?.summary?.allow_anonymous_console_read !== true && !auth.authenticated;
+  const mainContent = gated ? accessLoginPage(data) : content;
   return `<!doctype html>
 <html lang="${messages.locale}">
 <head>
@@ -733,30 +1003,31 @@ function shell(content, activeId, model, data) {
     .logo-frame { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 40px; flex: 0 0 auto; border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; }
     .brand-logo { display: block; width: 100%; height: 100%; object-fit: contain; }
     .brand-copy { min-width: 0; }
-    h1 { margin: 0 0 2px; font-size: 16px; font-weight: 700; letter-spacing: 0; }
-    .subhead { color: var(--muted); font-size: 12px; }
-    .top-status { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+    h1 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: 0; }
+    .subhead { color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .auth-strip { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.04); }
+    .auth-strip.unauth { align-items: flex-start; }
+    .auth-identity { min-width: 0; }
+    .auth-identity strong { display: block; font-size: 12px; }
+    .auth-identity span { display: block; color: var(--muted); font-size: 11px; line-height: 1.45; margin-top: 2px; }
+    .auth-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .auth-logout { min-height: 30px; padding: 6px 10px; }
+    .top-status { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; color: var(--muted); font-size: 11px; line-height: 1.35; }
     .top-status.compact { align-items: center; }
-    .top-status-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-    .top-status-item strong { color: #b8c6d8; font-size: 11px; font-weight: 700; }
-    .top-status-sep { color: #334155; }
+    .top-status-pill { display: inline-flex; align-items: center; min-height: 24px; padding: 0 9px; border-radius: 999px; border: 1px solid #1f2b38; background: #0b1118; color: #c2cfde; white-space: nowrap; font-size: 11px; font-weight: 700; }
+    .top-status-pill.primary { background: #111927; color: #dbeafe; border-color: #243041; }
+    .top-status-pill.success { color: var(--green); border-color: rgba(52, 211, 153, 0.28); background: rgba(14, 27, 21, 0.92); }
+    .top-status-pill.warning { color: var(--yellow); border-color: rgba(251, 191, 36, 0.28); background: rgba(33, 23, 8, 0.92); }
     .status-chip { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 9px 10px; min-width: 0; }
     .status-chip span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 3px; }
     .status-chip strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
     .status-chip.good strong { color: var(--green); }
     .status-chip.warn strong { color: var(--yellow); }
-    .layout { display: grid; grid-template-columns: 176px minmax(0, 1fr); min-height: calc(100vh - 78px); transition: grid-template-columns 0.18s ease; }
-    nav { border-right: 1px solid var(--line); background: rgba(10, 13, 18, 0.78); padding: 10px; position: sticky; top: 78px; height: calc(100vh - 78px); align-self: start; overflow: hidden; }
-    .nav-toggle { width: 100%; min-height: 32px; margin: 0 0 8px; border-color: var(--line); background: #0b1118; color: var(--muted); }
-    nav a { display: block; color: var(--muted); text-decoration: none; padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 4px; white-space: nowrap; }
-    nav a:hover { color: var(--text); background: #10151d; }
-    nav a.active { background: #121924; color: #dbeafe; font-weight: 700; }
-    body.nav-collapsed .layout { grid-template-columns: 56px minmax(0, 1fr); }
-    body.nav-collapsed nav { padding: 8px; }
-    body.nav-collapsed nav a { text-align: center; padding: 8px 0; }
-    body.nav-collapsed nav a .nav-label { display: none; }
-    body.nav-collapsed nav a::after { content: attr(data-short); font-size: 12px; }
-    main { padding: 12px 14px 24px; max-width: 1480px; width: 100%; }
+    .top-nav { display: flex; align-items: center; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 2px; scrollbar-width: thin; }
+    .top-nav a { display: inline-flex; align-items: center; color: var(--muted); text-decoration: none; padding: 8px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; border: 1px solid transparent; background: #0b1118; }
+    .top-nav a:hover { color: var(--text); background: #10151d; border-color: #1f2b38; }
+    .top-nav a.active { background: #121924; color: #dbeafe; border-color: #243041; font-weight: 700; }
+    main { padding: 12px 14px 24px; max-width: 1480px; width: 100%; margin: 0 auto; }
     section { margin-bottom: 14px; }
     h2 { font-size: 18px; margin: 0 0 10px; }
     h3 { font-size: 14px; margin: 0 0 8px; }
@@ -764,6 +1035,13 @@ function shell(content, activeId, model, data) {
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
     .metric, .panel, .workbench, .smart-entry, .output-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; box-shadow: 0 8px 22px var(--shadow); }
     .workspace-shell { display: grid; grid-template-columns: 160px minmax(0, 1fr) 220px; gap: 10px; align-items: start; }
+    .auth-shell { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr); gap: 14px; align-items: start; }
+    .auth-panel, .auth-side { background: linear-gradient(180deg, rgba(16, 21, 29, 0.92), rgba(11, 14, 20, 0.96)); border: 1px solid var(--line); border-radius: 12px; padding: 16px; box-shadow: 0 10px 28px var(--shadow); }
+    .auth-panel h2 { margin-top: 6px; margin-bottom: 8px; }
+    .auth-form { display: grid; gap: 12px; margin-top: 12px; }
+    .auth-status.error { color: var(--red); }
+    .auth-status.success { color: var(--green); }
+    .auth-status.pending { color: var(--blue); }
     .ai-workspace, .advanced-config, .project-rail { background: linear-gradient(180deg, rgba(16, 21, 29, 0.92), rgba(11, 14, 20, 0.96)); border: 1px solid var(--line); border-radius: 10px; padding: 10px; box-shadow: 0 8px 22px var(--shadow); }
     .project-rail { position: sticky; top: 90px; }
     .rail-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
@@ -807,6 +1085,22 @@ function shell(content, activeId, model, data) {
     @keyframes pulse { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
     .workspace-controls { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(120px, 0.7fr) minmax(150px, 0.8fr) minmax(72px, auto) minmax(72px, auto); gap: 8px; align-items: end; margin-top: 8px; }
     .workspace-controls button { white-space: nowrap; min-width: 72px; }
+    .attachment-toolbar { margin-top: 10px; border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 10px; background: #070b10; padding: 10px; }
+    .attachment-toolbar-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .attachment-label { margin: 0; font-size: 12px; color: var(--muted); font-weight: 700; }
+    .attach-button { min-height: 34px; }
+    .attachment-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+    .attachment-list.empty { display: block; }
+    .attachment-empty { display: block; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .attachment-bubble { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin: 8px 0 10px; }
+    .attachment-card { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 10px; align-items: center; border: 1px solid #1c2430; border-radius: 10px; background: #0a0f15; padding: 8px; }
+    .attachment-card.image { background: linear-gradient(180deg, rgba(18, 24, 33, 0.92), rgba(10, 15, 21, 0.98)); }
+    .attachment-thumb { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; display: block; border: 1px solid #243041; background: #05070a; }
+    .attachment-thumb-fallback { display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #b8c6d8; }
+    .attachment-meta { min-width: 0; display: grid; gap: 2px; }
+    .attachment-meta strong { font-size: 12px; overflow-wrap: anywhere; }
+    .attachment-meta span, .attachment-meta em { color: var(--muted); font-size: 11px; font-style: normal; line-height: 1.4; overflow-wrap: anywhere; }
+    .attachment-remove { min-height: 30px; padding: 6px 10px; border-radius: 8px; background: #0e141d; color: #c7d2df; }
     .start-button, .cancel-button { min-height: 40px; }
     .execution-console { margin-top: 8px; border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 8px; background: #06080b; padding: 7px 10px; }
     .timeline-strip { display: flex; align-items: center; gap: 9px; min-width: 0; white-space: nowrap; }
@@ -902,8 +1196,8 @@ function shell(content, activeId, model, data) {
     .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
-    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .layout { grid-template-columns: 1fr; } nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 4px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } }
-    @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell { grid-template-columns: 1fr; } .advanced-config, .project-rail { position: static; } }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .top-nav { margin-top: 8px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user, .attachment-bubble, .attachment-list { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } .auth-strip, .auth-actions { align-items: flex-start; flex-direction: column; } }
+    @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell, .auth-shell { grid-template-columns: 1fr; } .advanced-config, .project-rail { position: static; } }
   </style>
 </head>
 <body>
@@ -917,12 +1211,11 @@ function shell(content, activeId, model, data) {
         </div>
       </div>
     </div>
-    ${topStatusBar(model, data)}
-  </header>
-  <div class="layout">
+    ${authHeaderBar(auth)}
+    ${topStatusBar(model, data, auth)}
     ${nav(activeId)}
-    <main>${content}</main>
-  </div>
+  </header>
+  <main>${mainContent}</main>
   ${interactiveScript()}
 </body>
 </html>`;
@@ -1084,8 +1377,32 @@ function pagePilotStatus(data) {
   <section><h2>${messages.pages.pilotStatus.safetyBoundary}</h2><div class="panel"><span class="safe">${escapeHtml(messages.common.noExternalCalls)}</span></div></section>`;
 }
 
-export async function renderConsolePage(pathname = "/") {
+function normalizeRenderAuth(auth, data) {
+  if (auth && typeof auth.authenticated === "boolean") return auth;
+  return {
+    authenticated: true,
+    auth_source: "preview",
+    user: data.access?.default_console_user ?? {
+      user_id: "preview-owner",
+      username: "preview-owner",
+      display_name: "Preview Owner"
+    },
+    roles: (data.access?.summary?.current_roles ?? []).map((roleId) => ({
+      role_id: roleId,
+      display_name: roleId
+    })),
+    plan: data.access?.summary?.current_plan ?? {
+      plan_id: "internal_preview",
+      display_name: "Internal Preview",
+      tier: "internal"
+    },
+    direct_execute_max_risk: data.access?.summary?.direct_execute_max_risk ?? "MEDIUM"
+  };
+}
+
+export async function renderConsolePage(pathname = "/", auth = null) {
   const data = await loadConsoleLocalData();
+  const resolvedAuth = normalizeRenderAuth(auth, data);
   const model = await buildConsoleDashboardModel();
   const route = consoleWebRoutes.find((item) => item.path === pathname) ?? consoleWebRoutes[0];
   const contentById = {
@@ -1103,5 +1420,5 @@ export async function renderConsolePage(pathname = "/") {
     pilotStatus: () => pagePilotStatus(data)
   };
   const body = await (contentById[route.id] ?? contentById.dashboard)();
-  return shell(body, route.id, model, data);
+  return shell(body, route.id, model, data, resolvedAuth);
 }

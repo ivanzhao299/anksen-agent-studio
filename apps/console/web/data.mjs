@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { actionServerSummary, latestActionLog } from "./action-server.mjs";
+import { accessSummary, loadAccessCenter, resolveUserProfile } from "../../../packages/access-center/lib/access-center-utils.mjs";
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(webDir, "../../..");
@@ -14,6 +15,9 @@ const dataFiles = {
   jinhuProjectState: "runtime/projects/jinhu-smart-park/project-state.json",
   codexContextIndex: "runtime/global/codex-context-index.json",
   decisionLog: "runtime/global/decision-log.json",
+  accessState: "runtime/global/access-state.json",
+  accessUsers: "runtime/global/access-users.json",
+  accessMemberships: "runtime/global/access-memberships.json",
   consoleActions: "apps/console/examples/console-actions.example.json"
 };
 
@@ -21,7 +25,8 @@ const exampleDirs = {
   runtimeCenter: "packages/runtime-center/examples",
   workerPool: "packages/worker-pool/examples",
   governanceCenter: "packages/governance-center/examples",
-  credentialVault: "packages/credential-vault/examples"
+  credentialVault: "packages/credential-vault/examples",
+  accessCenter: "packages/access-center/examples"
 };
 
 async function readJson(relativePath, fallback = null) {
@@ -93,11 +98,15 @@ export async function loadConsoleLocalData() {
     jinhuProjectState,
     codexContextIndex,
     decisionLog,
+    accessState,
+    accessUsers,
+    accessMemberships,
     consoleActions,
     runtimeCenterExamples,
     workerPoolExamples,
     governanceCenterExamples,
     credentialVaultExamples,
+    accessCenterExamples,
     latestRun,
     latestConsoleActionLog
   ] = await Promise.all([
@@ -107,11 +116,15 @@ export async function loadConsoleLocalData() {
     readJson(dataFiles.jinhuProjectState, {}),
     readJson(dataFiles.codexContextIndex, {}),
     readJson(dataFiles.decisionLog, {}),
+    readJson(dataFiles.accessState, {}),
+    readJson(dataFiles.accessUsers, {}),
+    readJson(dataFiles.accessMemberships, {}),
     readJson(dataFiles.consoleActions, {}),
     readExampleDirectory(exampleDirs.runtimeCenter),
     readExampleDirectory(exampleDirs.workerPool),
     readExampleDirectory(exampleDirs.governanceCenter),
     readExampleDirectory(exampleDirs.credentialVault),
+    readExampleDirectory(exampleDirs.accessCenter),
     latestAutopilotRun(),
     latestActionLog()
   ]);
@@ -123,6 +136,8 @@ export async function loadConsoleLocalData() {
   const backendPolicy = credentialVaultExamples.find((item) => item.path.endsWith("backend-policy.example.json"))?.data;
   const governancePolicy = governanceCenterExamples.find((item) => item.path.endsWith("governance-policy.example.json"))?.data;
   const releaseGates = governanceCenterExamples.find((item) => item.path.endsWith("release-gates.example.json"))?.data;
+  const accessBundle = await loadAccessCenter();
+  const bootstrapAccessProfile = resolveUserProfile(accessBundle, accessBundle.policy.default_console_user_id);
 
   return {
     loaded_at: new Date().toISOString(),
@@ -137,6 +152,9 @@ export async function loadConsoleLocalData() {
     jinhuProjectState,
     codexContextIndex,
     decisionLog,
+    accessState,
+    accessUsers,
+    accessMemberships,
     consoleActions,
     actionServer: actionServerSummary(),
     runtime: {
@@ -160,6 +178,14 @@ export async function loadConsoleLocalData() {
       policy_id: firstValue(governancePolicy ?? {}, ["policy_id"], "unknown"),
       release_gate_count: countArray(releaseGates?.release_gates, "release_gates")
     },
+    access: {
+      examples: accessCenterExamples,
+      summary: accessSummary(accessBundle, bootstrapAccessProfile),
+      user_count: countArray(accessUsers?.users, "users"),
+      membership_count: countArray(accessMemberships?.memberships, "memberships"),
+      plan_count: countArray(accessBundle.plans?.plans, "plans"),
+      default_console_user: bootstrapAccessProfile.user ?? null
+    },
     autopilot: {
       latest: latestRun,
       latest_summary: latestRun ? {
@@ -182,7 +208,8 @@ export async function loadConsoleLocalData() {
       deploy: "disabled",
       production_operations: "disabled",
       model_invocation: "disabled",
-      phoenix_erp_local_path: "not_connected"
+      phoenix_erp_local_path: "not_connected",
+      anonymous_console_access: accessBundle.policy.allow_anonymous_console_read ? "enabled" : "disabled"
     }
   };
 }
@@ -190,7 +217,7 @@ export async function loadConsoleLocalData() {
 export async function buildConsoleDashboardModel() {
   const data = await loadConsoleLocalData();
   return {
-    title: "ANKSEN Agent Studio Console",
+    title: "ANKSEN Agent Studio",
     mode: "local_read_only_pilot",
     platform_status: firstValue(data.platformState, ["status", "platform_status"], "READY_FOR_PILOT"),
     v5_status: "READY_FOR_PILOT",
@@ -203,9 +230,12 @@ export async function buildConsoleDashboardModel() {
       credential_references: data.credentials.reference_count,
       credential_backends: data.credentials.backend_count,
       governance_release_gates: data.governance.release_gate_count,
+      access_users: data.access.user_count,
+      access_plans: data.access.plan_count,
       latest_autopilot_run: data.autopilot.latest?.path ?? "not_found"
     },
     safety: data.safety,
-    data_sources: data.data_sources
+    data_sources: data.data_sources,
+    access: data.access.summary
   };
 }

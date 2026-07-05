@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-29T03:58:28Z",
+  "generated_at": "2026-06-29T11:22:00Z",
   "decisions": [
     {
       "date": "2026-06-23",
@@ -37,6 +37,12 @@
       "title": "Do not resume multi-agent orchestration until agent worktrees are resynced",
       "decision": "The main managed-project worktree is current, but agent-1 through agent-5 worktrees lag the active feature branch. Use single-worktree development for now and resync or recreate agent worktrees before dispatching orchestrated runs.",
       "source": "jinhu orchestrator doctor"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Resolve managed-project execution into the target repository before any write decision",
+      "decision": "Autopilot and Console execution must first resolve the target project repo path, branch, project context, and runtime-memory location. Governance then decides whether execution stays proposal-only or can proceed, but branch creation and write planning must never default back into the Studio repository for managed-project work.",
+      "source": "managed project execution routing audit"
     }
   ]
 }

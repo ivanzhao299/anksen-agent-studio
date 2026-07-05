@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/plan-entitlements.schema.json",
+  "title": "Plan Entitlements",
+  "type": "object",
+  "required": ["schema_version", "plans"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "plans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "plan_id",
+          "display_name",
+          "tier",
+          "capabilities",
+          "beta_features",
+          "direct_execute_max_risk",
+          "seat_limit"
+        ],
+        "properties": {
+          "plan_id": { "type": "string", "minLength": 1 },
+          "display_name": { "type": "string", "minLength": 1 },
+          "tier": { "enum": ["internal", "starter", "team", "enterprise"] },
+          "capabilities": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "beta_features": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "direct_execute_max_risk": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          "seat_limit": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}

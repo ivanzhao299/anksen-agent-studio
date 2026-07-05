@@ -5,16 +5,25 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import {
+  currentSessionSummary,
+  evaluateConsoleActionAccess,
+  loadAccessCenter,
+  resolveSessionContext
+} from "../../../packages/access-center/lib/access-center-utils.mjs";
 
 const execFileAsync = promisify(execFile);
 const webDir = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(webDir, "../../..");
 export const actionLogDir = "autopilot-runs/console-actions";
+export const actionUploadDir = `${actionLogDir}/uploads`;
 const studioScript = "packages/orchestrator-core/bin/studio.mjs";
 const actionRuns = new Map();
 const terminalRunStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED"]);
 const actionTimeoutMs = 180000;
 const liveAgentRuntimeIds = new Set(["codex-cli", "claude-code"]);
+const maxAttachmentCount = 6;
+const maxAttachmentBytes = 8 * 1024 * 1024;
 
 const projects = {
   "jinhu-smart-park": {
@@ -72,6 +81,93 @@ function safeGoal(goal) {
   return value || "继续推进 Pilot";
 }
 
+function sanitizeFileName(name = "attachment") {
+  const cleaned = String(name)
+    .trim()
+    .replace(/[/\\?%*:|"<>]/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return cleaned || "attachment";
+}
+
+function decodeDataUrl(dataUrl) {
+  const match = String(dataUrl ?? "").match(/^data:([^;,]+)?(?:;charset=[^;,]+)?;base64,(.+)$/);
+  if (!match) return null;
+  return {
+    mimeType: match[1] || "application/octet-stream",
+    buffer: Buffer.from(match[2], "base64")
+  };
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  if (value >= 1024) return `${Math.round(value / 1024)} KB`;
+  return `${value} B`;
+}
+
+function isTextAttachment(type, name) {
+  const value = String(type || "");
+  const filename = String(name || "").toLowerCase();
+  return value.startsWith("text/")
+    || value.includes("json")
+    || [".md", ".txt", ".json", ".csv", ".log", ".yaml", ".yml"].some((ext) => filename.endsWith(ext));
+}
+
+async function materializeAttachments(input, planId) {
+  const rawAttachments = Array.isArray(input?.attachments) ? input.attachments.slice(0, maxAttachmentCount) : [];
+  if (rawAttachments.length === 0) return [];
+
+  const uploadDir = resolve(repoRoot, actionUploadDir, planId);
+  await mkdir(uploadDir, { recursive: true });
+
+  const stored = [];
+  for (const [index, raw] of rawAttachments.entries()) {
+    const decoded = decodeDataUrl(raw?.data_url);
+    if (!decoded || decoded.buffer.length === 0 || decoded.buffer.length > maxAttachmentBytes) continue;
+
+    const safeName = sanitizeFileName(raw?.name || `attachment-${index + 1}`);
+    const storedName = `${String(index + 1).padStart(2, "0")}-${safeName}`;
+    const absolutePath = join(uploadDir, storedName);
+    await writeFile(absolutePath, decoded.buffer);
+
+    stored.push({
+      id: `attachment-${index + 1}`,
+      name: safeName,
+      mime_type: String(raw?.type || decoded.mimeType || "application/octet-stream"),
+      kind: String(raw?.kind || "").toLowerCase() === "image" ? "image" : (String(raw?.type || decoded.mimeType || "").startsWith("image/") ? "image" : "file"),
+      size_bytes: decoded.buffer.length,
+      size_label: formatBytes(decoded.buffer.length),
+      width: Number.isFinite(Number(raw?.width)) ? Number(raw.width) : null,
+      height: Number.isFinite(Number(raw?.height)) ? Number(raw.height) : null,
+      text_excerpt: isTextAttachment(raw?.type, raw?.name)
+        ? redactSensitive(String(raw?.text_excerpt || "")).slice(0, 800)
+        : "",
+      stored_path: relative(repoRoot, absolutePath)
+    });
+  }
+  return stored;
+}
+
+function attachmentSummaryLines(attachments = []) {
+  if (!attachments.length) return [];
+  return [
+    "已接收以下本地附件，请优先结合它们理解目标：",
+    ...attachments.map((attachment) => {
+      const segments = [
+        attachment.kind === "image" ? "图片" : "文件",
+        attachment.name,
+        attachment.stored_path,
+        attachment.size_label
+      ];
+      if (attachment.width && attachment.height) segments.push(`${attachment.width}x${attachment.height}`);
+      if (attachment.text_excerpt) segments.push(`摘录：${attachment.text_excerpt.replace(/\s+/g, " ").slice(0, 160)}`);
+      return `- ${segments.join(" | ")}`;
+    })
+  ];
+}
+
 function normalizeWorkspaceMode(input = {}) {
   return String(input.workspace_mode || input.mode || "auto");
 }
@@ -95,8 +191,10 @@ function inferWorkspaceActionId(input = {}) {
   const goal = safeGoal(input.goal).toLowerCase();
   const mode = normalizeWorkspaceMode(input);
   const requestedAgent = normalizeRequestedAgent(input);
+  const hasAttachments = Array.isArray(input.attachments) && input.attachments.length > 0;
   if (mode === "plan_only") return "goal-plan";
   if (mode === "agent") return "agent-real-plan";
+  if (hasAttachments) return "agent-real-plan";
   if (liveAgentRuntimeIds.has(requestedAgent)) return "agent-real-plan";
   if (goal.includes("阻断") || goal.includes("blocker") || goal.includes("blocked")) return "smart-park-blockers";
   if (goal.includes("上线") || goal.includes("go-live") || goal.includes("golive")) return "smart-park-go-live-plan";
@@ -125,7 +223,7 @@ function normalizeProject(projectId) {
   return projects[projectId] ? projectId : "jinhu-smart-park";
 }
 
-function commandFor(input) {
+function commandFor(input, plan = null) {
   const actionId = normalizeActionId(input.action_id, input);
   const projectId = normalizeProject(input.project_id);
   const goal = safeGoal(input.goal);
@@ -139,7 +237,7 @@ function commandFor(input) {
     };
   }
   if (actionId === "agent-real-plan") {
-    return realAgentCommandFor({ ...input, agent: resolveExecutionAgent(input).effective });
+    return realAgentCommandFor({ ...input, agent: resolveExecutionAgent(input).effective }, plan?.attachments ?? []);
   }
   if (actionId === "context-summary") {
     return {
@@ -225,7 +323,7 @@ function commandFor(input) {
   };
 }
 
-function realAgentPromptFor(input) {
+function realAgentPromptFor(input, attachments = []) {
   const goal = safeGoal(input.goal);
   const projectId = normalizeProject(input.project_id);
   return [
@@ -234,6 +332,7 @@ function realAgentPromptFor(input) {
     "安全边界：只读分析和计划；不要修改文件；不要执行 deploy；不要进行 production operation；不要读取或输出真实凭证；不要写 jinhu-smart-park 业务代码。",
     `项目：${projectId}`,
     `目标：${goal}`,
+    ...(attachments.length > 0 ? ["", ...attachmentSummaryLines(attachments)] : []),
     "",
     "请全程使用中文，并显式输出可见进度，不要隐藏在内部：",
     "阶段 1/5：已理解目标",
@@ -244,14 +343,15 @@ function realAgentPromptFor(input) {
     "",
     "要求：",
     "- 输出可以逐段简短更新，像终端任务流。",
+    ...(attachments.length > 0 ? ["- 如果附件中包含图片或文件，请先阅读并在结论里明确提取到的关键信息。"] : []),
     "- 不要输出隐私、密钥、生产凭证。",
     "- 不要编造已执行的仓库改动。"
   ].join("\n");
 }
 
-function realAgentCommandFor(input) {
+function realAgentCommandFor(input, attachments = []) {
   const agent = String(input.agent || "codex-cli");
-  const prompt = realAgentPromptFor(input);
+  const prompt = realAgentPromptFor(input, attachments);
   if (agent === "claude-code") {
     return {
       command: "claude",
@@ -313,15 +413,46 @@ function governanceGateForRisk(risk) {
   };
 }
 
-function buildPlan(input) {
+async function resolveActionAccess(input, actionId, meta, options = {}) {
+  const bundle = options.access_bundle ?? await loadAccessCenter();
+  const context = options.user_context ?? await resolveSessionContext(bundle, {
+    session_token: options.session_token,
+    allow_default_user: options.allow_default_user !== false
+  });
+  const decision = await evaluateConsoleActionAccess(bundle, {
+    action_id: actionId,
+    project_id: normalizeProject(input.project_id),
+    risk: meta.risk,
+    attachment_count: Array.isArray(input.attachments) ? input.attachments.length : 0
+  }, {
+    user_context: context,
+    allow_default_user: options.allow_default_user !== false
+  });
+  return { bundle, context, decision };
+}
+
+function buildPlan(input, access = {}) {
   const actionId = normalizeActionId(input.action_id, input);
   const projectId = normalizeProject(input.project_id);
   const meta = actionMeta(actionId);
   const command = commandFor({ ...input, action_id: actionId, project_id: projectId });
   const gate = governanceGateForRisk(meta.risk);
+  const accessContext = access.context ?? null;
+  const accessDecision = access.decision ?? {
+    status: "ALLOW",
+    execution_mode: gate.execution_mode,
+    reason: "Access Center default allow context.",
+    required_capabilities: [],
+    missing_capabilities: [],
+    effective_capabilities: [],
+    direct_execute_max_risk: "MEDIUM",
+    project_scope: ["*"]
+  };
   const agentSelection = resolveExecutionAgent(input);
   const now = new Date().toISOString();
   const planId = `console-action-${timestampForFile(now)}-${createHash("sha1").update(`${actionId}:${projectId}:${now}`).digest("hex").slice(0, 8)}`;
+  const accessBlocked = accessDecision.status !== "ALLOW";
+  const blockedReason = accessBlocked ? accessDecision.reason : gate.blocked_reason;
   return {
     schema_version: 1,
     plan_id: planId,
@@ -342,11 +473,35 @@ function buildPlan(input) {
     approval_required: gate.approval_required,
     mode: gate.execution_mode,
     governance_gate: gate.gate_action,
-    allowed_to_execute: gate.allowed_to_execute,
-    blocked_reason: gate.blocked_reason,
+    allowed_to_execute: gate.allowed_to_execute && !accessBlocked,
+    blocked_reason: blockedReason,
     write_enabled: false,
     production_enabled: false,
     log_path: `${actionLogDir}/${planId}.json`,
+    requested_by: accessContext?.user ? {
+      user_id: accessContext.user.user_id,
+      username: accessContext.user.username,
+      display_name: accessContext.user.display_name,
+      roles: accessContext.roles.map((role) => role.role_id),
+      plan_id: accessContext.plan?.plan_id ?? "unknown",
+      feature_flags: accessContext.feature_flags ?? []
+    } : {
+      user_id: "anonymous",
+      username: "anonymous",
+      display_name: "anonymous",
+      roles: [],
+      plan_id: "none",
+      feature_flags: []
+    },
+    access: {
+      status: accessDecision.status,
+      execution_mode: accessDecision.execution_mode,
+      reason: accessDecision.reason,
+      required_capabilities: accessDecision.required_capabilities,
+      missing_capabilities: accessDecision.missing_capabilities,
+      direct_execute_max_risk: accessDecision.direct_execute_max_risk,
+      project_scope: accessDecision.project_scope
+    },
     safety: {
       bind_address: "127.0.0.1",
       pilot_production_mode: true,
@@ -360,6 +515,24 @@ function buildPlan(input) {
       credential_storage: "disabled",
       managed_project_writes: "disabled",
       external_model_call: actionId === "agent-real-plan" ? "user_selected_local_cli_runtime" : "disabled"
+    }
+  };
+}
+
+async function preparePlan(input, options = {}) {
+  const actionId = normalizeActionId(input.action_id, input);
+  const meta = actionMeta(actionId);
+  const access = await resolveActionAccess(input, actionId, meta, options);
+  const plan = buildPlan(input, access);
+  const attachments = await materializeAttachments(input, plan.plan_id);
+  return {
+    ...plan,
+    attachment_count: attachments.length,
+    attachments,
+    access: {
+      ...plan.access,
+      effective_capabilities: access.decision.effective_capabilities ?? [],
+      auth_user: access.context?.user?.username ?? "anonymous"
     }
   };
 }
@@ -525,6 +698,14 @@ function runMessagesForPlan(plan) {
   if (plan.agent_fallback) {
     messages.push({ role: "assistant", content: plan.agent_fallback, at: plan.created_at, phase: "agent" });
   }
+  if (plan.attachment_count > 0) {
+    messages.push({
+      role: "assistant",
+      content: `已接收 ${plan.attachment_count} 个附件，任务执行时会把它们作为本地上下文输入。`,
+      at: plan.created_at,
+      phase: "understood"
+    });
+  }
   return messages;
 }
 
@@ -664,6 +845,12 @@ ${formatSmartParkGoLivePlan(record.smart_park.go_live_plan)}
 \`\`\`
 ` : ""}
 
+${Array.isArray(record.plan.attachments) && record.plan.attachments.length > 0 ? `## Attachments
+
+${record.plan.attachments.map((attachment) => `- ${attachment.kind === "image" ? "图片" : "文件"}: ${attachment.name} (${attachment.size_label}) -> ${attachment.stored_path}${attachment.width && attachment.height ? ` [${attachment.width}x${attachment.height}]` : ""}${attachment.text_excerpt ? `\n  - 摘录: ${attachment.text_excerpt}` : ""}`).join("\n")}
+
+` : ""}
+
 ## Safety
 
 - bind_address: 127.0.0.1
@@ -689,29 +876,38 @@ async function writeActionLog(record) {
   return { json: jsonRelative, markdown: markdownRelative };
 }
 
-export async function createActionPlan(input) {
-  const plan = buildPlan(input);
+export async function createActionPlan(input, options = {}) {
+  const plan = await preparePlan(input, options);
   const planCommand = actionPlanCommandFor(plan, input);
   let commandResult;
-  try {
-    const { stdout, stderr } = await execFileAsync(planCommand.command, planCommand.args, {
-      cwd: repoRoot,
-      timeout: 120000,
-      maxBuffer: 1024 * 1024 * 10
-    });
+  if (plan.access?.status !== "ALLOW") {
     commandResult = {
-      status: plan.approval_required ? "NEEDS_APPROVAL" : "PASS",
-      exit_code: 0,
-      stdout_summary: summarizeStdout(stdout),
-      stderr_summary: summarizeStdout(stderr)
+      status: "BLOCKED",
+      exit_code: null,
+      stdout_summary: plan.access.reason,
+      stderr_summary: ""
     };
-  } catch (error) {
-    commandResult = {
-      status: "FAIL",
-      exit_code: typeof error?.code === "number" ? error.code : 1,
-      stdout_summary: summarizeStdout(error?.stdout ?? ""),
-      stderr_summary: summarizeStdout(error?.stderr ?? error?.message ?? "")
-    };
+  } else {
+    try {
+      const { stdout, stderr } = await execFileAsync(planCommand.command, planCommand.args, {
+        cwd: repoRoot,
+        timeout: 120000,
+        maxBuffer: 1024 * 1024 * 10
+      });
+      commandResult = {
+        status: plan.approval_required ? "NEEDS_APPROVAL" : "PASS",
+        exit_code: 0,
+        stdout_summary: summarizeStdout(stdout),
+        stderr_summary: summarizeStdout(stderr)
+      };
+    } catch (error) {
+      commandResult = {
+        status: "FAIL",
+        exit_code: typeof error?.code === "number" ? error.code : 1,
+        stdout_summary: summarizeStdout(error?.stdout ?? ""),
+        stderr_summary: summarizeStdout(error?.stderr ?? error?.message ?? "")
+      };
+    }
   }
   const record = {
     schema_version: 1,
@@ -732,6 +928,26 @@ export async function createActionPlan(input) {
 async function runConversationCommand(runId, input, command) {
   const run = actionRuns.get(runId);
   if (!run || run.status === "CANCELLED") return;
+
+  if (run.plan.access?.status !== "ALLOW") {
+    run.status = "BLOCKED";
+    run.phase = "approval";
+    run.result = {
+      status: "BLOCKED",
+      exit_code: null,
+      stdout_summary: run.plan.access.reason,
+      stderr_summary: ""
+    };
+    run.messages.push({
+      role: "assistant",
+      content: `访问受限：${run.plan.access.reason}`,
+      at: new Date().toISOString(),
+      phase: "approval"
+    });
+    run.timeline = runTimeline(run.status, run.result.status);
+    await persistConversationRun(run);
+    return;
+  }
 
   if (!run.plan.allowed_to_execute) {
     run.status = run.plan.approval_required ? "NEEDS_APPROVAL" : "BLOCKED";
@@ -936,9 +1152,9 @@ async function runConversationCommand(runId, input, command) {
   });
 }
 
-export async function startConversationAction(input) {
-  const plan = buildPlan(input);
-  const command = commandFor(input);
+export async function startConversationAction(input, options = {}) {
+  const plan = await preparePlan(input, options);
+  const command = commandFor(input, plan);
   const run = {
     schema_version: 1,
     kind: "console_action_conversation_run",
@@ -1025,11 +1241,18 @@ export async function cancelConversationAction(runId) {
   return publicRun(run);
 }
 
-export async function executeConsoleAction(input) {
-  const plan = buildPlan(input);
-  const command = commandFor(input);
+export async function executeConsoleAction(input, options = {}) {
+  const plan = await preparePlan(input, options);
+  const command = commandFor(input, plan);
   let commandResult;
-  if (!plan.allowed_to_execute) {
+  if (plan.access?.status !== "ALLOW") {
+    commandResult = {
+      status: "BLOCKED",
+      exit_code: null,
+      stdout_summary: plan.access.reason,
+      stderr_summary: ""
+    };
+  } else if (!plan.allowed_to_execute) {
     commandResult = {
       status: "BLOCKED",
       exit_code: null,
@@ -1119,11 +1342,17 @@ export async function latestActionLog() {
 export function actionServerSummary() {
   return {
     bind_address: "127.0.0.1",
+    auth_required: true,
+    auth_mode: "local_password_session",
     pilot_production_mode: true,
     dry_run_only: false,
+    attachments_enabled: true,
+    supported_uploads: ["image", "file"],
     direct_execute_allowed_for: ["LOW", "MEDIUM"],
     high_risk_policy: "proposal_only",
     critical_risk_policy: "human_approval_required",
+    identity_source: "packages/access-center",
+    session_store: "runtime/local-services/access-sessions.json",
     action_log_dir: actionLogDir,
     actions: consoleActionOptions,
     projects: Object.entries(projects).map(([project_id, project]) => ({
@@ -1132,4 +1361,9 @@ export function actionServerSummary() {
       status: project.status
     }))
   };
+}
+
+export async function getAccessSessionSummary(sessionToken, options = {}) {
+  const bundle = await loadAccessCenter();
+  return currentSessionSummary(bundle, sessionToken, options);
 }

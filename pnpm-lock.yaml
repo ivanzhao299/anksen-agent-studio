@@ -14,11 +14,17 @@ importers:
 
   apps/console: {}
 
+  packages/access-center: {}
+
   packages/credential-vault: {}
 
   packages/discovery-engine: {}
 
   packages/evolution-center: {}
+
+  packages/governance-center: {}
+
+  packages/mobile-stack-pack: {}
 
   packages/orchestrator-core: {}
 
@@ -35,6 +41,8 @@ importers:
   packages/runtime-memory: {}
 
   packages/skill-router: {}
+
+  packages/worker-pool: {}
 
 packages:
 

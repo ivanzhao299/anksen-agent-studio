@@ -6,6 +6,9 @@ export interface ManagedProjectWorkspaceEntry {
   readonly display_name: string;
   readonly memory_dir: string;
   readonly source_memory_dir?: string;
+  readonly project_root?: string;
+  readonly execution_route?: "studio_repo" | "managed_project_repo";
+  readonly execution_branch?: string;
   readonly connector_status: "available" | "missing" | "disabled";
   readonly doctor_status: string;
   readonly repo_clean: string;
@@ -40,6 +43,9 @@ export const multiProjectWorkspaceFixture: MultiProjectWorkspace = {
       "display_name": "jinhu-smart-park",
       "memory_dir": "runtime/projects/jinhu-smart-park",
       "source_memory_dir": "examples/jinhu-smart-park/runtime-memory",
+      "project_root": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park",
+      "execution_route": "managed_project_repo",
+      "execution_branch": "feature/engineering-project-delivery-runtime",
       "connector_status": "available",
       "doctor_status": "GO",
       "repo_clean": "yes",
@@ -68,7 +74,9 @@ export function listWorkspaceProjects(workspace: MultiProjectWorkspace = multiPr
     connector_status: project.connector_status,
     doctor_status: project.doctor_status,
     repo_clean: project.repo_clean,
-    memory_dir: project.memory_dir
+    memory_dir: project.memory_dir,
+    project_root: project.project_root ?? "",
+    execution_route: project.execution_route ?? "managed_project_repo"
   }));
 }
 
@@ -76,6 +84,7 @@ export function projectWorkspaceSafety(workspace: MultiProjectWorkspace = multiP
   return {
     project_count: workspace.projects.length,
     writable_project_count: workspace.projects.filter((project) => project.write_policy !== "disabled").length,
+    repo_routed_project_count: workspace.projects.filter((project) => project.execution_route === "managed_project_repo").length,
     deploy_enabled_count: workspace.projects.filter((project) => project.deploy_policy === "allowed").length,
     production_operation_enabled_count: workspace.projects.filter((project) => project.production_operation_policy === "allowed").length,
     credential_values: workspace.safety.credential_values

@@ -2,8 +2,8 @@ export const zhCN = {
   locale: "zh-CN",
   localeName: "简体中文",
   app: {
-    title: "ANKSEN Agent Studio 控制台",
-    subtitle: "统一 AI 开发工作台。用一个对话入口统一接入多种 AI/Agent，负责规划、修改、验证、报告和受控上线准备。"
+    title: "ANKSEN Agent Studio",
+    subtitle: "统一 AI 工作台"
   },
   nav: {
     dashboard: "AI 工作台",

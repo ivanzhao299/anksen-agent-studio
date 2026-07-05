@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "plans": [
+    {
+      "plan_id": "internal_preview",
+      "display_name": "内部预览",
+      "tier": "internal",
+      "capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace"
+      ],
+      "beta_features": ["console_live_execute", "multi_project_beta", "real_runtime_visibility"],
+      "direct_execute_max_risk": "MEDIUM",
+      "seat_limit": 25
+    },
+    {
+      "plan_id": "starter",
+      "display_name": "Starter",
+      "tier": "starter",
+      "capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "proposal.review",
+        "proposal.create",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "smart_park.workspace"
+      ],
+      "beta_features": [],
+      "direct_execute_max_risk": "LOW",
+      "seat_limit": 5
+    },
+    {
+      "plan_id": "team",
+      "display_name": "Team",
+      "tier": "team",
+      "capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "multi_project.visible",
+        "smart_park.workspace"
+      ],
+      "beta_features": ["beta_console_actions"],
+      "direct_execute_max_risk": "MEDIUM",
+      "seat_limit": 15
+    },
+    {
+      "plan_id": "enterprise",
+      "display_name": "Enterprise",
+      "tier": "enterprise",
+      "capabilities": ["*"],
+      "beta_features": ["*"],
+      "direct_execute_max_risk": "MEDIUM",
+      "seat_limit": 200
+    }
+  ]
+}

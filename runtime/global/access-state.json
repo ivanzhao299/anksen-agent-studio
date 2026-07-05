@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "access_center_id": "studio-local-access",
+  "workspace_id": "anksen-agent-studio-local",
+  "login_mode": "local_password_session",
+  "allow_anonymous_console_read": false,
+  "default_console_user_id": "studio-owner",
+  "session_ttl_hours": 12,
+  "session_store_path": "runtime/local-services/access-sessions.json",
+  "package_mode": "internal_preview_with_team_beta",
+  "notes": [
+    "Studio Console 仅接受本地 127.0.0.1 访问，但动作执行仍必须绑定登录会话。",
+    "套餐和角色共同决定能力；角色做组织边界，套餐做商业与内测边界。",
+    "HIGH 仍保持 proposal_only，CRITICAL 仍保持人工审批。"
+  ],
+  "last_reviewed_at": "2026-07-05T00:00:00Z"
+}
