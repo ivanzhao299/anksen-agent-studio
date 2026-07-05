@@ -8,9 +8,17 @@
       "user_id": "studio-owner",
       "status": "ACTIVE",
       "plan_id": "internal_preview",
-      "role_ids": ["platform_owner"],
-      "project_allowlist": ["*"],
-      "beta_features": ["console_live_execute", "multi_project_beta", "real_runtime_visibility"]
+      "role_ids": [
+        "platform_owner"
+      ],
+      "project_allowlist": [
+        "*"
+      ],
+      "beta_features": [
+        "console_live_execute",
+        "multi_project_beta",
+        "real_runtime_visibility"
+      ]
     },
     {
       "membership_id": "membership-beta-admin",
@@ -18,9 +26,18 @@
       "user_id": "studio-beta-admin",
       "status": "ACTIVE",
       "plan_id": "team",
-      "role_ids": ["workspace_admin"],
-      "project_allowlist": ["jinhu-smart-park", "phoenix-erp", "group-portal"],
-      "beta_features": ["beta_console_actions", "agent_runtime_preview"]
+      "role_ids": [
+        "workspace_admin"
+      ],
+      "project_allowlist": [
+        "jinhu-smart-park",
+        "phoenix-erp",
+        "group-portal"
+      ],
+      "beta_features": [
+        "beta_console_actions",
+        "agent_runtime_preview"
+      ]
     },
     {
       "membership_id": "membership-operator",
@@ -28,9 +45,15 @@
       "user_id": "studio-operator",
       "status": "ACTIVE",
       "plan_id": "starter",
-      "role_ids": ["operator"],
-      "project_allowlist": ["jinhu-smart-park"],
-      "beta_features": ["mobile_terminal_preview"]
+      "role_ids": [
+        "operator"
+      ],
+      "project_allowlist": [
+        "jinhu-smart-park"
+      ],
+      "beta_features": [
+        "mobile_terminal_preview"
+      ]
     },
     {
       "membership_id": "membership-viewer",
@@ -38,8 +61,12 @@
       "user_id": "studio-viewer",
       "status": "ACTIVE",
       "plan_id": "starter",
-      "role_ids": ["viewer"],
-      "project_allowlist": ["jinhu-smart-park"],
+      "role_ids": [
+        "viewer"
+      ],
+      "project_allowlist": [
+        "jinhu-smart-park"
+      ],
       "beta_features": []
     }
   ]

@@ -10,7 +10,8 @@
 - 文件化用户、角色、套餐、成员关系与本地会话
 - Console Action Server 接入登录态与动作判定
 - CLI 增加 Access Center 只读检查命令
-- Console 页面增加本地登录门禁与会话显示
+- CLI 增加本地账号管理命令
+- Console 页面增加本地登录门禁、会话显示与基于 access profile 的页面裁剪
 - 不读取真实外部身份系统
 - 不接企业 SSO
 - 不接数据库
@@ -79,16 +80,37 @@
 4. 会话只保存在本机 `runtime/local-services/access-sessions.json`。
 5. Console 仍只监听 `127.0.0.1`。
 
-## CLI 只读命令
+## CLI 命令
+
+### 只读命令
 
 - `node packages/orchestrator-core/bin/studio.mjs access summary --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access users --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access plans --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access check --user operator --action smart-park-continue --project jinhu-smart-park --dry-run`
 
+### 本地账号管理
+
+- `node packages/orchestrator-core/bin/studio.mjs access grant --user viewer --role reviewer --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs access set-plan --user operator --plan team --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs access reset-password --user viewer --password "NewPassword!2026" --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs access enable-user --user viewer --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs access disable-user --user viewer --dry-run`
+
+这些命令默认操作本地 runtime JSON，不会接外部身份系统，不会写真实业务系统账号。
+
+## Console 裁剪
+
+登录后，Console 会按当前账号的角色、套餐和 capability 自动裁剪：
+
+- 顶部导航只显示当前账号有权访问的模块
+- 未开通的页面会返回明确的 Access Center 拦截提示
+- `config` 页面仅对 `access.manage` 能力开放
+- `actions / autopilot` 页面要求具备对应规划或执行能力
+
 ## 下一步
 
 1. 接企业用户目录或 SSO
-2. 增加密码轮换与账号禁用命令
-3. 把 Console 页面里的可见模块和操作按钮做成基于 access profile 的真实动态裁剪
-4. 把套餐能力接到项目数量、Worker 并发数、Runtime 使用额度
+2. 增加 Access Center 的用户创建、套餐升级和 seat 分配命令
+3. 把套餐能力继续接到项目数量、Worker 并发数、Runtime 使用额度
+4. 把审批、团队邀请和账单边界接到正式 Product Access Center

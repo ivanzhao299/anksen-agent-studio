@@ -181,9 +181,11 @@ const server = createServer(async (request, response) => {
       response.end("Console route not found.");
       return;
     }
+    const sessionSummary = await currentSessionSummary(accessBundle, sessionToken, { allow_default_user: false });
     const html = await renderConsolePage(pathname, {
-      authenticated: accessContext.authenticated,
-      session: await currentSessionSummary(accessBundle, sessionToken, { allow_default_user: false })
+      ...accessContext,
+      session: sessionSummary.session ?? null,
+      membership: sessionSummary.membership ?? accessContext.membership ?? null
     });
     response.writeHead(200, {
       "content-type": "text/html; charset=utf-8",

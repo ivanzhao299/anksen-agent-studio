@@ -8,9 +8,16 @@
       "display_name": "Studio 平台所有者",
       "status": "ACTIVE",
       "primary_role_id": "platform_owner",
-      "role_ids": ["platform_owner", "security_admin"],
+      "role_ids": [
+        "platform_owner",
+        "security_admin"
+      ],
       "default_plan_id": "internal_preview",
-      "feature_overrides": ["console_live_execute", "pilot_team_beta", "access_center_admin"],
+      "feature_overrides": [
+        "console_live_execute",
+        "pilot_team_beta",
+        "access_center_admin"
+      ],
       "password_hash": "scrypt$anksen-owner$603306ca7b2fa0b1f136ed5b7961ecf2bd70ccf6f9af3df6c0b86c9d9d2a134c6cac3030235176123840d000ccf76a6b7fa9a59aed439e79a173cf50f596d423"
     },
     {
@@ -19,9 +26,14 @@
       "display_name": "Studio 内测管理员",
       "status": "ACTIVE",
       "primary_role_id": "workspace_admin",
-      "role_ids": ["workspace_admin"],
+      "role_ids": [
+        "workspace_admin"
+      ],
       "default_plan_id": "team",
-      "feature_overrides": ["beta_console_actions", "agent_runtime_preview"],
+      "feature_overrides": [
+        "beta_console_actions",
+        "agent_runtime_preview"
+      ],
       "password_hash": "scrypt$anksen-beta-admin$73ea91ac1d1a074c9d9fa593c89cc79759bb16a7116e016a813dbe1f99ae23e8c70e57cd1b96569c829acf76d99b5d26a25197e3f2ab8b8f33241233e66b7e91"
     },
     {
@@ -30,9 +42,13 @@
       "display_name": "Studio 运营执行者",
       "status": "ACTIVE",
       "primary_role_id": "operator",
-      "role_ids": ["operator"],
+      "role_ids": [
+        "operator"
+      ],
       "default_plan_id": "starter",
-      "feature_overrides": ["mobile_terminal_preview"],
+      "feature_overrides": [
+        "mobile_terminal_preview"
+      ],
       "password_hash": "scrypt$anksen-operator$4f482cc50d8d92a133045115e8df4404d070589062f5e69cd50bb5460a163df24c9e56d445dc8ae87682ea9637460a53d8eaffdc096eb766531bf8d22bcc1e32"
     },
     {
@@ -41,7 +57,9 @@
       "display_name": "Studio 只读观察者",
       "status": "ACTIVE",
       "primary_role_id": "viewer",
-      "role_ids": ["viewer"],
+      "role_ids": [
+        "viewer"
+      ],
       "default_plan_id": "starter",
       "feature_overrides": [],
       "password_hash": "scrypt$anksen-viewer$9ccf2f80d9af01c47469f47ce09b6759e2f0badb5003f1485026f2c3e6dfc1e08ac87f1d49e6376d9395c11811e6dbfa0c2459cccfad99c19e7e5e5f7411167d"

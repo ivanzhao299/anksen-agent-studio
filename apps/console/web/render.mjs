@@ -1,6 +1,7 @@
 import { consoleWebRoutes } from "./routes.mjs";
 import { buildConsoleDashboardModel, loadConsoleLocalData } from "./data.mjs";
 import { getConsoleMessages } from "./i18n/index.mjs";
+import { evaluateConsoleRouteAccess, visibleConsoleRouteIds } from "../../../packages/access-center/lib/access-center-utils.mjs";
 
 const messages = getConsoleMessages();
 
@@ -13,8 +14,9 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function nav(activeId) {
-  return `<nav class="top-nav">${consoleWebRoutes.filter((route) => route.showInNav !== false).map((route) => {
+function nav(activeId, auth = {}) {
+  const visibleRoutes = new Set(visibleConsoleRouteIds(auth));
+  return `<nav class="top-nav">${consoleWebRoutes.filter((route) => route.showInNav !== false && visibleRoutes.has(route.id)).map((route) => {
     const active = route.id === activeId ? "active" : "";
     return `<a class="${active}" href="${route.navPath}"><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
   }).join("")}</nav>`;
@@ -143,6 +145,22 @@ function authHeaderBar(auth = {}) {
     </div>
     <span class="pill warn-pill">127.0.0.1 only</span>
   </div>`;
+}
+
+function routeForbiddenPage(route, auth = {}) {
+  const decision = evaluateConsoleRouteAccess(route.id, auth);
+  return `<section class="panel">
+    <div class="section-head small">
+      <h2>当前账号未开通此模块</h2>
+      <span class="pill warn-pill">Access Center</span>
+    </div>
+    <p>${escapeHtml(route.label)} 需要额外能力后才会展示或访问。请联系管理员为当前账号分配对应角色、套餐或项目范围。</p>
+    <div class="grid" style="margin-top:12px;">
+      ${metric("模块", route.label)}
+      ${metric("缺少能力", decision.missing_capabilities.join(", ") || "none")}
+      ${metric("当前直执上限", auth.direct_execute_max_risk || "LOW")}
+    </div>
+  </section>`;
 }
 
 function accessLoginPage(data) {
@@ -986,7 +1004,8 @@ function interactiveScript() {
 function shell(content, activeId, model, data, auth = {}) {
   const route = consoleWebRoutes.find((item) => item.id === activeId) ?? consoleWebRoutes[0];
   const gated = data.access?.summary?.allow_anonymous_console_read !== true && !auth.authenticated;
-  const mainContent = gated ? accessLoginPage(data) : content;
+  const forbidden = !gated && !evaluateConsoleRouteAccess(route.id, auth).allowed;
+  const mainContent = gated ? accessLoginPage(data) : (forbidden ? routeForbiddenPage(route, auth) : content);
   return `<!doctype html>
 <html lang="${messages.locale}">
 <head>
@@ -1213,7 +1232,7 @@ function shell(content, activeId, model, data, auth = {}) {
     </div>
     ${authHeaderBar(auth)}
     ${topStatusBar(model, data, auth)}
-    ${nav(activeId)}
+    ${nav(activeId, auth)}
   </header>
   <main>${mainContent}</main>
   ${interactiveScript()}
@@ -1378,7 +1397,41 @@ function pagePilotStatus(data) {
 }
 
 function normalizeRenderAuth(auth, data) {
-  if (auth && typeof auth.authenticated === "boolean") return auth;
+  if (auth && typeof auth.authenticated === "boolean" && auth.user) return auth;
+  if (auth && auth.authenticated === false) {
+    return {
+      authenticated: false,
+      auth_source: "anonymous",
+      user: null,
+      membership: null,
+      roles: [],
+      plan: null,
+      capabilities: [],
+      feature_flags: [],
+      project_allowlist: [],
+      can_manage_access: false,
+      direct_execute_max_risk: "LOW",
+      session: auth.session ?? null,
+      workspace_id: null
+    };
+  }
+  if (auth && typeof auth.authenticated === "boolean" && auth.session) {
+    return {
+      authenticated: auth.authenticated,
+      auth_source: auth.session.auth_source ?? auth.auth_source ?? "local_password_session",
+      user: auth.session.user ?? null,
+      membership: auth.session.membership ?? null,
+      roles: auth.session.roles ?? [],
+      plan: auth.session.plan ?? null,
+      capabilities: auth.session.capabilities ?? [],
+      feature_flags: auth.session.feature_flags ?? [],
+      project_allowlist: auth.session.project_allowlist ?? [],
+      can_manage_access: auth.session.can_manage_access ?? false,
+      direct_execute_max_risk: auth.session.direct_execute_max_risk ?? "LOW",
+      session: auth.session.session ?? null,
+      workspace_id: auth.session.workspace_id ?? null
+    };
+  }
   return {
     authenticated: true,
     auth_source: "preview",
@@ -1396,6 +1449,10 @@ function normalizeRenderAuth(auth, data) {
       display_name: "Internal Preview",
       tier: "internal"
     },
+    capabilities: ["*"],
+    feature_flags: ["*"],
+    project_allowlist: ["*"],
+    can_manage_access: true,
     direct_execute_max_risk: data.access?.summary?.direct_execute_max_risk ?? "MEDIUM"
   };
 }

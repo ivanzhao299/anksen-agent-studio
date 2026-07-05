@@ -44,6 +44,21 @@ const consoleActionCatalog = {
   "production-operation-request": { capabilities: ["console.access", "production.request"], execution_mode: "human_approval_required", projectScoped: true }
 };
 
+const consoleRouteCatalog = {
+  dashboard: ["console.access"],
+  projects: ["project.read"],
+  workers: ["worker.read"],
+  actions: ["console.access", "autopilot.plan"],
+  autopilot: ["autopilot.plan"],
+  config: ["access.manage"],
+  runtime: ["runtime.read"],
+  credentials: ["credential.read"],
+  governance: ["governance.read"],
+  planning: ["autopilot.plan"],
+  memory: ["context.read"],
+  pilotStatus: ["console.access"]
+};
+
 function unique(values) {
   return [...new Set((values ?? []).filter(Boolean))];
 }
@@ -67,10 +82,29 @@ async function writeJson(path, value) {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+function slugifySegment(value, fallback = "item") {
+  const slug = String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || fallback;
+}
+
 function sanitizeUser(user) {
   if (!user) return null;
   const { password_hash: _passwordHash, ...safeUser } = user;
   return safeUser;
+}
+
+async function persistUsersDocument(document) {
+  await writeJson(runtimePaths.users, document);
+  return runtimePaths.users;
+}
+
+async function persistMembershipsDocument(document) {
+  await writeJson(runtimePaths.memberships, document);
+  return runtimePaths.memberships;
 }
 
 function maskSession(session) {
@@ -106,6 +140,14 @@ function planDefinition(bundle, planId) {
   return (bundle.plans.plans ?? []).find((plan) => plan.plan_id === planId) ?? null;
 }
 
+function findUserRecord(bundle, userOrUsername) {
+  const value = String(userOrUsername ?? "").trim();
+  if (!value) return null;
+  return bundle.indexes.usersById.get(value)
+    ?? bundle.indexes.usersByUsername.get(value.toLowerCase())
+    ?? null;
+}
+
 function membershipDefinition(bundle, userId, workspaceId) {
   return (bundle.memberships.memberships ?? []).find((membership) =>
     membership.user_id === userId
@@ -124,10 +166,53 @@ function hasCapability(profile, capability) {
   return capabilities.has("*") || capabilities.has(capability);
 }
 
+function requiredRouteCapabilities(routeId) {
+  return consoleRouteCatalog[routeId] ?? ["console.access"];
+}
+
 function projectAllowed(profile, projectId) {
   if (!projectId) return true;
   const allowlist = profile?.project_allowlist ?? [];
   return allowlist.includes("*") || allowlist.includes(projectId);
+}
+
+function defaultProjectAllowlistForRole(roleId) {
+  return roleId === "platform_owner" ? ["*"] : ["jinhu-smart-park"];
+}
+
+function ensureMembershipDocument(bundle) {
+  return {
+    schema_version: bundle.memberships.schema_version ?? 1,
+    workspace_id: bundle.memberships.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id,
+    memberships: [...(bundle.memberships.memberships ?? [])]
+  };
+}
+
+function ensureUserDocument(bundle) {
+  return {
+    schema_version: bundle.users.schema_version ?? 1,
+    password_algorithm: bundle.users.password_algorithm ?? "scrypt",
+    users: [...(bundle.users.users ?? [])]
+  };
+}
+
+function ensureMembershipRecord(bundle, document, user, workspaceId) {
+  const existing = (document.memberships ?? []).find((membership) =>
+    membership.user_id === user.user_id && membership.workspace_id === workspaceId
+  );
+  if (existing) return existing;
+  const membership = {
+    membership_id: `membership-${slugifySegment(workspaceId, "workspace")}-${slugifySegment(user.user_id, "user")}`,
+    workspace_id: workspaceId,
+    user_id: user.user_id,
+    status: "ACTIVE",
+    plan_id: user.default_plan_id,
+    role_ids: [user.primary_role_id].filter(Boolean),
+    project_allowlist: defaultProjectAllowlistForRole(user.primary_role_id),
+    beta_features: [...(user.feature_overrides ?? [])]
+  };
+  document.memberships.push(membership);
+  return membership;
 }
 
 function defaultAnonymousContext(bundle) {
@@ -315,10 +400,12 @@ export function accessSummary(bundle, context = null) {
 export function resolveUserProfile(bundle, userOrUsername) {
   const value = String(userOrUsername ?? "").trim();
   if (!value) return defaultAnonymousContext(bundle);
-  const user = bundle.indexes.usersById.get(value)
-    ?? bundle.indexes.usersByUsername.get(value.toLowerCase())
-    ?? null;
+  const user = findUserRecord(bundle, value);
   return buildProfile(bundle, user);
+}
+
+export function findStudioUser(bundle, userOrUsername) {
+  return sanitizeUser(findUserRecord(bundle, userOrUsername));
 }
 
 export async function authenticateLocalUser(bundle, username, password) {
@@ -421,10 +508,29 @@ export async function currentSessionSummary(bundle, token, options = {}) {
       display_name: context.plan.display_name,
       tier: context.plan.tier
     } : null,
+    capabilities: context.capabilities,
     direct_execute_max_risk: context.direct_execute_max_risk,
     feature_flags: context.feature_flags,
+    project_allowlist: context.project_allowlist,
+    can_manage_access: context.can_manage_access,
+    workspace_id: context.workspace_id,
     session: context.session ?? null
   };
+}
+
+export function evaluateConsoleRouteAccess(routeId, userContext = null) {
+  const requiredCapabilities = requiredRouteCapabilities(routeId);
+  const missingCapabilities = requiredCapabilities.filter((capability) => !hasCapability(userContext, capability));
+  return {
+    route_id: routeId,
+    allowed: missingCapabilities.length === 0,
+    required_capabilities: requiredCapabilities,
+    missing_capabilities: missingCapabilities
+  };
+}
+
+export function visibleConsoleRouteIds(userContext = null) {
+  return Object.keys(consoleRouteCatalog).filter((routeId) => evaluateConsoleRouteAccess(routeId, userContext).allowed);
 }
 
 function actionCapabilities(actionId) {
@@ -518,6 +624,96 @@ export async function evaluateConsoleActionAccess(bundle, input = {}, options = 
     direct_execute_max_risk: context.direct_execute_max_risk,
     project_scope: context.project_allowlist,
     reason: `账号 ${context.user.username} 已通过 Access Center 校验。`
+  };
+}
+
+export async function updateStudioUserStatus(bundle, userOrUsername, status) {
+  if (!["ACTIVE", "INVITED", "DISABLED"].includes(status)) {
+    throw new Error(`Unsupported studio user status: ${status}`);
+  }
+  const user = findUserRecord(bundle, userOrUsername);
+  if (!user) throw new Error(`Studio user not found: ${userOrUsername}`);
+  const document = ensureUserDocument(bundle);
+  const index = document.users.findIndex((item) => item.user_id === user.user_id);
+  const nextUser = {
+    ...document.users[index],
+    status
+  };
+  document.users[index] = nextUser;
+  const writtenPath = await persistUsersDocument(document);
+  return {
+    user: sanitizeUser(nextUser),
+    written_path: writtenPath
+  };
+}
+
+export async function resetStudioUserPassword(bundle, userOrUsername, nextPassword) {
+  if (String(nextPassword ?? "").trim().length < 8) {
+    throw new Error("Password must contain at least 8 characters.");
+  }
+  const user = findUserRecord(bundle, userOrUsername);
+  if (!user) throw new Error(`Studio user not found: ${userOrUsername}`);
+  const document = ensureUserDocument(bundle);
+  const index = document.users.findIndex((item) => item.user_id === user.user_id);
+  const salt = `anksen-${slugifySegment(user.username, "user")}-${Date.now().toString(36)}`;
+  const nextUser = {
+    ...document.users[index],
+    password_hash: passwordHash(String(nextPassword), salt)
+  };
+  document.users[index] = nextUser;
+  const writtenPath = await persistUsersDocument(document);
+  return {
+    user: sanitizeUser(nextUser),
+    written_path: writtenPath
+  };
+}
+
+export async function assignWorkspacePlan(bundle, userOrUsername, planId, options = {}) {
+  const user = findUserRecord(bundle, userOrUsername);
+  if (!user) throw new Error(`Studio user not found: ${userOrUsername}`);
+  const plan = planDefinition(bundle, planId);
+  if (!plan) throw new Error(`Plan not found: ${planId}`);
+  const workspaceId = options.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id;
+
+  const usersDocument = ensureUserDocument(bundle);
+  const userIndex = usersDocument.users.findIndex((item) => item.user_id === user.user_id);
+  usersDocument.users[userIndex] = {
+    ...usersDocument.users[userIndex],
+    default_plan_id: plan.plan_id
+  };
+
+  const membershipsDocument = ensureMembershipDocument(bundle);
+  const membership = ensureMembershipRecord(bundle, membershipsDocument, usersDocument.users[userIndex], workspaceId);
+  membership.plan_id = plan.plan_id;
+  membership.status = membership.status === "SUSPENDED" ? "ACTIVE" : membership.status;
+
+  const usersPath = await persistUsersDocument(usersDocument);
+  const membershipsPath = await persistMembershipsDocument(membershipsDocument);
+  return {
+    user: sanitizeUser(usersDocument.users[userIndex]),
+    membership,
+    written_paths: [usersPath, membershipsPath]
+  };
+}
+
+export async function assignWorkspaceRole(bundle, userOrUsername, roleId, options = {}) {
+  const user = findUserRecord(bundle, userOrUsername);
+  if (!user) throw new Error(`Studio user not found: ${userOrUsername}`);
+  const role = roleDefinition(bundle, roleId);
+  if (!role) throw new Error(`Role not found: ${roleId}`);
+  const workspaceId = options.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id;
+  const membershipsDocument = ensureMembershipDocument(bundle);
+  const membership = ensureMembershipRecord(bundle, membershipsDocument, user, workspaceId);
+  membership.role_ids = unique([...(membership.role_ids ?? []), role.role_id]);
+  if (!Array.isArray(membership.project_allowlist) || membership.project_allowlist.length === 0) {
+    membership.project_allowlist = defaultProjectAllowlistForRole(role.role_id);
+  }
+  membership.status = "ACTIVE";
+  const writtenPath = await persistMembershipsDocument(membershipsDocument);
+  return {
+    user: sanitizeUser(user),
+    membership,
+    written_path: writtenPath
   };
 }
 

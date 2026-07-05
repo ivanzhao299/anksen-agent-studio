@@ -71,6 +71,11 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs access users --dry-run
   node packages/orchestrator-core/bin/studio.mjs access plans --dry-run
   node packages/orchestrator-core/bin/studio.mjs access check --user <username> --action <action_id> [--project <project_id>] --dry-run
+  node packages/orchestrator-core/bin/studio.mjs access grant --user <username> --role <role_id> [--workspace <workspace_id>] [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs access set-plan --user <username> --plan <plan_id> [--workspace <workspace_id>] [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs access reset-password --user <username> --password <new_password> [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs access enable-user --user <username> [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs access disable-user --user <username> [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs runtime list
   node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run
   node packages/orchestrator-core/bin/studio.mjs runtime select --skill <skill_type> [--dry-run]
@@ -126,6 +131,9 @@ function parseArgs(argv) {
     capability: "",
     user: "",
     password: "",
+    role: "",
+    plan: "",
+    workspace: "",
     serviceAction: command === "console" && subcommand === "service" ? rest[1] ?? "status" : "",
     region: "local",
     port: 4317,
@@ -176,6 +184,15 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--password") {
       args.password = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--role") {
+      args.role = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--plan") {
+      args.plan = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--workspace") {
+      args.workspace = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--port") {
       args.port = Number(rest[index + 1] ?? "4317");
@@ -8195,6 +8212,139 @@ async function accessCheckDryRun(args) {
   console.log(`plan: ${context.plan?.display_name ?? "none"}`);
 }
 
+function assertDryRunOrApply(args, commandName) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error(`${commandName} requires either --dry-run or --apply.`);
+  }
+}
+
+function accessWorkspaceId(args, bundle) {
+  return args.workspace.trim() || bundle.state.workspace_id || bundle.policy.default_workspace_id;
+}
+
+function printAccessMutationHeader(title, mode) {
+  console.log(`# ${title} ${mode}`);
+  console.log("");
+}
+
+async function accessGrant(args) {
+  assertDryRunOrApply(args, "access grant");
+  if (!args.user.trim()) throw new Error("Missing --user for access grant.");
+  if (!args.role.trim()) throw new Error("Missing --role for access grant.");
+
+  const { api, bundle } = await loadAccessCenterApi();
+  const user = api.findStudioUser(bundle, args.user.trim());
+  if (!user) throw new Error(`Studio user not found: ${args.user.trim()}`);
+  const workspaceId = accessWorkspaceId(args, bundle);
+  const role = (bundle.policy.roles ?? []).find((item) => item.role_id === args.role.trim());
+  if (!role) throw new Error(`Role not found: ${args.role.trim()}`);
+
+  printAccessMutationHeader("Access Grant", args.apply ? "apply" : "dry-run");
+  console.log(`user: ${user.username}`);
+  console.log(`workspace_id: ${workspaceId}`);
+  console.log(`role_id: ${role.role_id}`);
+  console.log(`role_name: ${role.display_name}`);
+
+  if (args.dryRun) {
+    console.log("status: READY");
+    console.log("writes: runtime/global/access-memberships.json");
+    return;
+  }
+
+  const result = await api.assignWorkspaceRole(bundle, user.user_id, role.role_id, { workspace_id: workspaceId });
+  console.log(`status: PASS`);
+  console.log(`membership_id: ${result.membership.membership_id}`);
+  console.log(`roles: ${(result.membership.role_ids ?? []).join(", ")}`);
+  console.log(`written_path: ${relative(repoRoot, result.written_path)}`);
+}
+
+async function accessSetPlan(args) {
+  assertDryRunOrApply(args, "access set-plan");
+  if (!args.user.trim()) throw new Error("Missing --user for access set-plan.");
+  if (!args.plan.trim()) throw new Error("Missing --plan for access set-plan.");
+
+  const { api, bundle } = await loadAccessCenterApi();
+  const user = api.findStudioUser(bundle, args.user.trim());
+  if (!user) throw new Error(`Studio user not found: ${args.user.trim()}`);
+  const workspaceId = accessWorkspaceId(args, bundle);
+  const plan = (bundle.plans.plans ?? []).find((item) => item.plan_id === args.plan.trim());
+  if (!plan) throw new Error(`Plan not found: ${args.plan.trim()}`);
+
+  printAccessMutationHeader("Access Set Plan", args.apply ? "apply" : "dry-run");
+  console.log(`user: ${user.username}`);
+  console.log(`workspace_id: ${workspaceId}`);
+  console.log(`plan_id: ${plan.plan_id}`);
+  console.log(`plan_name: ${plan.display_name}`);
+
+  if (args.dryRun) {
+    console.log("status: READY");
+    console.log("writes: runtime/global/access-users.json, runtime/global/access-memberships.json");
+    return;
+  }
+
+  const result = await api.assignWorkspacePlan(bundle, user.user_id, plan.plan_id, { workspace_id: workspaceId });
+  console.log("status: PASS");
+  console.log(`default_plan_id: ${result.user.default_plan_id}`);
+  console.log(`membership_plan_id: ${result.membership.plan_id}`);
+  console.log(`written_paths: ${result.written_paths.map((file) => relative(repoRoot, file)).join(", ")}`);
+}
+
+async function accessResetPassword(args) {
+  assertDryRunOrApply(args, "access reset-password");
+  if (!args.user.trim()) throw new Error("Missing --user for access reset-password.");
+  if (!args.password.trim()) throw new Error("Missing --password for access reset-password.");
+
+  const { api, bundle } = await loadAccessCenterApi();
+  const user = api.findStudioUser(bundle, args.user.trim());
+  if (!user) throw new Error(`Studio user not found: ${args.user.trim()}`);
+
+  printAccessMutationHeader("Access Reset Password", args.apply ? "apply" : "dry-run");
+  console.log(`user: ${user.username}`);
+  console.log(`password_length: ${args.password.trim().length}`);
+
+  if (args.dryRun) {
+    console.log("status: READY");
+    console.log("writes: runtime/global/access-users.json");
+    console.log("secret_values_read: no");
+    console.log("secret_values_stored: password_hash_only");
+    return;
+  }
+
+  const result = await api.resetStudioUserPassword(bundle, user.user_id, args.password.trim());
+  console.log("status: PASS");
+  console.log(`user_id: ${result.user.user_id}`);
+  console.log(`written_path: ${relative(repoRoot, result.written_path)}`);
+  console.log("secret_values_read: no");
+  console.log("secret_values_stored: password_hash_only");
+}
+
+async function accessToggleUser(args, status) {
+  const actionName = status === "ACTIVE" ? "access enable-user" : "access disable-user";
+  assertDryRunOrApply(args, actionName);
+  if (!args.user.trim()) throw new Error(`Missing --user for ${actionName}.`);
+
+  const { api, bundle } = await loadAccessCenterApi();
+  const user = api.findStudioUser(bundle, args.user.trim());
+  if (!user) throw new Error(`Studio user not found: ${args.user.trim()}`);
+
+  printAccessMutationHeader(status === "ACTIVE" ? "Access Enable User" : "Access Disable User", args.apply ? "apply" : "dry-run");
+  console.log(`user: ${user.username}`);
+  console.log(`current_status: ${user.status}`);
+  console.log(`next_status: ${status}`);
+
+  if (args.dryRun) {
+    console.log("status: READY");
+    console.log("writes: runtime/global/access-users.json");
+    return;
+  }
+
+  const result = await api.updateStudioUserStatus(bundle, user.user_id, status);
+  console.log("status: PASS");
+  console.log(`user_id: ${result.user.user_id}`);
+  console.log(`updated_status: ${result.user.status}`);
+  console.log(`written_path: ${relative(repoRoot, result.written_path)}`);
+}
+
 const CONSOLE_SERVICE_LABEL = "com.anksen.agent-studio.console";
 
 function plistEscape(value) {
@@ -8575,6 +8725,10 @@ async function consoleSmoke(args) {
     user: { username: "smoke-admin", display_name: "Smoke Admin" },
     roles: [{ role_id: "workspace_admin", display_name: "Workspace Admin" }],
     plan: { plan_id: "internal_preview", display_name: "Internal Preview", tier: "internal" },
+    capabilities: ["*"],
+    feature_flags: ["*"],
+    project_allowlist: ["*"],
+    can_manage_access: true,
     direct_execute_max_risk: "MEDIUM"
   };
   const actionsHtml = await renderModule.renderConsolePage("/actions", previewAuth);
@@ -10811,6 +10965,11 @@ async function main() {
   if (args.command === "access" && args.subcommand === "users") return accessUsersDryRun(args);
   if (args.command === "access" && args.subcommand === "plans") return accessPlansDryRun(args);
   if (args.command === "access" && args.subcommand === "check") return accessCheckDryRun(args);
+  if (args.command === "access" && args.subcommand === "grant") return accessGrant(args);
+  if (args.command === "access" && args.subcommand === "set-plan") return accessSetPlan(args);
+  if (args.command === "access" && args.subcommand === "reset-password") return accessResetPassword(args);
+  if (args.command === "access" && args.subcommand === "enable-user") return accessToggleUser(args, "ACTIVE");
+  if (args.command === "access" && args.subcommand === "disable-user") return accessToggleUser(args, "DISABLED");
   if (args.command === "runtime" && args.subcommand === "list") return runtimeList();
   if (args.command === "runtime" && args.subcommand === "health") return runtimeHealth(args);
   if (args.command === "runtime" && args.subcommand === "select") return runtimeSelect(args);
