@@ -37,7 +37,7 @@
             "items": { "type": "string", "minLength": 1 }
           },
           "status": {
-            "enum": ["PENDING_APPROVAL", "APPROVED", "REJECTED", "CANCELLED"]
+            "enum": ["PENDING_APPROVAL", "APPROVED", "MATERIALIZED", "REJECTED", "CANCELLED"]
           },
           "approval_required": { "type": "boolean" },
           "requested_by_user_id": { "type": "string", "minLength": 1 },
@@ -47,7 +47,12 @@
           "reviewed_by_user_id": { "type": "string", "minLength": 1 },
           "reviewed_by_name": { "type": "string", "minLength": 1 },
           "created_at": { "type": "string", "format": "date-time" },
-          "reviewed_at": { "type": "string", "format": "date-time" }
+          "reviewed_at": { "type": "string", "format": "date-time" },
+          "materialized_at": { "type": "string", "format": "date-time" },
+          "materialized_by_user_id": { "type": "string", "minLength": 1 },
+          "materialized_by_name": { "type": "string", "minLength": 1 },
+          "materialized_user_id": { "type": "string", "minLength": 1 },
+          "materialized_membership_id": { "type": "string", "minLength": 1 }
         }
       }
     }

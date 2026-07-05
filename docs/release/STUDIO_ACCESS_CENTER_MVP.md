@@ -129,6 +129,7 @@
 - `node packages/orchestrator-core/bin/studio.mjs access create-user --user uat-reviewer --display-name "UAT 审阅者" --role reviewer --plan starter --password "UatReviewer!2026" --projects jinhu-smart-park --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access invite-user --user mobile-uat --display-name "移动端 UAT" --role operator --plan team --projects jinhu-smart-park,phoenix-erp --comment "移动终端联调" --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access review-invite --invite-id invite-mobile-uat-20260705-001 --approve --comment "通过内测审批" --dry-run`
+- `node packages/orchestrator-core/bin/studio.mjs access materialize-invite --invite-id invite-mobile-uat-20260705-001 --password "MobileUat!2026" --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access set-project-scope --user operator --projects jinhu-smart-park,phoenix-erp --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access suspend-membership --user viewer --dry-run`
 - `node packages/orchestrator-core/bin/studio.mjs access resume-membership --user viewer --dry-run`
@@ -180,8 +181,13 @@
    - 对 invite 做批准 / 驳回
    - 批准时会再次校验 seat 是否还有余量
    - 已批准 invite 会视为 seat 预占，避免后续超卖
-3. Console 配置页
-   - 显示待审批 invite、已批准 invite 和下一步建议
+3. `access materialize-invite`
+   - 只允许对 `APPROVED` invite 执行
+   - 会创建正式本地账号与 workspace membership
+   - 初始密码只存 `scrypt` hash，不存明文
+   - invite 会更新为 `MATERIALIZED`，便于审计“审批”与“落号”是否已完成
+4. Console 配置页
+   - 显示待审批 invite、已批准 invite、已落成 invite 和下一步建议
    - 管理员可以先看清扩容边界，再决定是否升级套餐或正式建号
 
 ## Console 裁剪

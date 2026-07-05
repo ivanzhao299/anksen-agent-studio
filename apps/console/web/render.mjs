@@ -1378,7 +1378,7 @@ function pageActions(data) {
 }
 
 function pageConfig(data) {
-  const inviteSummary = data.access.invite_summary ?? { invite_count: 0, pending_invite_count: 0, approved_invite_count: 0, invites: [] };
+  const inviteSummary = data.access.invite_summary ?? { invite_count: 0, pending_invite_count: 0, approved_invite_count: 0, materialized_invite_count: 0, invites: [] };
   const inviteRows = (inviteSummary.invites ?? []).slice(0, 6).map((invite) => ({
     username: invite.username,
     role: invite.requested_role_name,
@@ -1387,8 +1387,8 @@ function pageConfig(data) {
     status: statusLabel(invite.status),
     next: invite.next_action === "review_invite"
       ? `review ${invite.invite_id}`
-      : invite.next_action === "create_user_from_invite"
-        ? `create-user ${invite.username}`
+      : invite.next_action === "materialize_invite"
+        ? `materialize ${invite.invite_id}`
         : "none"
   }));
   const projectDraft = {
@@ -1434,8 +1434,9 @@ function pageConfig(data) {
       ${metric("邀请总数", inviteSummary.invite_count ?? 0)}
       ${metric("待审批", inviteSummary.pending_invite_count ?? 0)}
       ${metric("已批准", inviteSummary.approved_invite_count ?? 0)}
-      ${metric("建议", inviteSummary.pending_invite_count > 0 ? "先 review-invite" : "可创建新 invite")}
+      ${metric("已落成", inviteSummary.materialized_invite_count ?? 0)}
     </div>
+    <p class="help">${inviteSummary.pending_invite_count > 0 ? "先 review-invite，审批通过后再 materialize-invite 初始化登录密码。" : inviteSummary.approved_invite_count > 0 ? "已批准邀请还需要 materialize-invite 才会成为正式本地账号。" : "当前没有待处理邀请，可直接创建新 invite。"}</p>
     ${inviteRows.length > 0 ? table(inviteRows, [
       { key: "username", label: "用户名" },
       { key: "role", label: "角色" },

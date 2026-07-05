@@ -2,7 +2,7 @@ export type AccessRiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 export type StudioUserStatus = "ACTIVE" | "INVITED" | "DISABLED";
 export type WorkspaceMembershipStatus = "ACTIVE" | "PENDING" | "SUSPENDED";
-export type AccessInviteStatus = "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "CANCELLED";
+export type AccessInviteStatus = "PENDING_APPROVAL" | "APPROVED" | "MATERIALIZED" | "REJECTED" | "CANCELLED";
 export type AccessAuthMode = "local_password_session" | "local_session_only";
 export type ConsoleAccessMode = "dry_run_only" | "direct_execute" | "proposal_only" | "human_approval_required";
 
@@ -56,6 +56,11 @@ export interface AccessInvite {
   readonly reviewed_by_name?: string;
   readonly created_at: string;
   readonly reviewed_at?: string;
+  readonly materialized_at?: string;
+  readonly materialized_by_user_id?: string;
+  readonly materialized_by_name?: string;
+  readonly materialized_user_id?: string;
+  readonly materialized_membership_id?: string;
 }
 
 export interface PlanEntitlement {

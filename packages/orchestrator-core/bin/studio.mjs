@@ -80,6 +80,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs access create-user --user <username> --display-name <name> --role <role_id> --plan <plan_id> --password <initial_password> [--projects <csv|*>] [--workspace <workspace_id>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access invite-user --user <username> --display-name <name> --role <role_id> --plan <plan_id> [--projects <csv|*>] [--comment <text>] [--workspace <workspace_id>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access review-invite --invite-id <invite_id> [--approve|--reject] [--comment <text>] [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs access materialize-invite --invite-id <invite_id> --password <initial_password> [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access set-project-scope --user <username> --projects <csv|*> [--workspace <workspace_id>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access suspend-membership --user <username> [--workspace <workspace_id>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access resume-membership --user <username> [--workspace <workspace_id>] [--dry-run|--apply]
@@ -8160,6 +8161,8 @@ async function accessSummaryDryRun(args) {
   console.log(`plan_count: ${summary.plan_count}`);
   console.log(`invite_count: ${summary.invite_count ?? 0}`);
   console.log(`pending_invite_count: ${summary.pending_invite_count ?? 0}`);
+  console.log(`approved_invite_count: ${summary.approved_invite_count ?? 0}`);
+  console.log(`materialized_invite_count: ${summary.materialized_invite_count ?? 0}`);
   if (args.user.trim()) {
     console.log(`selected_user: ${summary.current_user?.username ?? "not_found"}`);
     console.log(`authenticated_profile: ${summary.authenticated ? "yes" : "no"}`);
@@ -8223,6 +8226,7 @@ async function accessInvitesDryRun(args) {
   console.log(`invites: ${summary.invite_count}`);
   console.log(`pending: ${summary.pending_invite_count}`);
   console.log(`approved: ${summary.approved_invite_count}`);
+  console.log(`materialized: ${summary.materialized_invite_count ?? 0}`);
   console.log(`rejected: ${summary.rejected_invite_count}`);
   console.log(`cancelled: ${summary.cancelled_invite_count}`);
   console.log("");
@@ -8578,8 +8582,52 @@ async function accessReviewInvite(args) {
   console.log(`reviewed_by: ${result.invite.reviewed_by_name}`);
   console.log(`written_path: ${relative(repoRoot, result.written_path)}`);
   if (result.invite.status === "APPROVED") {
-    console.log(`next_step_hint: studio access create-user --user ${result.invite.username} --display-name "${result.invite.display_name}" --role ${result.invite.requested_role_id} --plan ${result.invite.requested_plan_id} --password "<initial_password>" --projects ${(result.invite.requested_project_allowlist ?? []).join(",") || "jinhu-smart-park"} --apply`);
+    console.log(`next_step_hint: studio access materialize-invite --invite-id ${result.invite.invite_id} --password "<initial_password>" --apply`);
   }
+}
+
+async function accessMaterializeInvite(args) {
+  assertDryRunOrApply(args, "access materialize-invite");
+  if (!args.inviteId.trim()) throw new Error("Missing --invite-id for access materialize-invite.");
+  if (!args.password.trim()) throw new Error("Missing --password for access materialize-invite.");
+
+  const { api, bundle } = await loadAccessCenterApi();
+  const invite = api.listAccessInvites(bundle, { include_terminal: true }).find((item) => item.invite_id === args.inviteId.trim());
+  if (!invite) throw new Error(`Access invite not found: ${args.inviteId.trim()}`);
+
+  printAccessMutationHeader("Access Materialize Invite", args.apply ? "apply" : "dry-run");
+  console.log(`invite_id: ${invite.invite_id}`);
+  console.log(`username: ${invite.username}`);
+  console.log(`display_name: ${invite.display_name}`);
+  console.log(`workspace_id: ${invite.workspace_id}`);
+  console.log(`role_id: ${invite.requested_role_id}`);
+  console.log(`plan_id: ${invite.requested_plan_id}`);
+  console.log(`project_allowlist: ${(invite.requested_project_allowlist ?? []).join(", ") || "none"}`);
+  console.log(`current_status: ${invite.status}`);
+  console.log(`password_length: ${args.password.trim().length}`);
+
+  if (args.dryRun) {
+    console.log("status: READY");
+    console.log(`seat_remaining: ${invite.impact?.seats_remaining ?? "unlimited"}`);
+    console.log(`next_action: ${invite.next_action}`);
+    console.log("writes: runtime/global/access-users.json, runtime/global/access-memberships.json, runtime/global/access-invites.json");
+    console.log("secret_values_read: no");
+    console.log("secret_values_stored: password_hash_only");
+    return;
+  }
+
+  const actorProfile = api.resolveUserProfile(bundle, bundle.policy.default_console_user_id);
+  const result = await api.materializeAccessInvite(bundle, invite.invite_id, args.password.trim(), {
+    materialized_by_user_id: actorProfile.user?.user_id ?? bundle.policy.default_console_user_id,
+    materialized_by_name: actorProfile.user?.display_name ?? "Studio 平台所有者"
+  });
+  console.log("status: PASS");
+  console.log(`invite_status: ${result.invite.status}`);
+  console.log(`materialized_user_id: ${result.user.user_id}`);
+  console.log(`membership_id: ${result.membership.membership_id}`);
+  console.log(`written_paths: ${result.written_paths.map((file) => relative(repoRoot, file)).join(", ")}`);
+  console.log("secret_values_read: no");
+  console.log("secret_values_stored: password_hash_only");
 }
 
 async function accessSetProjectScope(args) {
@@ -11268,6 +11316,7 @@ async function main() {
   if (args.command === "access" && args.subcommand === "create-user") return accessCreateUser(args);
   if (args.command === "access" && args.subcommand === "invite-user") return accessInviteUser(args);
   if (args.command === "access" && args.subcommand === "review-invite") return accessReviewInvite(args);
+  if (args.command === "access" && args.subcommand === "materialize-invite") return accessMaterializeInvite(args);
   if (args.command === "access" && args.subcommand === "set-project-scope") return accessSetProjectScope(args);
   if (args.command === "access" && args.subcommand === "suspend-membership") return accessToggleMembership(args, "SUSPENDED");
   if (args.command === "access" && args.subcommand === "resume-membership") return accessToggleMembership(args, "ACTIVE");

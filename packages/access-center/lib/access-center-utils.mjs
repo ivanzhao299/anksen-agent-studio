@@ -157,6 +157,24 @@ function activeMembershipsForPlan(bundle, planId, workspaceId = null) {
   );
 }
 
+function approvedInvitesForPlan(bundle, planId, workspaceId = null, options = {}) {
+  const excludeInviteId = String(options.exclude_invite_id ?? options.excludeInviteId ?? "").trim();
+  return (bundle.invites.invites ?? []).filter((invite) =>
+    invite.requested_plan_id === planId
+    && invite.status === "APPROVED"
+    && (!workspaceId || invite.workspace_id === workspaceId)
+    && (!excludeInviteId || invite.invite_id !== excludeInviteId)
+  );
+}
+
+function reservedSeatUsageForPlan(bundle, planId, workspaceId = null, options = {}) {
+  const excludeUserId = String(options.exclude_user_id ?? options.excludeUserId ?? "").trim();
+  const memberships = activeMembershipsForPlan(bundle, planId, workspaceId)
+    .filter((membership) => !excludeUserId || membership.user_id !== excludeUserId);
+  const approvedInvites = approvedInvitesForPlan(bundle, planId, workspaceId, options);
+  return memberships.length + approvedInvites.length;
+}
+
 function findUserRecord(bundle, userOrUsername) {
   const value = String(userOrUsername ?? "").trim();
   if (!value) return null;
@@ -321,7 +339,9 @@ function summarizeInvite(bundle, invite) {
   const nextAction = invite.status === "PENDING_APPROVAL"
     ? "review_invite"
     : invite.status === "APPROVED"
-      ? "create_user_from_invite"
+      ? "materialize_invite"
+      : invite.status === "MATERIALIZED"
+        ? "completed"
       : "none";
   return {
     invite_id: invite.invite_id,
@@ -343,6 +363,11 @@ function summarizeInvite(bundle, invite) {
     reviewed_by_name: invite.reviewed_by_name ?? "",
     created_at: invite.created_at,
     reviewed_at: invite.reviewed_at ?? "",
+    materialized_at: invite.materialized_at ?? "",
+    materialized_by_user_id: invite.materialized_by_user_id ?? "",
+    materialized_by_name: invite.materialized_by_name ?? "",
+    materialized_user_id: invite.materialized_user_id ?? "",
+    materialized_membership_id: invite.materialized_membership_id ?? "",
     impact,
     next_action: nextAction
   };
@@ -562,6 +587,7 @@ export function accessSummary(bundle, context = null) {
     invite_count: inviteSummary.invite_count,
     pending_invite_count: inviteSummary.pending_invite_count,
     approved_invite_count: inviteSummary.approved_invite_count,
+    materialized_invite_count: inviteSummary.materialized_invite_count,
     authenticated: current.authenticated,
     current_user: current.user,
     current_plan: current.plan ? {
@@ -904,7 +930,7 @@ export async function assignWorkspacePlan(bundle, userOrUsername, planId, option
 
   const membershipsDocument = ensureMembershipDocument(bundle);
   const membership = ensureMembershipRecord(bundle, membershipsDocument, usersDocument.users[userIndex], workspaceId);
-  const seatUsage = activeMembershipsForPlan(bundle, plan.plan_id, workspaceId).filter((item) => item.user_id !== user.user_id).length;
+  const seatUsage = reservedSeatUsageForPlan(bundle, plan.plan_id, workspaceId, { exclude_user_id: user.user_id });
   if (Number.isFinite(Number(plan.seat_limit)) && seatUsage >= Number(plan.seat_limit)) {
     throw new Error(`Plan ${plan.plan_id} has reached seat limit ${plan.seat_limit} in workspace ${workspaceId}.`);
   }
@@ -950,6 +976,7 @@ export async function createStudioUser(bundle, input = {}) {
   const password = String(input.password ?? "").trim();
   const workspaceId = String(input.workspace_id ?? input.workspaceId ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id).trim();
   const projectAllowlist = normalizeProjectAllowlist(input.project_allowlist ?? input.projectAllowlist, defaultProjectAllowlistForRole(roleId));
+  const seatReservationInviteId = String(input.seat_reservation_invite_id ?? input.seatReservationInviteId ?? "").trim();
 
   if (!username) throw new Error("Username is required.");
   if (!displayName) throw new Error("Display name is required.");
@@ -962,7 +989,7 @@ export async function createStudioUser(bundle, input = {}) {
   if (!role) throw new Error(`Role not found: ${roleId}`);
   const plan = planDefinition(bundle, planId);
   if (!plan) throw new Error(`Plan not found: ${planId}`);
-  const seatUsage = activeMembershipsForPlan(bundle, plan.plan_id, workspaceId).length;
+  const seatUsage = reservedSeatUsageForPlan(bundle, plan.plan_id, workspaceId, { exclude_invite_id: seatReservationInviteId });
   if (Number.isFinite(Number(plan.seat_limit)) && seatUsage >= Number(plan.seat_limit)) {
     throw new Error(`Plan ${plan.plan_id} has reached seat limit ${plan.seat_limit} in workspace ${workspaceId}.`);
   }
@@ -1061,7 +1088,7 @@ export function workspaceEntitlementUsage(bundle, workspaceId = null) {
 export function listAccessInvites(bundle, options = {}) {
   const workspaceId = options.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id;
   const includeTerminal = options.include_terminal === true;
-  const terminalStatuses = new Set(["REJECTED", "CANCELLED"]);
+  const terminalStatuses = new Set(["MATERIALIZED", "REJECTED", "CANCELLED"]);
   return (bundle.invites.invites ?? [])
     .filter((invite) => invite.workspace_id === workspaceId)
     .filter((invite) => includeTerminal || !terminalStatuses.has(invite.status))
@@ -1073,7 +1100,7 @@ export function accessInviteSummary(bundle, workspaceId = null) {
   const workspaceInvites = (bundle.invites.invites ?? []).filter((invite) =>
     invite.workspace_id === (workspaceId ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id)
   );
-  const byStatus = Object.fromEntries(["PENDING_APPROVAL", "APPROVED", "REJECTED", "CANCELLED"].map((status) => [
+  const byStatus = Object.fromEntries(["PENDING_APPROVAL", "APPROVED", "MATERIALIZED", "REJECTED", "CANCELLED"].map((status) => [
     status,
     workspaceInvites.filter((invite) => invite.status === status).length
   ]));
@@ -1081,6 +1108,7 @@ export function accessInviteSummary(bundle, workspaceId = null) {
     invite_count: workspaceInvites.length,
     pending_invite_count: byStatus.PENDING_APPROVAL ?? 0,
     approved_invite_count: byStatus.APPROVED ?? 0,
+    materialized_invite_count: byStatus.MATERIALIZED ?? 0,
     rejected_invite_count: byStatus.REJECTED ?? 0,
     cancelled_invite_count: byStatus.CANCELLED ?? 0,
     by_status: byStatus,
@@ -1285,6 +1313,67 @@ export async function reviewAccessInvite(bundle, inviteId, decision, options = {
       invites: document
     }, nextInvite),
     written_path: writtenPath
+  };
+}
+
+export async function materializeAccessInvite(bundle, inviteId, password, options = {}) {
+  const normalizedInviteId = String(inviteId ?? "").trim();
+  const normalizedPassword = String(password ?? "").trim();
+  if (!normalizedInviteId) throw new Error("Invite id is required.");
+  if (normalizedPassword.length < 8) throw new Error("Password must contain at least 8 characters.");
+
+  const invite = findInviteRecord(bundle, normalizedInviteId);
+  if (!invite) throw new Error(`Access invite not found: ${inviteId}`);
+  if (invite.status !== "APPROVED") {
+    throw new Error(`Access invite ${inviteId} must be APPROVED before materialization, current status is ${invite.status}.`);
+  }
+  if (findUserRecord(bundle, invite.username)) {
+    throw new Error(`Studio user already exists for invite username: ${invite.username}`);
+  }
+
+  const role = roleDefinition(bundle, invite.requested_role_id);
+  if (!role) throw new Error(`Role not found for invite ${invite.invite_id}: ${invite.requested_role_id}`);
+  const plan = planDefinition(bundle, invite.requested_plan_id);
+  if (!plan) throw new Error(`Plan not found for invite ${invite.invite_id}: ${invite.requested_plan_id}`);
+
+  const created = await createStudioUser(bundle, {
+    username: invite.username,
+    display_name: invite.display_name,
+    role_id: role.role_id,
+    plan_id: plan.plan_id,
+    password: normalizedPassword,
+    workspace_id: invite.workspace_id,
+    project_allowlist: normalizeProjectAllowlist(invite.requested_project_allowlist, defaultProjectAllowlistForRole(role.role_id)),
+    seat_reservation_invite_id: invite.invite_id
+  });
+
+  const materializedByUserId = String(options.materialized_by_user_id ?? options.materializedByUserId ?? bundle.policy.default_console_user_id).trim();
+  const materializedByName = String(options.materialized_by_name ?? options.materializedByName ?? resolveUserProfile(bundle, materializedByUserId).user?.display_name ?? materializedByUserId).trim();
+  const refreshedBundle = await loadAccessCenter();
+  const document = ensureInviteDocument(refreshedBundle);
+  const inviteIndex = document.invites.findIndex((item) => item.invite_id === normalizedInviteId);
+  if (inviteIndex < 0) {
+    throw new Error(`Access invite disappeared before materialization could complete: ${normalizedInviteId}`);
+  }
+
+  const nextInvite = {
+    ...document.invites[inviteIndex],
+    status: "MATERIALIZED",
+    materialized_at: new Date().toISOString(),
+    materialized_by_user_id: materializedByUserId,
+    materialized_by_name: materializedByName,
+    materialized_user_id: created.user.user_id,
+    materialized_membership_id: created.membership.membership_id
+  };
+  document.invites[inviteIndex] = nextInvite;
+  const invitePath = await persistInvitesDocument(document);
+  const finalBundle = await loadAccessCenter();
+
+  return {
+    invite: summarizeInvite(finalBundle, nextInvite),
+    user: created.user,
+    membership: created.membership,
+    written_paths: [...created.written_paths, invitePath]
   };
 }
 
