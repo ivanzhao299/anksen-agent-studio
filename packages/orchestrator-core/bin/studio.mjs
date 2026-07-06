@@ -9304,9 +9304,12 @@ function releasePromotionStageDefinition(stageId) {
 function releasePromotionConsistencyKey(repo, checks) {
   return stableHash({
     branch: repo.branch,
-    head: repo.head,
     clean: repo.clean,
-    checks: checks.map((check) => ({ check_id: check.check_id, status: check.status }))
+    checks: checks.map((check) => ({
+      check_id: check.check_id,
+      status: check.status,
+      fingerprint: check.fingerprint ?? ""
+    }))
   }).slice(0, 16);
 }
 
@@ -9462,11 +9465,20 @@ async function releaseConsistency(args) {
     "runtime/global/access-enforcement.json",
     "apps/console/web/server.mjs",
     "apps/console/web/action-server.mjs",
-    "apps/console/web/build.mjs"
+    "apps/console/web/build.mjs",
+    "packages/orchestrator-core/bin/studio.mjs"
   ];
-  const checks = requiredFiles.map((file) => ({
-    check_id: file,
-    status: existsSync(resolveFromRoot(file)) ? "PASS" : "FAIL"
+  const checks = await Promise.all(requiredFiles.map(async (file) => {
+    const absolutePath = resolveFromRoot(file);
+    const exists = existsSync(absolutePath);
+    const fingerprint = exists
+      ? createHash("sha1").update(await readFile(absolutePath)).digest("hex").slice(0, 16)
+      : "";
+    return {
+      check_id: file,
+      status: exists ? "PASS" : "FAIL",
+      fingerprint
+    };
   }));
   const existingArtifact = await readJsonIfExists(resolveFromRoot("runtime/global/release-consistency.json"));
   const localPreviewPass = repo.clean === "yes"
