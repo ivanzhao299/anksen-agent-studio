@@ -656,6 +656,17 @@ function releasePromotionPanel(data) {
   </section>`;
 }
 
+function releasePromotionRows(data) {
+  const release = data.release_consistency ?? {};
+  const stages = Array.isArray(release.promotion_stages) ? release.promotion_stages : [];
+  return stages.map((stage) => ({
+    stage: stage.stage_id,
+    status: statusLabel(stage.status ?? "unknown"),
+    key: stage.consistency_key || stage.source_consistency_key || "pending",
+    reason: stage.gate_reason || "none"
+  }));
+}
+
 function projectWorkbench(data) {
   const rows = [
     { project: "jinhu-smart-park", status: "CONNECTED", policy: "Pilot Production / guarded", next: "blocker check" },
@@ -1695,11 +1706,49 @@ function pagePlanning(data) {
 }
 
 function pageAutopilot(data) {
+  const lifecycle = lifecycleSummary(data);
+  const release = data.release_consistency ?? {};
+  const stageRows = releasePromotionRows(data);
+  const queueRows = lifecycleRecords(data).slice(0, 8).map((item) => ({
+    task: item.task_id,
+    approval: toneLabel(item.approval_status ?? "missing", (item.approval_status ?? "") === "APPROVED" ? "pass" : "proposal-only"),
+    queue: `<div class="proposal-evidence">
+      ${toneLabel(item.queue_audit_status ?? "missing", (item.queue_audit_status ?? "") === "PASS" ? "pass" : (item.queue_audit_status ?? "") === "missing" ? "local" : "blocked")}
+      <span class="help">queue: ${escapeHtml(item.queue_task_status ?? "pending")}</span>
+    </div>`,
+    next: `<div class="proposal-evidence">
+      ${toneLabel(item.lifecycle_label ?? "待处理", item.lifecycle ?? "idle")}
+      <span class="help">${escapeHtml(item.blockers?.[0] ?? item.next_stage ?? "无")}</span>
+    </div>`,
+    evidence: `<div class="proposal-evidence">
+      ${item.dispatch_path ? inlineDetails("dispatch", item.dispatch) : ""}
+      ${item.proposal_path ? inlineDetails("proposal", item.proposal) : ""}
+      ${item.audit_path ? inlineDetails("audit", item.audit) : ""}
+    </div>`
+  }));
   return `<section><h2>${messages.pages.autopilot.title}</h2><div class="grid">
     ${metric(messages.pages.autopilot.latestRun, data.autopilot.latest?.path ?? messages.common.notFound)}
     ${metric(messages.pages.autopilot.executionMode, data.autopilot.latest_summary?.execution_mode ?? messages.common.unknown)}
     ${metric(messages.pages.autopilot.writesFromConsole, data.safety.managed_project_writes)}
+    ${metric("待审批", lifecycle.pending_approval)}
+    ${metric("待注入", lifecycle.ready_inject)}
+    ${metric("已入队", lifecycle.injected)}
+    ${metric("Promotion 状态", release.status ?? "未生成")}
+    ${metric("下一闸门", release.promotion_next_stage ?? "completed")}
   </div></section>
+  <section><h2>Proposal / Queue Injection Trace</h2>${queueRows.length > 0 ? table(queueRows, [
+    { key: "task", label: "task" },
+    { key: "approval", label: "approval", html: true },
+    { key: "queue", label: "queue audit", html: true },
+    { key: "next", label: "next", html: true },
+    { key: "evidence", label: "evidence", html: true }
+  ]) : `<div class="panel"><p class="help">当前没有 Proposal / queue injection trace。先生成 dispatch plan。</p></div>`}</section>
+  <section><h2>Release Promotion Stages</h2>${stageRows.length > 0 ? table(stageRows, [
+    { key: "stage", label: "stage" },
+    { key: "status", label: "status", html: true },
+    { key: "key", label: "consistency key" },
+    { key: "reason", label: "gate_reason" }
+  ]) : `<div class="panel"><p class="help">尚未生成 promotion stages。先执行 release consistency。</p></div>`}</section>
   <section><h2>${messages.pages.autopilot.latestRunSummary}</h2>${detailsJson("查看原始 Autopilot Run JSON", data.autopilot.latest_summary ?? {})}</section>`;
 }
 
