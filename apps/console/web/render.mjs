@@ -57,6 +57,10 @@ function statusLabel(value) {
   return `<span class="status-label ${normalizeToken(value)}">${escapeHtml(value)}</span>`;
 }
 
+function toneLabel(label, tone = "local") {
+  return `<span class="status-label ${normalizeToken(tone)}">${escapeHtml(label)}</span>`;
+}
+
 function executionModeForRisk(risk) {
   if (risk === "CRITICAL") return "human_approval_required";
   if (risk === "HIGH") return "proposal_only";
@@ -446,35 +450,105 @@ function workerPanel(data) {
 function proposalPanel(data) {
   const proposals = data.project_router.proposals ?? [];
   const audits = new Map((data.project_router.queue_injection_audits ?? []).map((item) => [item.data?.task_id ?? item.path, item]));
+  const summary = {
+    total: proposals.length,
+    pendingApproval: 0,
+    proposalOnly: 0,
+    readyInject: 0,
+    injected: 0,
+    blocked: 0
+  };
   const rows = proposals.slice(0, 8).map((item) => {
     const proposal = item.data ?? {};
     const audit = audits.get(proposal.task_id);
-    const approvalStatus = proposal.approval_status ?? "unknown";
+    const risk = proposal.risk ?? "MEDIUM";
+    const approvalStatus = proposal.approval_status ?? "PROPOSED";
     const queueAuditStatus = audit?.data?.status ?? "missing";
-    const nextAction = approvalStatus !== "APPROVED"
-      ? "待审批"
-      : (queueAuditStatus === "PASS" ? "已注入" : "待注入");
+    const queueTaskStatus = audit?.data?.queue_state?.queue_task_status ?? "pending";
+    const requiresApproval = proposal.approval_required === true || risk === "HIGH" || risk === "CRITICAL";
+    let lifecycleLabel = "待注入";
+    let lifecycleTone = "ready";
+    let blockerLabel = "LOW / MEDIUM 可直接审批并入队";
+    let blockerTone = "ready";
+    let actionHtml = `<div class="button-row compact-row">
+      <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">查看</button>
+      <button type="button" class="secondary" data-proposal-action="proposal-approve-dry-run" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">审批 dry-run</button>
+      <button type="button" class="primary" data-proposal-action="proposal-approve-apply" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">审批并入队</button>
+    </div>`;
+
+    if (approvalStatus !== "APPROVED") {
+      lifecycleLabel = "待审批";
+      lifecycleTone = "proposal-only";
+      blockerLabel = requiresApproval ? "需先完成 proposal 审批" : "待审批后才能入队";
+      blockerTone = "proposal-only";
+      summary.pendingApproval += 1;
+    } else if (queueAuditStatus === "PASS") {
+      lifecycleLabel = "已入队";
+      lifecycleTone = "pass";
+      blockerLabel = `queue audit PASS / ${queueTaskStatus}`;
+      blockerTone = "pass";
+      actionHtml = `<div class="button-row compact-row">
+        <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">查看</button>
+        <span class="help">已完成队列注入</span>
+      </div>`;
+      summary.injected += 1;
+    } else if (risk === "HIGH" || risk === "CRITICAL") {
+      lifecycleLabel = "人工审批";
+      lifecycleTone = "proposal-only";
+      blockerLabel = `${risk} 风险保持 proposal_only`;
+      blockerTone = "proposal-only";
+      actionHtml = `<div class="button-row compact-row">
+        <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">查看</button>
+        <span class="help">保持人工审批</span>
+      </div>`;
+      summary.proposalOnly += 1;
+    } else if (queueAuditStatus === "BLOCKED" || queueAuditStatus === "FAIL") {
+      lifecycleLabel = "入队受阻";
+      lifecycleTone = "blocked";
+      blockerLabel = `queue audit ${queueAuditStatus}`;
+      blockerTone = "blocked";
+      summary.blocked += 1;
+    } else {
+      lifecycleLabel = "待注入";
+      lifecycleTone = "ready";
+      blockerLabel = queueAuditStatus === "missing"
+        ? "待生成 queue audit trace"
+        : `queue audit ${queueAuditStatus}`;
+      blockerTone = queueAuditStatus === "missing" ? "local" : "ready";
+      summary.readyInject += 1;
+    }
+
     return {
       id: proposal.task_id ?? item.path,
-      risk: riskBadge(proposal.risk ?? "MEDIUM"),
-      approval: statusLabel(approvalStatus),
-      status: statusLabel(nextAction),
-      queueAudit: statusLabel(queueAuditStatus),
-      actions: `<div class="button-row compact-row">
-        <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">查看</button>
-        <button type="button" class="secondary" data-proposal-action="proposal-approve-dry-run" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">审批 dry-run</button>
-        <button type="button" class="primary" data-proposal-action="proposal-approve-apply" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">审批并入队</button>
-      </div>`
+      risk: riskBadge(risk),
+      approval: toneLabel(approvalStatus, approvalStatus === "APPROVED" ? "pass" : "proposal-only"),
+      lifecycle: toneLabel(lifecycleLabel, lifecycleTone),
+      blocker: `<div class="proposal-evidence">
+        ${toneLabel(blockerLabel, blockerTone)}
+        <span class="help">queue: ${escapeHtml(queueTaskStatus)} / audit: ${escapeHtml(queueAuditStatus)}</span>
+      </div>`,
+      actions: actionHtml
     };
   });
   return `<section>
-    <div class="section-head"><h2>Proposal 审批区</h2><span class="pill warn-pill">风险标识 / 真实写入禁用</span></div>
+    <div class="section-head"><h2>Proposal 审批区</h2><span class="pill warn-pill">业务代码写入仍禁用</span></div>
+    <div class="grid">
+      ${metric("总 Proposal", summary.total)}
+      ${metric("待审批", summary.pendingApproval)}
+      ${metric("待注入", summary.readyInject)}
+      ${metric("已入队", summary.injected)}
+      ${metric("人工审批", summary.proposalOnly)}
+      ${metric("入队受阻", summary.blocked)}
+    </div>
+    <div class="panel">
+      <p class="help">LOW / MEDIUM 可在 Console 内审批并注入任务队列；HIGH / CRITICAL 保持 proposal_only；所有项目业务代码写入仍通过独立受控流程执行。</p>
+    </div>
     ${rows.length > 0 ? table(rows, [
       { key: "id", label: "proposal list" },
       { key: "risk", label: "risk", html: true },
       { key: "approval", label: "approval_required", html: true },
-      { key: "status", label: "next", html: true },
-      { key: "queueAudit", label: "queue audit", html: true },
+      { key: "lifecycle", label: "lifecycle", html: true },
+      { key: "blocker", label: "evidence / blocker", html: true },
       { key: "actions", label: "action", html: true }
     ]) : `<div class="panel"><p class="help">当前没有可审 Proposal。先执行项目派发计划，再进入 Proposal Review。</p></div>`}
   </section>`;
@@ -1282,6 +1356,8 @@ function shell(content, activeId, model, data, auth = {}) {
     .entry-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
     .metric span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
     .metric strong { display: block; font-size: 18px; overflow-wrap: anywhere; }
+    .proposal-evidence { display: grid; gap: 6px; min-width: 0; }
+    .proposal-evidence .help { margin-top: 0; }
     table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 26px var(--shadow); }
     th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 9px 10px; font-size: 13px; vertical-align: top; }
     th { color: var(--muted); background: #172231; font-weight: 700; }
