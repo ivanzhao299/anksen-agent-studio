@@ -1696,12 +1696,87 @@ function pageGovernance(data) {
   <section><h2>${messages.pages.governance.sources}</h2>${table(data.governance.examples.map((item) => ({ path: item.path, keys: Object.keys(item.data ?? {}).join(", ") })), [{ key: "path", label: messages.common.file }, { key: "keys", label: messages.common.keys }])}</section>`;
 }
 
+function planningOverviewPanel(data) {
+  const roadmap = data.roadmapMemory ?? {};
+  const next = roadmap.next_recommended_action ?? {};
+  const milestones = Array.isArray(roadmap.milestones) ? roadmap.milestones : [];
+  const completed = milestones.filter((item) => item.completed).length;
+  return `<section>
+    <div class="section-head"><h2>规划信号</h2><span class="pill">global roadmap memory</span></div>
+    <div class="grid">
+      ${metric("当前阶段", roadmap.current_stage ?? "未生成")}
+      ${metric("下一阶段", roadmap.next_stage ?? "未生成")}
+      ${metric("里程碑", `${completed}/${milestones.length}`)}
+      ${metric("目标", roadmap.goal ?? "未生成")}
+    </div>
+    <div class="kanban-grid">
+      <div class="panel">
+        <h3>下一步建议</h3>
+        <p>${escapeHtml(next.title ?? "先刷新 roadmap memory。")}</p>
+        <p class="help">${escapeHtml(next.reason ?? "尚未生成原因说明。")}</p>
+      </div>
+      <div class="panel">
+        <h3>执行边界</h3>
+        ${list([
+          `target: ${next.target_project ?? "unknown"} / ${next.target_package ?? "unknown"}`,
+          `risk: ${next.risk ?? "unknown"}`,
+          `approval_required: ${String(next.approval_required ?? false)}`,
+          `mode: ${next.execution_mode ?? "unknown"}`
+        ])}
+      </div>
+      <div class="panel">
+        <h3>校验命令</h3>
+        ${list(Array.isArray(next.validation_commands) && next.validation_commands.length > 0 ? next.validation_commands : ["未生成 validation commands"])}
+      </div>
+    </div>
+  </section>`;
+}
+
+function planningRoadmapTable(data) {
+  const stages = Array.isArray(data.v5Roadmap?.stages) ? data.v5Roadmap.stages : [];
+  const rows = stages.map((stage) => ({
+    id: stage.id,
+    title: stage.title,
+    risk: riskBadge(stage.risk_level ?? "MEDIUM"),
+    automation: stage.automation_level ?? "unknown",
+    approval: toneLabel(stage.approval_required ? "需审批" : "可自动推进", stage.approval_required ? "proposal-only" : "pass"),
+    target: `${stage.target_project ?? "unknown"} / ${stage.target_package ?? "unknown"}`
+  }));
+  return `<section>
+    <div class="section-head"><h2>V5 路线图</h2><span class="pill">master plan</span></div>
+    ${rows.length > 0 ? table(rows, [
+      { key: "id", label: "阶段" },
+      { key: "title", label: "标题" },
+      { key: "risk", label: "风险", html: true },
+      { key: "automation", label: "自动化" },
+      { key: "approval", label: "审批", html: true },
+      { key: "target", label: "目标包" }
+    ]) : `<div class="panel"><p class="help">尚未生成 V5 路线图。</p></div>`}
+  </section>`;
+}
+
 function pagePlanning(data) {
+  const roadmap = data.roadmapMemory ?? {};
+  const milestoneRows = (Array.isArray(roadmap.milestones) ? roadmap.milestones : []).map((item) => ({
+    id: item.id,
+    title: item.title,
+    status: toneLabel(item.completed ? "已完成" : "待完成", item.completed ? "pass" : "ready")
+  }));
   return `<section><h2>${messages.pages.planning.title}</h2><div class="grid">
     ${metric(messages.pages.planning.roadmapMemory, messages.common.loaded)}
     ${metric(messages.pages.planning.v5Roadmap, Array.isArray(data.v5Roadmap?.stages) ? `${data.v5Roadmap.stages.length} stages` : messages.common.loaded)}
     ${metric(messages.pages.planning.externalCalls, data.safety.external_calls)}
+    ${metric("停止策略", roadmap.stop_policy ?? "未生成")}
   </div></section>
+  ${planningOverviewPanel(data)}
+  ${planningRoadmapTable(data)}
+  <section><div class="section-head"><h2>里程碑完成度</h2><span class="pill">milestones</span></div>
+    ${milestoneRows.length > 0 ? table(milestoneRows, [
+      { key: "id", label: "ID" },
+      { key: "title", label: "里程碑" },
+      { key: "status", label: "状态", html: true }
+    ]) : `<div class="panel"><p class="help">当前没有里程碑记录。</p></div>`}
+  </section>
   <section><h2>${messages.pages.planning.roadmapMemory}</h2>${detailsJson("查看原始 Roadmap Memory JSON", data.roadmapMemory)}</section>`;
 }
 
@@ -1876,19 +1951,63 @@ function pageConfig(data) {
 }
 
 function pageMemory(data) {
+  const globalFiles = Array.isArray(data.codexContextIndex?.global_context_files) ? data.codexContextIndex.global_context_files : [];
+  const projectContexts = Array.isArray(data.codexContextIndex?.project_contexts) ? data.codexContextIndex.project_contexts : [];
+  const requiredReading = Array.isArray(data.codexContextIndex?.required_reading) ? data.codexContextIndex.required_reading : [];
+  const decisions = Array.isArray(data.decisionLog?.decisions) ? data.decisionLog.decisions : [];
+  const projectRows = projectContexts.map((item) => ({
+    project: item.project_id,
+    files: Array.isArray(item.files) ? item.files.length : 0,
+    key_files: (Array.isArray(item.files) ? item.files.slice(0, 3) : []).join(", ")
+  }));
+  const decisionRows = decisions.slice(0, 6).map((item) => ({
+    date: item.date,
+    title: item.title,
+    source: item.source
+  }));
   return `<section><h2>${messages.pages.memory.title}</h2><div class="grid">
     ${metric(messages.pages.memory.platformState, messages.common.loaded)}
     ${metric(messages.pages.memory.contextIndex, Object.keys(data.codexContextIndex ?? {}).length)}
     ${metric(messages.pages.memory.projectMemory, "jinhu-smart-park")}
-    ${metric("控制面文件", 4)}
+    ${metric("全局文件", globalFiles.length)}
+    ${metric("项目上下文", projectContexts.length)}
+    ${metric("必读文件", requiredReading.length)}
+    ${metric("决策记录", decisions.length)}
   </div></section>
+  <section>
+    <div class="section-head"><h2>记忆结构</h2><span class="pill">runtime/global + runtime/projects</span></div>
+    <div class="kanban-grid">
+      <div class="panel"><h3>全局上下文</h3>${list(globalFiles.length > 0 ? globalFiles : ["未生成"] )}</div>
+      <div class="panel"><h3>必读文件</h3>${list(requiredReading.length > 0 ? requiredReading : ["未生成"] )}</div>
+      <div class="panel"><h3>安全边界</h3>${list(Array.isArray(data.codexContextIndex?.safety_boundaries) ? data.codexContextIndex.safety_boundaries : ["未生成"] )}</div>
+    </div>
+  </section>
+  <section><div class="section-head"><h2>项目上下文清单</h2><span class="pill">project memory</span></div>
+    ${projectRows.length > 0 ? table(projectRows, [
+      { key: "project", label: "项目" },
+      { key: "files", label: "文件数" },
+      { key: "key_files", label: "关键文件" }
+    ]) : `<div class="panel"><p class="help">当前没有项目上下文。</p></div>`}
+  </section>
+  <section><div class="section-head"><h2>最近决策</h2><span class="pill">decision log</span></div>
+    ${decisionRows.length > 0 ? table(decisionRows, [
+      { key: "date", label: "日期" },
+      { key: "title", label: "决策" },
+      { key: "source", label: "来源" }
+    ]) : `<div class="panel"><p class="help">当前没有决策记录。</p></div>`}
+  </section>
   <section><h2>${messages.common.dataSources}</h2>${list([...data.data_sources.files, ...data.data_sources.directories, data.data_sources.autopilot_latest])}</section>
   <section><h2>Control Plane Snapshots</h2><div class="grid">
     ${metric("Workspace", data.project_router.workspace?.workspace_id ?? "未生成")}
     ${metric("Worker", data.workers.control_plane?.control_plane_id ?? "未生成")}
     ${metric("Access", data.access.enforcement?.policy_id ?? "未生成")}
     ${metric("Release", data.release_consistency?.status ?? "未生成")}
-  </div></section>`;
+  </div></section>
+  <section><h2>原始上下文详情</h2>
+    ${detailsJson("查看 Platform State JSON", data.platformState ?? {})}
+    ${detailsJson("查看 Codex Context Index JSON", data.codexContextIndex ?? {})}
+    ${detailsJson("查看 Decision Log JSON", data.decisionLog ?? {})}
+  </section>`;
 }
 
 function pagePilotStatus(data) {
