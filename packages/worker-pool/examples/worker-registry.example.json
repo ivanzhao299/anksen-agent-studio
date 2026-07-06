@@ -17,6 +17,15 @@
       "risk": "MEDIUM",
       "execution_mode": "local_repo_execute",
       "isolation_policy_id": "local-repo-worker-isolation",
+      "process_probe": {
+        "label": "codex_local_inventory",
+        "match_any": [
+          "anksen-agent-studio/packages/orchestrator-core/bin/studio.mjs",
+          "apps/console/web/action-server.mjs",
+          "parallel-smoke-worker.mjs"
+        ],
+        "on_demand_ok": true
+      },
       "notes": "Pilot-2 local worker only. No remote server, SSH, deploy, production operation, or credential value access."
     },
     {
@@ -33,6 +42,14 @@
       "risk": "MEDIUM",
       "execution_mode": "local_repo_execute",
       "isolation_policy_id": "local-repo-worker-isolation",
+      "process_probe": {
+        "label": "mobile_planning_inventory",
+        "match_any": [
+          "anksen-agent-studio/packages/mobile-stack-pack",
+          "local-mobile-dry-run"
+        ],
+        "on_demand_ok": true
+      },
       "notes": "Pilot-2 local macOS mobile worker metadata only. It can plan iOS and Android stack validation but does not invoke Xcode, Gradle, simulators, emulators, signing, deploy, or production operations."
     }
   ],

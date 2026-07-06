@@ -9,6 +9,15 @@
 
 Pilot-2 establishes a local Worker Pool control surface for ANKSEN Agent Studio. It prepares worker registry, profile, health, assignment, isolation, cancellation, kill-switch, and audit log contracts without connecting to remote servers or starting production workers.
 
+The current control plane no longer reports heartbeat from static example data only. `worker health` and `worker heartbeat` now read a local process inventory through `ps`, then classify each worker as:
+
+- active
+- on-demand idle
+- missing
+- probe error
+
+This keeps health evidence local-first and auditable while still forbidding SSH, deploy, production operations, and credential reads.
+
 The MVP registers two local workers:
 
 - worker_id: `local-codex-1`

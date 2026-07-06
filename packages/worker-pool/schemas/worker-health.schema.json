@@ -9,6 +9,8 @@
     "schema_version": { "type": "integer", "minimum": 1 },
     "checked_at": { "type": "string", "minLength": 1 },
     "dry_run": { "type": "boolean" },
+    "probe_mode": { "type": "string" },
+    "process_inventory_count": { "type": "integer", "minimum": 0 },
     "workers": {
       "type": "array",
       "items": {
@@ -25,6 +27,21 @@
           },
           "status": { "type": "string" },
           "health_status": { "type": "string", "enum": ["healthy", "unknown", "blocked"] },
+          "process_probe_status": { "type": "string", "enum": ["active", "on_demand_idle", "missing", "probe_error"] },
+          "process_probe_mode": { "type": "string" },
+          "active_process_count": { "type": "integer", "minimum": 0 },
+          "matched_processes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["pid", "command"],
+              "properties": {
+                "pid": { "type": "integer", "minimum": 1 },
+                "command": { "type": "string" }
+              }
+            }
+          },
           "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
           "execution_mode": { "type": "string" },
           "notes": { "type": "string" }

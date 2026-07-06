@@ -27,6 +27,18 @@
     "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
     "execution_mode": { "type": "string", "enum": ["local_repo_execute", "proposal_only", "human_approval_required"] },
     "isolation_policy_id": { "type": "string", "minLength": 1 },
+    "process_probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "match_any": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "on_demand_ok": { "type": "boolean" }
+      }
+    },
     "notes": { "type": "string" }
   }
 }

@@ -16,6 +16,11 @@ export interface WorkerProfile {
   readonly max_parallel_tasks: number;
   readonly risk: WorkerRisk;
   readonly execution_mode: WorkerMode;
+  readonly process_probe?: {
+    readonly label?: string;
+    readonly match_any?: readonly string[];
+    readonly on_demand_ok?: boolean;
+  };
 }
 
 export interface WorkerRegistry {

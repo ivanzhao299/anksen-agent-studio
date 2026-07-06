@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -37,6 +38,115 @@ function byCapability(items) {
 
 function stableId(parts) {
   return createHash("sha1").update(parts.join(":")).digest("hex").slice(0, 10);
+}
+
+function readProcessTable() {
+  const attempts = [
+    ["-Ao", "pid=,command="],
+    ["-eo", "pid=,args="]
+  ];
+  for (const args of attempts) {
+    try {
+      const stdout = execFileSync("ps", args, {
+        encoding: "utf8",
+        maxBuffer: 8 * 1024 * 1024
+      });
+      const processes = stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const match = line.match(/^(\d+)\s+(.*)$/);
+          if (!match) return null;
+          return {
+            pid: Number(match[1]),
+            command: match[2],
+            command_lower: match[2].toLowerCase()
+          };
+        })
+        .filter(Boolean);
+      return {
+        status: "ok",
+        checked_at: new Date().toISOString(),
+        process_count: processes.length,
+        processes
+      };
+    } catch (error) {
+      continue;
+    }
+  }
+  return {
+    status: "error",
+    checked_at: new Date().toISOString(),
+    process_count: 0,
+    processes: [],
+    error_message: "Unable to read local process table with ps."
+  };
+}
+
+function workerProcessProbe(worker) {
+  const probe = worker?.process_probe ?? {};
+  const matchAny = Array.isArray(probe.match_any)
+    ? probe.match_any.map((item) => `${item}`.trim().toLowerCase()).filter(Boolean)
+    : [];
+  return {
+    label: typeof probe.label === "string" && probe.label.trim() ? probe.label.trim() : "on_demand_local",
+    matchAny,
+    onDemandOk: probe.on_demand_ok !== false
+  };
+}
+
+function workerProcessSnapshot(worker, inventory) {
+  const probe = workerProcessProbe(worker);
+  if (inventory.status !== "ok") {
+    return {
+      probe_mode: probe.label,
+      process_probe_status: "probe_error",
+      active_process_count: 0,
+      matched_processes: [],
+      notes: inventory.error_message ?? "Local process table is unavailable."
+    };
+  }
+  if (probe.matchAny.length === 0) {
+    return {
+      probe_mode: probe.label,
+      process_probe_status: "on_demand_idle",
+      active_process_count: 0,
+      matched_processes: [],
+      notes: "Worker is on-demand and does not require a dedicated background process."
+    };
+  }
+  const matched = inventory.processes.filter((processInfo) =>
+    probe.matchAny.some((pattern) => processInfo.command_lower.includes(pattern))
+  );
+  if (matched.length > 0) {
+    return {
+      probe_mode: probe.label,
+      process_probe_status: "active",
+      active_process_count: matched.length,
+      matched_processes: matched.slice(0, 5).map((processInfo) => ({
+        pid: processInfo.pid,
+        command: processInfo.command
+      })),
+      notes: "Matched local process inventory for this worker."
+    };
+  }
+  if (probe.onDemandOk) {
+    return {
+      probe_mode: probe.label,
+      process_probe_status: "on_demand_idle",
+      active_process_count: 0,
+      matched_processes: [],
+      notes: "No active process matched. The worker remains healthy because it is allowed to start on demand."
+    };
+  }
+  return {
+    probe_mode: probe.label,
+    process_probe_status: "missing",
+    active_process_count: 0,
+    matched_processes: [],
+    notes: "Expected local worker process was not detected."
+  };
 }
 
 export async function loadWorkerPool() {
@@ -123,6 +233,8 @@ export function workerInventory(bundle) {
     capability_tags: worker.capability_tags ?? [],
     max_parallel_tasks: worker.max_parallel_tasks,
     isolation_policy_id: worker.isolation_policy_id,
+    process_probe: worker.process_probe ?? null,
+    notes: worker.notes ?? "",
     governance: governanceForWorker(worker)
   }));
 }
@@ -157,21 +269,38 @@ function uniqueCapabilities(inventory) {
 
 export function workerHeartbeat(bundle) {
   const checkedAt = bundle.healthExample.checked_at ?? new Date().toISOString();
+  const inventory = readProcessTable();
   return {
     schema_version: 1,
     generated_at: new Date().toISOString(),
-    heartbeat_mode: "metadata_only_dry_run",
+    heartbeat_mode: inventory.status === "ok" ? "local_process_inventory_dry_run" : "local_process_inventory_probe_error",
     registry_updated_at: bundle.registry.updated_at ?? "unknown",
-    health_checked_at: checkedAt,
-    workers: workerInventory(bundle).map((worker) => ({
-      worker_id: worker.worker_id,
-      runtime_id: worker.runtime_id,
-      status: worker.status,
-      heartbeat_status: worker.status === "available" ? "HEALTHY" : "BLOCKED",
-      last_heartbeat_at: checkedAt,
-      capability_tags: worker.capability_tags,
-      notes: "Heartbeat is derived from dry-run worker metadata; no remote process, SSH, deploy, or model invocation occurred."
-    })),
+    health_checked_at: inventory.checked_at ?? checkedAt,
+    process_inventory_status: inventory.status,
+    process_inventory_count: inventory.process_count ?? 0,
+    workers: workerInventory(bundle).map((worker) => {
+      const processSnapshot = workerProcessSnapshot(worker, inventory);
+      return {
+        worker_id: worker.worker_id,
+        runtime_id: worker.runtime_id,
+        status: worker.status,
+        heartbeat_status: worker.status !== "available"
+          ? "BLOCKED"
+          : processSnapshot.process_probe_status === "active"
+            ? "HEALTHY_ACTIVE"
+            : processSnapshot.process_probe_status === "probe_error"
+              ? "PROBE_ERROR"
+              : processSnapshot.process_probe_status === "missing"
+                ? "BLOCKED"
+                : "HEALTHY_IDLE",
+        last_heartbeat_at: inventory.checked_at ?? checkedAt,
+        capability_tags: worker.capability_tags,
+        process_probe_mode: processSnapshot.probe_mode,
+        active_process_count: processSnapshot.active_process_count,
+        matched_processes: processSnapshot.matched_processes,
+        notes: processSnapshot.notes
+      };
+    }),
     safety: {
       server_access: "disabled",
       ssh: "disabled",
@@ -223,6 +352,9 @@ export function workerControlPlane(bundle) {
       production: "CRITICAL human_approval_required"
     },
     heartbeat_mode: heartbeat.heartbeat_mode,
+    process_inventory_status: heartbeat.process_inventory_status,
+    process_inventory_count: heartbeat.process_inventory_count,
+    active_worker_process_count: heartbeat.workers.reduce((total, worker) => total + (worker.active_process_count ?? 0), 0),
     dispatch_modes: [
       "runtime_select",
       "capability_select"
@@ -245,23 +377,38 @@ export function workerControlPlane(bundle) {
 }
 
 export function workerHealth(bundle) {
+  const inventory = readProcessTable();
   return {
     schema_version: 1,
-    checked_at: new Date().toISOString(),
+    checked_at: inventory.checked_at ?? new Date().toISOString(),
     dry_run: true,
-    workers: workerInventory(bundle).map((worker) => ({
-      worker_id: worker.worker_id,
-      runtime_id: worker.runtime_id,
-      worker_os: worker.worker_os,
-      capability_tags: worker.capability_tags ?? [],
-      status: worker.status,
-      health_status: worker.status === "available" && worker.worker_kind === "local" ? "healthy" : "blocked",
-      risk: worker.governance.risk,
-      execution_mode: worker.governance.execution_mode,
-      notes: worker.worker_kind === "local"
-        ? "Dry-run local worker health. Metadata is available; no process, server, SSH, credential, deploy, or production operation was invoked."
-        : "Remote and production workers are blocked in Pilot-2."
-    }))
+    probe_mode: inventory.status === "ok" ? "local_process_inventory_dry_run" : "local_process_inventory_probe_error",
+    process_inventory_count: inventory.process_count ?? 0,
+    workers: workerInventory(bundle).map((worker) => {
+      const processSnapshot = workerProcessSnapshot(worker, inventory);
+      const healthStatus = worker.status !== "available"
+        ? "blocked"
+        : processSnapshot.process_probe_status === "probe_error"
+          ? "unknown"
+          : processSnapshot.process_probe_status === "missing"
+            ? "blocked"
+            : "healthy";
+      return {
+        worker_id: worker.worker_id,
+        runtime_id: worker.runtime_id,
+        worker_os: worker.worker_os,
+        capability_tags: worker.capability_tags ?? [],
+        status: worker.status,
+        health_status: healthStatus,
+        process_probe_status: processSnapshot.process_probe_status,
+        process_probe_mode: processSnapshot.probe_mode,
+        active_process_count: processSnapshot.active_process_count,
+        matched_processes: processSnapshot.matched_processes,
+        risk: worker.governance.risk,
+        execution_mode: worker.governance.execution_mode,
+        notes: processSnapshot.notes
+      };
+    })
   };
 }
 

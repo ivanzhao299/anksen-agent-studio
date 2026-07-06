@@ -2,6 +2,8 @@
   "schema_version": 1,
   "checked_at": "2026-06-24T00:00:00.000+08:00",
   "dry_run": true,
+  "probe_mode": "local_process_inventory_dry_run",
+  "process_inventory_count": 3,
   "workers": [
     {
       "worker_id": "local-codex-1",
@@ -10,9 +12,15 @@
       "capability_tags": ["codex", "web", "backend", "discovery", "production-dry-run"],
       "status": "available",
       "health_status": "healthy",
+      "process_probe_status": "active",
+      "process_probe_mode": "codex_local_inventory",
+      "active_process_count": 2,
+      "matched_processes": [
+        { "pid": 24501, "command": "node packages/orchestrator-core/bin/studio.mjs worker health --dry-run" }
+      ],
       "risk": "MEDIUM",
       "execution_mode": "local_repo_execute",
-      "notes": "Dry-run registry health only. Local worker metadata is available; no process, SSH, server, model, credential, deploy, or production operation was invoked."
+      "notes": "Dry-run local process inventory shows Studio/Codex-related commands on this machine without invoking servers, SSH, credentials, deploy, or production operations."
     },
     {
       "worker_id": "local-mobile-macos-1",
@@ -21,9 +29,13 @@
       "capability_tags": ["mobile-ios", "mobile-android"],
       "status": "available",
       "health_status": "healthy",
+      "process_probe_status": "on_demand_idle",
+      "process_probe_mode": "mobile_planning_inventory",
+      "active_process_count": 0,
+      "matched_processes": [],
       "risk": "MEDIUM",
       "execution_mode": "local_repo_execute",
-      "notes": "Dry-run mobile worker metadata only. No Xcode, Gradle, simulator, emulator, signing, server, deploy, or production operation was invoked."
+      "notes": "No active Xcode or Gradle process was detected. The mobile planning worker remains healthy because it is on-demand only."
     }
   ]
 }

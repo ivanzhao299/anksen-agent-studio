@@ -10796,15 +10796,16 @@ async function workerHealth(args) {
   console.log("# Worker Pool Health dry-run");
   console.log("");
   console.log(`workers: ${health.workers.length}`);
-  console.log("active_process_probe: disabled");
+  console.log(`active_process_probe: ${health.probe_mode ?? "unknown"}`);
+  console.log(`process_inventory_count: ${health.process_inventory_count ?? 0}`);
   console.log("server_connections: disabled");
   console.log("ssh: disabled");
   console.log("credential_values_read: no");
   console.log("");
-  console.log("| Worker | Runtime | OS | Capabilities | Status | Health | Risk | Mode |");
-  console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
+  console.log("| Worker | Runtime | OS | Capabilities | Status | Health | Probe | Processes | Risk | Mode |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | ---: | --- | --- |");
   for (const worker of health.workers) {
-    console.log(`| ${worker.worker_id} | ${worker.runtime_id} | ${worker.worker_os} | ${worker.capability_tags.join(", ")} | ${worker.status} | ${worker.health_status} | ${worker.risk} | ${worker.execution_mode} |`);
+    console.log(`| ${worker.worker_id} | ${worker.runtime_id} | ${worker.worker_os} | ${worker.capability_tags.join(", ")} | ${worker.status} | ${worker.health_status} | ${worker.process_probe_status ?? "unknown"} | ${worker.active_process_count ?? 0} | ${worker.risk} | ${worker.execution_mode} |`);
   }
 }
 
@@ -10863,11 +10864,13 @@ async function workerHeartbeat(args) {
   console.log(`heartbeat_mode: ${heartbeat.heartbeat_mode}`);
   console.log(`registry_updated_at: ${heartbeat.registry_updated_at}`);
   console.log(`health_checked_at: ${heartbeat.health_checked_at}`);
+  console.log(`process_inventory_status: ${heartbeat.process_inventory_status ?? "unknown"}`);
+  console.log(`process_inventory_count: ${heartbeat.process_inventory_count ?? 0}`);
   console.log("");
-  console.log("| Worker | Runtime | Status | Heartbeat | Last Seen |");
-  console.log("| --- | --- | --- | --- | --- |");
+  console.log("| Worker | Runtime | Status | Heartbeat | Probe | Processes | Last Seen |");
+  console.log("| --- | --- | --- | --- | --- | ---: | --- |");
   for (const worker of heartbeat.workers) {
-    console.log(`| ${worker.worker_id} | ${worker.runtime_id} | ${worker.status} | ${worker.heartbeat_status} | ${worker.last_heartbeat_at} |`);
+    console.log(`| ${worker.worker_id} | ${worker.runtime_id} | ${worker.status} | ${worker.heartbeat_status} | ${worker.process_probe_mode ?? "unknown"} | ${worker.active_process_count ?? 0} | ${worker.last_heartbeat_at} |`);
   }
 }
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T08:27:39.257Z",
+  "generated_at": "2026-07-06T10:17:41.525Z",
   "control_plane_id": "pilot-2-local-worker-pool-control-plane",
   "executor": "local_worker_registry",
   "true_parallel_executor": "node_child_process_verified",
@@ -24,7 +24,10 @@
     "remote": "HIGH proposal_only",
     "production": "CRITICAL human_approval_required"
   },
-  "heartbeat_mode": "metadata_only_dry_run",
+  "heartbeat_mode": "local_process_inventory_dry_run",
+  "process_inventory_status": "ok",
+  "process_inventory_count": 517,
+  "active_worker_process_count": 0,
   "dispatch_modes": [
     "runtime_select",
     "capability_select"

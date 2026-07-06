@@ -99,6 +99,26 @@ Purpose:
   - execute
   - or resolve blockers
 
+### P1-007 Live Local Worker Heartbeat Inventory
+
+- `studio worker health --dry-run`
+- `studio worker heartbeat --dry-run`
+- `studio worker control-plane --apply`
+
+Artifacts:
+
+- `runtime/global/worker-control-plane.json`
+
+Purpose:
+
+- Upgrade worker heartbeat from metadata-only snapshots to real local process inventory.
+- Keep worker health grounded in on-machine evidence without enabling server access, SSH, deploy, production operations, or credential reads.
+- Distinguish:
+  - active matched worker processes
+  - healthy on-demand idle workers
+  - probe errors
+  - blocked workers
+
 ## Safety
 
 - Managed project writes remain disabled by default.
@@ -109,10 +129,10 @@ Purpose:
 
 ## Next Step Plan
 
-1. Upgrade worker heartbeat from metadata-only to live local process inventory.
-2. Add release promotion stages for local preview, server preview, and reviewed publish.
-3. Wire project dispatch plans into Console actions and proposal review flows.
-4. Add guarded queue-injection audit trace for approved attached-project proposals.
+1. Add release promotion stages for local preview, server preview, and reviewed publish.
+2. Wire project dispatch plans into Console actions and proposal review flows.
+3. Add guarded queue-injection audit trace for approved attached-project proposals.
+4. Extend worker inventory with task lease evidence and per-worker recent run history.
 
 ## Notes
 
