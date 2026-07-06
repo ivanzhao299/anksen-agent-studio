@@ -500,6 +500,30 @@ async function repoStatus(projectPath) {
   };
 }
 
+function statusEntryPath(entry) {
+  return String(entry ?? "").slice(3).trim();
+}
+
+function releaseManagedDirtyPaths() {
+  return new Set([
+    "runtime/global/release-consistency.json",
+    "runtime/global/codex-context-index.json"
+  ]);
+}
+
+function releaseConsistencyRepoView(repo) {
+  const managedPaths = releaseManagedDirtyPaths();
+  const dirty_files = (repo.dirty_files ?? []).filter((entry) => !managedPaths.has(statusEntryPath(entry)));
+  return {
+    ...repo,
+    clean: dirty_files.length === 0 ? "yes" : "no",
+    dirty_files,
+    ignored_generated_files: (repo.dirty_files ?? [])
+      .filter((entry) => managedPaths.has(statusEntryPath(entry)))
+      .map((entry) => statusEntryPath(entry))
+  };
+}
+
 function statePath(projectPath, config, ...segments) {
   return join(projectPath, config.state_dir ?? "ops/agent-orchestrator", ...segments);
 }
@@ -9422,7 +9446,8 @@ async function releaseConsistency(args) {
   if (!args.dryRun && !args.apply) {
     throw new Error("release consistency requires --dry-run or --apply.");
   }
-  const repo = await repoStatus(repoRoot);
+  const rawRepo = await repoStatus(repoRoot);
+  const repo = releaseConsistencyRepoView(rawRepo);
   const servicePaths = consoleServicePaths(args);
   const listening = await listeningPids(servicePaths.port);
   const latestRun = await latestAutopilotRunJson();
@@ -9512,6 +9537,9 @@ async function releaseConsistency(args) {
   console.log(`promotion_consistency_key: ${artifact.promotion_consistency_key}`);
   console.log(`promotion_next_stage: ${artifact.promotion_next_stage}`);
   console.log(`warnings: ${artifact.warnings.length}`);
+  if ((repo.ignored_generated_files ?? []).length > 0) {
+    console.log(`ignored_generated_files: ${repo.ignored_generated_files.join(", ")}`);
+  }
   console.log("");
   console.log("checks:");
   for (const check of checks) {
