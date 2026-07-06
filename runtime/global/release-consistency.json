@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T13:01:36.321Z",
+  "generated_at": "2026-07-06T13:04:09.847Z",
   "repo_branch": "main",
   "repo_clean": "yes",
-  "latest_head": "fc14802 feat(worker): add lease evidence to control plane",
+  "latest_head": "199799d fix(release): ignore generated consistency artifacts",
   "latest_autopilot_run": "autopilot-runs/v4-continuous-2026-06-23T164157169Z-187199ed-step-04-v4-r-console-operable-read-only.json",
   "console_service": {
     "port": 4317,
@@ -53,18 +53,18 @@
     "Server preview has not been confirmed for the current consistency key.",
     "Reviewed publish has not been confirmed for the current consistency key."
   ],
-  "promotion_consistency_key": "717e196a2f0c90dd",
+  "promotion_consistency_key": "2b6c35c8b72e622c",
   "promotion_next_stage": "server_preview",
   "promotion_stages": [
     {
       "stage_id": "local_preview",
       "label": "本地预览",
       "status": "PASS",
-      "consistency_key": "717e196a2f0c90dd",
+      "consistency_key": "2b6c35c8b72e622c",
       "repo_branch": "main",
-      "repo_head": "fc14802 feat(worker): add lease evidence to control plane",
+      "repo_head": "199799d fix(release): ignore generated consistency artifacts",
       "repo_clean": "yes",
-      "recorded_at": "2026-07-06T13:01:36.321Z",
+      "recorded_at": "2026-07-06T13:04:09.847Z",
       "recorded_by": "studio.release.consistency",
       "gate_reason": "本地预览已为当前一致性快照留痕。",
       "checks": [
@@ -106,7 +106,7 @@
       "depends_on": "local_preview",
       "recorded_at": "",
       "recorded_by": "",
-      "source_consistency_key": "717e196a2f0c90dd",
+      "source_consistency_key": "2b6c35c8b72e622c",
       "gate_reason": "需要对当前一致性快照执行一次服务器预览确认。"
     },
     {
@@ -117,7 +117,7 @@
       "depends_on": "server_preview",
       "recorded_at": "",
       "recorded_by": "",
-      "source_consistency_key": "717e196a2f0c90dd",
+      "source_consistency_key": "2b6c35c8b72e622c",
       "gate_reason": "等待服务器预览通过后才能进入 reviewed publish。"
     }
   ],

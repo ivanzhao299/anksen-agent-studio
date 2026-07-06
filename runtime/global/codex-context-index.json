@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T13:01:36.322Z",
+  "generated_at": "2026-07-06T13:04:09.848Z",
   "startup_command": "node packages/orchestrator-core/bin/studio.mjs context summary",
   "project_command": "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
   "global_context_files": [

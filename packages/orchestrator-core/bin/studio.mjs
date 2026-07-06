@@ -501,7 +501,7 @@ async function repoStatus(projectPath) {
 }
 
 function statusEntryPath(entry) {
-  return String(entry ?? "").slice(3).trim();
+  return String(entry ?? "").replace(/^[A-Z? !]{1,2}\s+/, "").trim();
 }
 
 function releaseManagedDirtyPaths() {
