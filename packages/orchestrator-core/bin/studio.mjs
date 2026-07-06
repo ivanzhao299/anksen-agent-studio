@@ -9468,10 +9468,11 @@ async function releaseConsistency(args) {
     "apps/console/web/build.mjs",
     "packages/orchestrator-core/bin/studio.mjs"
   ];
+  const managedPaths = releaseManagedDirtyPaths();
   const checks = await Promise.all(requiredFiles.map(async (file) => {
     const absolutePath = resolveFromRoot(file);
     const exists = existsSync(absolutePath);
-    const fingerprint = exists
+    const fingerprint = exists && !managedPaths.has(file)
       ? createHash("sha1").update(await readFile(absolutePath)).digest("hex").slice(0, 16)
       : "";
     return {
