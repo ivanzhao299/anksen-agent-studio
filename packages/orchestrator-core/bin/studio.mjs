@@ -507,7 +507,8 @@ function statusEntryPath(entry) {
 function releaseManagedDirtyPaths() {
   return new Set([
     "runtime/global/release-consistency.json",
-    "runtime/global/codex-context-index.json"
+    "runtime/global/codex-context-index.json",
+    "runtime/global/access-enforcement.json"
   ]);
 }
 
