@@ -29,6 +29,7 @@ const agentRuntimeIds = new Set(["auto", "codex-cli", "claude-code", "gemini", "
 
 const consoleActionCatalog = {
   "workspace-goal": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
+  "project-dispatch": { capabilities: ["console.access", "project.read", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "agent-real-plan": { capabilities: ["console.access", "agent.runtime.readonly"], execution_mode: "direct_execute", projectScoped: true },
   "ai-runtime-status": { capabilities: ["console.access", "agent.runtime.status"], execution_mode: "dry_run_only", projectScoped: false },
   "goal-plan": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },

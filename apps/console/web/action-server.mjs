@@ -45,6 +45,7 @@ const projects = {
 
 export const consoleActionOptions = [
   { id: "workspace-goal", label: "自然语言任务", risk: "MEDIUM" },
+  { id: "project-dispatch", label: "项目派发计划", risk: "MEDIUM" },
   { id: "agent-real-plan", label: "真实 AI Agent 计划", risk: "MEDIUM" },
   { id: "ai-runtime-status", label: "检查 Codex / Claude", risk: "LOW" },
   { id: "goal-plan", label: "生成任务计划", risk: "MEDIUM" },
@@ -313,6 +314,13 @@ function commandFor(input, plan = null) {
       command: process.execPath,
       args: [studioScript, "plan", "--goal", goal, "--dry-run"],
       display: `node ${studioScript} plan --goal "${goal}" --dry-run`
+    };
+  }
+  if (actionId === "project-dispatch") {
+    return {
+      command: process.execPath,
+      args: [studioScript, "project", "dispatch-plan", "--project", projectId, "--text", goal, "--dry-run"],
+      display: `node ${studioScript} project dispatch-plan --project ${projectId} --text "${goal}" --dry-run`
     };
   }
   if (actionId === "autopilot-dry-run") {

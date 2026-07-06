@@ -1312,6 +1312,7 @@ function pageDashboard(_model, data) {
   return `${actionWorkbench(data, "统一 AI 开发工作台")}
   <section><h2>控制面快照</h2><div class="grid">
     ${metric("挂接项目", data.project_router.binding_count)}
+    ${metric("派发计划", data.project_router.dispatch_plan_count ?? 0)}
     ${metric("Worker 控制面", release.status ?? "未生成")}
     ${metric("Access Enforcement", data.access.enforcement?.policy_id ?? "未生成")}
     ${metric("最新 Autopilot", data.autopilot.latest_summary?.id ?? "not_found")}
@@ -1321,6 +1322,7 @@ function pageDashboard(_model, data) {
 function pageProjects(data) {
   const project = data.jinhuProjectState ?? {};
   const workspaceProjects = data.project_router.workspace?.projects ?? [];
+  const dispatchPlans = data.project_router.dispatch_plans ?? [];
   const rows = workspaceProjects.map((item) => ({
     project: item.project_id,
     status: item.connection_status,
@@ -1344,6 +1346,21 @@ function pageProjects(data) {
     { key: "clean", label: "仓库" },
     { key: "write_policy", label: "写入策略" }
   ]) : `<div class="panel"><p class="help">尚未生成绑定快照。先执行 <code>studio project bind --apply</code> 与 <code>studio project workspace --apply</code>。</p></div>`}</section>
+  <section><h2>Project Dispatch Plans</h2>${dispatchPlans.length > 0 ? table(dispatchPlans.slice(0, 8).map((item) => ({
+    project: item.project_id,
+    task_id: item.data?.task_id ?? "unknown",
+    stage: item.data?.pipeline_stage ?? "unknown",
+    runtime: item.data?.worker_route?.runtime_id ?? item.data?.task_candidate?.runtime ?? "unknown",
+    worker: item.data?.worker_route?.worker_id ?? "none",
+    next: item.data?.recommended_next_stage ?? "unknown"
+  })), [
+    { key: "project", label: "项目" },
+    { key: "task_id", label: "任务" },
+    { key: "stage", label: "阶段" },
+    { key: "runtime", label: "Runtime" },
+    { key: "worker", label: "Worker" },
+    { key: "next", label: "下一步" }
+  ]) : `<div class="panel"><p class="help">尚未生成派发计划。先执行 <code>studio project dispatch-plan --project jinhu-smart-park --text "..." --apply</code>。</p></div>`}</section>
   <section><h2>${messages.pages.projects.runtimeMemory}</h2>${detailsJson("查看原始运行记忆 JSON", project)}</section>`;
 }
 

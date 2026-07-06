@@ -26,6 +26,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs project bind --config <file> [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs project workspace [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs project exec-context --project <project_id> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs project dispatch-plan --project <project_id> --text "..." [--user <username>] [--runtime <runtime_id>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs project inspect --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project parity --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project evidence --project <project_id> --dry-run
@@ -9878,6 +9879,285 @@ async function projectExecContext(args) {
   for (const line of context.recommended_checks ?? []) console.log(`- ${line}`);
 }
 
+function projectDispatchPlansDir(projectId) {
+  return join(projectContextDir(projectId), "dispatch-plans");
+}
+
+function projectDispatchPlanPath(projectId, taskId) {
+  return join(projectDispatchPlansDir(projectId), `${safeSegment(taskId)}.json`);
+}
+
+async function readProjectDispatchPlan(projectId, taskId) {
+  const path = projectDispatchPlanPath(projectId, taskId);
+  if (!existsSync(path)) return null;
+  return {
+    path,
+    data: await readJson(path)
+  };
+}
+
+async function buildProjectDispatchArtifact(args) {
+  const projectId = contextProjectId(args.project || DEFAULT_PROJECT);
+  const configPath = projectConfigPathForProjectArg(args);
+  const config = await readJson(configPath);
+  const projectApi = await loadProjectConnectorApi();
+  const binding = await projectApi.buildProjectBinding(configPath, repoRoot);
+  const execContext = await projectApi.buildExecContextSummary(projectId, repoRoot);
+  const snapshot = binding.execution.repo_resolved ? await collectProjectSnapshot(configPath) : null;
+
+  let candidate = null;
+  let candidateError = "";
+  try {
+    candidate = await buildTaskCandidate(configPath, args.text);
+  } catch (error) {
+    candidateError = error instanceof Error ? error.message : String(error);
+  }
+
+  const taskId = candidate?.task_id ?? stableTaskId(projectId, args.text);
+  const effectiveRuntime = String(args.runtime || candidate?.runtime || "codex-cli").trim() || "codex-cli";
+  const proposalInfo = existsSync(proposalPathForTask(configPath, taskId))
+    ? await readProposal(configPath, taskId)
+    : null;
+  const queueState = snapshot?.projectPath
+    ? await readProjectQueueState(snapshot.projectPath, snapshot.config, taskId)
+    : null;
+  const existingDispatchPlan = await readProjectDispatchPlan(projectId, taskId);
+
+  const { api: workerApi, bundle: workerBundle } = await loadWorkerPoolApi();
+  const workerDispatch = workerApi.workerDispatch(workerBundle, { runtimeId: effectiveRuntime });
+
+  const { api: accessApi, bundle: accessBundle } = await loadAccessCenterApi();
+  const evaluatedUser = String(args.user || accessBundle.policy.default_console_user_id || "").trim();
+  const userContext = accessApi.resolveUserProfile(accessBundle, evaluatedUser);
+  const riskOrder = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+  const rankRisk = (risk) => {
+    const index = riskOrder.indexOf(risk);
+    return index >= 0 ? index : riskOrder.length - 1;
+  };
+  const accessDecision = await accessApi.evaluateConsoleActionAccess(accessBundle, {
+    action_id: "project-dispatch",
+    project_id: projectId,
+    risk: candidate?.risk ?? "MEDIUM",
+    runtime_id: effectiveRuntime,
+    parallel_count: 1
+  }, {
+      user_context: userContext,
+      allow_default_user: true
+  });
+  const executionGate = {
+    requested_risk: candidate?.risk ?? "MEDIUM",
+    direct_execute_max_risk: userContext.direct_execute_max_risk ?? "LOW",
+    allowed: candidate
+      ? rankRisk(candidate.risk) <= rankRisk(userContext.direct_execute_max_risk ?? "LOW")
+      : false,
+    reason: candidate
+      ? rankRisk(candidate.risk) <= rankRisk(userContext.direct_execute_max_risk ?? "LOW")
+        ? `当前账号可覆盖 ${candidate.risk} 风险。`
+        : `当前账号最高只允许直接执行 ${userContext.direct_execute_max_risk ?? "LOW"} 风险动作，不能直接执行 ${candidate.risk}。`
+      : "任务候选尚未生成，无法判断最终执行风险。"
+  };
+
+  const blockingReasons = [];
+  const warnings = [];
+  if (!execContext.resolved) blockingReasons.push(execContext.reason || "Execution context is unresolved.");
+  if (binding.connector.connection_status !== "CONNECTED") blockingReasons.push(`Project connection status is ${binding.connector.connection_status}.`);
+  if (candidateError) blockingReasons.push(candidateError);
+  if (accessDecision.status !== "ALLOW") blockingReasons.push(accessDecision.reason);
+  if (workerDispatch.status !== "ASSIGNED") blockingReasons.push(...workerDispatch.blocked_reasons);
+  if (binding.connector.doctor_status && binding.connector.doctor_status !== "GO") {
+    warnings.push(`Doctor status is ${binding.connector.doctor_status}; execution will require project-side remediation before final run.`);
+  }
+  if (binding.execution.repo_clean !== "yes") {
+    warnings.push(`Attached repo is not clean (${binding.execution.repo_clean}).`);
+  }
+  if (binding.policies.write_policy !== "enabled") {
+    warnings.push(`Managed project business writes remain ${binding.policies.write_policy}. Queue/event injection is the only safe downstream write path.`);
+  }
+  if (!executionGate.allowed) {
+    warnings.push(executionGate.reason);
+  }
+
+  let pipelineStage = "BLOCKED";
+  let recommendedNextCommand = "";
+  let recommendedNextStage = "resolve_blockers";
+  if (blockingReasons.length === 0) {
+    if (!proposalInfo) {
+      pipelineStage = "PROPOSAL_CREATION_READY";
+      recommendedNextStage = "create_proposal";
+      recommendedNextCommand = `node packages/orchestrator-core/bin/studio.mjs project task-plan --config ${configPath} --text ${JSON.stringify(args.text)} --apply-proposal`;
+    } else if (proposalInfo.proposal.approval_status !== "APPROVED") {
+      pipelineStage = "READY_FOR_QUEUE_INJECTION";
+      recommendedNextStage = "approve_proposal";
+      recommendedNextCommand = `node packages/orchestrator-core/bin/studio.mjs project approve-proposal --config ${configPath} --task-id ${taskId} --dry-run${proposalInfo.proposal.risk === "HIGH" ? " --approve-high-risk" : ""}`;
+    } else if (!queueState?.task) {
+      pipelineStage = "QUEUE_SYNC_REQUIRED";
+      recommendedNextStage = "rebuild_queue";
+      recommendedNextCommand = `node ${process.execPath} ${join(snapshot.projectPath, "ops/agent-orchestrator/scripts/rebuild-queue-read-model.mjs")} --apply`;
+    } else {
+      pipelineStage = "READY_FOR_EXECUTE";
+      recommendedNextStage = "execute_task";
+      recommendedNextCommand = `node packages/orchestrator-core/bin/studio.mjs project execute --config ${configPath} --task-id ${taskId} --dry-run`;
+    }
+  }
+
+  return {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    dispatcher_id: `dispatch-plan-${stableHash({
+      project_id: projectId,
+      task_id: taskId,
+      runtime: effectiveRuntime,
+      user: evaluatedUser || "default"
+    }).slice(0, 12)}`,
+    project_id: projectId,
+    project_name: binding.project_name,
+    goal_text: args.text,
+    task_id: taskId,
+    status: blockingReasons.length === 0 ? "PASS" : "BLOCKED",
+    pipeline_stage: pipelineStage,
+    recommended_next_stage: recommendedNextStage,
+    recommended_next_command: recommendedNextCommand,
+    config_path: relativePath(configPath),
+    binding_path: relativePath(join(projectContextDir(projectId), "binding.json")),
+    latest_existing_dispatch_plan: existingDispatchPlan?.path ? relativePath(existingDispatchPlan.path) : "",
+    binding_summary: {
+      binding_status: binding.binding_status,
+      connection_status: binding.connector.connection_status,
+      doctor_status: binding.connector.doctor_status,
+      execution_route: binding.execution.execution_route,
+      repo_path: binding.execution.repo_path_display,
+      repo_branch: binding.execution.repo_branch,
+      repo_clean: binding.execution.repo_clean,
+      write_policy: binding.policies.write_policy,
+      deploy_policy: binding.policies.deploy_policy,
+      production_operation_policy: binding.policies.production_operation_policy,
+      worktree_count: binding.workspace.worktree_count
+    },
+    execution_context: execContext,
+    task_candidate: candidate ? {
+      task_id: candidate.task_id,
+      owner: candidate.owner,
+      skill_type: candidate.skill_type,
+      skill_id: candidate.skill_id,
+      runtime: candidate.runtime,
+      risk: candidate.risk,
+      approval_required: candidate.approval_required,
+      allowed_paths: candidate.allowed_paths,
+      forbidden_paths: candidate.forbidden_paths,
+      validation_commands: candidate.validation_commands,
+      routing: candidate.routing,
+      project_context: candidate.project_context
+    } : null,
+    proposal_state: proposalInfo ? {
+      path: relativePath(proposalInfo.path),
+      approval_status: proposalInfo.proposal.approval_status,
+      proposal_status: proposalInfo.proposal.proposal_status,
+      risk: proposalInfo.proposal.risk,
+      created_at: proposalInfo.proposal.created_at,
+      approved_at: proposalInfo.proposal.approved_at ?? ""
+    } : null,
+    queue_state: queueState ? {
+      task_status: queueState.task?.status ?? "missing",
+      result_status: queueState.result?.status ?? "missing",
+      ready_task_count: queueState.readyTasks.length,
+      active_locks: queueState.activeLocks.length
+    } : null,
+    access_gate: {
+      user: evaluatedUser || accessBundle.policy.default_console_user_id,
+      status: accessDecision.status,
+      execution_mode: accessDecision.execution_mode,
+      direct_execute_max_risk: accessDecision.direct_execute_max_risk,
+      required_capabilities: accessDecision.required_capabilities,
+      missing_capabilities: accessDecision.missing_capabilities,
+      project_scope: accessDecision.project_scope,
+      reason: accessDecision.reason
+    },
+    execution_gate: executionGate,
+    worker_route: workerDispatch,
+    command_plan: {
+      inspect_context: `node packages/orchestrator-core/bin/studio.mjs project exec-context --project ${projectId} --dry-run`,
+      create_proposal: `node packages/orchestrator-core/bin/studio.mjs project task-plan --config ${configPath} --text ${JSON.stringify(args.text)} --apply-proposal`,
+      inspect_proposals: `node packages/orchestrator-core/bin/studio.mjs project proposals --config ${configPath}`,
+      approve_proposal: `node packages/orchestrator-core/bin/studio.mjs project approve-proposal --config ${configPath} --task-id ${taskId} --dry-run${candidate?.risk === "HIGH" ? " --approve-high-risk" : ""}`,
+      execute_task: `node packages/orchestrator-core/bin/studio.mjs project execute --config ${configPath} --task-id ${taskId} --dry-run`
+    },
+    blocking_reasons: blockingReasons,
+    warnings,
+    safety: {
+      business_project_writes: "disabled",
+      queue_event_injection: "proposal_approval_path_only",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "not_read",
+      model_invocation: "disabled"
+    }
+  };
+}
+
+async function projectDispatchPlan(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("project dispatch-plan requires --dry-run or --apply.");
+  }
+  if (!args.text.trim()) {
+    throw new Error("Missing --text for project dispatch-plan.");
+  }
+  const artifact = await buildProjectDispatchArtifact(args);
+  const filesWritten = [];
+  if (args.apply) {
+    const outputPath = projectDispatchPlanPath(artifact.project_id, artifact.task_id);
+    await writeJsonFile(outputPath, artifact);
+    filesWritten.push(relativePath(outputPath));
+    const indexPath = await updateCodexContextIndexArtifacts({
+      projectFiles: {
+        [artifact.project_id]: [relativePath(outputPath)]
+      }
+    });
+    filesWritten.push(relativePath(indexPath));
+  }
+  console.log(`# Project Dispatch Plan ${args.apply ? "apply" : "dry-run"}`);
+  console.log("");
+  console.log(`project_id: ${artifact.project_id}`);
+  console.log(`task_id: ${artifact.task_id}`);
+  console.log(`status: ${artifact.status}`);
+  console.log(`pipeline_stage: ${artifact.pipeline_stage}`);
+  console.log(`recommended_next_stage: ${artifact.recommended_next_stage}`);
+  console.log(`recommended_next_command: ${artifact.recommended_next_command || "none"}`);
+  console.log(`execution_route: ${artifact.binding_summary.execution_route}`);
+  console.log(`connection_status: ${artifact.binding_summary.connection_status}`);
+  console.log(`doctor_status: ${artifact.binding_summary.doctor_status}`);
+  console.log(`repo_branch: ${artifact.binding_summary.repo_branch}`);
+  console.log(`repo_clean: ${artifact.binding_summary.repo_clean}`);
+  console.log(`worker_status: ${artifact.worker_route.status}`);
+  console.log(`worker_id: ${artifact.worker_route.worker_id || "none"}`);
+  console.log(`runtime_id: ${artifact.worker_route.runtime_id || "none"}`);
+  console.log(`access_status: ${artifact.access_gate.status}`);
+  console.log(`access_reason: ${artifact.access_gate.reason}`);
+  console.log(`execution_gate_allowed: ${artifact.execution_gate.allowed ? "yes" : "no"}`);
+  console.log(`execution_gate_reason: ${artifact.execution_gate.reason}`);
+  console.log(`proposal_state: ${artifact.proposal_state?.approval_status ?? "missing"}`);
+  console.log(`queue_task_status: ${artifact.queue_state?.task_status ?? "missing"}`);
+  console.log("");
+  console.log("blocking_reasons:");
+  if (artifact.blocking_reasons.length === 0) {
+    console.log("- none");
+  } else {
+    for (const reason of artifact.blocking_reasons) console.log(`- ${reason}`);
+  }
+  console.log("");
+  console.log("warnings:");
+  if (artifact.warnings.length === 0) {
+    console.log("- none");
+  } else {
+    for (const warning of artifact.warnings) console.log(`- ${warning}`);
+  }
+  if (filesWritten.length > 0) {
+    console.log("");
+    console.log("written_files:");
+    for (const file of filesWritten) console.log(`- ${file}`);
+  }
+  if (artifact.status !== "PASS") process.exitCode = 1;
+}
+
 function projectConfigPathForProjectArg(args) {
   if (args.config) return resolveMaybeFromRoot(args.config);
   const projectId = contextProjectId(args.project || DEFAULT_PROJECT);
@@ -11711,6 +11991,7 @@ async function main() {
   if (args.command === "project" && args.subcommand === "bind") return projectBind(args);
   if (args.command === "project" && args.subcommand === "workspace") return projectWorkspace(args);
   if (args.command === "project" && args.subcommand === "exec-context") return projectExecContext(args);
+  if (args.command === "project" && args.subcommand === "dispatch-plan") return projectDispatchPlan(args);
   if (args.command === "project" && args.subcommand === "evidence") return projectEvidence(args);
   if (args.command === "project" && args.subcommand === "chain-validate") return projectChainValidate(args);
   if (args.command === "project" && args.subcommand === "inspect") return projectInspect(args);

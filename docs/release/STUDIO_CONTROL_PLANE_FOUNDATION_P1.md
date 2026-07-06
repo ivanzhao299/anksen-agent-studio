@@ -82,6 +82,23 @@ Surfaces updated:
 - Config
 - Memory
 
+### P1-006 Attached Project Dispatch Planner
+
+- `studio project dispatch-plan --project <project_id> --text "..." [--user <username>] [--runtime <runtime_id>] [--dry-run|--apply]`
+
+Artifacts:
+
+- `runtime/projects/<project_id>/dispatch-plans/<task_id>.json`
+
+Purpose:
+
+- Link attached project binding, execution context, task candidate, access gate, worker dispatch, proposal state, and queue state into one auditable dispatch record.
+- Tell the operator the exact next safe CLI step:
+  - create proposal
+  - approve / inject into queue
+  - execute
+  - or resolve blockers
+
 ## Safety
 
 - Managed project writes remain disabled by default.
@@ -92,10 +109,10 @@ Surfaces updated:
 
 ## Next Step Plan
 
-1. Add first-class task dispatcher evidence linked to attached project bindings.
-2. Upgrade worker heartbeat from metadata-only to live local process inventory.
-3. Add release promotion stages for local preview, server preview, and reviewed publish.
-4. Wire control-plane snapshots into Console actions and proposal review flows.
+1. Upgrade worker heartbeat from metadata-only to live local process inventory.
+2. Add release promotion stages for local preview, server preview, and reviewed publish.
+3. Wire project dispatch plans into Console actions and proposal review flows.
+4. Add guarded queue-injection audit trace for approved attached-project proposals.
 
 ## Notes
 

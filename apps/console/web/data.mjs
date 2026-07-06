@@ -97,6 +97,38 @@ async function readProjectBindings() {
   return bindings.sort((left, right) => left.project_id.localeCompare(right.project_id));
 }
 
+async function readProjectDispatchPlans() {
+  const projectsDir = resolve(repoRoot, "runtime/projects");
+  if (!existsSync(projectsDir)) return [];
+  const entries = await readdir(projectsDir, { withFileTypes: true });
+  const plans = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const relativeDir = join("runtime/projects", entry.name, "dispatch-plans");
+    const absoluteDir = resolve(repoRoot, relativeDir);
+    if (!existsSync(absoluteDir)) continue;
+    const files = (await readdir(absoluteDir, { withFileTypes: true }))
+      .filter((file) => file.isFile() && file.name.endsWith(".json"))
+      .map((file) => join(relativeDir, file.name))
+      .sort();
+    for (const file of files) {
+      const data = await readJson(file, null);
+      if (!data) continue;
+      plans.push({
+        project_id: entry.name,
+        path: file,
+        data
+      });
+    }
+  }
+  plans.sort((left, right) => {
+    const leftDate = String(left.data?.generated_at ?? "");
+    const rightDate = String(right.data?.generated_at ?? "");
+    return rightDate.localeCompare(leftDate) || left.project_id.localeCompare(right.project_id);
+  });
+  return plans;
+}
+
 function countArray(value, key) {
   if (Array.isArray(value)) return value.length;
   if (value && Array.isArray(value[key])) return value[key].length;
@@ -138,7 +170,8 @@ export async function loadConsoleLocalData() {
     accessCenterExamples,
     latestRun,
     latestConsoleActionLog,
-    projectBindings
+    projectBindings,
+    projectDispatchPlans
   ] = await Promise.all([
     readJson(dataFiles.platformState, {}),
     readJson(dataFiles.roadmapMemory, {}),
@@ -162,7 +195,8 @@ export async function loadConsoleLocalData() {
     readExampleDirectory(exampleDirs.accessCenter),
     latestAutopilotRun(),
     latestActionLog(),
-    readProjectBindings()
+    readProjectBindings(),
+    readProjectDispatchPlans()
   ]);
 
   const runtimeProfiles = runtimeCenterExamples.find((item) => item.path.endsWith("runtime-profiles.example.json"))?.data;
@@ -191,7 +225,9 @@ export async function loadConsoleLocalData() {
     project_router: {
       workspace: attachedProjectWorkspace ?? {},
       bindings: projectBindings,
-      binding_count: projectBindings.length
+      binding_count: projectBindings.length,
+      dispatch_plans: projectDispatchPlans,
+      dispatch_plan_count: projectDispatchPlans.length
     },
     accessState,
     accessUsers,
