@@ -154,6 +154,36 @@ function summarizeQueueAuditRecords(records = []) {
   }).join("\n");
 }
 
+async function readReleaseConsistencyArtifact() {
+  return readJsonIfExists(resolve(repoRoot, "runtime/global/release-consistency.json"));
+}
+
+function summarizeReleaseConsistencyArtifact(artifact, targetStage = "") {
+  if (!artifact) return "当前没有 release consistency 工件。";
+  const stageRows = Array.isArray(artifact.promotion_stages) ? artifact.promotion_stages : [];
+  const target = stageRows.find((stage) => stage.stage_id === targetStage);
+  const lines = [
+    `status: ${artifact.status || "unknown"}`,
+    `promotion_consistency_key: ${artifact.promotion_consistency_key || "unknown"}`,
+    `promotion_next_stage: ${artifact.promotion_next_stage || "completed"}`
+  ];
+  if (target) {
+    lines.push(
+      `target_stage: ${target.stage_id}`,
+      `target_status: ${target.status || "unknown"}`,
+      `target_recorded_at: ${target.recorded_at || "pending"}`,
+      `target_gate_reason: ${target.gate_reason || "none"}`
+    );
+  }
+  if (stageRows.length > 0) {
+    lines.push("", "promotion_stages:");
+    for (const stage of stageRows) {
+      lines.push(`- ${stage.stage_id}: ${stage.status || "unknown"} | key=${stage.consistency_key || stage.source_consistency_key || "pending"} | ${stage.gate_reason || "none"}`);
+    }
+  }
+  return lines.join("\n");
+}
+
 export const consoleActionOptions = [
   { id: "workspace-goal", label: "自然语言任务", risk: "MEDIUM" },
   { id: "project-dispatch", label: "项目派发计划", risk: "MEDIUM" },
@@ -171,6 +201,8 @@ export const consoleActionOptions = [
   { id: "smart-park-blockers", label: "检查上线阻断项", risk: "MEDIUM" },
   { id: "smart-park-go-live-plan", label: "Smart Park 上线计划 Proposal", risk: "MEDIUM" },
   { id: "proposal-review", label: "查看待审批 Proposal", risk: "MEDIUM" },
+  { id: "release-server-preview", label: "服务器预览确认", risk: "MEDIUM" },
+  { id: "release-reviewed-publish", label: "Reviewed Publish 确认", risk: "MEDIUM" },
   { id: "proposal-approve-dry-run", label: "审批 Proposal 草稿", risk: "MEDIUM" },
   { id: "production-operation-request", label: "生产操作请求", risk: "CRITICAL" },
   { id: "proposal-reject-draft", label: "拒绝草稿", risk: "MEDIUM" }
@@ -316,6 +348,8 @@ function inferWorkspaceActionId(input = {}) {
   if (goal.includes("governance") || goal.includes("治理") || goal.includes("审批")) return "governance-check";
   if (goal.includes("context") || goal.includes("上下文") || goal.includes("记忆")) return "context-summary";
   if (goal.includes("proposal") || goal.includes("待审批")) return "proposal-review";
+  if (goal.includes("服务器预览") || goal.includes("server preview")) return "release-server-preview";
+  if (goal.includes("reviewed publish") || goal.includes("发布确认")) return "release-reviewed-publish";
   if (goal.includes("autopilot") || goal.includes("batch") || goal.includes("批处理")) return "autopilot-dry-run";
   if (goal.includes("生成计划") || goal.includes("只生成计划")) return "goal-plan";
   return "agent-real-plan";
@@ -327,6 +361,8 @@ function normalizeActionId(actionId, input = {}) {
   if (actionId === "worker-status") return "worker-health";
   if (actionId === "pending-proposals") return "proposal-review";
   if (actionId === "smart-park-go-live-plan-dry-run") return "smart-park-go-live-plan";
+  if (actionId === "server-preview") return "release-server-preview";
+  if (actionId === "reviewed-publish") return "release-reviewed-publish";
   if (actionId === "workspace-default" || actionId === "workspace-goal") return inferWorkspaceActionId(input);
   return consoleActionOptions.some((action) => action.id === actionId) ? actionId : "context-summary";
 }
@@ -468,6 +504,20 @@ function commandFor(input, plan = null) {
       command: process.execPath,
       args: [studioScript, "project", "proposals", "--config", configPath],
       display: `node ${studioScript} project proposals --config ${configPath}`
+    };
+  }
+  if (actionId === "release-server-preview") {
+    return {
+      command: process.execPath,
+      args: [studioScript, "release", "consistency", "--apply", "--target", "server_preview"],
+      display: `node ${studioScript} release consistency --apply --target server_preview`
+    };
+  }
+  if (actionId === "release-reviewed-publish") {
+    return {
+      command: process.execPath,
+      args: [studioScript, "release", "consistency", "--apply", "--target", "reviewed_publish"],
+      display: `node ${studioScript} release consistency --apply --target reviewed_publish`
     };
   }
   if (actionId === "proposal-approve-dry-run") {
@@ -922,9 +972,49 @@ async function executeProposalApproveDryRunFlow(plan, input) {
   };
 }
 
+async function executeReleasePromotionFlow(targetStage) {
+  const result = await runShellCommand(process.execPath, [
+    studioScript,
+    "release",
+    "consistency",
+    "--apply",
+    "--target",
+    targetStage
+  ]);
+  const artifact = await readReleaseConsistencyArtifact();
+  const target = artifact?.promotion_stages?.find((stage) => stage.stage_id === targetStage);
+  const summary = [
+    summarizeStdout(result.stdout || ""),
+    summarizeReleaseConsistencyArtifact(artifact, targetStage)
+  ].filter(Boolean).join("\n\n");
+
+  if (result.ok) {
+    return {
+      status: "PASS",
+      exit_code: 0,
+      stdout_summary: summary,
+      stderr_summary: "",
+      promotion_consistency_key: artifact?.promotion_consistency_key || "",
+      release_stage: targetStage
+    };
+  }
+
+  const stageStatus = String(target?.status || "");
+  return {
+    status: stageStatus === "PENDING_REVIEW" ? "NEEDS_APPROVAL" : "BLOCKED",
+    exit_code: result.exit_code,
+    stdout_summary: summary || summarizeReleaseConsistencyArtifact(artifact, targetStage),
+    stderr_summary: summarizeStdout(result.stderr || result.stdout),
+    promotion_consistency_key: artifact?.promotion_consistency_key || "",
+    release_stage: targetStage
+  };
+}
+
 async function executeSpecialPlanFlow(plan, input) {
   if (plan.action_id === "project-dispatch") return executeProjectDispatchFlow(plan, input);
   if (plan.action_id === "proposal-review") return executeProposalReviewFlow(plan, input);
+  if (plan.action_id === "release-server-preview") return executeReleasePromotionFlow("server_preview");
+  if (plan.action_id === "release-reviewed-publish") return executeReleasePromotionFlow("reviewed_publish");
   if (plan.action_id === "proposal-approve-dry-run") return executeProposalApproveDryRunFlow(plan, input);
   if (plan.action_id === "proposal-reject-draft") {
     return {

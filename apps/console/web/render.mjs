@@ -240,6 +240,8 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
     ["smart-park-blockers", "阻断项"],
     ["smart-park-go-live-plan", "上线 Proposal"],
     ["proposal-review", "待审批 Proposal"],
+    ["release-server-preview", "服务器预览"],
+    ["release-reviewed-publish", "发布确认"],
     ["worker-health", "Worker 状态"],
     ["ai-runtime-status", "Codex / Claude"]
   ];
@@ -474,6 +476,38 @@ function proposalPanel(data) {
       { key: "queueAudit", label: "queue audit", html: true },
       { key: "actions", label: "action", html: true }
     ]) : `<div class="panel"><p class="help">当前没有可审 Proposal。先执行项目派发计划，再进入 Proposal Review。</p></div>`}
+  </section>`;
+}
+
+function releasePromotionPanel(data) {
+  const release = data.release_consistency ?? {};
+  const stages = Array.isArray(release.promotion_stages) ? release.promotion_stages : [];
+  const rows = stages.map((stage) => ({
+    stage: stage.stage_id,
+    status: statusLabel(stage.status ?? "unknown"),
+    key: stage.consistency_key || stage.source_consistency_key || "pending",
+    next: stage.stage_id === "server_preview"
+      ? `<button type="button" class="secondary" data-quick-action="release-server-preview" data-goal="确认服务器预览一致性">确认服务器预览</button>`
+      : (stage.stage_id === "reviewed_publish"
+          ? `<button type="button" class="secondary" data-quick-action="release-reviewed-publish" data-goal="确认 reviewed publish 一致性">确认发布</button>`
+          : `<span class="help">已记录</span>`),
+    reason: stage.gate_reason || "none"
+  }));
+  return `<section>
+    <div class="section-head"><h2>Release Promotion</h2><span class="pill">local / server / reviewed</span></div>
+    <div class="grid">
+      ${metric("一致性状态", release.status ?? "未生成")}
+      ${metric("Consistency Key", release.promotion_consistency_key ?? "未生成")}
+      ${metric("下一闸门", release.promotion_next_stage ?? "completed")}
+      ${metric("Warnings", Array.isArray(release.warnings) ? release.warnings.length : 0)}
+    </div>
+    ${rows.length > 0 ? table(rows, [
+      { key: "stage", label: "stage" },
+      { key: "status", label: "status", html: true },
+      { key: "key", label: "consistency key" },
+      { key: "next", label: "action", html: true },
+      { key: "reason", label: "gate_reason" }
+    ]) : `<div class="panel"><p class="help">尚未生成 release consistency 工件。先执行 <code>studio release consistency --dry-run</code>。</p></div>`}
   </section>`;
 }
 
@@ -1495,6 +1529,7 @@ function pageActions(data) {
   ${actionWorkbench(data, "操作中心")}
   ${smartParkEntryPanel()}
   ${proposalPanel(data)}
+  ${releasePromotionPanel(data)}
   <section>${table(actions.map((action) => ({
     id: action.id,
     intent: action.label,
@@ -1580,6 +1615,7 @@ function pageConfig(data) {
       { key: "reason", label: "gate_reason" }
     ]) : `<div class="panel"><p class="help">尚未生成 release consistency 工件。先执行 <code>studio release consistency --dry-run</code>。</p></div>`}
   </section>
+  ${releasePromotionPanel(data)}
   <section>
     <div class="section-head"><h2>团队邀请与审批草稿</h2><span class="pill">Access Center</span></div>
     <div class="grid">
