@@ -319,6 +319,7 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
             <select id="action-agent">${aiAgentOptions()}</select>
           </div>
           <input type="hidden" id="action-type" value="workspace-default">
+          <input type="hidden" id="proposal-task-id" value="">
           <button type="button" class="primary-action start-button" data-console-action="start">开始</button>
           <button type="button" class="danger cancel-button" data-console-action="cancel">停止</button>
         </div>
@@ -440,25 +441,39 @@ function workerPanel(data) {
   </section>`;
 }
 
-function proposalPanel() {
-  const proposals = [
-    { id: "smart-park-go-live-plan", risk: riskBadge("MEDIUM"), approval: statusLabel("no"), status: statusLabel("DIRECT_EXECUTE_READY") },
-    { id: "remote-worker-runtime", risk: riskBadge("HIGH"), approval: statusLabel("yes"), status: statusLabel("PROPOSAL_ONLY") },
-    { id: "production-operation", risk: riskBadge("CRITICAL"), approval: statusLabel("yes"), status: statusLabel("BLOCKED") }
-  ];
+function proposalPanel(data) {
+  const proposals = data.project_router.proposals ?? [];
+  const audits = new Map((data.project_router.queue_injection_audits ?? []).map((item) => [item.data?.task_id ?? item.path, item]));
+  const rows = proposals.slice(0, 8).map((item) => {
+    const proposal = item.data ?? {};
+    const audit = audits.get(proposal.task_id);
+    const approvalStatus = proposal.approval_status ?? "unknown";
+    const queueAuditStatus = audit?.data?.status ?? "missing";
+    const nextAction = approvalStatus !== "APPROVED"
+      ? "待审批"
+      : (queueAuditStatus === "PASS" ? "已注入" : "待注入");
+    return {
+      id: proposal.task_id ?? item.path,
+      risk: riskBadge(proposal.risk ?? "MEDIUM"),
+      approval: statusLabel(approvalStatus),
+      status: statusLabel(nextAction),
+      queueAudit: statusLabel(queueAuditStatus),
+      actions: `<div class="button-row compact-row">
+        <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">查看</button>
+        <button type="button" class="secondary" data-proposal-action="proposal-approve-dry-run" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">审批 dry-run</button>
+      </div>`
+    };
+  });
   return `<section>
     <div class="section-head"><h2>Proposal 审批区</h2><span class="pill warn-pill">风险标识 / 真实写入禁用</span></div>
-    ${table(proposals, [
+    ${rows.length > 0 ? table(rows, [
       { key: "id", label: "proposal list" },
       { key: "risk", label: "risk", html: true },
       { key: "approval", label: "approval_required", html: true },
-      { key: "status", label: "status", html: true }
-    ])}
-    <div class="button-row">
-      <button type="button" class="secondary" data-proposal-action="proposal-review">查看</button>
-      <button type="button" class="secondary" data-proposal-action="proposal-approve-dry-run">生成审批草稿</button>
-      <button type="button" class="danger" data-proposal-action="proposal-reject-draft">拒绝草稿</button>
-    </div>
+      { key: "status", label: "next", html: true },
+      { key: "queueAudit", label: "queue audit", html: true },
+      { key: "actions", label: "action", html: true }
+    ]) : `<div class="panel"><p class="help">当前没有可审 Proposal。先执行项目派发计划，再进入 Proposal Review。</p></div>`}
   </section>`;
 }
 
@@ -504,6 +519,7 @@ function interactiveScript() {
   const goal = document.getElementById("action-goal");
   const project = document.getElementById("action-project");
   const action = document.getElementById("action-type");
+  const proposalTask = document.getElementById("proposal-task-id");
   const modeSelect = document.getElementById("action-mode");
   const agent = document.getElementById("action-agent");
   const draftStatus = document.getElementById("config-draft-status");
@@ -797,10 +813,12 @@ function interactiveScript() {
   }
 
   function payload(actionOverride) {
+    const effectiveActionId = actionOverride || actionForMode();
     return {
       goal: goal ? goal.value : "继续推进 Pilot",
       project_id: project ? project.value : "jinhu-smart-park",
-      action_id: actionOverride || actionForMode(),
+      action_id: effectiveActionId,
+      task_id: proposalTask && String(effectiveActionId).startsWith("proposal-") ? proposalTask.value : "",
       workspace_mode: modeSelect ? modeSelect.value : "auto",
       agent: agent ? agent.value : "auto",
       attachments: selectedAttachments.map((attachment) => ({
@@ -915,6 +933,7 @@ function interactiveScript() {
     button.addEventListener("click", async () => {
       if (project) project.value = "jinhu-smart-park";
       if (action) action.value = button.getAttribute("data-quick-action");
+      if (proposalTask) proposalTask.value = "";
       if (goal) goal.value = button.getAttribute("data-goal") || goal.value;
       const quickAction = button.getAttribute("data-quick-action");
       setStatus("执行中");
@@ -930,6 +949,7 @@ function interactiveScript() {
     button.addEventListener("click", async () => {
       if (project) project.value = "jinhu-smart-park";
       if (action) action.value = button.getAttribute("data-proposal-action");
+      if (proposalTask) proposalTask.value = button.getAttribute("data-proposal-task") || "";
       if (goal) goal.value = button.textContent + " Smart Park proposal";
       const proposalAction = button.getAttribute("data-proposal-action");
       setStatus("生成中");
@@ -1040,15 +1060,16 @@ function shell(content, activeId, model, data, auth = {}) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(pageTitle)}</title>
   <style>
-    :root { color-scheme: dark; --bg: #06080c; --nav: #0a0d12; --panel: #0d1117; --panel-2: #10151d; --text: #edf2f8; --muted: #8491a2; --line: #1c2430; --blue: #85b7ff; --green: #4ade80; --yellow: #fbbf24; --red: #fb7185; --shadow: rgba(0, 0, 0, 0.34); }
+    :root { color-scheme: dark; --bg: #0f1825; --nav: #122032; --panel: #142131; --panel-2: #1a2a3f; --text: #f3f7fc; --muted: #99abc1; --line: #30445e; --blue: #a8d6ff; --green: #4ade80; --yellow: #fbbf24; --red: #fb7185; --shadow: rgba(7, 18, 34, 0.18); }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top, rgba(61, 98, 164, 0.12), transparent 28%), var(--bg); color: var(--text); }
+    body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top, rgba(170, 212, 255, 0.18), transparent 30%), var(--bg); color: var(--text); }
     body.login-gated { background:
-      radial-gradient(circle at 14% 18%, rgba(50, 86, 148, 0.22), transparent 34%),
-      radial-gradient(circle at 84% 14%, rgba(120, 158, 219, 0.12), transparent 28%),
-      linear-gradient(180deg, #05070b 0%, #07101a 54%, #06080c 100%); }
+      radial-gradient(circle at 10% 8%, rgba(232, 242, 255, 0.32), transparent 24%),
+      radial-gradient(circle at 84% 8%, rgba(191, 227, 255, 0.28), transparent 20%),
+      radial-gradient(circle at 50% 86%, rgba(156, 201, 250, 0.2), transparent 34%),
+      linear-gradient(180deg, #2a4461 0%, #1b2e44 38%, #121c2a 100%); }
     header { padding: 10px 16px 8px; border-bottom: 1px solid var(--line); background: rgba(6, 8, 12, 0.92); backdrop-filter: blur(16px); position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 28px var(--shadow); }
-    header.login-header { padding: 16px 18px 14px; background: transparent; border-bottom-color: rgba(255, 255, 255, 0.05); box-shadow: none; position: relative; }
+    header.login-header { padding: 16px 18px 14px; background: linear-gradient(180deg, rgba(28, 45, 66, 0.72), rgba(28, 45, 66, 0.28)); border-bottom-color: rgba(204, 229, 255, 0.16); box-shadow: none; position: relative; backdrop-filter: blur(14px); }
     .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .brand-lockup { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .logo-frame { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 40px; flex: 0 0 auto; border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; }
@@ -1096,37 +1117,38 @@ function shell(content, activeId, model, data, auth = {}) {
     .entitlement-alert-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
     .entitlement-alert-head strong { font-size: 13px; }
     .workspace-shell { display: grid; grid-template-columns: 160px minmax(0, 1fr) 220px; gap: 10px; align-items: start; }
-    .auth-shell { display: grid; grid-template-columns: minmax(440px, 1fr) minmax(280px, 332px); gap: 16px; align-items: stretch; justify-content: center; max-width: 1180px; margin: 0 auto; }
-    .auth-panel, .auth-side { position: relative; overflow: hidden; border-radius: 18px; border: 1px solid #243041; box-shadow: 0 18px 42px rgba(3, 7, 18, 0.32); }
-    .auth-panel { min-height: 560px; background: linear-gradient(160deg, rgba(9, 14, 22, 0.9), rgba(7, 11, 18, 0.96)); isolation: isolate; }
+    .auth-shell { display: grid; grid-template-columns: minmax(460px, 1fr) minmax(300px, 360px); gap: 18px; align-items: stretch; justify-content: center; max-width: 1220px; margin: 0 auto; }
+    .auth-panel, .auth-side { position: relative; overflow: hidden; border-radius: 20px; border: 1px solid rgba(157, 196, 240, 0.2); box-shadow: 0 18px 38px rgba(7, 18, 34, 0.16); }
+    .auth-panel { min-height: 560px; background: linear-gradient(155deg, rgba(74, 94, 120, 0.56), rgba(40, 57, 79, 0.62)); isolation: isolate; }
     .auth-panel::before { content: ""; position: absolute; inset: 0; background:
-      radial-gradient(circle at 76% 24%, rgba(95, 175, 255, 0.18), transparent 30%),
-      linear-gradient(180deg, rgba(7, 10, 16, 0.18), rgba(7, 10, 16, 0.46));
+      radial-gradient(circle at 74% 26%, rgba(201, 230, 255, 0.42), transparent 28%),
+      radial-gradient(circle at 30% 76%, rgba(160, 204, 250, 0.22), transparent 26%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(20, 31, 45, 0.03));
       pointer-events: none; z-index: 1; }
     .auth-panel::after { content: ""; position: absolute; inset: 0; background:
-      linear-gradient(90deg, rgba(7, 11, 18, 0.94) 0%, rgba(7, 11, 18, 0.86) 16%, rgba(7, 11, 18, 0.48) 44%, rgba(7, 11, 18, 0.42) 62%, rgba(7, 11, 18, 0.8) 100%),
-      linear-gradient(180deg, rgba(7, 11, 18, 0.68) 0%, rgba(7, 11, 18, 0.08) 24%, rgba(7, 11, 18, 0.06) 72%, rgba(7, 11, 18, 0.72) 100%);
+      linear-gradient(90deg, rgba(18, 28, 40, 0.14) 0%, rgba(18, 28, 40, 0.04) 28%, rgba(18, 28, 40, 0.02) 58%, rgba(18, 28, 40, 0.1) 100%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(18, 28, 40, 0.02) 36%, rgba(18, 28, 40, 0.08) 100%);
       pointer-events: none; z-index: 1; }
     .auth-side { width: 100%; max-width: 332px; justify-self: end; padding: 24px 22px 20px; background:
-      radial-gradient(circle at top, rgba(90, 169, 255, 0.14), transparent 30%),
-      linear-gradient(180deg, rgba(17, 23, 34, 0.98), rgba(9, 13, 19, 0.98)); }
+      radial-gradient(circle at top, rgba(212, 234, 255, 0.24), transparent 34%),
+      linear-gradient(180deg, rgba(56, 75, 101, 0.76), rgba(33, 47, 68, 0.82)); }
     .auth-panel-art { position: absolute; inset: 0; z-index: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; padding: 48px; }
-    .auth-panel-art img { width: min(76%, 720px); max-width: 720px; height: auto; object-fit: contain; opacity: 0.48; transform: translateY(-8px); filter: saturate(1.08) brightness(1.02) drop-shadow(0 0 54px rgba(74, 154, 255, 0.24)); }
+    .auth-panel-art img { width: min(78%, 760px); max-width: 760px; height: auto; object-fit: contain; opacity: 0.96; transform: translateY(-2px); filter: saturate(1.06) brightness(1.72) contrast(1.02) drop-shadow(0 0 52px rgba(182, 225, 255, 0.34)); }
     .auth-panel-overlay { position: absolute; inset: 0; z-index: 2; background:
-      linear-gradient(180deg, rgba(7, 11, 18, 0.08) 0%, rgba(7, 11, 18, 0.02) 26%, rgba(7, 11, 18, 0.04) 70%, rgba(7, 11, 18, 0.38) 100%),
-      radial-gradient(circle at 76% 22%, rgba(117, 186, 255, 0.18), transparent 20%); }
+      linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(18, 28, 40, 0.01) 24%, rgba(18, 28, 40, 0.03) 72%, rgba(18, 28, 40, 0.1) 100%),
+      radial-gradient(circle at 76% 22%, rgba(193, 230, 255, 0.18), transparent 20%); }
     .auth-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 11px; border-radius: 999px; background: rgba(8, 12, 18, 0.88); border: 1px solid #2a3950; color: #d7e2ef; font-size: 12px; font-weight: 700; }
     .auth-chip.subtle { background: rgba(255, 255, 255, 0.02); color: #7f90a3; border-color: rgba(255, 255, 255, 0.05); }
     .auth-card-head, .auth-form { max-width: 272px; }
-    .auth-kicker { display: inline-block; margin-bottom: 8px; color: #8394ab; font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; }
-    .auth-card-head h3 { font-size: 22px; line-height: 1.04; margin: 0; letter-spacing: 0; }
+    .auth-kicker { display: inline-block; margin-bottom: 8px; color: #a6b7cb; font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; }
+    .auth-card-head h3 { font-size: 24px; line-height: 1.04; margin: 0; letter-spacing: 0; }
     .auth-form { display: grid; gap: 10px; margin-top: 12px; }
-    .auth-form input { min-height: 46px; border-radius: 12px; background: #0a1017; border-color: #263343; padding: 11px 12px; font-size: 14px; }
-    .auth-form input::placeholder { color: #61748b; }
-    .auth-submit-button { width: 100%; min-height: 46px; border-radius: 12px; background: linear-gradient(180deg, #235182, #1a4068); border-color: #2f5f8f; }
-    .auth-submit-button:hover { background: linear-gradient(180deg, #295d95, #204a78); }
+    .auth-form input { min-height: 46px; border-radius: 12px; background: rgba(19, 30, 44, 0.68); border-color: #57708d; padding: 11px 12px; font-size: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.1); }
+    .auth-form input::placeholder { color: #8198b3; }
+    .auth-submit-button { width: 100%; min-height: 46px; border-radius: 12px; background: linear-gradient(180deg, #4786c3, #346b9f); border-color: #5d98cd; box-shadow: 0 10px 24px rgba(96, 151, 214, 0.24); }
+    .auth-submit-button:hover { background: linear-gradient(180deg, #5391ce, #3b74ac); }
     .auth-form .button-row { margin-top: 4px; }
-    .auth-status-copy { margin-top: 2px; font-size: 11px; color: #6f8197; }
+    .auth-status-copy { margin-top: 2px; font-size: 11px; color: #8fa3ba; }
     .auth-status.error { color: var(--red); }
     .auth-status.success { color: var(--green); }
     .auth-status.pending { color: var(--blue); }
@@ -1284,7 +1306,7 @@ function shell(content, activeId, model, data, auth = {}) {
     .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
-    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .top-nav { margin-top: 8px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user, .attachment-bubble, .attachment-list { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } .auth-strip, .auth-actions, .auth-help-row { align-items: flex-start; flex-direction: column; } .auth-card-head h3 { font-size: 26px; } .auth-panel { min-height: 240px; } .auth-panel-art { padding: 24px; } .auth-panel-art img { width: 88%; opacity: 0.38; transform: translateY(0); } .auth-panel::after { background: linear-gradient(180deg, rgba(7, 11, 18, 0.7) 0%, rgba(7, 11, 18, 0.14) 30%, rgba(7, 11, 18, 0.08) 74%, rgba(7, 11, 18, 0.74) 100%), linear-gradient(90deg, rgba(7, 11, 18, 0.82) 0%, rgba(7, 11, 18, 0.36) 30%, rgba(7, 11, 18, 0.12) 72%, rgba(7, 11, 18, 0.54) 100%); } }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .top-nav { margin-top: 8px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user, .attachment-bubble, .attachment-list { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } .auth-strip, .auth-actions, .auth-help-row { align-items: flex-start; flex-direction: column; } .auth-card-head h3 { font-size: 26px; } .auth-panel { min-height: 240px; } .auth-panel-art { padding: 24px; } .auth-panel-art img { width: 88%; opacity: 0.62; transform: translateY(0); filter: saturate(1.12) brightness(1.22) contrast(1.05) drop-shadow(0 0 40px rgba(124, 192, 255, 0.22)); } .auth-panel::after { background: linear-gradient(180deg, rgba(10, 16, 24, 0.34) 0%, rgba(10, 16, 24, 0.06) 30%, rgba(10, 16, 24, 0.04) 74%, rgba(10, 16, 24, 0.28) 100%), linear-gradient(90deg, rgba(10, 16, 24, 0.56) 0%, rgba(10, 16, 24, 0.18) 30%, rgba(10, 16, 24, 0.06) 72%, rgba(10, 16, 24, 0.28) 100%); } }
     @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell, .auth-shell { grid-template-columns: 1fr; } .advanced-config, .project-rail { position: static; } .auth-side { order: -1; max-width: 360px; justify-self: stretch; } .auth-card-head, .auth-form { max-width: none; } }
   </style>
 </head>
@@ -1309,11 +1331,15 @@ function shell(content, activeId, model, data, auth = {}) {
 
 function pageDashboard(_model, data) {
   const release = data.release_consistency ?? {};
+  const releaseStages = Array.isArray(release.promotion_stages) ? release.promotion_stages : [];
+  const reviewedPublish = releaseStages.find((stage) => stage.stage_id === "reviewed_publish");
   return `${actionWorkbench(data, "统一 AI 开发工作台")}
   <section><h2>控制面快照</h2><div class="grid">
     ${metric("挂接项目", data.project_router.binding_count)}
     ${metric("派发计划", data.project_router.dispatch_plan_count ?? 0)}
     ${metric("Worker 控制面", release.status ?? "未生成")}
+    ${metric("下一闸门", release.promotion_next_stage ?? "未生成")}
+    ${metric("Reviewed Publish", reviewedPublish?.status ?? "未生成")}
     ${metric("Access Enforcement", data.access.enforcement?.policy_id ?? "未生成")}
     ${metric("最新 Autopilot", data.autopilot.latest_summary?.id ?? "not_found")}
   </div></section>`;
@@ -1323,6 +1349,8 @@ function pageProjects(data) {
   const project = data.jinhuProjectState ?? {};
   const workspaceProjects = data.project_router.workspace?.projects ?? [];
   const dispatchPlans = data.project_router.dispatch_plans ?? [];
+  const proposalMap = new Map((data.project_router.proposals ?? []).map((item) => [item.data?.task_id ?? item.path, item]));
+  const auditMap = new Map((data.project_router.queue_injection_audits ?? []).map((item) => [item.data?.task_id ?? item.path, item]));
   const rows = workspaceProjects.map((item) => ({
     project: item.project_id,
     status: item.connection_status,
@@ -1337,6 +1365,8 @@ function pageProjects(data) {
     ${metric(messages.pages.projects.phoenixErp, messages.pages.projects.phoenixStatus)}
     ${metric(messages.pages.projects.writes, data.safety.managed_project_writes)}
     ${metric("挂接绑定", data.project_router.binding_count)}
+    ${metric("Proposal", data.project_router.proposal_count ?? 0)}
+    ${metric("Queue Audit", data.project_router.queue_injection_audit_count ?? 0)}
   </div></section>
   <section><h2>Attached Project Workspace</h2>${rows.length > 0 ? table(rows, [
     { key: "project", label: "项目" },
@@ -1350,6 +1380,8 @@ function pageProjects(data) {
     project: item.project_id,
     task_id: item.data?.task_id ?? "unknown",
     stage: item.data?.pipeline_stage ?? "unknown",
+    proposal: statusLabel(proposalMap.get(item.data?.task_id)?.data?.approval_status ?? "missing"),
+    audit: statusLabel(auditMap.get(item.data?.task_id)?.data?.status ?? "missing"),
     runtime: item.data?.worker_route?.runtime_id ?? item.data?.task_candidate?.runtime ?? "unknown",
     worker: item.data?.worker_route?.worker_id ?? "none",
     next: item.data?.recommended_next_stage ?? "unknown"
@@ -1357,6 +1389,8 @@ function pageProjects(data) {
     { key: "project", label: "项目" },
     { key: "task_id", label: "任务" },
     { key: "stage", label: "阶段" },
+    { key: "proposal", label: "Proposal", html: true },
+    { key: "audit", label: "Queue Audit", html: true },
     { key: "runtime", label: "Runtime" },
     { key: "worker", label: "Worker" },
     { key: "next", label: "下一步" }
@@ -1433,7 +1467,7 @@ function pageActions(data) {
   return `<section><h2>${messages.pages.actions.title}</h2><div class="grid">${metric(messages.pages.actions.actions, actions.length)}${metric(messages.pages.actions.defaultMode, "pilot_production")}${metric(messages.pages.actions.writes, messages.common.falseValue)}${metric("Action Log", data.actionServer.action_log_dir)}</div></section>
   ${actionWorkbench(data, "操作中心")}
   ${smartParkEntryPanel()}
-  ${proposalPanel()}
+  ${proposalPanel(data)}
   <section>${table(actions.map((action) => ({
     id: action.id,
     intent: action.label,
@@ -1446,6 +1480,7 @@ function pageActions(data) {
 function pageConfig(data) {
   const enforcement = data.access.enforcement ?? {};
   const release = data.release_consistency ?? {};
+  const releaseStages = Array.isArray(release.promotion_stages) ? release.promotion_stages : [];
   const inviteSummary = data.access.invite_summary ?? { invite_count: 0, pending_invite_count: 0, approved_invite_count: 0, materialized_invite_count: 0, invites: [] };
   const inviteRows = (inviteSummary.invites ?? []).slice(0, 6).map((invite) => ({
     username: invite.username,
@@ -1502,6 +1537,22 @@ function pageConfig(data) {
     ${metric("可执行动作", enforcement.summary?.allowed_action_count ?? "未生成")}
     ${metric("Release Consistency", release.status ?? "未生成")}
   </div></section>
+  <section>
+    <div class="section-head"><h2>Release Promotion Stages</h2><span class="pill">local / server / reviewed</span></div>
+    ${releaseStages.length > 0 ? table(releaseStages.map((stage) => ({
+      stage: stage.stage_id,
+      status: statusLabel(stage.status ?? "unknown"),
+      key: stage.consistency_key || stage.source_consistency_key || "pending",
+      recorded: stage.recorded_at || "pending",
+      reason: stage.gate_reason || "none"
+    })), [
+      { key: "stage", label: "stage" },
+      { key: "status", label: "status", html: true },
+      { key: "key", label: "consistency key" },
+      { key: "recorded", label: "recorded_at" },
+      { key: "reason", label: "gate_reason" }
+    ]) : `<div class="panel"><p class="help">尚未生成 release consistency 工件。先执行 <code>studio release consistency --dry-run</code>。</p></div>`}
+  </section>
   <section>
     <div class="section-head"><h2>团队邀请与审批草稿</h2><span class="pill">Access Center</span></div>
     <div class="grid">
@@ -1644,6 +1695,7 @@ export async function renderConsolePage(pathname = "/", auth = null) {
   const resolvedAuth = normalizeRenderAuth(auth, data);
   data.renderAuth = resolvedAuth;
   const model = await buildConsoleDashboardModel();
+  const gated = data.access?.summary?.allow_anonymous_console_read !== true && !resolvedAuth.authenticated;
   const route = consoleWebRoutes.find((item) => item.path === pathname) ?? consoleWebRoutes[0];
   const contentById = {
     dashboard: () => pageDashboard(model, data),
@@ -1659,6 +1711,8 @@ export async function renderConsolePage(pathname = "/", auth = null) {
     memory: () => pageMemory(data),
     pilotStatus: () => pagePilotStatus(data)
   };
-  const body = await (contentById[route.id] ?? contentById.dashboard)();
+  const body = gated
+    ? ""
+    : await (contentById[route.id] ?? contentById.dashboard)();
   return shell(body, route.id, model, data, resolvedAuth);
 }

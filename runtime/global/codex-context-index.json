@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T10:17:41.527Z",
+  "generated_at": "2026-07-06T12:47:49.454Z",
   "startup_command": "node packages/orchestrator-core/bin/studio.mjs context summary",
   "project_command": "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
   "global_context_files": [
@@ -24,7 +24,8 @@
         "runtime/projects/jinhu-smart-park/binding.json",
         "runtime/projects/jinhu-smart-park/dispatch-plans/JINHU-SMART-PARK-TASK-SMART-PARK.json",
         "runtime/projects/jinhu-smart-park/handoff-summary.md",
-        "runtime/projects/jinhu-smart-park/project-state.json"
+        "runtime/projects/jinhu-smart-park/project-state.json",
+        "runtime/projects/jinhu-smart-park/queue-injection-audits/JINHU-SMART-PARK-TASK-SMART-PARK.json"
       ]
     },
     {

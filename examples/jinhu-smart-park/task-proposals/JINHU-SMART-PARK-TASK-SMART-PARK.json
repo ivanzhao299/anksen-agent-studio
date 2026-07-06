@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "proposal_status": [
+    "PROPOSED",
+    "APPROVED",
+    "PROJECT_WRITES_DISABLED",
+    "AGENT_EXECUTION_DISABLED"
+  ],
+  "task_id": "JINHU-SMART-PARK-TASK-SMART-PARK",
+  "text": "继续推进 Smart Park 工程管理闭环",
+  "project_id": "jinhu-smart-park",
+  "owner": "agent-5",
+  "skill_type": "code_development",
+  "skill_id": "skill-code-development",
+  "runtime": "codex-cli",
+  "allowed_paths": [
+    "ops/agent-orchestrator/events/**",
+    "ops/agent-orchestrator/queue/**",
+    "ops/agent-orchestrator/results/**",
+    "ops/agent-orchestrator/reports/**",
+    "ops/agent-orchestrator/runtime/**",
+    "docs/release/**",
+    "docs/testing/**"
+  ],
+  "forbidden_paths": [
+    "apps/**",
+    "packages/**",
+    "database/**",
+    "infra/**",
+    ".github/**",
+    "Dockerfile",
+    "Dockerfile.*",
+    "docker-compose*",
+    "deploy/**",
+    "auth/**",
+    ".env",
+    ".env.*",
+    "apps/api/**"
+  ],
+  "expected_outputs": [
+    "technical plan"
+  ],
+  "validation_commands": [
+    "pnpm typecheck",
+    "pnpm lint",
+    "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+    "git diff --check"
+  ],
+  "risk": "MEDIUM",
+  "approval_required": false,
+  "approval_status": "APPROVED",
+  "project_write_mode": "PROJECT_WRITES_DISABLED",
+  "agent_execution_mode": "AGENT_EXECUTION_DISABLED",
+  "queue_write_mode": "QUEUE_WRITES_DISABLED",
+  "event_write_mode": "EVENT_WRITES_DISABLED",
+  "deploy_mode": "DEPLOY_DISABLED",
+  "production_operation_mode": "PRODUCTION_OPERATIONS_DISABLED",
+  "created_at": "2026-07-06T12:33:38.121Z",
+  "routing": {
+    "confidence": 0.35,
+    "fallback_used": true,
+    "matched_keywords": [],
+    "reason": "No explicit skill keyword matched; fallback to planning."
+  },
+  "project_context": {
+    "repo_branch": "feature/engineering-project-delivery-runtime",
+    "repo_clean": "yes",
+    "doctor_status": "CONDITIONAL_GO",
+    "detected_stack": [
+      "Agent Orchestrator project state",
+      "Docker deployment scripts",
+      "NestJS API",
+      "Next.js App Router",
+      "Next.js web app",
+      "PostgreSQL",
+      "React",
+      "TypeScript",
+      "database migrations",
+      "database seeds",
+      "e2e smoke scripts",
+      "pnpm workspace",
+      "pnpm-workspace",
+      "project-local Agent Orchestrator state",
+      "release documentation",
+      "shared package"
+    ],
+    "queue_status_counts": {
+      "AUDITED": 35,
+      "BLOCKED": 4
+    },
+    "runtime_memory_imported_at": "2026-06-29T03:55:05.560Z"
+  },
+  "approved_at": "2026-07-06T12:47:49.268Z",
+  "approved_by": "anksen-agent-studio.project.approve-proposal"
+}

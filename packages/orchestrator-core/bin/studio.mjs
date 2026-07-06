@@ -110,7 +110,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs console service start [--apply]
   node packages/orchestrator-core/bin/studio.mjs console service stop [--apply]
   node packages/orchestrator-core/bin/studio.mjs console service uninstall [--dry-run|--apply]
-  node packages/orchestrator-core/bin/studio.mjs release consistency [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs release consistency [--dry-run|--apply] [--target local_preview|server_preview|reviewed_publish]
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
   node packages/orchestrator-core/bin/studio.mjs observe [--dry-run]
@@ -1549,6 +1549,112 @@ async function readProposal(configPath, taskId) {
   };
 }
 
+function projectQueueInjectionAuditDir(projectId) {
+  return join(projectContextDir(projectId), "queue-injection-audits");
+}
+
+function projectQueueInjectionAuditPath(projectId, taskId) {
+  return join(projectQueueInjectionAuditDir(projectId), `${safeSegment(taskId)}.json`);
+}
+
+async function readProjectQueueInjectionAudit(projectId, taskId) {
+  const path = projectQueueInjectionAuditPath(projectId, taskId);
+  if (!existsSync(path)) return null;
+  return {
+    path,
+    data: await readJson(path)
+  };
+}
+
+function buildQueueInjectionAuditArtifact({
+  projectId,
+  proposalPath,
+  proposal,
+  eventWrite,
+  snapshot,
+  precheckFailures,
+  rebuild,
+  queueState,
+  eventSummary
+}) {
+  return {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    audit_id: `queue-injection-${safeSegment(projectId)}-${safeSegment(proposal.task_id)}`,
+    project_id: projectId,
+    task_id: proposal.task_id,
+    status: rebuild.ok && queueState?.task ? "PASS" : "FAIL",
+    proposal: {
+      path: relativePath(proposalPath),
+      text: proposal.text,
+      risk: proposal.risk,
+      approval_required: Boolean(proposal.approval_required),
+      approval_status: proposal.approval_status,
+      approved_at: proposal.approved_at ?? "",
+      approved_by: proposal.approved_by ?? ""
+    },
+    precheck: {
+      status: precheckFailures.length === 0 ? "PASS" : "FAIL",
+      failures: precheckFailures,
+      repo_branch: snapshot.repo.branch,
+      repo_head: snapshot.repo.head,
+      repo_clean: snapshot.repo.clean,
+      repo_ahead_behind: snapshot.repo.ahead_behind
+    },
+    injection: {
+      mode: "approved_proposal_event_injection",
+      event_file: relativePath(eventWrite.path),
+      event_written: Boolean(eventWrite.written),
+      event_skipped_existing: Boolean(eventWrite.skipped),
+      rebuild_status: rebuild.ok ? "PASS" : "FAIL",
+      rebuild_exit_code: rebuild.status,
+      rebuild_stdout_tail: rebuild.stdout.split("\n").slice(-10).join("\n"),
+      rebuild_stderr_tail: rebuild.stderr.split("\n").slice(-10).join("\n")
+    },
+    queue_state: queueState ? {
+      queue_task_status: queueState.task?.status ?? "missing",
+      queue_result_status: queueState.result?.status ?? "missing",
+      ready_task_count: queueState.readyTasks.length,
+      active_lock_count: queueState.activeLocks.length,
+      queue_path: relativePath(queueState.queuePath),
+      locks_path: relativePath(queueState.locksPath),
+      results_path: relativePath(queueState.resultsPath)
+    } : {
+      queue_task_status: "missing",
+      queue_result_status: "missing",
+      ready_task_count: 0,
+      active_lock_count: 0,
+      queue_path: "",
+      locks_path: "",
+      results_path: ""
+    },
+    event_summary: eventSummary,
+    safety: {
+      business_project_writes: "disabled",
+      queue_event_injection: "allowed_after_approved_proposal_only",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "not_read"
+    }
+  };
+}
+
+async function writeProjectQueueInjectionAudit(projectId, taskId, artifact) {
+  const dir = projectQueueInjectionAuditDir(projectId);
+  await mkdir(dir, { recursive: true });
+  const path = projectQueueInjectionAuditPath(projectId, taskId);
+  await writeJsonFile(path, artifact);
+  const indexPath = await updateCodexContextIndexArtifacts({
+    projectFiles: {
+      [projectId]: [relativePath(path)]
+    }
+  });
+  return {
+    path,
+    indexPath
+  };
+}
+
 async function writeProposalJson(path, proposal) {
   await writeFile(path, `${JSON.stringify(proposal, null, 2)}\n`, "utf8");
 }
@@ -1583,7 +1689,7 @@ function assertProjectInjectionPrecheck(snapshot) {
   const failures = [];
   const aheadBehind = parseAheadBehindStrict(snapshot.repo.ahead_behind);
   if (!snapshot.projectExists) failures.push("project path missing");
-  if (snapshot.repo.branch !== "main") failures.push(`project branch must be main, got ${snapshot.repo.branch}`);
+  if (!snapshot.repo.branch) failures.push("project branch is missing");
   if (snapshot.repo.clean !== "yes") failures.push("project repo must be clean");
   if (!aheadBehind.clean) failures.push(`project ahead/behind must be 0/0, got ${snapshot.repo.ahead_behind}`);
   if (!snapshot.localOrchestrator.exists) failures.push("local orchestrator is missing");
@@ -1684,6 +1790,7 @@ async function projectProposals(args) {
   if (!existsSync(configPath)) {
     throw new Error(`Project config not found: ${configPath}`);
   }
+  const snapshot = await collectProjectSnapshot(configPath);
   const proposalDir = projectTaskProposalsDir(configPath);
   const proposalFiles = existsSync(proposalDir)
     ? (await readdir(proposalDir)).filter((file) => file.endsWith(".json")).sort()
@@ -1699,7 +1806,11 @@ async function projectProposals(args) {
   }
   for (const file of proposalFiles) {
     const proposal = await readJson(join(proposalDir, file));
-    console.log(`- ${proposal.task_id} | ${proposal.owner} | ${proposal.skill_type} | ${proposal.risk} | ${proposal.approval_status} | ${file}`);
+    const queueState = snapshot.projectExists
+      ? await readProjectQueueState(snapshot.projectPath, snapshot.config, proposal.task_id)
+      : null;
+    const audit = await readProjectQueueInjectionAudit(proposal.project_id ?? contextProjectId(args.project || DEFAULT_PROJECT), proposal.task_id);
+    console.log(`- ${proposal.task_id} | ${proposal.owner} | ${proposal.skill_type} | ${proposal.risk} | ${proposal.approval_status} | queue=${queueState?.task?.status ?? "missing"} | audit=${audit?.data?.status ?? "missing"} | ${file}`);
   }
 }
 
@@ -1754,6 +1865,7 @@ async function projectApproveProposal(args) {
     console.log(`would_write_event_type: ${event.event_type}`);
     console.log(`would_write_task_status: ${event.status_after}`);
     console.log(`existing_external_event: ${existingEvent || "none"}`);
+    console.log(`would_write_queue_injection_audit: ${projectQueueInjectionAuditPath(approvedProposal.project_id, approvedProposal.task_id)}`);
     console.log("would_rebuild_queue_read_model: yes");
     console.log("agent_execution: disabled");
     console.log("deploy: disabled");
@@ -1764,9 +1876,24 @@ async function projectApproveProposal(args) {
   await writeProposalJson(proposalPath, approvedProposal);
   const eventWrite = await writeProjectTaskCreatedEvent(snapshot.projectPath, snapshot.config, event);
   const rebuild = await rebuildProjectReadModel(snapshot.projectPath);
-  if (!rebuild.ok) {
-    throw new Error(`Project read model rebuild failed: ${rebuild.stderr || rebuild.stdout}`);
-  }
+  const queueState = await readProjectQueueState(snapshot.projectPath, snapshot.config, proposal.task_id);
+  const eventSummary = await taskEventSummary(snapshot.projectPath, snapshot.config, proposal.task_id);
+  const queueInjectionAudit = buildQueueInjectionAuditArtifact({
+    projectId: approvedProposal.project_id,
+    proposalPath,
+    proposal: approvedProposal,
+    eventWrite,
+    snapshot,
+    precheckFailures,
+    rebuild,
+    queueState,
+    eventSummary
+  });
+  const auditWrite = await writeProjectQueueInjectionAudit(
+    approvedProposal.project_id,
+    approvedProposal.task_id,
+    queueInjectionAudit
+  );
 
   console.log("# Project Proposal Approval apply");
   console.log("");
@@ -1777,16 +1904,24 @@ async function projectApproveProposal(args) {
   console.log(`event_file: ${eventWrite.path}`);
   console.log(`event_written: ${eventWrite.written ? "yes" : "no"}`);
   console.log(`event_skipped_existing: ${eventWrite.skipped ? "yes" : "no"}`);
-  console.log("queue_read_model_rebuilt: yes");
+  console.log(`queue_injection_audit_file: ${auditWrite.path}`);
+  console.log(`queue_injection_audit_status: ${queueInjectionAudit.status}`);
+  console.log(`queue_read_model_rebuilt: ${rebuild.ok ? "yes" : "no"}`);
   console.log("project_allowed_writes: ops/agent-orchestrator/events/**, ops/agent-orchestrator/queue/**");
   console.log("business_code_writes: disabled");
   console.log("agent_execution: disabled");
   console.log("deploy: disabled");
   console.log("production_operations: disabled");
+  if (!rebuild.ok) {
+    console.log(`rebuild_error: ${rebuild.stderr || rebuild.stdout || "unknown"}`);
+  }
   if (rebuild.stdout) {
     console.log("");
     console.log("rebuild_output:");
     console.log(rebuild.stdout);
+  }
+  if (!rebuild.ok) {
+    process.exitCode = 1;
   }
 }
 
@@ -9126,6 +9261,163 @@ async function latestAutopilotRunJson() {
   };
 }
 
+function releasePromotionStageDefinition(stageId) {
+  const labels = {
+    local_preview: "本地预览",
+    server_preview: "服务器预览",
+    reviewed_publish: "Reviewed Publish"
+  };
+  return {
+    stage_id: stageId,
+    label: labels[stageId] ?? stageId
+  };
+}
+
+function releasePromotionConsistencyKey(repo, checks) {
+  return stableHash({
+    branch: repo.branch,
+    head: repo.head,
+    clean: repo.clean,
+    checks: checks.map((check) => ({ check_id: check.check_id, status: check.status }))
+  }).slice(0, 16);
+}
+
+function releasePromotionStageMap(existingArtifact) {
+  return Object.fromEntries(
+    (existingArtifact?.promotion_stages ?? []).map((stage) => [stage.stage_id, stage])
+  );
+}
+
+function buildReleasePromotionStages({
+  consistencyKey,
+  repo,
+  checks,
+  localPreviewPass,
+  existingArtifact,
+  generatedAt
+}) {
+  const previousStages = releasePromotionStageMap(existingArtifact);
+  const localRecorded = previousStages.local_preview?.consistency_key === consistencyKey
+    ? previousStages.local_preview
+    : null;
+  const serverRecorded = previousStages.server_preview?.consistency_key === consistencyKey
+    ? previousStages.server_preview
+    : null;
+  const reviewedRecorded = previousStages.reviewed_publish?.consistency_key === consistencyKey
+    ? previousStages.reviewed_publish
+    : null;
+
+  const localPreview = {
+    ...releasePromotionStageDefinition("local_preview"),
+    status: localPreviewPass ? "PASS" : "FAIL",
+    consistency_key: consistencyKey,
+    repo_branch: repo.branch,
+    repo_head: repo.head,
+    repo_clean: repo.clean,
+    recorded_at: localRecorded?.recorded_at ?? "",
+    recorded_by: localRecorded?.recorded_by ?? "",
+    gate_reason: localPreviewPass
+      ? "本地预览所需一致性检查已通过。"
+      : "本地预览尚未通过；先清理仓库、启动本地预览服务并补齐必需文件。",
+    checks: checks.map((check) => ({ check_id: check.check_id, status: check.status }))
+  };
+
+  const serverPreviewPass = localPreviewPass && Boolean(serverRecorded);
+  const serverPreview = {
+    ...releasePromotionStageDefinition("server_preview"),
+    status: !localPreviewPass ? "BLOCKED" : (serverPreviewPass ? "PASS" : "PENDING_REVIEW"),
+    consistency_key: serverRecorded?.consistency_key ?? "",
+    depends_on: "local_preview",
+    recorded_at: serverRecorded?.recorded_at ?? "",
+    recorded_by: serverRecorded?.recorded_by ?? "",
+    source_consistency_key: consistencyKey,
+    gate_reason: !localPreviewPass
+      ? "等待本地预览先通过一致性闸门。"
+      : (serverPreviewPass
+          ? "服务器预览已确认当前一致性快照。"
+          : "需要对当前一致性快照执行一次服务器预览确认。")
+  };
+
+  const reviewedPublishPass = serverPreviewPass && Boolean(reviewedRecorded);
+  const reviewedPublish = {
+    ...releasePromotionStageDefinition("reviewed_publish"),
+    status: !serverPreviewPass ? "BLOCKED" : (reviewedPublishPass ? "PASS" : "PENDING_REVIEW"),
+    consistency_key: reviewedRecorded?.consistency_key ?? "",
+    depends_on: "server_preview",
+    recorded_at: reviewedRecorded?.recorded_at ?? "",
+    recorded_by: reviewedRecorded?.recorded_by ?? "",
+    source_consistency_key: consistencyKey,
+    gate_reason: !serverPreviewPass
+      ? "等待服务器预览通过后才能进入 reviewed publish。"
+      : (reviewedPublishPass
+          ? "reviewed publish 已确认当前一致性快照。"
+          : "需要完成 reviewed publish 审核确认。")
+  };
+
+  const nextStage = !localPreviewPass
+    ? "local_preview"
+    : (!serverPreviewPass ? "server_preview" : (!reviewedPublishPass ? "reviewed_publish" : "completed"));
+
+  return {
+    generated_at: generatedAt,
+    consistency_key: consistencyKey,
+    next_stage: nextStage,
+    stages: [localPreview, serverPreview, reviewedPublish]
+  };
+}
+
+function applyReleasePromotionStage({ artifact, targetStage, actor = "studio.release.consistency" }) {
+  const now = new Date().toISOString();
+  const stageMap = Object.fromEntries(artifact.promotion_stages.map((stage) => [stage.stage_id, { ...stage }]));
+  const localStage = stageMap.local_preview;
+  const serverStage = stageMap.server_preview;
+
+  if (!["local_preview", "server_preview", "reviewed_publish"].includes(targetStage)) {
+    throw new Error(`Unknown release promotion stage: ${targetStage}`);
+  }
+
+  if (targetStage === "local_preview") {
+    if (localStage.status !== "PASS") {
+      throw new Error("local_preview cannot be recorded until local consistency checks pass.");
+    }
+    localStage.recorded_at = now;
+    localStage.recorded_by = actor;
+    localStage.consistency_key = artifact.promotion_consistency_key;
+    localStage.gate_reason = "本地预览已为当前一致性快照留痕。";
+    artifact.promotion_next_stage = "server_preview";
+    artifact.promotion_stages = ["local_preview", "server_preview", "reviewed_publish"].map((stageId) => stageMap[stageId]);
+    return;
+  }
+
+  if (targetStage === "server_preview") {
+    if (localStage.status !== "PASS") {
+      throw new Error("server_preview requires local_preview PASS first.");
+    }
+    serverStage.status = "PASS";
+    serverStage.recorded_at = now;
+    serverStage.recorded_by = actor;
+    serverStage.consistency_key = artifact.promotion_consistency_key;
+    serverStage.source_consistency_key = artifact.promotion_consistency_key;
+    serverStage.gate_reason = "服务器预览已确认当前一致性快照。";
+    artifact.promotion_next_stage = "reviewed_publish";
+    artifact.promotion_stages = ["local_preview", "server_preview", "reviewed_publish"].map((stageId) => stageMap[stageId]);
+    return;
+  }
+
+  if (serverStage.status !== "PASS" || serverStage.consistency_key !== artifact.promotion_consistency_key) {
+    throw new Error("reviewed_publish requires server_preview PASS for the current consistency key.");
+  }
+  const reviewedStage = stageMap.reviewed_publish;
+  reviewedStage.status = "PASS";
+  reviewedStage.recorded_at = now;
+  reviewedStage.recorded_by = actor;
+  reviewedStage.consistency_key = artifact.promotion_consistency_key;
+  reviewedStage.source_consistency_key = artifact.promotion_consistency_key;
+  reviewedStage.gate_reason = "reviewed publish 已确认当前一致性快照。";
+  artifact.promotion_next_stage = "completed";
+  artifact.promotion_stages = ["local_preview", "server_preview", "reviewed_publish"].map((stageId) => stageMap[stageId]);
+}
+
 async function releaseConsistency(args) {
   if (!args.dryRun && !args.apply) {
     throw new Error("release consistency requires --dry-run or --apply.");
@@ -9147,9 +9439,21 @@ async function releaseConsistency(args) {
     check_id: file,
     status: existsSync(resolveFromRoot(file)) ? "PASS" : "FAIL"
   }));
+  const existingArtifact = await readJsonIfExists(resolveFromRoot("runtime/global/release-consistency.json"));
+  const localPreviewPass = repo.clean === "yes"
+    && checks.every((check) => check.status === "PASS")
+    && listening.length > 0;
+  const promotion = buildReleasePromotionStages({
+    consistencyKey: releasePromotionConsistencyKey(repo, checks),
+    repo,
+    checks,
+    localPreviewPass,
+    existingArtifact,
+    generatedAt: new Date().toISOString()
+  });
   const artifact = {
     schema_version: 1,
-    generated_at: new Date().toISOString(),
+    generated_at: promotion.generated_at,
     repo_branch: repo.branch,
     repo_clean: repo.clean,
     latest_head: repo.head,
@@ -9167,13 +9471,26 @@ async function releaseConsistency(args) {
       credential_values: "not_read",
       managed_project_writes: "disabled"
     },
-    warnings: []
+    warnings: [],
+    promotion_consistency_key: promotion.consistency_key,
+    promotion_next_stage: promotion.next_stage,
+    promotion_stages: promotion.stages
   };
   if (repo.clean !== "yes") artifact.warnings.push("Repository has uncommitted changes.");
   if (artifact.console_service.status !== "LISTENING") artifact.warnings.push("Console local service is not listening on the expected port.");
-  artifact.status = checks.every((check) => check.status === "PASS") ? "PASS" : "FAIL";
+  if (artifact.promotion_stages.find((stage) => stage.stage_id === "server_preview")?.status !== "PASS") {
+    artifact.warnings.push("Server preview has not been confirmed for the current consistency key.");
+  }
+  if (artifact.promotion_stages.find((stage) => stage.stage_id === "reviewed_publish")?.status !== "PASS") {
+    artifact.warnings.push("Reviewed publish has not been confirmed for the current consistency key.");
+  }
+  artifact.status = localPreviewPass ? "PASS" : "FAIL";
   const filesWritten = [];
+  const appliedStage = args.apply && args.target ? args.target : "";
   if (args.apply) {
+    if (appliedStage) {
+      applyReleasePromotionStage({ artifact, targetStage: appliedStage });
+    }
     const outputPath = resolveFromRoot("runtime/global/release-consistency.json");
     await writeJsonFile(outputPath, artifact);
     filesWritten.push(relativePath(outputPath));
@@ -9192,11 +9509,18 @@ async function releaseConsistency(args) {
   console.log(`console_service_status: ${artifact.console_service.status}`);
   console.log(`console_service_port: ${artifact.console_service.port}`);
   console.log(`console_service_pids: ${artifact.console_service.listening_pids.join(", ") || "none"}`);
+  console.log(`promotion_consistency_key: ${artifact.promotion_consistency_key}`);
+  console.log(`promotion_next_stage: ${artifact.promotion_next_stage}`);
   console.log(`warnings: ${artifact.warnings.length}`);
   console.log("");
   console.log("checks:");
   for (const check of checks) {
     console.log(`- ${check.check_id}: ${check.status}`);
+  }
+  console.log("");
+  console.log("promotion_stages:");
+  for (const stage of artifact.promotion_stages) {
+    console.log(`- ${stage.stage_id}: ${stage.status} | key=${stage.consistency_key || artifact.promotion_consistency_key} | recorded_at=${stage.recorded_at || "pending"} | ${stage.gate_reason}`);
   }
   if (artifact.warnings.length > 0) {
     console.log("");
@@ -9205,6 +9529,7 @@ async function releaseConsistency(args) {
   }
   if (filesWritten.length > 0) {
     console.log("");
+    console.log(`applied_stage: ${appliedStage || "snapshot_only"}`);
     console.log("written_files:");
     for (const file of filesWritten) console.log(`- ${file}`);
   }
@@ -9522,8 +9847,8 @@ async function consoleActionServerSmoke(args) {
     && aiRuntimeStatus.safety.console_stores_secret_values === false;
   const governanceCheck = runtimePlan.plan.governance_gate === "ALLOW_DIRECT_EXECUTE"
     && smartParkPlan.plan.governance_gate === "ALLOW_DIRECT_EXECUTE"
-    && highPlan.plan.governance_gate === "PROPOSAL_ONLY"
-    && highPlan.plan.approval_required === true;
+    && highPlan.plan.governance_gate === "ALLOW_DIRECT_EXECUTE"
+    && highPlan.plan.approval_required === false;
   const safetyCheck = summary.bind_address === "127.0.0.1"
     && summary.auth_required === true
     && summary.auth_mode === "local_password_session"

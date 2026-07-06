@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-06T12:47:49.453Z",
+  "audit_id": "queue-injection-jinhu-smart-park-JINHU-SMART-PARK-TASK-SMART-PARK",
+  "project_id": "jinhu-smart-park",
+  "task_id": "JINHU-SMART-PARK-TASK-SMART-PARK",
+  "status": "PASS",
+  "proposal": {
+    "path": "examples/jinhu-smart-park/task-proposals/JINHU-SMART-PARK-TASK-SMART-PARK.json",
+    "text": "继续推进 Smart Park 工程管理闭环",
+    "risk": "MEDIUM",
+    "approval_required": false,
+    "approval_status": "APPROVED",
+    "approved_at": "2026-07-06T12:47:49.268Z",
+    "approved_by": "anksen-agent-studio.project.approve-proposal"
+  },
+  "precheck": {
+    "status": "PASS",
+    "failures": [],
+    "repo_branch": "main",
+    "repo_head": "e879b8f refactor(reference-data): centralize form option lookups",
+    "repo_clean": "yes",
+    "repo_ahead_behind": "0\t0"
+  },
+  "injection": {
+    "mode": "approved_proposal_event_injection",
+    "event_file": "../jinhu-smart-park/ops/agent-orchestrator/events/tasks/JINHU-SMART-PARK-TASK-SMART-PARK/2026-07-06T124749268Z-task.created-6a530d48c606.json",
+    "event_written": true,
+    "event_skipped_existing": false,
+    "rebuild_status": "PASS",
+    "rebuild_exit_code": 0,
+    "rebuild_stdout_tail": "queue: changed=true current=39 next=40\nlocks: changed=true current=0 next=0\nresults: changed=true current=35 next=35\nevent/read-model consistency: no\nconsistency detail: queue_status=no locks=yes results_status=yes\nreconcile rule: event projection is the source of truth; review dry-run drift before applying generated compatibility JSON\nwritten: queue/task-queue.json\nwritten: queue/task-locks.json\nwritten: queue/task-results.json\nmetric: read_model_rebuild recorded",
+    "rebuild_stderr_tail": ""
+  },
+  "queue_state": {
+    "queue_task_status": "READY",
+    "queue_result_status": "missing",
+    "ready_task_count": 1,
+    "active_lock_count": 0,
+    "queue_path": "../jinhu-smart-park/ops/agent-orchestrator/queue/task-queue.json",
+    "locks_path": "../jinhu-smart-park/ops/agent-orchestrator/queue/task-locks.json",
+    "results_path": "../jinhu-smart-park/ops/agent-orchestrator/queue/task-results.json"
+  },
+  "event_summary": {
+    "files": [
+      "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/events/tasks/JINHU-SMART-PARK-TASK-SMART-PARK/2026-07-06T124749268Z-task.created-6a530d48c606.json"
+    ],
+    "event_types": {
+      "task.created": 1
+    },
+    "audit_status": ""
+  },
+  "safety": {
+    "business_project_writes": "disabled",
+    "queue_event_injection": "allowed_after_approved_proposal_only",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read"
+  }
+}

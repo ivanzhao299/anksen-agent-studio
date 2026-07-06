@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T08:28:29.066Z",
+  "generated_at": "2026-07-06T12:42:10.726Z",
   "repo_branch": "main",
   "repo_clean": "no",
-  "latest_head": "ae3f6af fix(console): restore login panel sizing",
+  "latest_head": "180e1fb feat(worker): add live local heartbeat inventory",
   "latest_autopilot_run": "autopilot-runs/v4-continuous-2026-06-23T164157169Z-187199ed-step-04-v4-r-console-operable-read-only.json",
   "console_service": {
     "port": 4317,
@@ -49,7 +49,77 @@
   },
   "warnings": [
     "Repository has uncommitted changes.",
-    "Console local service is not listening on the expected port."
+    "Console local service is not listening on the expected port.",
+    "Server preview has not been confirmed for the current consistency key.",
+    "Reviewed publish has not been confirmed for the current consistency key."
   ],
-  "status": "PASS"
+  "promotion_consistency_key": "7f3b6e22abd304ee",
+  "promotion_next_stage": "local_preview",
+  "promotion_stages": [
+    {
+      "stage_id": "local_preview",
+      "label": "本地预览",
+      "status": "FAIL",
+      "consistency_key": "7f3b6e22abd304ee",
+      "repo_branch": "main",
+      "repo_head": "180e1fb feat(worker): add live local heartbeat inventory",
+      "repo_clean": "no",
+      "recorded_at": "",
+      "recorded_by": "",
+      "gate_reason": "本地预览尚未通过；先清理仓库、启动本地预览服务并补齐必需文件。",
+      "checks": [
+        {
+          "check_id": "runtime/global/codex-context-index.json",
+          "status": "PASS"
+        },
+        {
+          "check_id": "runtime/global/attached-project-workspace.json",
+          "status": "PASS"
+        },
+        {
+          "check_id": "runtime/global/worker-control-plane.json",
+          "status": "PASS"
+        },
+        {
+          "check_id": "runtime/global/access-enforcement.json",
+          "status": "PASS"
+        },
+        {
+          "check_id": "apps/console/web/server.mjs",
+          "status": "PASS"
+        },
+        {
+          "check_id": "apps/console/web/action-server.mjs",
+          "status": "PASS"
+        },
+        {
+          "check_id": "apps/console/web/build.mjs",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "stage_id": "server_preview",
+      "label": "服务器预览",
+      "status": "BLOCKED",
+      "consistency_key": "",
+      "depends_on": "local_preview",
+      "recorded_at": "",
+      "recorded_by": "",
+      "source_consistency_key": "7f3b6e22abd304ee",
+      "gate_reason": "等待本地预览先通过一致性闸门。"
+    },
+    {
+      "stage_id": "reviewed_publish",
+      "label": "Reviewed Publish",
+      "status": "BLOCKED",
+      "consistency_key": "",
+      "depends_on": "server_preview",
+      "recorded_at": "",
+      "recorded_by": "",
+      "source_consistency_key": "7f3b6e22abd304ee",
+      "gate_reason": "等待服务器预览通过后才能进入 reviewed publish。"
+    }
+  ],
+  "status": "FAIL"
 }

@@ -129,6 +129,70 @@ async function readProjectDispatchPlans() {
   return plans;
 }
 
+async function readProjectProposals() {
+  const projectsDir = resolve(repoRoot, "runtime/projects");
+  if (!existsSync(projectsDir)) return [];
+  const entries = await readdir(projectsDir, { withFileTypes: true });
+  const proposals = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const relativeDir = join("examples", entry.name, "task-proposals");
+    const absoluteDir = resolve(repoRoot, relativeDir);
+    if (!existsSync(absoluteDir)) continue;
+    const files = (await readdir(absoluteDir, { withFileTypes: true }))
+      .filter((file) => file.isFile() && file.name.endsWith(".json"))
+      .map((file) => join(relativeDir, file.name))
+      .sort();
+    for (const file of files) {
+      const data = await readJson(file, null);
+      if (!data) continue;
+      proposals.push({
+        project_id: entry.name,
+        path: file,
+        data
+      });
+    }
+  }
+  proposals.sort((left, right) => {
+    const leftDate = String(left.data?.approved_at ?? left.data?.created_at ?? "");
+    const rightDate = String(right.data?.approved_at ?? right.data?.created_at ?? "");
+    return rightDate.localeCompare(leftDate) || left.project_id.localeCompare(right.project_id);
+  });
+  return proposals;
+}
+
+async function readProjectQueueInjectionAudits() {
+  const projectsDir = resolve(repoRoot, "runtime/projects");
+  if (!existsSync(projectsDir)) return [];
+  const entries = await readdir(projectsDir, { withFileTypes: true });
+  const audits = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const relativeDir = join("runtime/projects", entry.name, "queue-injection-audits");
+    const absoluteDir = resolve(repoRoot, relativeDir);
+    if (!existsSync(absoluteDir)) continue;
+    const files = (await readdir(absoluteDir, { withFileTypes: true }))
+      .filter((file) => file.isFile() && file.name.endsWith(".json"))
+      .map((file) => join(relativeDir, file.name))
+      .sort();
+    for (const file of files) {
+      const data = await readJson(file, null);
+      if (!data) continue;
+      audits.push({
+        project_id: entry.name,
+        path: file,
+        data
+      });
+    }
+  }
+  audits.sort((left, right) => {
+    const leftDate = String(left.data?.generated_at ?? "");
+    const rightDate = String(right.data?.generated_at ?? "");
+    return rightDate.localeCompare(leftDate) || left.project_id.localeCompare(right.project_id);
+  });
+  return audits;
+}
+
 function countArray(value, key) {
   if (Array.isArray(value)) return value.length;
   if (value && Array.isArray(value[key])) return value[key].length;
@@ -171,7 +235,9 @@ export async function loadConsoleLocalData() {
     latestRun,
     latestConsoleActionLog,
     projectBindings,
-    projectDispatchPlans
+    projectDispatchPlans,
+    projectProposals,
+    projectQueueInjectionAudits
   ] = await Promise.all([
     readJson(dataFiles.platformState, {}),
     readJson(dataFiles.roadmapMemory, {}),
@@ -196,7 +262,9 @@ export async function loadConsoleLocalData() {
     latestAutopilotRun(),
     latestActionLog(),
     readProjectBindings(),
-    readProjectDispatchPlans()
+    readProjectDispatchPlans(),
+    readProjectProposals(),
+    readProjectQueueInjectionAudits()
   ]);
 
   const runtimeProfiles = runtimeCenterExamples.find((item) => item.path.endsWith("runtime-profiles.example.json"))?.data;
@@ -227,7 +295,11 @@ export async function loadConsoleLocalData() {
       bindings: projectBindings,
       binding_count: projectBindings.length,
       dispatch_plans: projectDispatchPlans,
-      dispatch_plan_count: projectDispatchPlans.length
+      dispatch_plan_count: projectDispatchPlans.length,
+      proposals: projectProposals,
+      proposal_count: projectProposals.length,
+      queue_injection_audits: projectQueueInjectionAudits,
+      queue_injection_audit_count: projectQueueInjectionAudits.length
     },
     accessState,
     accessUsers,

@@ -1,18 +1,18 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T10:08:34.014Z",
+  "generated_at": "2026-07-06T12:42:53.915Z",
   "dispatcher_id": "dispatch-plan-4a52dcfbec42",
   "project_id": "jinhu-smart-park",
   "project_name": "Jinhu Smart Park",
   "goal_text": "继续推进 Smart Park 工程管理闭环",
   "task_id": "JINHU-SMART-PARK-TASK-SMART-PARK",
   "status": "PASS",
-  "pipeline_stage": "PROPOSAL_CREATION_READY",
-  "recommended_next_stage": "create_proposal",
-  "recommended_next_command": "node packages/orchestrator-core/bin/studio.mjs project task-plan --config /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/examples/jinhu-smart-park/project.config.example.json --text \"继续推进 Smart Park 工程管理闭环\" --apply-proposal",
+  "pipeline_stage": "READY_FOR_QUEUE_INJECTION",
+  "recommended_next_stage": "approve_proposal",
+  "recommended_next_command": "node packages/orchestrator-core/bin/studio.mjs project approve-proposal --config /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/examples/jinhu-smart-park/project.config.example.json --task-id JINHU-SMART-PARK-TASK-SMART-PARK --dry-run",
   "config_path": "examples/jinhu-smart-park/project.config.example.json",
   "binding_path": "runtime/projects/jinhu-smart-park/binding.json",
-  "latest_existing_dispatch_plan": "",
+  "latest_existing_dispatch_plan": "runtime/projects/jinhu-smart-park/dispatch-plans/JINHU-SMART-PARK-TASK-SMART-PARK.json",
   "binding_summary": {
     "binding_status": "attached",
     "connection_status": "CONNECTED",
@@ -28,7 +28,7 @@
   },
   "execution_context": {
     "schema_version": 1,
-    "generated_at": "2026-07-06T10:08:32.137Z",
+    "generated_at": "2026-07-06T12:42:51.926Z",
     "project_id": "jinhu-smart-park",
     "project_name": "Jinhu Smart Park",
     "resolved": true,
@@ -182,7 +182,19 @@
       "runtime_memory_imported_at": "2026-06-29T03:55:05.560Z"
     }
   },
-  "proposal_state": null,
+  "proposal_state": {
+    "path": "examples/jinhu-smart-park/task-proposals/JINHU-SMART-PARK-TASK-SMART-PARK.json",
+    "approval_status": "APPROVAL_NOT_REQUIRED",
+    "proposal_status": [
+      "PROPOSED",
+      "APPROVAL_NOT_REQUIRED",
+      "PROJECT_WRITES_DISABLED",
+      "AGENT_EXECUTION_DISABLED"
+    ],
+    "risk": "MEDIUM",
+    "created_at": "2026-07-06T12:33:38.121Z",
+    "approved_at": ""
+  },
   "queue_state": {
     "task_status": "missing",
     "result_status": "missing",
@@ -213,8 +225,8 @@
   },
   "worker_route": {
     "schema_version": 1,
-    "dispatch_id": "dispatch-f7e9cb6fd0",
-    "created_at": "2026-07-06T10:08:34.012Z",
+    "dispatch_id": "dispatch-0498bb43d7",
+    "created_at": "2026-07-06T12:42:53.913Z",
     "requested_runtime": "codex-cli",
     "requested_capability": "",
     "selection_kind": "runtime",

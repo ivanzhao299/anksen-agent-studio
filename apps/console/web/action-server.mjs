@@ -43,6 +43,117 @@ const projects = {
   }
 };
 
+function projectConfigFor(projectId) {
+  return projects[projectId]?.config || projects["jinhu-smart-park"].config;
+}
+
+function projectProposalDir(projectId) {
+  return resolve(repoRoot, "examples", projectId, "task-proposals");
+}
+
+function projectDispatchDir(projectId) {
+  return resolve(repoRoot, "runtime/projects", projectId, "dispatch-plans");
+}
+
+function projectQueueAuditDir(projectId) {
+  return resolve(repoRoot, "runtime/projects", projectId, "queue-injection-audits");
+}
+
+async function readJsonIfExists(path) {
+  if (!existsSync(path)) return null;
+  return JSON.parse(await readFile(path, "utf8"));
+}
+
+async function readProjectJsonRecords(absoluteDir, projectId) {
+  if (!existsSync(absoluteDir)) return [];
+  const entries = await readdir(absoluteDir, { withFileTypes: true });
+  const records = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+    const absolutePath = join(absoluteDir, entry.name);
+    const data = await readJsonIfExists(absolutePath);
+    if (!data) continue;
+    const stats = await stat(absolutePath);
+    records.push({
+      project_id: projectId,
+      path: relative(repoRoot, absolutePath),
+      data,
+      mtimeMs: stats.mtimeMs
+    });
+  }
+  records.sort((left, right) => right.mtimeMs - left.mtimeMs || left.path.localeCompare(right.path));
+  return records;
+}
+
+async function readProjectProposalRecords(projectId) {
+  return readProjectJsonRecords(projectProposalDir(projectId), projectId);
+}
+
+async function readProjectDispatchRecords(projectId) {
+  return readProjectJsonRecords(projectDispatchDir(projectId), projectId);
+}
+
+async function readProjectQueueAuditRecords(projectId) {
+  return readProjectJsonRecords(projectQueueAuditDir(projectId), projectId);
+}
+
+function parseStudioFieldMap(output) {
+  const fields = {};
+  for (const line of String(output || "").split("\n")) {
+    const match = line.match(/^([a-zA-Z0-9_]+):\s*(.+)$/);
+    if (!match) continue;
+    fields[match[1]] = match[2].trim();
+  }
+  return fields;
+}
+
+async function runShellCommand(command, args, timeout = 120000) {
+  try {
+    const { stdout, stderr } = await execFileAsync(command, args, {
+      cwd: repoRoot,
+      timeout,
+      maxBuffer: 1024 * 1024 * 10
+    });
+    return { ok: true, exit_code: 0, stdout, stderr };
+  } catch (error) {
+    return {
+      ok: false,
+      exit_code: typeof error?.code === "number" ? error.code : 1,
+      stdout: String(error?.stdout ?? ""),
+      stderr: String(error?.stderr ?? error?.message ?? "")
+    };
+  }
+}
+
+function findPendingProposal(records = []) {
+  return records.find((record) => record.data?.approval_status !== "APPROVED") ?? records[0] ?? null;
+}
+
+function summarizeProposalRecords(records = []) {
+  if (records.length === 0) return "当前没有 proposal。";
+  return records.slice(0, 8).map((record) => {
+    const proposal = record.data ?? {};
+    return [
+      proposal.task_id || "unknown",
+      proposal.risk || "unknown",
+      proposal.approval_status || "unknown",
+      record.path
+    ].join(" | ");
+  }).join("\n");
+}
+
+function summarizeQueueAuditRecords(records = []) {
+  if (records.length === 0) return "当前没有 queue injection audit trace。";
+  return records.slice(0, 8).map((record) => {
+    const audit = record.data ?? {};
+    return [
+      audit.task_id || "unknown",
+      audit.status || "unknown",
+      record.path
+    ].join(" | ");
+  }).join("\n");
+}
+
 export const consoleActionOptions = [
   { id: "workspace-goal", label: "自然语言任务", risk: "MEDIUM" },
   { id: "project-dispatch", label: "项目派发计划", risk: "MEDIUM" },
@@ -60,7 +171,7 @@ export const consoleActionOptions = [
   { id: "smart-park-blockers", label: "检查上线阻断项", risk: "MEDIUM" },
   { id: "smart-park-go-live-plan", label: "Smart Park 上线计划 Proposal", risk: "MEDIUM" },
   { id: "proposal-review", label: "查看待审批 Proposal", risk: "MEDIUM" },
-  { id: "proposal-approve-dry-run", label: "审批 Proposal 草稿", risk: "HIGH" },
+  { id: "proposal-approve-dry-run", label: "审批 Proposal 草稿", risk: "MEDIUM" },
   { id: "production-operation-request", label: "生产操作请求", risk: "CRITICAL" },
   { id: "proposal-reject-draft", label: "拒绝草稿", risk: "MEDIUM" }
 ];
@@ -320,7 +431,7 @@ function commandFor(input, plan = null) {
     return {
       command: process.execPath,
       args: [studioScript, "project", "dispatch-plan", "--project", projectId, "--text", goal, "--dry-run"],
-      display: `node ${studioScript} project dispatch-plan --project ${projectId} --text "${goal}" --dry-run`
+      display: `node ${studioScript} project dispatch-plan --project ${projectId} --text "${goal}" --apply -> project task-plan --apply-proposal -> project proposals`
     };
   }
   if (actionId === "autopilot-dry-run") {
@@ -349,6 +460,29 @@ function commandFor(input, plan = null) {
       command: process.execPath,
       args: [studioScript, "project", "chain-validate", "--project", "jinhu-smart-park", "--dry-run"],
       display: `node ${studioScript} project chain-validate --project jinhu-smart-park --dry-run`
+    };
+  }
+  if (actionId === "proposal-review") {
+    const configPath = projectConfigFor(projectId);
+    return {
+      command: process.execPath,
+      args: [studioScript, "project", "proposals", "--config", configPath],
+      display: `node ${studioScript} project proposals --config ${configPath}`
+    };
+  }
+  if (actionId === "proposal-approve-dry-run") {
+    const configPath = projectConfigFor(projectId);
+    return {
+      command: process.execPath,
+      args: [studioScript, "project", "approve-proposal", "--config", configPath, "--task-id", input.task_id || "<auto>", "--dry-run"],
+      display: `node ${studioScript} project approve-proposal --config ${configPath} --task-id ${input.task_id || "<auto>"} --dry-run`
+    };
+  }
+  if (actionId === "proposal-reject-draft") {
+    return {
+      command: process.execPath,
+      args: [studioScript, "project", "proposals", "--config", projectConfigFor(projectId)],
+      display: "proposal reject draft -> review required"
     };
   }
   return {
@@ -658,6 +792,149 @@ export async function detectLocalAiRuntimes() {
       claude_tools: "Bash/Edit/Write/MultiEdit/NotebookEdit disallowed"
     }
   };
+}
+
+async function executeProjectDispatchFlow(plan, input) {
+  const projectId = plan.target_project;
+  const configPath = projectConfigFor(projectId);
+  const dispatchResult = await runShellCommand(process.execPath, [
+    studioScript,
+    "project",
+    "dispatch-plan",
+    "--project",
+    projectId,
+    "--text",
+    safeGoal(input.goal),
+    "--apply"
+  ]);
+  if (!dispatchResult.ok) {
+    return {
+      status: "FAIL",
+      exit_code: dispatchResult.exit_code,
+      stdout_summary: summarizeStdout(dispatchResult.stdout),
+      stderr_summary: summarizeStdout(dispatchResult.stderr)
+    };
+  }
+
+  const dispatchFields = parseStudioFieldMap(dispatchResult.stdout);
+  let proposalCreated = null;
+  if (dispatchFields.recommended_next_stage === "create_proposal") {
+    const proposalResult = await runShellCommand(process.execPath, [
+      studioScript,
+      "project",
+      "task-plan",
+      "--config",
+      configPath,
+      "--text",
+      safeGoal(input.goal),
+      "--apply-proposal"
+    ]);
+    if (!proposalResult.ok) {
+      return {
+        status: "FAIL",
+        exit_code: proposalResult.exit_code,
+        stdout_summary: summarizeStdout(dispatchResult.stdout),
+        stderr_summary: summarizeStdout(proposalResult.stderr || proposalResult.stdout)
+      };
+    }
+    const proposalFields = parseStudioFieldMap(proposalResult.stdout);
+    proposalCreated = {
+      task_id: proposalFields.task_id || dispatchFields.task_id || "",
+      proposal_file: proposalFields.proposal_file || ""
+    };
+  }
+
+  const proposals = await readProjectProposalRecords(projectId);
+  const pending = findPendingProposal(proposals);
+  const summary = [
+    `dispatch_plan: ${dispatchFields.pipeline_stage || "unknown"}`,
+    `recommended_next_stage: ${dispatchFields.recommended_next_stage || "unknown"}`,
+    proposalCreated
+      ? `proposal_created: ${proposalCreated.task_id} | ${proposalCreated.proposal_file || "file pending"}`
+      : `proposal_state: ${pending?.data?.approval_status || "none"}`,
+    `proposal_review_ready: ${pending ? "yes" : "no"}`,
+    "",
+    summarizeProposalRecords(proposals)
+  ].join("\n");
+  return {
+    status: pending ? "NEEDS_APPROVAL" : "PASS",
+    exit_code: 0,
+    stdout_summary: summary,
+    stderr_summary: "",
+    proposal_task_id: proposalCreated?.task_id || pending?.data?.task_id || ""
+  };
+}
+
+async function executeProposalReviewFlow(plan) {
+  const projectId = plan.target_project;
+  const proposals = await readProjectProposalRecords(projectId);
+  const audits = await readProjectQueueAuditRecords(projectId);
+  const pending = proposals.filter((record) => record.data?.approval_status !== "APPROVED");
+  return {
+    status: pending.length > 0 ? "NEEDS_APPROVAL" : "PASS",
+    exit_code: 0,
+    stdout_summary: [
+      `proposal_count: ${proposals.length}`,
+      `pending_approval: ${pending.length}`,
+      "",
+      summarizeProposalRecords(proposals),
+      "",
+      summarizeQueueAuditRecords(audits)
+    ].join("\n"),
+    stderr_summary: ""
+  };
+}
+
+async function executeProposalApproveDryRunFlow(plan, input) {
+  const projectId = plan.target_project;
+  const configPath = projectConfigFor(projectId);
+  const proposals = await readProjectProposalRecords(projectId);
+  const selected = proposals.find((record) => record.data?.task_id === input.task_id) ?? findPendingProposal(proposals);
+  if (!selected) {
+    return {
+      status: "BLOCKED",
+      exit_code: null,
+      stdout_summary: "当前没有可审批的 proposal。",
+      stderr_summary: ""
+    };
+  }
+  const risk = String(selected.data?.risk || "MEDIUM");
+  const args = [
+    studioScript,
+    "project",
+    "approve-proposal",
+    "--config",
+    configPath,
+    "--task-id",
+    selected.data.task_id,
+    "--dry-run"
+  ];
+  if (risk === "HIGH") args.push("--approve-high-risk");
+  const result = await runShellCommand(process.execPath, args);
+  return {
+    status: result.ok ? "NEEDS_APPROVAL" : "FAIL",
+    exit_code: result.exit_code,
+    stdout_summary: result.ok
+      ? summarizeStdout(result.stdout)
+      : summarizeStdout(result.stdout || result.stderr),
+    stderr_summary: result.ok ? "" : summarizeStdout(result.stderr),
+    proposal_task_id: selected.data.task_id
+  };
+}
+
+async function executeSpecialPlanFlow(plan, input) {
+  if (plan.action_id === "project-dispatch") return executeProjectDispatchFlow(plan, input);
+  if (plan.action_id === "proposal-review") return executeProposalReviewFlow(plan, input);
+  if (plan.action_id === "proposal-approve-dry-run") return executeProposalApproveDryRunFlow(plan, input);
+  if (plan.action_id === "proposal-reject-draft") {
+    return {
+      status: "BLOCKED",
+      exit_code: null,
+      stdout_summary: "proposal reject draft 尚未接入自动写回，当前保持 review-only。",
+      stderr_summary: ""
+    };
+  }
+  return null;
 }
 
 function actionPlanCommandFor(plan, input) {
@@ -1029,6 +1306,30 @@ async function runConversationCommand(runId, input, command) {
     return;
   }
 
+  const specialResult = await executeSpecialPlanFlow(run.plan, input);
+  if (specialResult) {
+    run.status = specialResult.status;
+    run.phase = specialResult.status === "PASS" ? "reported" : (specialResult.status === "NEEDS_APPROVAL" ? "approval" : "failed");
+    run.result = specialResult;
+    run.messages.push({
+      role: "assistant",
+      content: specialResult.status === "PASS"
+        ? `执行完成：${specialResult.stdout_summary || "特殊流程已完成。"}`
+        : (specialResult.status === "NEEDS_APPROVAL"
+            ? `已进入 Proposal Review：${specialResult.stdout_summary || "请继续审批。"}`
+            : `流程已阻止：${specialResult.stdout_summary || specialResult.stderr_summary || "未通过执行条件。"}`),
+      at: new Date().toISOString(),
+      phase: specialResult.status === "NEEDS_APPROVAL" ? "approval" : "report"
+    });
+    pushTranscriptLine(run, specialResult.status === "FAIL" ? "stderr" : "system", specialResult.stdout_summary || specialResult.stderr_summary || "特殊流程完成。");
+    if (specialResult.proposal_task_id) {
+      pushTranscriptLine(run, "system", `proposal_task_id=${specialResult.proposal_task_id}`);
+    }
+    run.timeline = runTimeline(run.status, run.result.status);
+    await persistConversationRun(run);
+    return;
+  }
+
   run.status = "RUNNING";
   run.phase = "executing";
   run.result = {
@@ -1301,7 +1602,6 @@ export async function cancelConversationAction(runId) {
 
 export async function executeConsoleAction(input, options = {}) {
   const plan = await preparePlan(input, options);
-  const command = commandFor(input, plan);
   let commandResult;
   if (plan.access?.status !== "ALLOW") {
     commandResult = {
@@ -1318,25 +1618,31 @@ export async function executeConsoleAction(input, options = {}) {
       stderr_summary: ""
     };
   } else {
-    try {
-      const { stdout, stderr } = await execFileAsync(command.command, command.args, {
-        cwd: repoRoot,
-        timeout: 120000,
-        maxBuffer: 1024 * 1024 * 10
-      });
-      commandResult = {
-        status: "PASS",
-        exit_code: 0,
-        stdout_summary: summarizeStdout(stdout),
-        stderr_summary: summarizeStdout(stderr)
-      };
-    } catch (error) {
-      commandResult = {
-        status: "FAIL",
-        exit_code: typeof error?.code === "number" ? error.code : 1,
-        stdout_summary: summarizeStdout(error?.stdout ?? ""),
-        stderr_summary: summarizeStdout(error?.stderr ?? error?.message ?? "")
-      };
+    const specialResult = await executeSpecialPlanFlow(plan, input);
+    if (specialResult) {
+      commandResult = specialResult;
+    } else {
+      const command = commandFor(input, plan);
+      try {
+        const { stdout, stderr } = await execFileAsync(command.command, command.args, {
+          cwd: repoRoot,
+          timeout: 120000,
+          maxBuffer: 1024 * 1024 * 10
+        });
+        commandResult = {
+          status: "PASS",
+          exit_code: 0,
+          stdout_summary: summarizeStdout(stdout),
+          stderr_summary: summarizeStdout(stderr)
+        };
+      } catch (error) {
+        commandResult = {
+          status: "FAIL",
+          exit_code: typeof error?.code === "number" ? error.code : 1,
+          stdout_summary: summarizeStdout(error?.stdout ?? ""),
+          stderr_summary: summarizeStdout(error?.stderr ?? error?.message ?? "")
+        };
+      }
     }
   }
 
