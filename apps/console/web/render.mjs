@@ -463,6 +463,7 @@ function proposalPanel(data) {
       actions: `<div class="button-row compact-row">
         <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">查看</button>
         <button type="button" class="secondary" data-proposal-action="proposal-approve-dry-run" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">审批 dry-run</button>
+        <button type="button" class="primary" data-proposal-action="proposal-approve-apply" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">审批并入队</button>
       </div>`
     };
   });

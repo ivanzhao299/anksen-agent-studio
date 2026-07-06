@@ -8155,6 +8155,7 @@ function normalizeConsoleActionId(actionId) {
   if (actionId === "worker-status") return "worker-health";
   if (actionId === "smart-park-go-live-plan-dry-run") return "smart-park-go-live-plan";
   if (actionId === "proposal-approve") return "proposal-approve-dry-run";
+  if (actionId === "proposal-inject") return "proposal-approve-apply";
   if (actionId === "server-preview") return "release-server-preview";
   if (actionId === "reviewed-publish") return "release-reviewed-publish";
   return actionId;
@@ -9803,6 +9804,11 @@ async function consoleActionServerSmoke(args) {
     project_id: "jinhu-smart-park",
     goal: "审批 Proposal 草稿"
   });
+  const proposalApplyPlan = await actionServer.createActionPlan({
+    action_id: "proposal-approve-apply",
+    project_id: "jinhu-smart-park",
+    goal: "审批并注入 Proposal"
+  });
   const workspaceGoalPlan = await actionServer.createActionPlan({
     action_id: "workspace-goal",
     project_id: "jinhu-smart-park",
@@ -9858,8 +9864,9 @@ async function consoleActionServerSmoke(args) {
     && summary.actions.some((action) => action.id === "ai-runtime-status")
     && summary.actions.some((action) => action.id === "release-server-preview")
     && summary.actions.some((action) => action.id === "release-reviewed-publish")
+    && summary.actions.some((action) => action.id === "proposal-approve-apply")
     && summary.actions.some((action) => action.id === "agent-real-plan");
-  const logWriteCheck = [runtimePlan, smartParkPlan, releaseServerPreviewPlan, releaseReviewedPublishPlan, highPlan].every((record) =>
+  const logWriteCheck = [runtimePlan, smartParkPlan, releaseServerPreviewPlan, releaseReviewedPublishPlan, highPlan, proposalApplyPlan].every((record) =>
     record.logs?.json
     && record.logs?.markdown
     && existsSync(resolveFromRoot(record.logs.json))
@@ -9869,6 +9876,8 @@ async function consoleActionServerSmoke(args) {
     && smartParkPlan.plan.command.includes("project chain-validate --project jinhu-smart-park --dry-run")
     && releaseServerPreviewPlan.plan.command.includes("release consistency --apply --target server_preview")
     && releaseReviewedPublishPlan.plan.command.includes("release consistency --apply --target reviewed_publish")
+    && proposalApplyPlan.plan.command.includes("project approve-proposal")
+    && proposalApplyPlan.plan.command.includes("--apply")
     && workspaceGoalPlan.plan.action_id === "agent-real-plan"
     && workspaceGoalPlan.plan.command.includes("codex exec --sandbox read-only")
     && planOnlyWorkspaceGoalPlan.plan.action_id === "goal-plan"

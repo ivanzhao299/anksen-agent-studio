@@ -30,7 +30,8 @@ const directExecuteActionIds = new Set([
   "smart-park-blockers",
   "agent-real-plan",
   "release-server-preview",
-  "release-reviewed-publish"
+  "release-reviewed-publish",
+  "proposal-approve-apply"
 ]);
 const agentRuntimeIds = new Set(["auto", "codex-cli", "claude-code", "gemini", "openhands", "aider", "local-agent"]);
 
@@ -54,6 +55,7 @@ const consoleActionCatalog = {
   "release-server-preview": { capabilities: ["console.access", "governance.read"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "release-reviewed-publish": { capabilities: ["console.access", "governance.read"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "proposal-approve-dry-run": { capabilities: ["console.access", "proposal.approve"], execution_mode: "proposal_only", projectScoped: true },
+  "proposal-approve-apply": { capabilities: ["console.access", "proposal.approve"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
   "proposal-reject-draft": { capabilities: ["console.access", "proposal.reject"], execution_mode: "proposal_only", projectScoped: true },
   "production-operation-request": { capabilities: ["console.access", "production.request"], execution_mode: "human_approval_required", projectScoped: true }
 };

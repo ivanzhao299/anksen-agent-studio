@@ -204,6 +204,7 @@ export const consoleActionOptions = [
   { id: "release-server-preview", label: "服务器预览确认", risk: "LOW" },
   { id: "release-reviewed-publish", label: "Reviewed Publish 确认", risk: "LOW" },
   { id: "proposal-approve-dry-run", label: "审批 Proposal 草稿", risk: "MEDIUM" },
+  { id: "proposal-approve-apply", label: "审批并注入队列", risk: "LOW" },
   { id: "production-operation-request", label: "生产操作请求", risk: "CRITICAL" },
   { id: "proposal-reject-draft", label: "拒绝草稿", risk: "MEDIUM" }
 ];
@@ -358,6 +359,7 @@ function inferWorkspaceActionId(input = {}) {
 function normalizeActionId(actionId, input = {}) {
   if (actionId === "autopilot-run") return "autopilot-dry-run";
   if (actionId === "proposal-approve") return "proposal-approve-dry-run";
+  if (actionId === "proposal-inject") return "proposal-approve-apply";
   if (actionId === "worker-status") return "worker-health";
   if (actionId === "pending-proposals") return "proposal-review";
   if (actionId === "smart-park-go-live-plan-dry-run") return "smart-park-go-live-plan";
@@ -526,6 +528,14 @@ function commandFor(input, plan = null) {
       command: process.execPath,
       args: [studioScript, "project", "approve-proposal", "--config", configPath, "--task-id", input.task_id || "<auto>", "--dry-run"],
       display: `node ${studioScript} project approve-proposal --config ${configPath} --task-id ${input.task_id || "<auto>"} --dry-run`
+    };
+  }
+  if (actionId === "proposal-approve-apply") {
+    const configPath = projectConfigFor(projectId);
+    return {
+      command: process.execPath,
+      args: [studioScript, "project", "approve-proposal", "--config", configPath, "--task-id", input.task_id || "<auto>", "--apply"],
+      display: `node ${studioScript} project approve-proposal --config ${configPath} --task-id ${input.task_id || "<auto>"} --apply`
     };
   }
   if (actionId === "proposal-reject-draft") {
@@ -972,6 +982,85 @@ async function executeProposalApproveDryRunFlow(plan, input) {
   };
 }
 
+async function executeProposalApproveApplyFlow(plan, input) {
+  const projectId = plan.target_project;
+  const configPath = projectConfigFor(projectId);
+  const proposals = await readProjectProposalRecords(projectId);
+  const existingAudits = await readProjectQueueAuditRecords(projectId);
+  const selected = proposals.find((record) => record.data?.task_id === input.task_id) ?? findPendingProposal(proposals) ?? proposals[0] ?? null;
+  if (!selected) {
+    return {
+      status: "BLOCKED",
+      exit_code: null,
+      stdout_summary: "当前没有可入队的 proposal。",
+      stderr_summary: ""
+    };
+  }
+
+  const taskId = String(selected.data?.task_id || "");
+  const risk = String(selected.data?.risk || "MEDIUM");
+  const existingAudit = existingAudits.find((record) => record.data?.task_id === taskId) ?? null;
+  if (existingAudit?.data?.status === "PASS") {
+    return {
+      status: "PASS",
+      exit_code: 0,
+      stdout_summary: [
+        `proposal ${taskId} 已存在 PASS 的 queue injection audit trace，无需重复入队。`,
+        "",
+        summarizeProposalRecords(proposals),
+        "",
+        summarizeQueueAuditRecords(existingAudits)
+      ].join("\n"),
+      stderr_summary: "",
+      proposal_task_id: taskId,
+      queue_injection_audit_status: existingAudit.data.status
+    };
+  }
+  if (risk === "HIGH" || risk === "CRITICAL") {
+    return {
+      status: "NEEDS_APPROVAL",
+      exit_code: null,
+      stdout_summary: `proposal ${taskId} 风险为 ${risk}，当前 Console 不自动执行入队，请保留人工审批路径。`,
+      stderr_summary: ""
+    };
+  }
+
+  const result = await runShellCommand(process.execPath, [
+    studioScript,
+    "project",
+    "approve-proposal",
+    "--config",
+    configPath,
+    "--task-id",
+    taskId,
+    "--apply"
+  ]);
+
+  const refreshedProposals = await readProjectProposalRecords(projectId);
+  const refreshedAudits = await readProjectQueueAuditRecords(projectId);
+  const refreshedAudit = refreshedAudits.find((record) => record.data?.task_id === taskId) ?? null;
+  const stdout = summarizeStdout(result.stdout || result.stderr);
+  const stderr = summarizeStdout(result.stderr);
+  const precheckBlocked = /Project injection precheck failed:/i.test(`${result.stdout}\n${result.stderr}`);
+
+  return {
+    status: result.ok ? "PASS" : (precheckBlocked ? "BLOCKED" : "FAIL"),
+    exit_code: result.exit_code,
+    stdout_summary: result.ok
+      ? [
+          stdout,
+          "",
+          summarizeProposalRecords(refreshedProposals),
+          "",
+          summarizeQueueAuditRecords(refreshedAudits)
+        ].join("\n")
+      : stdout,
+    stderr_summary: result.ok ? "" : stderr,
+    proposal_task_id: taskId,
+    queue_injection_audit_status: refreshedAudit?.data?.status || ""
+  };
+}
+
 async function executeReleasePromotionFlow(targetStage) {
   const existingArtifact = await readReleaseConsistencyArtifact();
   const existingTarget = existingArtifact?.promotion_stages?.find((stage) => stage.stage_id === targetStage);
@@ -1028,6 +1117,7 @@ async function executeSpecialPlanFlow(plan, input) {
   if (plan.action_id === "release-server-preview") return executeReleasePromotionFlow("server_preview");
   if (plan.action_id === "release-reviewed-publish") return executeReleasePromotionFlow("reviewed_publish");
   if (plan.action_id === "proposal-approve-dry-run") return executeProposalApproveDryRunFlow(plan, input);
+  if (plan.action_id === "proposal-approve-apply") return executeProposalApproveApplyFlow(plan, input);
   if (plan.action_id === "proposal-reject-draft") {
     return {
       status: "BLOCKED",
