@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T13:51:21.104Z",
+  "generated_at": "2026-07-06T13:57:29.151Z",
   "repo_branch": "main",
   "repo_clean": "yes",
-  "latest_head": "f029935 feat(console): complete proposal queue injection flow",
+  "latest_head": "9f13b45 fix(release): exclude generated runtime state from promotion fingerprints",
   "latest_autopilot_run": "autopilot-runs/v4-continuous-2026-06-23T164157169Z-187199ed-step-04-v4-r-console-operable-read-only.json",
   "console_service": {
     "port": 4317,
@@ -15,31 +15,43 @@
   "checks": [
     {
       "check_id": "runtime/global/codex-context-index.json",
-      "status": "PASS"
+      "status": "PASS",
+      "fingerprint": ""
     },
     {
       "check_id": "runtime/global/attached-project-workspace.json",
-      "status": "PASS"
+      "status": "PASS",
+      "fingerprint": "44652108c297ae08"
     },
     {
       "check_id": "runtime/global/worker-control-plane.json",
-      "status": "PASS"
+      "status": "PASS",
+      "fingerprint": "bffb03f51d549853"
     },
     {
       "check_id": "runtime/global/access-enforcement.json",
-      "status": "PASS"
+      "status": "PASS",
+      "fingerprint": ""
     },
     {
       "check_id": "apps/console/web/server.mjs",
-      "status": "PASS"
+      "status": "PASS",
+      "fingerprint": "7e9914a026d22de8"
     },
     {
       "check_id": "apps/console/web/action-server.mjs",
-      "status": "PASS"
+      "status": "PASS",
+      "fingerprint": "8c2da42f5e1430e0"
     },
     {
       "check_id": "apps/console/web/build.mjs",
-      "status": "PASS"
+      "status": "PASS",
+      "fingerprint": "8755a11b5ec750a4"
+    },
+    {
+      "check_id": "packages/orchestrator-core/bin/studio.mjs",
+      "status": "PASS",
+      "fingerprint": "1e5cf576d3e0fdea"
     }
   ],
   "safety": {
@@ -52,18 +64,18 @@
   "warnings": [
     "Reviewed publish has not been confirmed for the current consistency key."
   ],
-  "promotion_consistency_key": "e0a1f26f4f9184dc",
+  "promotion_consistency_key": "b8405c981e396417",
   "promotion_next_stage": "completed",
   "promotion_stages": [
     {
       "stage_id": "local_preview",
       "label": "本地预览",
       "status": "PASS",
-      "consistency_key": "e0a1f26f4f9184dc",
+      "consistency_key": "b8405c981e396417",
       "repo_branch": "main",
-      "repo_head": "f029935 feat(console): complete proposal queue injection flow",
+      "repo_head": "9f13b45 fix(release): exclude generated runtime state from promotion fingerprints",
       "repo_clean": "yes",
-      "recorded_at": "2026-07-06T13:51:20.839Z",
+      "recorded_at": "2026-07-06T13:57:28.920Z",
       "recorded_by": "studio.release.consistency",
       "gate_reason": "本地预览所需一致性检查已通过。",
       "checks": [
@@ -94,6 +106,10 @@
         {
           "check_id": "apps/console/web/build.mjs",
           "status": "PASS"
+        },
+        {
+          "check_id": "packages/orchestrator-core/bin/studio.mjs",
+          "status": "PASS"
         }
       ]
     },
@@ -101,22 +117,22 @@
       "stage_id": "server_preview",
       "label": "服务器预览",
       "status": "PASS",
-      "consistency_key": "e0a1f26f4f9184dc",
+      "consistency_key": "b8405c981e396417",
       "depends_on": "local_preview",
-      "recorded_at": "2026-07-06T13:51:20.992Z",
+      "recorded_at": "2026-07-06T13:57:29.029Z",
       "recorded_by": "studio.release.consistency",
-      "source_consistency_key": "e0a1f26f4f9184dc",
+      "source_consistency_key": "b8405c981e396417",
       "gate_reason": "服务器预览已确认当前一致性快照。"
     },
     {
       "stage_id": "reviewed_publish",
       "label": "Reviewed Publish",
       "status": "PASS",
-      "consistency_key": "e0a1f26f4f9184dc",
+      "consistency_key": "b8405c981e396417",
       "depends_on": "server_preview",
-      "recorded_at": "2026-07-06T13:51:21.104Z",
+      "recorded_at": "2026-07-06T13:57:29.152Z",
       "recorded_by": "studio.release.consistency",
-      "source_consistency_key": "e0a1f26f4f9184dc",
+      "source_consistency_key": "b8405c981e396417",
       "gate_reason": "reviewed publish 已确认当前一致性快照。"
     }
   ],
