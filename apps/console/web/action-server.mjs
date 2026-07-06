@@ -201,8 +201,8 @@ export const consoleActionOptions = [
   { id: "smart-park-blockers", label: "检查上线阻断项", risk: "MEDIUM" },
   { id: "smart-park-go-live-plan", label: "Smart Park 上线计划 Proposal", risk: "MEDIUM" },
   { id: "proposal-review", label: "查看待审批 Proposal", risk: "MEDIUM" },
-  { id: "release-server-preview", label: "服务器预览确认", risk: "MEDIUM" },
-  { id: "release-reviewed-publish", label: "Reviewed Publish 确认", risk: "MEDIUM" },
+  { id: "release-server-preview", label: "服务器预览确认", risk: "LOW" },
+  { id: "release-reviewed-publish", label: "Reviewed Publish 确认", risk: "LOW" },
   { id: "proposal-approve-dry-run", label: "审批 Proposal 草稿", risk: "MEDIUM" },
   { id: "production-operation-request", label: "生产操作请求", risk: "CRITICAL" },
   { id: "proposal-reject-draft", label: "拒绝草稿", risk: "MEDIUM" }
@@ -973,6 +973,18 @@ async function executeProposalApproveDryRunFlow(plan, input) {
 }
 
 async function executeReleasePromotionFlow(targetStage) {
+  const existingArtifact = await readReleaseConsistencyArtifact();
+  const existingTarget = existingArtifact?.promotion_stages?.find((stage) => stage.stage_id === targetStage);
+  if (existingTarget?.status === "PASS") {
+    return {
+      status: "PASS",
+      exit_code: 0,
+      stdout_summary: summarizeReleaseConsistencyArtifact(existingArtifact, targetStage),
+      stderr_summary: "",
+      promotion_consistency_key: existingArtifact?.promotion_consistency_key || "",
+      release_stage: targetStage
+    };
+  }
   const result = await runShellCommand(process.execPath, [
     studioScript,
     "release",

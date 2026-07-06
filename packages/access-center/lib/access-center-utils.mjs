@@ -24,7 +24,14 @@ const runtimePaths = {
 };
 
 const riskOrder = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
-const directExecuteActionIds = new Set(["autopilot-execute", "smart-park-continue", "smart-park-blockers", "agent-real-plan"]);
+const directExecuteActionIds = new Set([
+  "autopilot-execute",
+  "smart-park-continue",
+  "smart-park-blockers",
+  "agent-real-plan",
+  "release-server-preview",
+  "release-reviewed-publish"
+]);
 const agentRuntimeIds = new Set(["auto", "codex-cli", "claude-code", "gemini", "openhands", "aider", "local-agent"]);
 
 const consoleActionCatalog = {
@@ -44,6 +51,8 @@ const consoleActionCatalog = {
   "smart-park-blockers": { capabilities: ["console.access", "smart_park.workspace", "project.read"], execution_mode: "direct_execute", projectScoped: true },
   "smart-park-go-live-plan": { capabilities: ["console.access", "smart_park.workspace", "proposal.create"], execution_mode: "proposal_only", projectScoped: true },
   "proposal-review": { capabilities: ["console.access", "proposal.review"], execution_mode: "proposal_only", projectScoped: true },
+  "release-server-preview": { capabilities: ["console.access", "governance.read"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
+  "release-reviewed-publish": { capabilities: ["console.access", "governance.read"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "proposal-approve-dry-run": { capabilities: ["console.access", "proposal.approve"], execution_mode: "proposal_only", projectScoped: true },
   "proposal-reject-draft": { capabilities: ["console.access", "proposal.reject"], execution_mode: "proposal_only", projectScoped: true },
   "production-operation-request": { capabilities: ["console.access", "production.request"], execution_mode: "human_approval_required", projectScoped: true }
@@ -759,7 +768,8 @@ export function listConsoleActionCatalog() {
     action_id: actionId,
     capabilities: [...(action.capabilities ?? [])],
     execution_mode: action.execution_mode,
-    project_scoped: action.projectScoped === true
+    project_scoped: action.projectScoped === true,
+    risk: action.risk
   }));
 }
 
@@ -891,6 +901,7 @@ export async function evaluateConsoleActionAccess(bundle, input = {}, options = 
 }
 
 function baselineRiskForAction(action) {
+  if (riskOrder.includes(action?.risk)) return action.risk;
   if (action?.execution_mode === "human_approval_required") return "CRITICAL";
   if (action?.execution_mode === "proposal_only") return "HIGH";
   return "MEDIUM";
