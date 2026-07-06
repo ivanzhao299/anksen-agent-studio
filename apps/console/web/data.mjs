@@ -15,6 +15,10 @@ const dataFiles = {
   jinhuProjectState: "runtime/projects/jinhu-smart-park/project-state.json",
   codexContextIndex: "runtime/global/codex-context-index.json",
   decisionLog: "runtime/global/decision-log.json",
+  attachedProjectWorkspace: "runtime/global/attached-project-workspace.json",
+  workerControlPlane: "runtime/global/worker-control-plane.json",
+  accessEnforcement: "runtime/global/access-enforcement.json",
+  releaseConsistency: "runtime/global/release-consistency.json",
   accessState: "runtime/global/access-state.json",
   accessUsers: "runtime/global/access-users.json",
   accessMemberships: "runtime/global/access-memberships.json",
@@ -74,6 +78,25 @@ async function latestAutopilotRun() {
   };
 }
 
+async function readProjectBindings() {
+  const projectsDir = resolve(repoRoot, "runtime/projects");
+  if (!existsSync(projectsDir)) return [];
+  const entries = await readdir(projectsDir, { withFileTypes: true });
+  const bindings = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const relativeBindingPath = join("runtime/projects", entry.name, "binding.json");
+    const data = await readJson(relativeBindingPath, null);
+    if (!data) continue;
+    bindings.push({
+      project_id: entry.name,
+      path: relativeBindingPath,
+      data
+    });
+  }
+  return bindings.sort((left, right) => left.project_id.localeCompare(right.project_id));
+}
+
 function countArray(value, key) {
   if (Array.isArray(value)) return value.length;
   if (value && Array.isArray(value[key])) return value[key].length;
@@ -99,6 +122,10 @@ export async function loadConsoleLocalData() {
     jinhuProjectState,
     codexContextIndex,
     decisionLog,
+    attachedProjectWorkspace,
+    workerControlPlane,
+    accessEnforcement,
+    releaseConsistency,
     accessState,
     accessUsers,
     accessMemberships,
@@ -110,7 +137,8 @@ export async function loadConsoleLocalData() {
     credentialVaultExamples,
     accessCenterExamples,
     latestRun,
-    latestConsoleActionLog
+    latestConsoleActionLog,
+    projectBindings
   ] = await Promise.all([
     readJson(dataFiles.platformState, {}),
     readJson(dataFiles.roadmapMemory, {}),
@@ -118,6 +146,10 @@ export async function loadConsoleLocalData() {
     readJson(dataFiles.jinhuProjectState, {}),
     readJson(dataFiles.codexContextIndex, {}),
     readJson(dataFiles.decisionLog, {}),
+    readJson(dataFiles.attachedProjectWorkspace, {}),
+    readJson(dataFiles.workerControlPlane, {}),
+    readJson(dataFiles.accessEnforcement, {}),
+    readJson(dataFiles.releaseConsistency, {}),
     readJson(dataFiles.accessState, {}),
     readJson(dataFiles.accessUsers, {}),
     readJson(dataFiles.accessMemberships, {}),
@@ -129,7 +161,8 @@ export async function loadConsoleLocalData() {
     readExampleDirectory(exampleDirs.credentialVault),
     readExampleDirectory(exampleDirs.accessCenter),
     latestAutopilotRun(),
-    latestActionLog()
+    latestActionLog(),
+    readProjectBindings()
   ]);
 
   const runtimeProfiles = runtimeCenterExamples.find((item) => item.path.endsWith("runtime-profiles.example.json"))?.data;
@@ -155,6 +188,11 @@ export async function loadConsoleLocalData() {
     jinhuProjectState,
     codexContextIndex,
     decisionLog,
+    project_router: {
+      workspace: attachedProjectWorkspace ?? {},
+      bindings: projectBindings,
+      binding_count: projectBindings.length
+    },
     accessState,
     accessUsers,
     accessMemberships,
@@ -170,7 +208,8 @@ export async function loadConsoleLocalData() {
     workers: {
       examples: workerPoolExamples,
       registry: workerRegistry ?? {},
-      worker_count: countArray(workerRegistry?.workers, "workers")
+      worker_count: countArray(workerRegistry?.workers, "workers"),
+      control_plane: workerControlPlane ?? {}
     },
     credentials: {
       examples: credentialVaultExamples,
@@ -186,6 +225,7 @@ export async function loadConsoleLocalData() {
       examples: accessCenterExamples,
       summary: accessSummary(accessBundle, bootstrapAccessProfile),
       invite_summary: accessInviteSummary(accessBundle),
+      enforcement: accessEnforcement ?? {},
       user_count: countArray(accessUsers?.users, "users"),
       membership_count: countArray(accessMemberships?.memberships, "memberships"),
       invite_count: countArray(accessInvites?.invites, "invites"),
@@ -216,7 +256,8 @@ export async function loadConsoleLocalData() {
       model_invocation: "disabled",
       phoenix_erp_local_path: "not_connected",
       anonymous_console_access: accessBundle.policy.allow_anonymous_console_read ? "enabled" : "disabled"
-    }
+    },
+    release_consistency: releaseConsistency ?? {}
   };
 }
 
@@ -233,6 +274,7 @@ export async function buildConsoleDashboardModel() {
       runtime_profiles: data.runtime.profile_count,
       runtime_providers: data.runtime.provider_count,
       workers: data.workers.worker_count,
+      attached_projects: data.project_router.binding_count,
       credential_references: data.credentials.reference_count,
       credential_backends: data.credentials.backend_count,
       governance_release_gates: data.governance.release_gate_count,

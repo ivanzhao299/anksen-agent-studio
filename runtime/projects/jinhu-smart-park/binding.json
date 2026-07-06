@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-06T08:26:47.566Z",
+  "project_id": "jinhu-smart-park",
+  "project_name": "Jinhu Smart Park",
+  "project_type": "business-repository",
+  "description": "Jinhu Smart Park business project adapter for ANKSEN Agent Studio.",
+  "binding_status": "context_ready",
+  "config_path": "examples/jinhu-smart-park/project.config.example.json",
+  "context_dir": "runtime/projects/jinhu-smart-park",
+  "connector": {
+    "source_type": "local_path",
+    "mode": "external-project-adapter-example",
+    "connection_status": "CONNECTED",
+    "doctor_status": "CONDITIONAL_GO",
+    "default_branch": "main",
+    "package_manager": "pnpm"
+  },
+  "execution": {
+    "execution_route": "managed_project_repo",
+    "repo_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park",
+    "repo_path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park",
+    "repo_resolved": true,
+    "repo_branch": "feature/engineering-project-delivery-runtime",
+    "repo_head": "ef7a1e4 chore(orchestrator): refresh runtime memory context",
+    "repo_clean": "yes",
+    "dirty_files": [],
+    "remote_url_present": false
+  },
+  "workspace": {
+    "state_dir": "ops/agent-orchestrator",
+    "runtime_memory_dir": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runtime",
+    "runtime_memory_dir_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runtime",
+    "worktree_count": 6,
+    "worktrees": [
+      {
+        "slot": "main",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park",
+        "exists": true
+      },
+      {
+        "slot": "agent-1",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-1",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-1",
+        "exists": true
+      },
+      {
+        "slot": "agent-2",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2",
+        "exists": true
+      },
+      {
+        "slot": "agent-3",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3",
+        "exists": true
+      },
+      {
+        "slot": "agent-4",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4",
+        "exists": true
+      },
+      {
+        "slot": "agent-5",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5",
+        "exists": true
+      }
+    ]
+  },
+  "policies": {
+    "write_policy": "disabled",
+    "deploy_policy": "forbidden",
+    "production_operation_policy": "forbidden",
+    "credential_values": "disabled",
+    "dry_run_only": true
+  },
+  "path_policies": {
+    "read_paths": [
+      "ops/agent-orchestrator/events/**",
+      "ops/agent-orchestrator/queue/**",
+      "ops/agent-orchestrator/results/**",
+      "ops/agent-orchestrator/reports/**",
+      "ops/agent-orchestrator/runtime/**",
+      "docs/release/**",
+      "docs/testing/**"
+    ],
+    "write_paths": [
+      "ops/agent-orchestrator/events/**",
+      "ops/agent-orchestrator/queue/**",
+      "ops/agent-orchestrator/results/**",
+      "ops/agent-orchestrator/reports/**",
+      "ops/agent-orchestrator/runtime/**"
+    ],
+    "frozen_paths": [
+      "apps/**",
+      "packages/**",
+      "database/**",
+      "infra/**",
+      ".github/**",
+      "Dockerfile",
+      "Dockerfile.*",
+      "docker-compose*",
+      "deploy/**",
+      "auth/**",
+      ".env",
+      ".env.*"
+    ],
+    "guarded_paths": [
+      "apps/**",
+      "packages/**",
+      "database/**",
+      "infra/**",
+      ".github/**",
+      "Dockerfile",
+      "Dockerfile.*",
+      "docker-compose*",
+      "deploy/**",
+      "auth/**",
+      ".env",
+      ".env.*"
+    ]
+  },
+  "recommended_use": [
+    "Use project bind to attach the config and runtime memory into a stable execution route.",
+    "Use project exec-context before any task execution to confirm repo path, branch, write policy, and doctor status.",
+    "Use project workspace to inspect every attached managed repository in one control-plane summary."
+  ],
+  "safety": {
+    "agent_execution": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read"
+  }
+}

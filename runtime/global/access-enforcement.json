@@ -1,0 +1,1119 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-06T08:27:57.175Z",
+  "policy_id": "studio-access-policy-mvp",
+  "workspace_id": "anksen-agent-studio-local",
+  "evaluated_user": {
+    "user_id": "studio-owner",
+    "username": "owner",
+    "display_name": "Studio 平台所有者",
+    "status": "ACTIVE",
+    "primary_role_id": "platform_owner",
+    "role_ids": [
+      "platform_owner",
+      "security_admin"
+    ],
+    "default_plan_id": "internal_preview",
+    "feature_overrides": [
+      "console_live_execute",
+      "pilot_team_beta",
+      "access_center_admin"
+    ]
+  },
+  "evaluated_project": "jinhu-smart-park",
+  "authenticated": true,
+  "allow_anonymous_console_read": false,
+  "direct_execute_max_risk": "LOW",
+  "project_allowlist": [
+    "*"
+  ],
+  "runtime_allowlist": [
+    "codex-cli",
+    "claude-code",
+    "gemini",
+    "openhands",
+    "aider",
+    "local-agent",
+    "auto"
+  ],
+  "worker_parallel_limit": 4,
+  "allowed_route_ids": [
+    "dashboard",
+    "projects",
+    "workers",
+    "actions",
+    "autopilot",
+    "config",
+    "runtime",
+    "credentials",
+    "governance",
+    "planning",
+    "memory",
+    "pilotStatus"
+  ],
+  "allowed_direct_action_ids": [],
+  "route_checks": [
+    {
+      "route_id": "dashboard",
+      "allowed": true,
+      "required_capabilities": [
+        "console.access"
+      ],
+      "missing_capabilities": []
+    },
+    {
+      "route_id": "projects",
+      "allowed": true,
+      "required_capabilities": [
+        "project.read"
+      ],
+      "missing_capabilities": []
+    },
+    {
+      "route_id": "workers",
+      "allowed": true,
+      "required_capabilities": [
+        "worker.read"
+      ],
+      "missing_capabilities": []
+    },
+    {
+      "route_id": "actions",
+      "allowed": true,
+      "required_capabilities": [
+        "console.access",
+        "autopilot.plan"
+      ],
+      "missing_capabilities": []
+    },
+    {
+      "route_id": "autopilot",
+      "allowed": true,
+      "required_capabilities": [
+        "autopilot.plan"
+      ],
+      "missing_capabilities": []
+    },
+    {
+      "route_id": "config",
+      "allowed": true,
+      "required_capabilities": [
+        "access.manage"
+      ],
+      "missing_capabilities": []
+    },
+    {
+      "route_id": "runtime",
+      "allowed": true,
+      "required_capabilities": [
+        "runtime.read"
+      ],
+      "missing_capabilities": []
+    },
+    {
+      "route_id": "credentials",
+      "allowed": true,
+      "required_capabilities": [
+        "credential.read"
+      ],
+      "missing_capabilities": []
+    },
+    {
+      "route_id": "governance",
+      "allowed": true,
+      "required_capabilities": [
+        "governance.read"
+      ],
+      "missing_capabilities": []
+    },
+    {
+      "route_id": "planning",
+      "allowed": true,
+      "required_capabilities": [
+        "autopilot.plan"
+      ],
+      "missing_capabilities": []
+    },
+    {
+      "route_id": "memory",
+      "allowed": true,
+      "required_capabilities": [
+        "context.read"
+      ],
+      "missing_capabilities": []
+    },
+    {
+      "route_id": "pilotStatus",
+      "allowed": true,
+      "required_capabilities": [
+        "console.access"
+      ],
+      "missing_capabilities": []
+    }
+  ],
+  "action_checks": [
+    {
+      "action_id": "workspace-goal",
+      "execution_mode": "dry_run_only",
+      "project_scoped": true,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "autopilot.plan"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "agent-real-plan",
+      "execution_mode": "direct_execute",
+      "project_scoped": true,
+      "status": "DENY",
+      "required_capabilities": [
+        "console.access",
+        "agent.runtime.readonly"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。"
+    },
+    {
+      "action_id": "ai-runtime-status",
+      "execution_mode": "dry_run_only",
+      "project_scoped": false,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "agent.runtime.status"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "goal-plan",
+      "execution_mode": "dry_run_only",
+      "project_scoped": true,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "autopilot.plan"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "context-summary",
+      "execution_mode": "dry_run_only",
+      "project_scoped": false,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "context.read"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "project-inspect",
+      "execution_mode": "dry_run_only",
+      "project_scoped": true,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "project.read"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "runtime-health",
+      "execution_mode": "dry_run_only",
+      "project_scoped": false,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "runtime.read"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "worker-health",
+      "execution_mode": "dry_run_only",
+      "project_scoped": false,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "worker.read"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "governance-check",
+      "execution_mode": "dry_run_only",
+      "project_scoped": false,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "governance.read"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "autopilot-dry-run",
+      "execution_mode": "dry_run_only",
+      "project_scoped": true,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "autopilot.plan"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "autopilot-execute",
+      "execution_mode": "direct_execute",
+      "project_scoped": true,
+      "status": "DENY",
+      "required_capabilities": [
+        "console.access",
+        "autopilot.execute.local"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。"
+    },
+    {
+      "action_id": "smart-park-continue",
+      "execution_mode": "direct_execute",
+      "project_scoped": true,
+      "status": "DENY",
+      "required_capabilities": [
+        "console.access",
+        "smart_park.workspace",
+        "autopilot.execute.local"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。"
+    },
+    {
+      "action_id": "smart-park-blockers",
+      "execution_mode": "direct_execute",
+      "project_scoped": true,
+      "status": "DENY",
+      "required_capabilities": [
+        "console.access",
+        "smart_park.workspace",
+        "project.read"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。"
+    },
+    {
+      "action_id": "smart-park-go-live-plan",
+      "execution_mode": "proposal_only",
+      "project_scoped": true,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "smart_park.workspace",
+        "proposal.create"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "proposal-review",
+      "execution_mode": "proposal_only",
+      "project_scoped": true,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "proposal.review"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "proposal-approve-dry-run",
+      "execution_mode": "proposal_only",
+      "project_scoped": true,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "proposal.approve"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "proposal-reject-draft",
+      "execution_mode": "proposal_only",
+      "project_scoped": true,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "proposal.reject"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "production-operation-request",
+      "execution_mode": "human_approval_required",
+      "project_scoped": true,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "production.request"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    }
+  ],
+  "summary": {
+    "visible_route_count": 12,
+    "blocked_route_count": 0,
+    "allowed_action_count": 14,
+    "blocked_action_count": 4
+  }
+}

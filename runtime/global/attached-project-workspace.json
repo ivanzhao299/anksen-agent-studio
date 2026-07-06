@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-06T08:27:20.107Z",
+  "workspace_id": "anksen-agent-studio-local",
+  "mode": "attached_project_execution_foundation",
+  "project_count": 2,
+  "connected_project_count": 1,
+  "planned_project_count": 1,
+  "writable_project_count": 0,
+  "managed_repo_routed_count": 2,
+  "projects": [
+    {
+      "project_id": "jinhu-smart-park",
+      "project_name": "Jinhu Smart Park",
+      "project_type": "business-repository",
+      "binding_status": "attached",
+      "context_dir": "runtime/projects/jinhu-smart-park",
+      "config_path": "examples/jinhu-smart-park/project.config.example.json",
+      "connection_status": "CONNECTED",
+      "doctor_status": "CONDITIONAL_GO",
+      "execution_route": "managed_project_repo",
+      "repo_path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park",
+      "repo_branch": "feature/engineering-project-delivery-runtime",
+      "repo_clean": "yes",
+      "write_policy": "disabled",
+      "deploy_policy": "forbidden",
+      "production_operation_policy": "forbidden",
+      "worktree_count": 6
+    },
+    {
+      "project_id": "phoenix-erp",
+      "project_name": "Phoenix ERP",
+      "project_type": "planned-business-repository",
+      "binding_status": "attached",
+      "context_dir": "runtime/projects/phoenix-erp",
+      "config_path": "examples/phoenix-erp/project.config.example.json",
+      "connection_status": "NOT_CONNECTED",
+      "doctor_status": "NOT_CONNECTED",
+      "execution_route": "managed_project_repo",
+      "repo_path_display": "examples/phoenix-erp-planned",
+      "repo_branch": "planned",
+      "repo_clean": "not_connected",
+      "write_policy": "disabled",
+      "deploy_policy": "forbidden",
+      "production_operation_policy": "forbidden",
+      "worktree_count": 0
+    }
+  ],
+  "safety": {
+    "managed_project_writes": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "disabled"
+  }
+}

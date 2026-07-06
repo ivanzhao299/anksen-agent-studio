@@ -742,8 +742,24 @@ export function visibleConsoleRouteIds(userContext = null) {
   return Object.keys(consoleRouteCatalog).filter((routeId) => evaluateConsoleRouteAccess(routeId, userContext).allowed);
 }
 
+export function listConsoleRouteCatalog() {
+  return Object.entries(consoleRouteCatalog).map(([routeId, capabilities]) => ({
+    route_id: routeId,
+    required_capabilities: [...capabilities]
+  }));
+}
+
 function actionCapabilities(actionId) {
   return consoleActionCatalog[actionId]?.capabilities ?? ["console.access"];
+}
+
+export function listConsoleActionCatalog() {
+  return Object.entries(consoleActionCatalog).map(([actionId, action]) => ({
+    action_id: actionId,
+    capabilities: [...(action.capabilities ?? [])],
+    execution_mode: action.execution_mode,
+    project_scoped: action.projectScoped === true
+  }));
 }
 
 export async function evaluateConsoleActionAccess(bundle, input = {}, options = {}) {
@@ -870,6 +886,63 @@ export async function evaluateConsoleActionAccess(bundle, input = {}, options = 
     project_scope: context.project_allowlist,
     plan_limits: context.plan ? planLimits(context.plan) : null,
     reason: `账号 ${context.user.username} 已通过 Access Center 校验。`
+  };
+}
+
+function baselineRiskForAction(action) {
+  if (action?.execution_mode === "human_approval_required") return "CRITICAL";
+  if (action?.execution_mode === "proposal_only") return "HIGH";
+  return "MEDIUM";
+}
+
+export async function buildAccessEnforcementSummary(bundle, options = {}) {
+  const userOrUsername = String(options.user ?? options.username ?? bundle.policy.default_console_user_id ?? "").trim();
+  const projectId = String(options.project_id ?? options.projectId ?? "jinhu-smart-park").trim() || "jinhu-smart-park";
+  const context = resolveUserProfile(bundle, userOrUsername);
+  const routeChecks = listConsoleRouteCatalog().map((route) => ({
+    ...evaluateConsoleRouteAccess(route.route_id, context)
+  }));
+  const actionChecks = [];
+  for (const entry of listConsoleActionCatalog()) {
+    const decision = await evaluateConsoleActionAccess(bundle, {
+      action_id: entry.action_id,
+      project_id: entry.project_scoped ? projectId : "",
+      risk: baselineRiskForAction(entry),
+      runtime_id: "codex-cli",
+      parallel_count: entry.execution_mode === "direct_execute" ? 2 : 1
+    }, { user_context: context });
+    actionChecks.push({
+      action_id: entry.action_id,
+      execution_mode: entry.execution_mode,
+      project_scoped: entry.project_scoped,
+      ...decision
+    });
+  }
+  const allowedRoutes = routeChecks.filter((route) => route.allowed).map((route) => route.route_id);
+  const allowedDirectActions = actionChecks.filter((action) => action.status === "ALLOW" && action.execution_mode === "direct_execute").map((action) => action.action_id);
+  return {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    policy_id: bundle.policy.policy_id,
+    workspace_id: bundle.state.workspace_id ?? bundle.policy.default_workspace_id,
+    evaluated_user: context.user ?? null,
+    evaluated_project: projectId,
+    authenticated: context.authenticated,
+    allow_anonymous_console_read: bundle.policy.allow_anonymous_console_read,
+    direct_execute_max_risk: context.direct_execute_max_risk,
+    project_allowlist: context.project_allowlist ?? [],
+    runtime_allowlist: Array.isArray(context.plan?.runtime_allowlist) ? context.plan.runtime_allowlist : [],
+    worker_parallel_limit: Number(context.plan?.worker_parallel_limit ?? 0),
+    allowed_route_ids: allowedRoutes,
+    allowed_direct_action_ids: allowedDirectActions,
+    route_checks: routeChecks,
+    action_checks: actionChecks,
+    summary: {
+      visible_route_count: allowedRoutes.length,
+      blocked_route_count: routeChecks.length - allowedRoutes.length,
+      allowed_action_count: actionChecks.filter((action) => action.status === "ALLOW").length,
+      blocked_action_count: actionChecks.filter((action) => action.status !== "ALLOW").length
+    }
   };
 }
 

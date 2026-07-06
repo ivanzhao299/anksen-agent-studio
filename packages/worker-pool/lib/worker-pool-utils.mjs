@@ -127,6 +127,123 @@ export function workerInventory(bundle) {
   }));
 }
 
+export function workerRegistrySummary(bundle) {
+  const inventory = workerInventory(bundle);
+  const capabilityCoverage = uniqueCapabilities(inventory);
+  return {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    registry_id: bundle.registry.registry_id,
+    worker_count: inventory.length,
+    local_worker_count: inventory.filter((worker) => worker.worker_kind === "local").length,
+    remote_worker_count: inventory.filter((worker) => worker.worker_kind === "remote").length,
+    production_worker_count: inventory.filter((worker) => worker.worker_kind === "production").length,
+    capability_tags: capabilityCoverage,
+    required_capability_tags: bundle.registry.required_capability_tags ?? [],
+    future_worker_classes: bundle.registry.future_worker_classes ?? [],
+    safety: {
+      server_access: "disabled",
+      ssh: "disabled",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "not_read"
+    }
+  };
+}
+
+function uniqueCapabilities(inventory) {
+  return [...new Set(inventory.flatMap((worker) => worker.capability_tags ?? []))].sort();
+}
+
+export function workerHeartbeat(bundle) {
+  const checkedAt = bundle.healthExample.checked_at ?? new Date().toISOString();
+  return {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    heartbeat_mode: "metadata_only_dry_run",
+    registry_updated_at: bundle.registry.updated_at ?? "unknown",
+    health_checked_at: checkedAt,
+    workers: workerInventory(bundle).map((worker) => ({
+      worker_id: worker.worker_id,
+      runtime_id: worker.runtime_id,
+      status: worker.status,
+      heartbeat_status: worker.status === "available" ? "HEALTHY" : "BLOCKED",
+      last_heartbeat_at: checkedAt,
+      capability_tags: worker.capability_tags,
+      notes: "Heartbeat is derived from dry-run worker metadata; no remote process, SSH, deploy, or model invocation occurred."
+    })),
+    safety: {
+      server_access: "disabled",
+      ssh: "disabled",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "not_read"
+    }
+  };
+}
+
+export function workerDispatch(bundle, options) {
+  const assignment = assignWorker(bundle, options);
+  return {
+    schema_version: 1,
+    dispatch_id: assignment.assignment_id.replace(/^assign-/, "dispatch-"),
+    created_at: assignment.created_at,
+    requested_runtime: typeof options === "string" ? options : options.runtimeId ?? "",
+    requested_capability: typeof options === "string" ? "" : options.capability ?? "",
+    selection_kind: assignment.selection_kind,
+    worker_id: assignment.worker_id,
+    runtime_id: assignment.runtime_id,
+    status: assignment.status,
+    execution_mode: assignment.governance.execution_mode,
+    risk: assignment.governance.risk,
+    proposal_required: assignment.governance.proposal_required,
+    human_approval_required: assignment.governance.human_approval_required,
+    blocked_reasons: assignment.blocked_reasons,
+    isolation_policy: assignment.isolation_policy,
+    safety: assignment.safety
+  };
+}
+
+export function workerControlPlane(bundle) {
+  const inventory = workerInventory(bundle);
+  const heartbeat = workerHeartbeat(bundle);
+  return {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    control_plane_id: `${bundle.registry.registry_id}-control-plane`,
+    executor: bundle.assignmentExample?.runtime_id ? "local_worker_registry" : "metadata_only",
+    true_parallel_executor: bundle.auditLogExample ? "node_child_process_verified" : "not_verified",
+    worker_count: inventory.length,
+    available_worker_count: inventory.filter((worker) => worker.status === "available").length,
+    capability_tags: uniqueCapabilities(inventory),
+    runtimes: [...new Set(inventory.map((worker) => worker.runtime_id))].sort(),
+    governance: {
+      local: "LOW/MEDIUM direct execute",
+      remote: "HIGH proposal_only",
+      production: "CRITICAL human_approval_required"
+    },
+    heartbeat_mode: heartbeat.heartbeat_mode,
+    dispatch_modes: [
+      "runtime_select",
+      "capability_select"
+    ],
+    evidence: {
+      assignment_example: bundle.paths.assignment,
+      heartbeat_example: bundle.paths.health,
+      isolation_policy: bundle.paths.isolationPolicy,
+      parallel_smoke: bundle.paths.auditLog
+    },
+    safety: {
+      server_access: "disabled",
+      ssh: "disabled",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "not_read",
+      managed_project_writes: "disabled"
+    }
+  };
+}
+
 export function workerHealth(bundle) {
   return {
     schema_version: 1,

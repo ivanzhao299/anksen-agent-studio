@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -24,6 +24,14 @@ async function listDir(path) {
   return readdir(path, { withFileTypes: true });
 }
 
+function relativeRepoPath(repoRoot, targetPath) {
+  if (!targetPath) return "";
+  const resolvedPath = resolve(targetPath);
+  const relativePath = relative(repoRoot, resolvedPath).replaceAll("\\", "/");
+  if (relativePath === "") return ".";
+  return relativePath && !relativePath.startsWith("..") ? relativePath : resolvedPath;
+}
+
 function resolveProjectPath(configPath, config, repoRoot) {
   const localPath = config.intake?.local_path ?? config.project_root;
   const fromRepoRoot = resolve(repoRoot, localPath);
@@ -36,7 +44,9 @@ async function gitMetadata(projectPath) {
     is_git_repository: false,
     branch: "unknown",
     head: "unknown",
-    remote_url_present: false
+    remote_url_present: false,
+    clean: "unknown",
+    dirty_files: []
   };
   if (!existsSync(join(projectPath, ".git"))) return result;
   result.is_git_repository = true;
@@ -58,7 +68,81 @@ async function gitMetadata(projectPath) {
   } catch {
     result.remote_url_present = false;
   }
+  try {
+    const { stdout } = await execFileAsync("git", ["status", "--short"], { cwd: projectPath, timeout: 120000 });
+    const dirtyFiles = stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+    result.clean = dirtyFiles.length === 0 ? "yes" : "no";
+    result.dirty_files = dirtyFiles;
+  } catch {
+    result.clean = "unknown";
+    result.dirty_files = [];
+  }
   return result;
+}
+
+function normalizeWritePolicy(value) {
+  if (value === "enabled" || value === "approval_required" || value === "disabled") return value;
+  return "disabled";
+}
+
+function normalizeOperationPolicy(value) {
+  if (value === "allowed" || value === "manual_approval_required" || value === "forbidden") return value;
+  return "forbidden";
+}
+
+function deriveWritePolicy(config, projectState) {
+  if (projectState?.safety?.project_writes) return normalizeWritePolicy(projectState.safety.project_writes);
+  if (config.inspection?.allow_project_writes === true) return "approval_required";
+  return "disabled";
+}
+
+function deriveOperationPolicy(config, key) {
+  return normalizeOperationPolicy(config.production_operations?.[key]);
+}
+
+function runtimeProjectContextDir(repoRoot, projectId) {
+  return resolve(repoRoot, "runtime/projects", projectId);
+}
+
+async function loadRuntimeProjectContext(repoRoot, projectId) {
+  const contextDir = runtimeProjectContextDir(repoRoot, projectId);
+  const [projectState, status, binding] = await Promise.all([
+    readJsonIfExists(join(contextDir, "project-state.json")),
+    readJsonIfExists(join(contextDir, "agent-studio-status.json")),
+    readJsonIfExists(join(contextDir, "binding.json"))
+  ]);
+  return { contextDir, projectState, status, binding };
+}
+
+function resolveRuntimeMemoryDirectory(projectPath, config, projectState) {
+  const runtimeMemoryDir = String(projectState?.runtime_memory_status?.directory ?? config.runtime_memory?.directory ?? "").trim();
+  if (!runtimeMemoryDir) return "";
+  if (runtimeMemoryDir.startsWith("/")) return runtimeMemoryDir;
+  return resolve(projectPath, runtimeMemoryDir);
+}
+
+function resolveWorktrees(configPath, config, repoRoot) {
+  return Object.entries(config.worktrees ?? {}).map(([slot, path]) => {
+    const absolutePath = resolveProjectPath(configPath, { ...config, intake: { ...(config.intake ?? {}), local_path: path }, project_root: path }, repoRoot);
+    return {
+      slot,
+      path: absolutePath,
+      path_display: relativeRepoPath(repoRoot, absolutePath),
+      exists: existsSync(absolutePath)
+    };
+  });
+}
+
+async function discoverProjectConfigs(repoRoot) {
+  const examplesDir = resolve(repoRoot, "examples");
+  const entries = await listDir(examplesDir);
+  const configs = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const configPath = join(examplesDir, entry.name, "project.config.example.json");
+    if (existsSync(configPath)) configs.push(configPath);
+  }
+  return configs.sort();
 }
 
 function hasHint(config, matcher) {
@@ -209,6 +293,208 @@ export async function detectProjectCommands(configPath, repoRoot) {
       command_execution: "disabled",
       dry_run_only: true
     }
+  };
+}
+
+export async function buildProjectBinding(configPath, repoRoot) {
+  const config = await readJson(configPath);
+  const projectPath = resolveProjectPath(configPath, config, repoRoot);
+  const runtimeContext = await loadRuntimeProjectContext(repoRoot, config.project_id);
+  const projectState = runtimeContext.projectState ?? {};
+  const status = runtimeContext.status ?? {};
+  const repo = projectState.repo_status?.branch
+    ? {
+      is_git_repository: true,
+      branch: String(projectState.repo_status.branch ?? "unknown"),
+      head: String(projectState.repo_status.head ?? "unknown"),
+      remote_url_present: Boolean(config.intake?.git_url),
+      clean: String(projectState.repo_status.clean ?? "unknown"),
+      dirty_files: Array.isArray(projectState.repo_status.dirty_files) ? projectState.repo_status.dirty_files : []
+    }
+    : await gitMetadata(projectPath);
+  const connectionStatus = String(projectState.connection_status ?? (projectState.project_exists === false ? "NOT_CONNECTED" : existsSync(projectPath) ? "CONNECTED" : "NOT_CONNECTED"));
+  const doctorStatus = String(projectState.local_orchestrator_status?.doctor_status ?? status.local_orchestrator_status?.doctor_status ?? "unknown");
+  const runtimeMemoryDir = resolveRuntimeMemoryDirectory(projectPath, config, projectState);
+  const worktrees = resolveWorktrees(configPath, config, repoRoot);
+  const bindingStatus = runtimeContext.binding
+    ? "attached"
+    : projectState.project_id
+      ? "context_ready"
+      : existsSync(projectPath)
+        ? "config_only"
+        : "planned";
+
+  return {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    project_id: config.project_id,
+    project_name: config.project_name ?? config.project_id,
+    project_type: config.project_type ?? "managed-project",
+    description: config.description ?? "",
+    binding_status: bindingStatus,
+    config_path: relativeRepoPath(repoRoot, configPath),
+    context_dir: relativeRepoPath(repoRoot, runtimeContext.contextDir),
+    connector: {
+      source_type: config.intake?.source_type ?? "local_path",
+      mode: config.mode ?? "external_project_adapter",
+      connection_status: connectionStatus,
+      doctor_status: doctorStatus,
+      default_branch: config.default_branch ?? config.intake?.repo_metadata?.default_branch ?? "unknown",
+      package_manager: config.package_manager ?? config.intake?.repo_metadata?.package_manager ?? "unknown"
+    },
+    execution: {
+      execution_route: config.project_id === "anksen-agent-studio" ? "studio_repo" : "managed_project_repo",
+      repo_path: projectPath,
+      repo_path_display: relativeRepoPath(repoRoot, projectPath),
+      repo_resolved: existsSync(projectPath),
+      repo_branch: repo.branch,
+      repo_head: repo.head,
+      repo_clean: repo.clean,
+      dirty_files: repo.dirty_files,
+      remote_url_present: repo.remote_url_present
+    },
+    workspace: {
+      state_dir: config.state_dir ?? "",
+      runtime_memory_dir: runtimeMemoryDir,
+      runtime_memory_dir_display: relativeRepoPath(repoRoot, runtimeMemoryDir),
+      worktree_count: worktrees.length,
+      worktrees
+    },
+    policies: {
+      write_policy: deriveWritePolicy(config, projectState),
+      deploy_policy: deriveOperationPolicy(config, "deploy"),
+      production_operation_policy: deriveOperationPolicy(config, "migration"),
+      credential_values: "disabled",
+      dry_run_only: true
+    },
+    path_policies: {
+      read_paths: config.read_paths ?? [],
+      write_paths: config.write_paths ?? [],
+      frozen_paths: config.frozen_paths ?? [],
+      guarded_paths: config.guarded_paths ?? []
+    },
+    recommended_use: [
+      "Use project bind to attach the config and runtime memory into a stable execution route.",
+      "Use project exec-context before any task execution to confirm repo path, branch, write policy, and doctor status.",
+      "Use project workspace to inspect every attached managed repository in one control-plane summary."
+    ],
+    safety: {
+      agent_execution: "disabled",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "not_read"
+    }
+  };
+}
+
+export async function buildWorkspaceBindingSummary(repoRoot) {
+  const configPaths = await discoverProjectConfigs(repoRoot);
+  const bindings = await Promise.all(configPaths.map((configPath) => buildProjectBinding(configPath, repoRoot)));
+  return {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    workspace_id: "anksen-agent-studio-local",
+    mode: "attached_project_execution_foundation",
+    project_count: bindings.length,
+    connected_project_count: bindings.filter((binding) => binding.connector.connection_status === "CONNECTED").length,
+    planned_project_count: bindings.filter((binding) => binding.connector.connection_status !== "CONNECTED").length,
+    writable_project_count: bindings.filter((binding) => binding.policies.write_policy !== "disabled").length,
+    managed_repo_routed_count: bindings.filter((binding) => binding.execution.execution_route === "managed_project_repo").length,
+    projects: bindings.map((binding) => ({
+      project_id: binding.project_id,
+      project_name: binding.project_name,
+      project_type: binding.project_type,
+      binding_status: binding.binding_status,
+      context_dir: binding.context_dir,
+      config_path: binding.config_path,
+      connection_status: binding.connector.connection_status,
+      doctor_status: binding.connector.doctor_status,
+      execution_route: binding.execution.execution_route,
+      repo_path_display: binding.execution.repo_path_display,
+      repo_branch: binding.execution.repo_branch,
+      repo_clean: binding.execution.repo_clean,
+      write_policy: binding.policies.write_policy,
+      deploy_policy: binding.policies.deploy_policy,
+      production_operation_policy: binding.policies.production_operation_policy,
+      worktree_count: binding.workspace.worktree_count
+    })),
+    safety: {
+      managed_project_writes: "disabled",
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "disabled"
+    }
+  };
+}
+
+export async function buildExecContextSummary(projectId, repoRoot) {
+  if (projectId === "anksen-agent-studio") {
+    const repo = await gitMetadata(repoRoot);
+    return {
+      schema_version: 1,
+      generated_at: new Date().toISOString(),
+      project_id: "anksen-agent-studio",
+      project_name: "ANKSEN Agent Studio",
+      resolved: true,
+      execution_route: "studio_repo",
+      repo_path: repoRoot,
+      repo_path_display: relativeRepoPath(repoRoot, repoRoot),
+      repo_branch: repo.branch,
+      repo_head: repo.head,
+      repo_clean: repo.clean,
+      connection_status: "CONNECTED",
+      doctor_status: "GO",
+      write_policy: "enabled",
+      deploy_policy: "forbidden",
+      production_operation_policy: "forbidden",
+      runtime_memory_dir: resolve(repoRoot, "runtime/global"),
+      worktrees: [],
+      write_paths: ["runtime/**", "docs/**", "packages/**", "apps/**"],
+      guarded_paths: ["**/.env*", "**/*secret*", "**/*private_key*"],
+      recommended_checks: [
+        "Studio repo execution is local and governed by console/access/runtime policy.",
+        "Use release consistency before promoting local changes to a shared environment."
+      ]
+    };
+  }
+  const configPaths = await discoverProjectConfigs(repoRoot);
+  const match = configPaths.find((configPath) => configPath.includes(`/${projectId}/`));
+  if (!match) {
+    return {
+      schema_version: 1,
+      generated_at: new Date().toISOString(),
+      project_id: projectId,
+      resolved: false,
+      reason: `No project config found for ${projectId}.`
+    };
+  }
+  const binding = await buildProjectBinding(match, repoRoot);
+  return {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    project_id: binding.project_id,
+    project_name: binding.project_name,
+    resolved: binding.execution.repo_resolved,
+    execution_route: binding.execution.execution_route,
+    repo_path: binding.execution.repo_path,
+    repo_path_display: binding.execution.repo_path_display,
+    repo_branch: binding.execution.repo_branch,
+    repo_head: binding.execution.repo_head,
+    repo_clean: binding.execution.repo_clean,
+    connection_status: binding.connector.connection_status,
+    doctor_status: binding.connector.doctor_status,
+    write_policy: binding.policies.write_policy,
+    deploy_policy: binding.policies.deploy_policy,
+    production_operation_policy: binding.policies.production_operation_policy,
+    runtime_memory_dir: binding.workspace.runtime_memory_dir,
+    worktrees: binding.workspace.worktrees,
+    write_paths: binding.path_policies.write_paths,
+    guarded_paths: binding.path_policies.guarded_paths,
+    recommended_checks: [
+      "Verify doctor status before dispatch.",
+      "Respect guarded paths even when execution route is resolved.",
+      "Keep deploy and production operations disabled from Studio execution flows."
+    ]
   };
 }
 

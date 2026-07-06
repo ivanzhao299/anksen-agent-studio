@@ -1308,17 +1308,42 @@ function shell(content, activeId, model, data, auth = {}) {
 }
 
 function pageDashboard(_model, data) {
-  return actionWorkbench(data, "统一 AI 开发工作台");
+  const release = data.release_consistency ?? {};
+  return `${actionWorkbench(data, "统一 AI 开发工作台")}
+  <section><h2>控制面快照</h2><div class="grid">
+    ${metric("挂接项目", data.project_router.binding_count)}
+    ${metric("Worker 控制面", release.status ?? "未生成")}
+    ${metric("Access Enforcement", data.access.enforcement?.policy_id ?? "未生成")}
+    ${metric("最新 Autopilot", data.autopilot.latest_summary?.id ?? "not_found")}
+  </div></section>`;
 }
 
 function pageProjects(data) {
   const project = data.jinhuProjectState ?? {};
+  const workspaceProjects = data.project_router.workspace?.projects ?? [];
+  const rows = workspaceProjects.map((item) => ({
+    project: item.project_id,
+    status: item.connection_status,
+    route: item.execution_route,
+    branch: item.repo_branch,
+    clean: item.repo_clean,
+    write_policy: item.write_policy
+  }));
   return `${projectWorkbench(data)}
   <section><h2>${messages.pages.projects.title}</h2><div class="grid">
     ${metric(messages.pages.projects.connectedProject, "jinhu-smart-park")}
     ${metric(messages.pages.projects.phoenixErp, messages.pages.projects.phoenixStatus)}
     ${metric(messages.pages.projects.writes, data.safety.managed_project_writes)}
+    ${metric("挂接绑定", data.project_router.binding_count)}
   </div></section>
+  <section><h2>Attached Project Workspace</h2>${rows.length > 0 ? table(rows, [
+    { key: "project", label: "项目" },
+    { key: "status", label: "连接" },
+    { key: "route", label: "路由" },
+    { key: "branch", label: "分支" },
+    { key: "clean", label: "仓库" },
+    { key: "write_policy", label: "写入策略" }
+  ]) : `<div class="panel"><p class="help">尚未生成绑定快照。先执行 <code>studio project bind --apply</code> 与 <code>studio project workspace --apply</code>。</p></div>`}</section>
   <section><h2>${messages.pages.projects.runtimeMemory}</h2>${detailsJson("查看原始运行记忆 JSON", project)}</section>`;
 }
 
@@ -1330,6 +1355,7 @@ function pageRuntime(data) {
 
 function pageWorkers(data) {
   const workers = data.workers.registry?.workers ?? [];
+  const controlPlane = data.workers.control_plane ?? {};
   const rows = workers.map((worker) => ({
     worker_id: worker.worker_id,
     kind: worker.worker_kind,
@@ -1339,7 +1365,13 @@ function pageWorkers(data) {
     status: worker.status
   }));
   return `${workerPanel(data)}
-  <section><h2>${messages.pages.workers.title}</h2><div class="grid">${metric(messages.pages.dashboard.workers, rows.length)}${metric(messages.pages.workers.serverAccess, data.safety.server_access)}${metric(messages.pages.workers.modelCalls, data.safety.model_invocation)}</div></section>
+  <section><h2>${messages.pages.workers.title}</h2><div class="grid">${metric(messages.pages.dashboard.workers, rows.length)}${metric(messages.pages.workers.serverAccess, data.safety.server_access)}${metric(messages.pages.workers.modelCalls, data.safety.model_invocation)}${metric("控制面", controlPlane.true_parallel_executor ?? "未生成")}</div></section>
+  <section><h2>Worker Control Plane</h2><div class="grid">
+    ${metric("Executor", controlPlane.executor ?? "metadata_only")}
+    ${metric("Heartbeat", controlPlane.heartbeat_mode ?? "未生成")}
+    ${metric("调度模式", Array.isArray(controlPlane.dispatch_modes) ? controlPlane.dispatch_modes.join(" / ") : "未生成")}
+    ${metric("Runtimes", Array.isArray(controlPlane.runtimes) ? controlPlane.runtimes.join(", ") : "未生成")}
+  </div></section>
   <section>${table(rows, [{ key: "worker_id", label: messages.pages.workers.worker }, { key: "kind", label: messages.pages.workers.kind }, { key: "os", label: messages.pages.workers.os }, { key: "capabilities", label: messages.pages.workers.capabilities }, { key: "risk", label: messages.common.risk }, { key: "status", label: messages.common.status }])}</section>`;
 }
 
@@ -1395,6 +1427,8 @@ function pageActions(data) {
 }
 
 function pageConfig(data) {
+  const enforcement = data.access.enforcement ?? {};
+  const release = data.release_consistency ?? {};
   const inviteSummary = data.access.invite_summary ?? { invite_count: 0, pending_invite_count: 0, approved_invite_count: 0, materialized_invite_count: 0, invites: [] };
   const inviteRows = (inviteSummary.invites ?? []).slice(0, 6).map((invite) => ({
     username: invite.username,
@@ -1445,6 +1479,12 @@ function pageConfig(data) {
     ${metric(messages.pages.config.credentials, "reference_only")}
     ${metric(messages.pages.config.governance, data.governance.policy_id)}
   </div><p class="help">${messages.pages.config.draftOnly}</p></section>
+  <section><div class="grid">
+    ${metric("Access Enforcement", enforcement.policy_id ?? "未生成")}
+    ${metric("可见路由", enforcement.summary?.visible_route_count ?? "未生成")}
+    ${metric("可执行动作", enforcement.summary?.allowed_action_count ?? "未生成")}
+    ${metric("Release Consistency", release.status ?? "未生成")}
+  </div></section>
   <section>
     <div class="section-head"><h2>团队邀请与审批草稿</h2><span class="pill">Access Center</span></div>
     <div class="grid">
@@ -1478,8 +1518,15 @@ function pageMemory(data) {
     ${metric(messages.pages.memory.platformState, messages.common.loaded)}
     ${metric(messages.pages.memory.contextIndex, Object.keys(data.codexContextIndex ?? {}).length)}
     ${metric(messages.pages.memory.projectMemory, "jinhu-smart-park")}
+    ${metric("控制面文件", 4)}
   </div></section>
-  <section><h2>${messages.common.dataSources}</h2>${list([...data.data_sources.files, ...data.data_sources.directories, data.data_sources.autopilot_latest])}</section>`;
+  <section><h2>${messages.common.dataSources}</h2>${list([...data.data_sources.files, ...data.data_sources.directories, data.data_sources.autopilot_latest])}</section>
+  <section><h2>Control Plane Snapshots</h2><div class="grid">
+    ${metric("Workspace", data.project_router.workspace?.workspace_id ?? "未生成")}
+    ${metric("Worker", data.workers.control_plane?.control_plane_id ?? "未生成")}
+    ${metric("Access", data.access.enforcement?.policy_id ?? "未生成")}
+    ${metric("Release", data.release_consistency?.status ?? "未生成")}
+  </div></section>`;
 }
 
 function pagePilotStatus(data) {

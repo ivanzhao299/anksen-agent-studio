@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-06T08:28:29.066Z",
+  "repo_branch": "main",
+  "repo_clean": "no",
+  "latest_head": "ae3f6af fix(console): restore login panel sizing",
+  "latest_autopilot_run": "autopilot-runs/v4-continuous-2026-06-23T164157169Z-187199ed-step-04-v4-r-console-operable-read-only.json",
+  "console_service": {
+    "port": 4317,
+    "listening_pids": [],
+    "status": "NOT_LISTENING"
+  },
+  "checks": [
+    {
+      "check_id": "runtime/global/codex-context-index.json",
+      "status": "PASS"
+    },
+    {
+      "check_id": "runtime/global/attached-project-workspace.json",
+      "status": "PASS"
+    },
+    {
+      "check_id": "runtime/global/worker-control-plane.json",
+      "status": "PASS"
+    },
+    {
+      "check_id": "runtime/global/access-enforcement.json",
+      "status": "PASS"
+    },
+    {
+      "check_id": "apps/console/web/server.mjs",
+      "status": "PASS"
+    },
+    {
+      "check_id": "apps/console/web/action-server.mjs",
+      "status": "PASS"
+    },
+    {
+      "check_id": "apps/console/web/build.mjs",
+      "status": "PASS"
+    }
+  ],
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "server_access": "local_only",
+    "credential_values": "not_read",
+    "managed_project_writes": "disabled"
+  },
+  "warnings": [
+    "Repository has uncommitted changes.",
+    "Console local service is not listening on the expected port."
+  ],
+  "status": "PASS"
+}

@@ -23,6 +23,9 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs project intake --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project stack --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project commands --config <file> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs project bind --config <file> [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs project workspace [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs project exec-context --project <project_id> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project inspect --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project parity --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project evidence --project <project_id> --dry-run
@@ -48,9 +51,13 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs adapter health --dry-run
   node packages/orchestrator-core/bin/studio.mjs adapter invoke-plan --runtime <runtime_id> --skill <skill_type> --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker list --dry-run
+  node packages/orchestrator-core/bin/studio.mjs worker registry --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker health --dry-run
+  node packages/orchestrator-core/bin/studio.mjs worker control-plane [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs worker heartbeat --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker assign --runtime <runtime_id> --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker assign --capability <capability_tag> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs worker dispatch (--runtime <runtime_id>|--capability <capability_tag>) --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker cancel --worker <worker_id> --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker parallel-smoke --agents agent-1,agent-2 --parallel 2 [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs mobile ios-detect --project <path> --dry-run
@@ -71,6 +78,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs access users --dry-run
   node packages/orchestrator-core/bin/studio.mjs access plans --dry-run
   node packages/orchestrator-core/bin/studio.mjs access invites --dry-run
+  node packages/orchestrator-core/bin/studio.mjs access enforcement [--user <username>] [--project <project_id>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access check --user <username> --action <action_id> [--project <project_id>] --dry-run
   node packages/orchestrator-core/bin/studio.mjs access grant --user <username> --role <role_id> [--workspace <workspace_id>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs access set-plan --user <username> --plan <plan_id> [--workspace <workspace_id>] [--dry-run|--apply]
@@ -101,6 +109,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs console service start [--apply]
   node packages/orchestrator-core/bin/studio.mjs console service stop [--apply]
   node packages/orchestrator-core/bin/studio.mjs console service uninstall [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs release consistency [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
   node packages/orchestrator-core/bin/studio.mjs observe [--dry-run]
@@ -117,7 +126,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "adapter", "worker", "mobile", "production", "production-ops", "context", "access", "autopilot", "debug", "console", "pilot"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "release", "adapter", "worker", "mobile", "production", "production-ops", "context", "access", "autopilot", "debug", "console", "pilot"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -4891,7 +4900,40 @@ async function resolveExecutionTarget(action) {
 }
 
 async function writeJsonFile(path, value) {
+  await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+function uniqueSorted(values) {
+  return [...new Set((values ?? []).filter(Boolean))].sort((left, right) => String(left).localeCompare(String(right)));
+}
+
+async function updateCodexContextIndexArtifacts({ globalFiles = [], projectFiles = {} } = {}) {
+  const indexPath = resolveFromRoot("runtime/global/codex-context-index.json");
+  const index = (await readJsonIfExists(indexPath)) ?? {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    startup_command: "node packages/orchestrator-core/bin/studio.mjs context summary",
+    project_command: "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
+    global_context_files: [],
+    project_contexts: [],
+    required_reading: [],
+    safety_boundaries: []
+  };
+  index.generated_at = new Date().toISOString();
+  index.global_context_files = uniqueSorted([...(index.global_context_files ?? []), ...globalFiles]);
+  const byProjectId = new Map((index.project_contexts ?? []).map((entry) => [entry.project_id, {
+    project_id: entry.project_id,
+    files: [...(entry.files ?? [])]
+  }]));
+  for (const [projectId, files] of Object.entries(projectFiles)) {
+    const current = byProjectId.get(projectId) ?? { project_id: projectId, files: [] };
+    current.files = uniqueSorted([...(current.files ?? []), ...(files ?? [])]);
+    byProjectId.set(projectId, current);
+  }
+  index.project_contexts = [...byProjectId.values()].sort((left, right) => String(left.project_id).localeCompare(String(right.project_id)));
+  await writeJsonFile(indexPath, index);
+  return indexPath;
 }
 
 async function copyTextFile(source, target) {
@@ -8294,6 +8336,56 @@ async function accessCheckDryRun(args) {
   }
 }
 
+async function accessEnforcement(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("access enforcement requires --dry-run or --apply.");
+  }
+  const { api, bundle } = await loadAccessCenterApi();
+  const artifact = await api.buildAccessEnforcementSummary(bundle, {
+    user: args.user.trim() || bundle.policy.default_console_user_id,
+    project_id: args.project && args.project !== DEFAULT_PROJECT ? args.project : "jinhu-smart-park"
+  });
+  const filesWritten = [];
+  if (args.apply) {
+    const outputPath = resolveFromRoot("runtime/global/access-enforcement.json");
+    await writeJsonFile(outputPath, artifact);
+    filesWritten.push(relativePath(outputPath));
+    const indexPath = await updateCodexContextIndexArtifacts({
+      globalFiles: [relativePath(outputPath)]
+    });
+    filesWritten.push(relativePath(indexPath));
+  }
+  console.log(`# Access Enforcement ${args.apply ? "apply" : "dry-run"}`);
+  console.log("");
+  console.log(`policy_id: ${artifact.policy_id}`);
+  console.log(`workspace_id: ${artifact.workspace_id}`);
+  console.log(`user: ${artifact.evaluated_user?.username ?? "not_found"}`);
+  console.log(`project: ${artifact.evaluated_project}`);
+  console.log(`authenticated: ${artifact.authenticated ? "yes" : "no"}`);
+  console.log(`allow_anonymous_console_read: ${artifact.allow_anonymous_console_read ? "yes" : "no"}`);
+  console.log(`direct_execute_max_risk: ${artifact.direct_execute_max_risk}`);
+  console.log(`project_allowlist: ${artifact.project_allowlist.join(", ") || "none"}`);
+  console.log(`runtime_allowlist: ${artifact.runtime_allowlist.join(", ") || "none"}`);
+  console.log(`worker_parallel_limit: ${artifact.worker_parallel_limit || "unlimited"}`);
+  console.log("");
+  console.log("| Route | Allowed | Missing Capabilities |");
+  console.log("| --- | --- | --- |");
+  for (const route of artifact.route_checks) {
+    console.log(`| ${route.route_id} | ${route.allowed ? "yes" : "no"} | ${route.missing_capabilities.join(", ") || "none"} |`);
+  }
+  console.log("");
+  console.log("| Action | Status | Mode | Missing Capabilities | Reason |");
+  console.log("| --- | --- | --- | --- | --- |");
+  for (const action of artifact.action_checks) {
+    console.log(`| ${action.action_id} | ${action.status} | ${action.execution_mode} | ${action.missing_capabilities.join(", ") || "none"} | ${action.reason} |`);
+  }
+  if (filesWritten.length > 0) {
+    console.log("");
+    console.log("written_files:");
+    for (const file of filesWritten) console.log(`- ${file}`);
+  }
+}
+
 function assertDryRunOrApply(args, commandName) {
   if (!args.dryRun && !args.apply) {
     throw new Error(`${commandName} requires either --dry-run or --apply.`);
@@ -9019,6 +9111,105 @@ async function consoleService(args) {
   throw new Error(`Unknown console service action: ${action}`);
 }
 
+async function latestAutopilotRunJson() {
+  const runsDir = resolveFromRoot("autopilot-runs");
+  const files = (await listFilesSafe(runsDir))
+    .filter((file) => file.endsWith(".json"))
+    .filter((file) => !file.includes("/workspaces/") && !file.endsWith("/workspace.json"))
+    .sort();
+  const latest = latestFile(files);
+  if (!latest) return null;
+  return {
+    path: relativePath(latest),
+    data: await readJsonIfExists(latest)
+  };
+}
+
+async function releaseConsistency(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("release consistency requires --dry-run or --apply.");
+  }
+  const repo = await repoStatus(repoRoot);
+  const servicePaths = consoleServicePaths(args);
+  const listening = await listeningPids(servicePaths.port);
+  const latestRun = await latestAutopilotRunJson();
+  const requiredFiles = [
+    "runtime/global/codex-context-index.json",
+    "runtime/global/attached-project-workspace.json",
+    "runtime/global/worker-control-plane.json",
+    "runtime/global/access-enforcement.json",
+    "apps/console/web/server.mjs",
+    "apps/console/web/action-server.mjs",
+    "apps/console/web/build.mjs"
+  ];
+  const checks = requiredFiles.map((file) => ({
+    check_id: file,
+    status: existsSync(resolveFromRoot(file)) ? "PASS" : "FAIL"
+  }));
+  const artifact = {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    repo_branch: repo.branch,
+    repo_clean: repo.clean,
+    latest_head: repo.head,
+    latest_autopilot_run: latestRun?.path ?? "missing",
+    console_service: {
+      port: servicePaths.port,
+      listening_pids: listening,
+      status: listening.length > 0 ? "LISTENING" : "NOT_LISTENING"
+    },
+    checks,
+    safety: {
+      deploy: "disabled",
+      production_operations: "disabled",
+      server_access: "local_only",
+      credential_values: "not_read",
+      managed_project_writes: "disabled"
+    },
+    warnings: []
+  };
+  if (repo.clean !== "yes") artifact.warnings.push("Repository has uncommitted changes.");
+  if (artifact.console_service.status !== "LISTENING") artifact.warnings.push("Console local service is not listening on the expected port.");
+  artifact.status = checks.every((check) => check.status === "PASS") ? "PASS" : "FAIL";
+  const filesWritten = [];
+  if (args.apply) {
+    const outputPath = resolveFromRoot("runtime/global/release-consistency.json");
+    await writeJsonFile(outputPath, artifact);
+    filesWritten.push(relativePath(outputPath));
+    const indexPath = await updateCodexContextIndexArtifacts({
+      globalFiles: [relativePath(outputPath)]
+    });
+    filesWritten.push(relativePath(indexPath));
+  }
+  console.log(`# Release Consistency ${args.apply ? "apply" : "dry-run"}`);
+  console.log("");
+  console.log(`status: ${artifact.status}`);
+  console.log(`repo_branch: ${artifact.repo_branch}`);
+  console.log(`repo_clean: ${artifact.repo_clean}`);
+  console.log(`latest_head: ${artifact.latest_head}`);
+  console.log(`latest_autopilot_run: ${artifact.latest_autopilot_run}`);
+  console.log(`console_service_status: ${artifact.console_service.status}`);
+  console.log(`console_service_port: ${artifact.console_service.port}`);
+  console.log(`console_service_pids: ${artifact.console_service.listening_pids.join(", ") || "none"}`);
+  console.log(`warnings: ${artifact.warnings.length}`);
+  console.log("");
+  console.log("checks:");
+  for (const check of checks) {
+    console.log(`- ${check.check_id}: ${check.status}`);
+  }
+  if (artifact.warnings.length > 0) {
+    console.log("");
+    console.log("warnings_detail:");
+    for (const warning of artifact.warnings) console.log(`- ${warning}`);
+  }
+  if (filesWritten.length > 0) {
+    console.log("");
+    console.log("written_files:");
+    for (const file of filesWritten) console.log(`- ${file}`);
+  }
+  if (artifact.status !== "PASS") process.exitCode = 1;
+}
+
 async function consoleSmoke(args) {
   assertDryRun(args, "console smoke");
   const routesModule = await import(pathToFileURL(resolveFromRoot("apps/console/web/routes.mjs")).href);
@@ -9136,11 +9327,11 @@ async function consoleSmoke(args) {
     "Governance 策略查看"
   ].every((text) => configHtml.includes(text));
   const authGatePresent = [
-    "登录 ANKSEN Agent Studio",
+    "Console Access",
+    "登录",
     "用户名",
     "密码",
-    "登录 Studio",
-    "本地账号登录"
+    "仅限已授权账号"
   ].every((text) => unauthHtml.includes(text));
   const safetyPass = data.safety.external_calls === "disabled"
     && data.safety.credential_values === "not_read"
@@ -9546,6 +9737,145 @@ async function projectCommands(args) {
   console.log("- agent_execution: disabled");
   console.log("- deploy: disabled");
   console.log("- production_operations: disabled");
+}
+
+async function projectBind(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("project bind requires --dry-run or --apply.");
+  }
+  const api = await loadProjectConnectorApi();
+  const configPath = projectConfigPathFromArgs(args);
+  const binding = await api.buildProjectBinding(configPath, repoRoot);
+  const filesWritten = [];
+  if (args.apply) {
+    const bindingPath = join(projectContextDir(binding.project_id), "binding.json");
+    await writeJsonFile(bindingPath, binding);
+    filesWritten.push(relativePath(bindingPath));
+    const indexPath = await updateCodexContextIndexArtifacts({
+      projectFiles: {
+        [binding.project_id]: [relativePath(bindingPath)]
+      }
+    });
+    filesWritten.push(relativePath(indexPath));
+  }
+  console.log(`# Project Bind ${args.apply ? "apply" : "dry-run"}`);
+  console.log("");
+  console.log(`project_id: ${binding.project_id}`);
+  console.log(`project_name: ${binding.project_name}`);
+  console.log(`binding_status: ${binding.binding_status}`);
+  console.log(`config_path: ${binding.config_path}`);
+  console.log(`context_dir: ${binding.context_dir}`);
+  console.log(`connection_status: ${binding.connector.connection_status}`);
+  console.log(`doctor_status: ${binding.connector.doctor_status}`);
+  console.log(`execution_route: ${binding.execution.execution_route}`);
+  console.log(`repo_path: ${binding.execution.repo_path_display}`);
+  console.log(`repo_branch: ${binding.execution.repo_branch}`);
+  console.log(`repo_clean: ${binding.execution.repo_clean}`);
+  console.log(`write_policy: ${binding.policies.write_policy}`);
+  console.log(`deploy_policy: ${binding.policies.deploy_policy}`);
+  console.log(`production_operation_policy: ${binding.policies.production_operation_policy}`);
+  console.log(`worktree_count: ${binding.workspace.worktree_count}`);
+  console.log("");
+  console.log("worktrees:");
+  if (binding.workspace.worktrees.length === 0) {
+    console.log("- none");
+  } else {
+    for (const worktree of binding.workspace.worktrees) {
+      console.log(`- ${worktree.slot}: ${worktree.path_display} (${worktree.exists ? "present" : "missing"})`);
+    }
+  }
+  if (filesWritten.length > 0) {
+    console.log("");
+    console.log("written_files:");
+    for (const file of filesWritten) console.log(`- ${file}`);
+  }
+  console.log("");
+  console.log("safety:");
+  console.log("- agent_execution: disabled");
+  console.log("- deploy: disabled");
+  console.log("- production_operations: disabled");
+  console.log("- credential_values: not_read");
+}
+
+async function projectWorkspace(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("project workspace requires --dry-run or --apply.");
+  }
+  const api = await loadProjectConnectorApi();
+  const workspace = await api.buildWorkspaceBindingSummary(repoRoot);
+  const filesWritten = [];
+  if (args.apply) {
+    const workspacePath = resolveFromRoot("runtime/global/attached-project-workspace.json");
+    await writeJsonFile(workspacePath, workspace);
+    filesWritten.push(relativePath(workspacePath));
+    const indexPath = await updateCodexContextIndexArtifacts({
+      globalFiles: [relativePath(workspacePath)]
+    });
+    filesWritten.push(relativePath(indexPath));
+  }
+  console.log(`# Project Workspace ${args.apply ? "apply" : "dry-run"}`);
+  console.log("");
+  console.log(`workspace_id: ${workspace.workspace_id}`);
+  console.log(`mode: ${workspace.mode}`);
+  console.log(`project_count: ${workspace.project_count}`);
+  console.log(`connected_project_count: ${workspace.connected_project_count}`);
+  console.log(`planned_project_count: ${workspace.planned_project_count}`);
+  console.log(`managed_repo_routed_count: ${workspace.managed_repo_routed_count}`);
+  console.log(`writable_project_count: ${workspace.writable_project_count}`);
+  console.log("");
+  console.log("| Project | Status | Route | Branch | Clean | Write Policy | Doctor |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- |");
+  for (const project of workspace.projects) {
+    console.log(`| ${project.project_id} | ${project.connection_status} | ${project.execution_route} | ${project.repo_branch} | ${project.repo_clean} | ${project.write_policy} | ${project.doctor_status} |`);
+  }
+  if (filesWritten.length > 0) {
+    console.log("");
+    console.log("written_files:");
+    for (const file of filesWritten) console.log(`- ${file}`);
+  }
+  console.log("");
+  console.log("safety:");
+  console.log(`- managed_project_writes: ${workspace.safety.managed_project_writes}`);
+  console.log(`- deploy: ${workspace.safety.deploy}`);
+  console.log(`- production_operations: ${workspace.safety.production_operations}`);
+  console.log(`- credential_values: ${workspace.safety.credential_values}`);
+}
+
+async function projectExecContext(args) {
+  assertDryRun(args, "project exec-context");
+  const projectId = contextProjectId(args.project || DEFAULT_PROJECT);
+  const api = await loadProjectConnectorApi();
+  const context = await api.buildExecContextSummary(projectId, repoRoot);
+  console.log("# Project Execution Context dry-run");
+  console.log("");
+  console.log(`project_id: ${context.project_id}`);
+  console.log(`project_name: ${context.project_name ?? "unknown"}`);
+  console.log(`resolved: ${context.resolved ? "yes" : "no"}`);
+  if (!context.resolved) {
+    console.log(`reason: ${context.reason}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`execution_route: ${context.execution_route}`);
+  console.log(`repo_path: ${context.repo_path_display}`);
+  console.log(`repo_branch: ${context.repo_branch}`);
+  console.log(`repo_clean: ${context.repo_clean}`);
+  console.log(`connection_status: ${context.connection_status}`);
+  console.log(`doctor_status: ${context.doctor_status}`);
+  console.log(`write_policy: ${context.write_policy}`);
+  console.log(`deploy_policy: ${context.deploy_policy}`);
+  console.log(`production_operation_policy: ${context.production_operation_policy}`);
+  console.log(`runtime_memory_dir: ${context.runtime_memory_dir}`);
+  console.log("");
+  console.log("guarded_paths:");
+  if ((context.guarded_paths ?? []).length === 0) {
+    console.log("- none");
+  } else {
+    for (const path of context.guarded_paths) console.log(`- ${path}`);
+  }
+  console.log("");
+  console.log("recommended_checks:");
+  for (const line of context.recommended_checks ?? []) console.log(`- ${line}`);
 }
 
 function projectConfigPathForProjectArg(args) {
@@ -10159,6 +10489,26 @@ async function workerList(args) {
   if (validation.status !== "PASS") process.exitCode = 1;
 }
 
+async function workerRegistry(args) {
+  assertDryRun(args, "worker registry");
+  const { api, bundle } = await loadWorkerPoolApi();
+  const registry = api.workerRegistrySummary(bundle);
+  console.log("# Worker Registry dry-run");
+  console.log("");
+  console.log(`registry_id: ${registry.registry_id}`);
+  console.log(`worker_count: ${registry.worker_count}`);
+  console.log(`local_worker_count: ${registry.local_worker_count}`);
+  console.log(`remote_worker_count: ${registry.remote_worker_count}`);
+  console.log(`production_worker_count: ${registry.production_worker_count}`);
+  console.log(`capability_tags: ${registry.capability_tags.join(", ") || "none"}`);
+  console.log(`required_capability_tags: ${(registry.required_capability_tags ?? []).join(", ") || "none"}`);
+  console.log("server_access: disabled");
+  console.log("ssh: disabled");
+  console.log("deploy: disabled");
+  console.log("production_operations: disabled");
+  console.log("credential_values_read: no");
+}
+
 async function workerHealth(args) {
   assertDryRun(args, "worker health");
   const { api, bundle } = await loadWorkerPoolApi();
@@ -10175,6 +10525,69 @@ async function workerHealth(args) {
   console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const worker of health.workers) {
     console.log(`| ${worker.worker_id} | ${worker.runtime_id} | ${worker.worker_os} | ${worker.capability_tags.join(", ")} | ${worker.status} | ${worker.health_status} | ${worker.risk} | ${worker.execution_mode} |`);
+  }
+}
+
+async function workerControlPlane(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("worker control-plane requires --dry-run or --apply.");
+  }
+  const { api, bundle } = await loadWorkerPoolApi();
+  const controlPlane = api.workerControlPlane(bundle);
+  const filesWritten = [];
+  if (args.apply) {
+    const outputPath = resolveFromRoot("runtime/global/worker-control-plane.json");
+    await writeJsonFile(outputPath, controlPlane);
+    filesWritten.push(relativePath(outputPath));
+    const indexPath = await updateCodexContextIndexArtifacts({
+      globalFiles: [relativePath(outputPath)]
+    });
+    filesWritten.push(relativePath(indexPath));
+  }
+  console.log(`# Worker Control Plane ${args.apply ? "apply" : "dry-run"}`);
+  console.log("");
+  console.log(`control_plane_id: ${controlPlane.control_plane_id}`);
+  console.log(`executor: ${controlPlane.executor}`);
+  console.log(`true_parallel_executor: ${controlPlane.true_parallel_executor}`);
+  console.log(`worker_count: ${controlPlane.worker_count}`);
+  console.log(`available_worker_count: ${controlPlane.available_worker_count}`);
+  console.log(`capability_tags: ${controlPlane.capability_tags.join(", ")}`);
+  console.log(`runtimes: ${controlPlane.runtimes.join(", ")}`);
+  console.log(`heartbeat_mode: ${controlPlane.heartbeat_mode}`);
+  console.log(`dispatch_modes: ${controlPlane.dispatch_modes.join(", ")}`);
+  console.log("");
+  console.log("governance:");
+  console.log(`- local: ${controlPlane.governance.local}`);
+  console.log(`- remote: ${controlPlane.governance.remote}`);
+  console.log(`- production: ${controlPlane.governance.production}`);
+  if (filesWritten.length > 0) {
+    console.log("");
+    console.log("written_files:");
+    for (const file of filesWritten) console.log(`- ${file}`);
+  }
+  console.log("");
+  console.log("safety:");
+  console.log(`- server_access: ${controlPlane.safety.server_access}`);
+  console.log(`- ssh: ${controlPlane.safety.ssh}`);
+  console.log(`- deploy: ${controlPlane.safety.deploy}`);
+  console.log(`- production_operations: ${controlPlane.safety.production_operations}`);
+  console.log(`- managed_project_writes: ${controlPlane.safety.managed_project_writes}`);
+}
+
+async function workerHeartbeat(args) {
+  assertDryRun(args, "worker heartbeat");
+  const { api, bundle } = await loadWorkerPoolApi();
+  const heartbeat = api.workerHeartbeat(bundle);
+  console.log("# Worker Heartbeat dry-run");
+  console.log("");
+  console.log(`heartbeat_mode: ${heartbeat.heartbeat_mode}`);
+  console.log(`registry_updated_at: ${heartbeat.registry_updated_at}`);
+  console.log(`health_checked_at: ${heartbeat.health_checked_at}`);
+  console.log("");
+  console.log("| Worker | Runtime | Status | Heartbeat | Last Seen |");
+  console.log("| --- | --- | --- | --- | --- |");
+  for (const worker of heartbeat.workers) {
+    console.log(`| ${worker.worker_id} | ${worker.runtime_id} | ${worker.status} | ${worker.heartbeat_status} | ${worker.last_heartbeat_at} |`);
   }
 }
 
@@ -10216,6 +10629,39 @@ async function workerAssign(args) {
     for (const reason of assignment.blocked_reasons) console.log(`- ${reason}`);
   }
   if (assignment.status !== "ASSIGNED") process.exitCode = 1;
+}
+
+async function workerDispatch(args) {
+  assertDryRun(args, "worker dispatch");
+  if (!args.runtime.trim() && !args.capability.trim()) {
+    throw new Error("Missing --runtime or --capability for worker dispatch.");
+  }
+  const { api, bundle } = await loadWorkerPoolApi();
+  const dispatch = api.workerDispatch(bundle, {
+    runtimeId: args.runtime.trim(),
+    capability: args.capability.trim()
+  });
+  console.log("# Worker Dispatch dry-run");
+  console.log("");
+  console.log(`dispatch_id: ${dispatch.dispatch_id}`);
+  console.log(`status: ${dispatch.status}`);
+  console.log(`selection_kind: ${dispatch.selection_kind}`);
+  console.log(`requested_runtime: ${dispatch.requested_runtime || "none"}`);
+  console.log(`requested_capability: ${dispatch.requested_capability || "none"}`);
+  console.log(`worker_id: ${dispatch.worker_id || "none"}`);
+  console.log(`runtime_id: ${dispatch.runtime_id || "none"}`);
+  console.log(`risk: ${dispatch.risk}`);
+  console.log(`execution_mode: ${dispatch.execution_mode}`);
+  console.log(`proposal_required: ${dispatch.proposal_required ? "yes" : "no"}`);
+  console.log(`human_approval_required: ${dispatch.human_approval_required ? "yes" : "no"}`);
+  console.log("");
+  console.log("blocked_reasons:");
+  if (dispatch.blocked_reasons.length === 0) {
+    console.log("- none");
+  } else {
+    for (const reason of dispatch.blocked_reasons) console.log(`- ${reason}`);
+  }
+  if (dispatch.status !== "ASSIGNED") process.exitCode = 1;
 }
 
 async function workerCancel(args) {
@@ -11262,6 +11708,9 @@ async function main() {
   if (args.command === "project" && args.subcommand === "intake") return projectIntake(args);
   if (args.command === "project" && args.subcommand === "stack") return projectStack(args);
   if (args.command === "project" && args.subcommand === "commands") return projectCommands(args);
+  if (args.command === "project" && args.subcommand === "bind") return projectBind(args);
+  if (args.command === "project" && args.subcommand === "workspace") return projectWorkspace(args);
+  if (args.command === "project" && args.subcommand === "exec-context") return projectExecContext(args);
   if (args.command === "project" && args.subcommand === "evidence") return projectEvidence(args);
   if (args.command === "project" && args.subcommand === "chain-validate") return projectChainValidate(args);
   if (args.command === "project" && args.subcommand === "inspect") return projectInspect(args);
@@ -11286,8 +11735,12 @@ async function main() {
   if (args.command === "adapter" && args.subcommand === "health") return adapterHealth(args);
   if (args.command === "adapter" && args.subcommand === "invoke-plan") return adapterInvokePlan(args);
   if (args.command === "worker" && args.subcommand === "list") return workerList(args);
+  if (args.command === "worker" && args.subcommand === "registry") return workerRegistry(args);
   if (args.command === "worker" && args.subcommand === "health") return workerHealth(args);
+  if (args.command === "worker" && args.subcommand === "control-plane") return workerControlPlane(args);
+  if (args.command === "worker" && args.subcommand === "heartbeat") return workerHeartbeat(args);
   if (args.command === "worker" && args.subcommand === "assign") return workerAssign(args);
+  if (args.command === "worker" && args.subcommand === "dispatch") return workerDispatch(args);
   if (args.command === "worker" && args.subcommand === "cancel") return workerCancel(args);
   if (args.command === "worker" && args.subcommand === "parallel-smoke") return workerParallelSmoke(args);
   if (args.command === "mobile" && args.subcommand === "ios-detect") return mobileIosDetect(args);
@@ -11307,6 +11760,7 @@ async function main() {
   if (args.command === "access" && args.subcommand === "users") return accessUsersDryRun(args);
   if (args.command === "access" && args.subcommand === "plans") return accessPlansDryRun(args);
   if (args.command === "access" && args.subcommand === "invites") return accessInvitesDryRun(args);
+  if (args.command === "access" && args.subcommand === "enforcement") return accessEnforcement(args);
   if (args.command === "access" && args.subcommand === "check") return accessCheckDryRun(args);
   if (args.command === "access" && args.subcommand === "grant") return accessGrant(args);
   if (args.command === "access" && args.subcommand === "set-plan") return accessSetPlan(args);
@@ -11331,6 +11785,7 @@ async function main() {
   if (args.command === "console" && args.subcommand === "service") return consoleService(args);
   if (args.command === "console" && args.subcommand === "actions") return consoleActionsDryRun(args);
   if (args.command === "console" && args.subcommand === "action-plan") return consoleActionPlan(args);
+  if (args.command === "release" && args.subcommand === "consistency") return releaseConsistency(args);
   if (args.command === "skill-route") {
     if (!args.text.trim()) throw new Error("Missing --text for skill-route.");
     console.log(JSON.stringify(await loadSkillRoute(args.text), null, 2));

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-06T08:27:39.257Z",
+  "control_plane_id": "pilot-2-local-worker-pool-control-plane",
+  "executor": "local_worker_registry",
+  "true_parallel_executor": "node_child_process_verified",
+  "worker_count": 2,
+  "available_worker_count": 2,
+  "capability_tags": [
+    "backend",
+    "codex",
+    "discovery",
+    "mobile-android",
+    "mobile-ios",
+    "production-dry-run",
+    "web"
+  ],
+  "runtimes": [
+    "codex-cli",
+    "local-mobile-dry-run"
+  ],
+  "governance": {
+    "local": "LOW/MEDIUM direct execute",
+    "remote": "HIGH proposal_only",
+    "production": "CRITICAL human_approval_required"
+  },
+  "heartbeat_mode": "metadata_only_dry_run",
+  "dispatch_modes": [
+    "runtime_select",
+    "capability_select"
+  ],
+  "evidence": {
+    "assignment_example": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/packages/worker-pool/examples/worker-assignment.example.json",
+    "heartbeat_example": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/packages/worker-pool/examples/worker-health.example.json",
+    "isolation_policy": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/packages/worker-pool/examples/worker-isolation-policy.example.json",
+    "parallel_smoke": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/packages/worker-pool/examples/worker-audit-log.example.json"
+  },
+  "safety": {
+    "server_access": "disabled",
+    "ssh": "disabled",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read",
+    "managed_project_writes": "disabled"
+  }
+}

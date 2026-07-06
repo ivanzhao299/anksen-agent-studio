@@ -1,33 +1,39 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-29T03:58:28Z",
+  "generated_at": "2026-07-06T08:28:29.066Z",
   "startup_command": "node packages/orchestrator-core/bin/studio.mjs context summary",
   "project_command": "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
   "global_context_files": [
-    "runtime/global/platform-state.json",
-    "runtime/global/roadmap-memory.json",
-    "runtime/global/decision-log.json",
+    "runtime/global/access-enforcement.json",
+    "runtime/global/attached-project-workspace.json",
     "runtime/global/codex-context-index.json",
     "runtime/global/codex-startup.md",
-    "runtime/global/handoff-summary.md"
+    "runtime/global/decision-log.json",
+    "runtime/global/handoff-summary.md",
+    "runtime/global/platform-state.json",
+    "runtime/global/release-consistency.json",
+    "runtime/global/roadmap-memory.json",
+    "runtime/global/worker-control-plane.json"
   ],
   "project_contexts": [
     {
       "project_id": "jinhu-smart-park",
       "files": [
-        "runtime/projects/jinhu-smart-park/project-state.json",
-        "runtime/projects/jinhu-smart-park/architecture.json",
         "runtime/projects/jinhu-smart-park/agent-studio-status.json",
-        "runtime/projects/jinhu-smart-park/handoff-summary.md"
+        "runtime/projects/jinhu-smart-park/architecture.json",
+        "runtime/projects/jinhu-smart-park/binding.json",
+        "runtime/projects/jinhu-smart-park/handoff-summary.md",
+        "runtime/projects/jinhu-smart-park/project-state.json"
       ]
     },
     {
       "project_id": "phoenix-erp",
       "files": [
-        "runtime/projects/phoenix-erp/project-state.json",
-        "runtime/projects/phoenix-erp/architecture.json",
         "runtime/projects/phoenix-erp/agent-studio-status.json",
-        "runtime/projects/phoenix-erp/handoff-summary.md"
+        "runtime/projects/phoenix-erp/architecture.json",
+        "runtime/projects/phoenix-erp/binding.json",
+        "runtime/projects/phoenix-erp/handoff-summary.md",
+        "runtime/projects/phoenix-erp/project-state.json"
       ]
     }
   ],
