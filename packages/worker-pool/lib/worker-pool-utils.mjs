@@ -1,11 +1,13 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const libDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(libDir, "..");
+const repoRoot = resolve(packageRoot, "..", "..");
 
 export const workerPoolPaths = {
   registry: resolve(packageRoot, "examples/worker-registry.example.json"),
@@ -18,6 +20,26 @@ export const workerPoolPaths = {
 
 async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
+}
+
+function readJsonSync(path) {
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function relativeToRepo(path) {
+  return relative(repoRoot, path);
+}
+
+function listJsonFilesSync(dirPath) {
+  if (!existsSync(dirPath)) return [];
+  return readdirSync(dirPath, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map((entry) => resolve(dirPath, entry.name))
+    .sort((left, right) => right.localeCompare(left));
 }
 
 function byId(items, idField) {
@@ -38,6 +60,142 @@ function byCapability(items) {
 
 function stableId(parts) {
   return createHash("sha1").update(parts.join(":")).digest("hex").slice(0, 10);
+}
+
+function collectDispatchPlanEvidence() {
+  const projectsDir = resolve(repoRoot, "runtime/projects");
+  if (!existsSync(projectsDir)) return [];
+  const projectDirs = readdirSync(projectsDir, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+  const records = [];
+  for (const projectDir of projectDirs) {
+    const dispatchDir = resolve(projectsDir, projectDir.name, "dispatch-plans");
+    for (const file of listJsonFilesSync(dispatchDir)) {
+      const data = readJsonSync(file);
+      const route = data?.worker_route;
+      if (!route?.worker_id) continue;
+      records.push({
+        source: "dispatch_plan",
+        worker_id: route.worker_id,
+        runtime_id: route.runtime_id ?? route.requested_runtime ?? "",
+        project_id: data?.project_id ?? projectDir.name,
+        task_id: data?.task_id ?? "",
+        stage: data?.pipeline_stage ?? "unknown",
+        status: data?.status ?? "unknown",
+        risk: data?.task_candidate?.risk ?? route.risk ?? "unknown",
+        execution_mode: route.execution_mode ?? "unknown",
+        queue_status: data?.queue_state?.task_status ?? "unknown",
+        generated_at: data?.generated_at ?? "",
+        evidence_path: relativeToRepo(file)
+      });
+    }
+  }
+  return records.sort((left, right) =>
+    `${right.generated_at}`.localeCompare(`${left.generated_at}`) || left.task_id.localeCompare(right.task_id)
+  );
+}
+
+function collectQueueAuditEvidence(dispatchPlans) {
+  const projectsDir = resolve(repoRoot, "runtime/projects");
+  if (!existsSync(projectsDir)) return [];
+  const routeByTaskId = new Map(dispatchPlans.map((record) => [record.task_id, record]));
+  const projectDirs = readdirSync(projectsDir, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+  const records = [];
+  for (const projectDir of projectDirs) {
+    const auditDir = resolve(projectsDir, projectDir.name, "queue-injection-audits");
+    for (const file of listJsonFilesSync(auditDir)) {
+      const data = readJsonSync(file);
+      const route = routeByTaskId.get(data?.task_id ?? "");
+      if (!route?.worker_id) continue;
+      records.push({
+        source: "queue_injection_audit",
+        worker_id: route.worker_id,
+        runtime_id: route.runtime_id ?? "",
+        project_id: data?.project_id ?? projectDir.name,
+        task_id: data?.task_id ?? "",
+        stage: "QUEUE_INJECTED",
+        status: data?.status ?? "unknown",
+        risk: data?.proposal?.risk ?? route.risk ?? "unknown",
+        execution_mode: route.execution_mode ?? "unknown",
+        queue_status: data?.queue_state?.queue_task_status ?? "unknown",
+        generated_at: data?.generated_at ?? "",
+        evidence_path: relativeToRepo(file)
+      });
+    }
+  }
+  return records.sort((left, right) =>
+    `${right.generated_at}`.localeCompare(`${left.generated_at}`) || left.task_id.localeCompare(right.task_id)
+  );
+}
+
+function collectConsoleActionRuns() {
+  const actionDir = resolve(repoRoot, "autopilot-runs/console-actions");
+  return listJsonFilesSync(actionDir)
+    .filter((file) => !file.includes("/uploads/"))
+    .map((file) => {
+      const data = readJsonSync(file);
+      if (!data) return null;
+      return {
+        source: "console_action",
+        worker_id: "local-codex-1",
+        runtime_id: "codex-cli",
+        run_id: data.run_id ?? "",
+        status: data.status ?? "unknown",
+        task: data.selected_action ?? data.goal ?? data.command_summary ?? "console_action",
+        started_at: data.started_at ?? data.created_at ?? "",
+        completed_at: data.completed_at ?? "",
+        evidence_path: relativeToRepo(file)
+      };
+    })
+    .filter(Boolean);
+}
+
+function collectParallelSmokeRuns() {
+  const parallelDir = resolve(repoRoot, "autopilot-runs/parallel-smoke");
+  if (!existsSync(parallelDir)) return [];
+  const runDirs = readdirSync(parallelDir, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+  const records = [];
+  for (const runDir of runDirs) {
+    const workspacesDir = resolve(parallelDir, runDir.name, "workspaces");
+    if (!existsSync(workspacesDir)) continue;
+    const workerDirs = readdirSync(workspacesDir, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+    for (const workerDir of workerDirs) {
+      const logFile = resolve(workspacesDir, workerDir.name, "run-log.json");
+      const data = readJsonSync(logFile);
+      if (!data) continue;
+      records.push({
+        source: "parallel_smoke",
+        worker_id: "local-codex-1",
+        runtime_id: "codex-cli",
+        run_id: data.run_id ?? "",
+        status: data.status ?? "unknown",
+        task: data.task ?? workerDir.name,
+        started_at: data.started_at ?? "",
+        completed_at: data.completed_at ?? "",
+        evidence_path: relativeToRepo(logFile)
+      });
+    }
+  }
+  return records.sort((left, right) =>
+    `${right.started_at}`.localeCompare(`${left.started_at}`) || left.run_id.localeCompare(right.run_id)
+  );
+}
+
+function collectRecentWorkerRuns() {
+  return [...collectConsoleActionRuns(), ...collectParallelSmokeRuns()].sort((left, right) =>
+    `${right.started_at}`.localeCompare(`${left.started_at}`) || left.run_id.localeCompare(right.run_id)
+  );
+}
+
+function workerRecentRuns(worker, records) {
+  return records
+    .filter((record) => record.worker_id === worker.worker_id || record.runtime_id === worker.runtime_id)
+    .slice(0, 5);
+}
+
+function workerLeaseEvidence(worker, records) {
+  return records
+    .filter((record) => record.worker_id === worker.worker_id || record.runtime_id === worker.runtime_id)
+    .slice(0, 5);
 }
 
 function readProcessTable() {
@@ -336,6 +494,23 @@ export function workerDispatch(bundle, options) {
 export function workerControlPlane(bundle) {
   const inventory = workerInventory(bundle);
   const heartbeat = workerHeartbeat(bundle);
+  const dispatchPlanEvidence = collectDispatchPlanEvidence();
+  const queueAuditEvidence = collectQueueAuditEvidence(dispatchPlanEvidence);
+  const recentRunEvidence = collectRecentWorkerRuns();
+  const leaseEvidence = [...dispatchPlanEvidence, ...queueAuditEvidence].sort((left, right) =>
+    `${right.generated_at}`.localeCompare(`${left.generated_at}`) || left.task_id.localeCompare(right.task_id)
+  );
+  const workers = heartbeat.workers.map((worker) => {
+    const recent_runs = workerRecentRuns(worker, recentRunEvidence);
+    const task_lease_evidence = workerLeaseEvidence(worker, leaseEvidence);
+    return {
+      ...worker,
+      recent_run_count: recent_runs.length,
+      task_lease_evidence_count: task_lease_evidence.length,
+      recent_runs,
+      task_lease_evidence
+    };
+  });
   return {
     schema_version: 1,
     generated_at: new Date().toISOString(),
@@ -355,15 +530,20 @@ export function workerControlPlane(bundle) {
     process_inventory_status: heartbeat.process_inventory_status,
     process_inventory_count: heartbeat.process_inventory_count,
     active_worker_process_count: heartbeat.workers.reduce((total, worker) => total + (worker.active_process_count ?? 0), 0),
+    recent_run_count: recentRunEvidence.length,
+    lease_evidence_count: leaseEvidence.length,
     dispatch_modes: [
       "runtime_select",
       "capability_select"
     ],
+    workers,
     evidence: {
       assignment_example: bundle.paths.assignment,
       heartbeat_example: bundle.paths.health,
       isolation_policy: bundle.paths.isolationPolicy,
-      parallel_smoke: bundle.paths.auditLog
+      parallel_smoke: bundle.paths.auditLog,
+      dispatch_plans_dir: relativeToRepo(resolve(repoRoot, "runtime/projects")),
+      console_actions_dir: relativeToRepo(resolve(repoRoot, "autopilot-runs/console-actions"))
     },
     safety: {
       server_access: "disabled",

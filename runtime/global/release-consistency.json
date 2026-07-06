@@ -1,14 +1,16 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T12:42:10.726Z",
+  "generated_at": "2026-07-06T12:53:01.085Z",
   "repo_branch": "main",
-  "repo_clean": "no",
-  "latest_head": "180e1fb feat(worker): add live local heartbeat inventory",
+  "repo_clean": "yes",
+  "latest_head": "4770cdf feat(studio): add release promotion gates and proposal audit flow",
   "latest_autopilot_run": "autopilot-runs/v4-continuous-2026-06-23T164157169Z-187199ed-step-04-v4-r-console-operable-read-only.json",
   "console_service": {
     "port": 4317,
-    "listening_pids": [],
-    "status": "NOT_LISTENING"
+    "listening_pids": [
+      "85436"
+    ],
+    "status": "LISTENING"
   },
   "checks": [
     {
@@ -48,25 +50,23 @@
     "managed_project_writes": "disabled"
   },
   "warnings": [
-    "Repository has uncommitted changes.",
-    "Console local service is not listening on the expected port.",
     "Server preview has not been confirmed for the current consistency key.",
     "Reviewed publish has not been confirmed for the current consistency key."
   ],
-  "promotion_consistency_key": "7f3b6e22abd304ee",
-  "promotion_next_stage": "local_preview",
+  "promotion_consistency_key": "4c61c39726d1c340",
+  "promotion_next_stage": "server_preview",
   "promotion_stages": [
     {
       "stage_id": "local_preview",
       "label": "本地预览",
-      "status": "FAIL",
-      "consistency_key": "7f3b6e22abd304ee",
+      "status": "PASS",
+      "consistency_key": "4c61c39726d1c340",
       "repo_branch": "main",
-      "repo_head": "180e1fb feat(worker): add live local heartbeat inventory",
-      "repo_clean": "no",
-      "recorded_at": "",
-      "recorded_by": "",
-      "gate_reason": "本地预览尚未通过；先清理仓库、启动本地预览服务并补齐必需文件。",
+      "repo_head": "4770cdf feat(studio): add release promotion gates and proposal audit flow",
+      "repo_clean": "yes",
+      "recorded_at": "2026-07-06T12:53:01.085Z",
+      "recorded_by": "studio.release.consistency",
+      "gate_reason": "本地预览已为当前一致性快照留痕。",
       "checks": [
         {
           "check_id": "runtime/global/codex-context-index.json",
@@ -101,13 +101,13 @@
     {
       "stage_id": "server_preview",
       "label": "服务器预览",
-      "status": "BLOCKED",
+      "status": "PENDING_REVIEW",
       "consistency_key": "",
       "depends_on": "local_preview",
       "recorded_at": "",
       "recorded_by": "",
-      "source_consistency_key": "7f3b6e22abd304ee",
-      "gate_reason": "等待本地预览先通过一致性闸门。"
+      "source_consistency_key": "4c61c39726d1c340",
+      "gate_reason": "需要对当前一致性快照执行一次服务器预览确认。"
     },
     {
       "stage_id": "reviewed_publish",
@@ -117,9 +117,9 @@
       "depends_on": "server_preview",
       "recorded_at": "",
       "recorded_by": "",
-      "source_consistency_key": "7f3b6e22abd304ee",
+      "source_consistency_key": "4c61c39726d1c340",
       "gate_reason": "等待服务器预览通过后才能进入 reviewed publish。"
     }
   ],
-  "status": "FAIL"
+  "status": "PASS"
 }

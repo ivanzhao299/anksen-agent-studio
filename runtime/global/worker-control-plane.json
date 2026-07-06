@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T10:17:41.525Z",
+  "generated_at": "2026-07-06T13:00:35.198Z",
   "control_plane_id": "pilot-2-local-worker-pool-control-plane",
   "executor": "local_worker_registry",
   "true_parallel_executor": "node_child_process_verified",
@@ -26,17 +26,149 @@
   },
   "heartbeat_mode": "local_process_inventory_dry_run",
   "process_inventory_status": "ok",
-  "process_inventory_count": 517,
+  "process_inventory_count": 562,
   "active_worker_process_count": 0,
+  "recent_run_count": 312,
+  "lease_evidence_count": 2,
   "dispatch_modes": [
     "runtime_select",
     "capability_select"
+  ],
+  "workers": [
+    {
+      "worker_id": "local-codex-1",
+      "runtime_id": "codex-cli",
+      "status": "available",
+      "heartbeat_status": "HEALTHY_IDLE",
+      "last_heartbeat_at": "2026-07-06T13:00:35.145Z",
+      "capability_tags": [
+        "codex",
+        "web",
+        "backend",
+        "discovery",
+        "production-dry-run"
+      ],
+      "process_probe_mode": "codex_local_inventory",
+      "active_process_count": 0,
+      "matched_processes": [],
+      "notes": "No active process matched. The worker remains healthy because it is allowed to start on demand.",
+      "recent_run_count": 5,
+      "task_lease_evidence_count": 2,
+      "recent_runs": [
+        {
+          "source": "console_action",
+          "worker_id": "local-codex-1",
+          "runtime_id": "codex-cli",
+          "run_id": "console-action-2026-07-06T125042609Z-e432411b",
+          "status": "PASS",
+          "task": "node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run",
+          "started_at": "2026-07-06T12:50:42.638Z",
+          "completed_at": "",
+          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-06T125042609Z-e432411b.json"
+        },
+        {
+          "source": "console_action",
+          "worker_id": "local-codex-1",
+          "runtime_id": "codex-cli",
+          "run_id": "console-action-2026-07-06T125042610Z-d876a47a",
+          "status": "CANCELLED",
+          "task": "node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal \"Cancel smoke\" --dry-run --parallel 4",
+          "started_at": "2026-07-06T12:50:42.610Z",
+          "completed_at": "",
+          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-06T125042610Z-d876a47a.json"
+        },
+        {
+          "source": "console_action",
+          "worker_id": "local-codex-1",
+          "runtime_id": "codex-cli",
+          "run_id": "console-action-2026-07-06T124251865Z-fad95168",
+          "status": "NEEDS_APPROVAL",
+          "task": "node packages/orchestrator-core/bin/studio.mjs project dispatch-plan --project jinhu-smart-park --text \"继续推进 Smart Park 工程管理闭环\" --apply -> project task-plan --apply-proposal -> project proposals",
+          "started_at": "2026-07-06T12:42:51.865Z",
+          "completed_at": "",
+          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-06T124251865Z-fad95168.json"
+        },
+        {
+          "source": "console_action",
+          "worker_id": "local-codex-1",
+          "runtime_id": "codex-cli",
+          "run_id": "console-action-2026-07-06T124121219Z-7f00d8ec",
+          "status": "PASS",
+          "task": "node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run",
+          "started_at": "2026-07-06T12:41:21.247Z",
+          "completed_at": "",
+          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-06T124121219Z-7f00d8ec.json"
+        },
+        {
+          "source": "console_action",
+          "worker_id": "local-codex-1",
+          "runtime_id": "codex-cli",
+          "run_id": "console-action-2026-07-06T124121220Z-40d53ad8",
+          "status": "CANCELLED",
+          "task": "node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal \"Cancel smoke\" --dry-run --parallel 4",
+          "started_at": "2026-07-06T12:41:21.220Z",
+          "completed_at": "",
+          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-06T124121220Z-40d53ad8.json"
+        }
+      ],
+      "task_lease_evidence": [
+        {
+          "source": "queue_injection_audit",
+          "worker_id": "local-codex-1",
+          "runtime_id": "codex-cli",
+          "project_id": "jinhu-smart-park",
+          "task_id": "JINHU-SMART-PARK-TASK-SMART-PARK",
+          "stage": "QUEUE_INJECTED",
+          "status": "PASS",
+          "risk": "MEDIUM",
+          "execution_mode": "local_repo_execute",
+          "queue_status": "READY",
+          "generated_at": "2026-07-06T12:47:49.453Z",
+          "evidence_path": "runtime/projects/jinhu-smart-park/queue-injection-audits/JINHU-SMART-PARK-TASK-SMART-PARK.json"
+        },
+        {
+          "source": "dispatch_plan",
+          "worker_id": "local-codex-1",
+          "runtime_id": "codex-cli",
+          "project_id": "jinhu-smart-park",
+          "task_id": "JINHU-SMART-PARK-TASK-SMART-PARK",
+          "stage": "READY_FOR_QUEUE_INJECTION",
+          "status": "PASS",
+          "risk": "MEDIUM",
+          "execution_mode": "local_repo_execute",
+          "queue_status": "missing",
+          "generated_at": "2026-07-06T12:42:53.915Z",
+          "evidence_path": "runtime/projects/jinhu-smart-park/dispatch-plans/JINHU-SMART-PARK-TASK-SMART-PARK.json"
+        }
+      ]
+    },
+    {
+      "worker_id": "local-mobile-macos-1",
+      "runtime_id": "local-mobile-dry-run",
+      "status": "available",
+      "heartbeat_status": "HEALTHY_IDLE",
+      "last_heartbeat_at": "2026-07-06T13:00:35.145Z",
+      "capability_tags": [
+        "mobile-ios",
+        "mobile-android"
+      ],
+      "process_probe_mode": "mobile_planning_inventory",
+      "active_process_count": 0,
+      "matched_processes": [],
+      "notes": "No active process matched. The worker remains healthy because it is allowed to start on demand.",
+      "recent_run_count": 0,
+      "task_lease_evidence_count": 0,
+      "recent_runs": [],
+      "task_lease_evidence": []
+    }
   ],
   "evidence": {
     "assignment_example": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/packages/worker-pool/examples/worker-assignment.example.json",
     "heartbeat_example": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/packages/worker-pool/examples/worker-health.example.json",
     "isolation_policy": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/packages/worker-pool/examples/worker-isolation-policy.example.json",
-    "parallel_smoke": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/packages/worker-pool/examples/worker-audit-log.example.json"
+    "parallel_smoke": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/packages/worker-pool/examples/worker-audit-log.example.json",
+    "dispatch_plans_dir": "runtime/projects",
+    "console_actions_dir": "autopilot-runs/console-actions"
   },
   "safety": {
     "server_access": "disabled",

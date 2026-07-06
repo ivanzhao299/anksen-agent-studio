@@ -1405,16 +1405,39 @@ function pageRuntime(data) {
 }
 
 function pageWorkers(data) {
-  const workers = data.workers.registry?.workers ?? [];
+  const workers = data.workers.control_plane?.workers ?? data.workers.registry?.workers ?? [];
   const controlPlane = data.workers.control_plane ?? {};
   const rows = workers.map((worker) => ({
     worker_id: worker.worker_id,
-    kind: worker.worker_kind,
-    os: worker.worker_os,
+    kind: worker.worker_kind ?? "local",
+    os: worker.worker_os ?? "unknown",
     capabilities: (worker.capability_tags ?? []).join(", "),
     risk: worker.risk,
-    status: worker.status
+    status: worker.status,
+    heartbeat: worker.heartbeat_status ?? "unknown",
+    recent_runs: worker.recent_run_count ?? 0,
+    lease_evidence: worker.task_lease_evidence_count ?? 0
   }));
+  const leaseRows = workers.flatMap((worker) =>
+    (worker.task_lease_evidence ?? []).map((record) => ({
+      worker_id: worker.worker_id,
+      task_id: record.task_id,
+      stage: record.stage,
+      status: record.status,
+      project_id: record.project_id,
+      path: record.evidence_path
+    }))
+  );
+  const recentRunRows = workers.flatMap((worker) =>
+    (worker.recent_runs ?? []).map((record) => ({
+      worker_id: worker.worker_id,
+      source: record.source,
+      task: record.task,
+      status: record.status,
+      started_at: record.started_at,
+      path: record.evidence_path
+    }))
+  );
   return `${workerPanel(data)}
   <section><h2>${messages.pages.workers.title}</h2><div class="grid">${metric(messages.pages.dashboard.workers, rows.length)}${metric(messages.pages.workers.serverAccess, data.safety.server_access)}${metric(messages.pages.workers.modelCalls, data.safety.model_invocation)}${metric("控制面", controlPlane.true_parallel_executor ?? "未生成")}</div></section>
   <section><h2>Worker Control Plane</h2><div class="grid">
@@ -1422,8 +1445,12 @@ function pageWorkers(data) {
     ${metric("Heartbeat", controlPlane.heartbeat_mode ?? "未生成")}
     ${metric("调度模式", Array.isArray(controlPlane.dispatch_modes) ? controlPlane.dispatch_modes.join(" / ") : "未生成")}
     ${metric("Runtimes", Array.isArray(controlPlane.runtimes) ? controlPlane.runtimes.join(", ") : "未生成")}
+    ${metric("最近运行", controlPlane.recent_run_count ?? 0)}
+    ${metric("租约证据", controlPlane.lease_evidence_count ?? 0)}
   </div></section>
-  <section>${table(rows, [{ key: "worker_id", label: messages.pages.workers.worker }, { key: "kind", label: messages.pages.workers.kind }, { key: "os", label: messages.pages.workers.os }, { key: "capabilities", label: messages.pages.workers.capabilities }, { key: "risk", label: messages.common.risk }, { key: "status", label: messages.common.status }])}</section>`;
+  <section>${table(rows, [{ key: "worker_id", label: messages.pages.workers.worker }, { key: "kind", label: messages.pages.workers.kind }, { key: "os", label: messages.pages.workers.os }, { key: "capabilities", label: messages.pages.workers.capabilities }, { key: "risk", label: messages.common.risk }, { key: "status", label: messages.common.status }, { key: "heartbeat", label: "Heartbeat" }, { key: "recent_runs", label: "最近运行" }, { key: "lease_evidence", label: "租约证据" }])}</section>
+  <section><h2>任务租约证据</h2>${table(leaseRows, [{ key: "worker_id", label: messages.pages.workers.worker }, { key: "task_id", label: "任务" }, { key: "stage", label: "阶段" }, { key: "status", label: messages.common.status }, { key: "project_id", label: "项目" }, { key: "path", label: messages.common.file }])}</section>
+  <section><h2>最近运行历史</h2>${table(recentRunRows, [{ key: "worker_id", label: messages.pages.workers.worker }, { key: "source", label: "来源" }, { key: "task", label: "任务" }, { key: "status", label: messages.common.status }, { key: "started_at", label: "开始时间" }, { key: "path", label: messages.common.file }])}</section>`;
 }
 
 function pageCredentials(data) {

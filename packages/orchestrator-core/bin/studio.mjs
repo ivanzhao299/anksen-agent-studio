@@ -11161,11 +11161,21 @@ async function workerControlPlane(args) {
   console.log(`runtimes: ${controlPlane.runtimes.join(", ")}`);
   console.log(`heartbeat_mode: ${controlPlane.heartbeat_mode}`);
   console.log(`dispatch_modes: ${controlPlane.dispatch_modes.join(", ")}`);
+  console.log(`recent_run_count: ${controlPlane.recent_run_count ?? 0}`);
+  console.log(`lease_evidence_count: ${controlPlane.lease_evidence_count ?? 0}`);
   console.log("");
   console.log("governance:");
   console.log(`- local: ${controlPlane.governance.local}`);
   console.log(`- remote: ${controlPlane.governance.remote}`);
   console.log(`- production: ${controlPlane.governance.production}`);
+  if (Array.isArray(controlPlane.workers) && controlPlane.workers.length > 0) {
+    console.log("");
+    console.log("| Worker | Runtime | Heartbeat | Recent Runs | Lease Evidence |");
+    console.log("| --- | --- | --- | ---: | ---: |");
+    for (const worker of controlPlane.workers) {
+      console.log(`| ${worker.worker_id} | ${worker.runtime_id} | ${worker.heartbeat_status ?? "unknown"} | ${worker.recent_run_count ?? 0} | ${worker.task_lease_evidence_count ?? 0} |`);
+    }
+  }
   if (filesWritten.length > 0) {
     console.log("");
     console.log("written_files:");
