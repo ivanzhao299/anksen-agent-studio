@@ -210,6 +210,151 @@ function firstValue(record, paths, fallback = "unknown") {
   return fallback;
 }
 
+function lifecycleOrder(value) {
+  const token = String(value ?? "").toLowerCase();
+  return {
+    blocked: 0,
+    needs_approval: 1,
+    ready_inject: 2,
+    injected: 3,
+    proposal_missing: 4,
+    idle: 5
+  }[token] ?? 9;
+}
+
+function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
+  const dispatchMap = new Map(dispatchPlans.map((item) => [item.data?.task_id ?? item.path, item]));
+  const proposalMap = new Map(proposals.map((item) => [item.data?.task_id ?? item.path, item]));
+  const auditMap = new Map(audits.map((item) => [item.data?.task_id ?? item.path, item]));
+  const taskIds = new Set([
+    ...dispatchMap.keys(),
+    ...proposalMap.keys(),
+    ...auditMap.keys()
+  ]);
+
+  const records = [...taskIds].map((taskId) => {
+    const dispatch = dispatchMap.get(taskId);
+    const proposal = proposalMap.get(taskId);
+    const audit = auditMap.get(taskId);
+    const dispatchData = dispatch?.data ?? {};
+    const proposalData = proposal?.data ?? {};
+    const auditData = audit?.data ?? {};
+    const risk = firstValue(proposalData, ["risk"], firstValue(dispatchData, ["task_candidate.risk"], "MEDIUM"));
+    const approvalStatus = firstValue(proposalData, ["approval_status"], "PROPOSED");
+    const queueAuditStatus = firstValue(auditData, ["status"], "missing");
+    const queueTaskStatus = firstValue(auditData, ["queue_state.queue_task_status"], "pending");
+    const dispatchStage = firstValue(dispatchData, ["pipeline_stage"], "missing");
+    const nextStage = firstValue(dispatchData, ["recommended_next_stage"], "idle");
+    const nextCommand = firstValue(dispatchData, ["recommended_next_command", "command_plan.create_proposal"], "");
+    const runtimeId = firstValue(dispatchData, ["worker_route.runtime_id", "task_candidate.runtime"], "unknown");
+    const workerId = firstValue(dispatchData, ["worker_route.worker_id"], "none");
+    const executionRoute = firstValue(dispatchData, ["binding_summary.execution_route"], "unknown");
+    const goalText = firstValue(dispatchData, ["goal_text"], firstValue(proposalData, ["text"], "unknown"));
+    const projectId = firstValue(dispatchData, ["project_id"], firstValue(proposalData, ["project_id"], firstValue(auditData, ["project_id"], "unknown")));
+    const requiresApproval = proposalData.approval_required === true || risk === "HIGH" || risk === "CRITICAL";
+    const blockers = [];
+    let lifecycle = "idle";
+    let lifecycle_label = "待补 proposal";
+
+    if (!proposal) {
+      lifecycle = "proposal_missing";
+      lifecycle_label = "待生成 proposal";
+      blockers.push("派发计划已生成，但 proposal 尚未落盘。");
+    } else if (approvalStatus !== "APPROVED") {
+      lifecycle = "needs_approval";
+      lifecycle_label = "待审批";
+      blockers.push(requiresApproval ? "需先完成 proposal 审批。" : "需确认 proposal 后才能进入队列。");
+    } else if (queueAuditStatus === "PASS") {
+      lifecycle = "injected";
+      lifecycle_label = "已入队";
+    } else if (risk === "HIGH" || risk === "CRITICAL") {
+      lifecycle = "needs_approval";
+      lifecycle_label = "人工审批";
+      blockers.push(`${risk} 风险保持 proposal_only。`);
+    } else if (queueAuditStatus === "BLOCKED" || queueAuditStatus === "FAIL") {
+      lifecycle = "blocked";
+      lifecycle_label = "入队受阻";
+      blockers.push(`queue audit ${queueAuditStatus}。`);
+    } else {
+      lifecycle = "ready_inject";
+      lifecycle_label = "待注入";
+      blockers.push(queueAuditStatus === "missing" ? "待生成 queue audit trace。" : `queue audit ${queueAuditStatus}。`);
+    }
+
+    const latestAt = firstValue(
+      auditData,
+      ["generated_at"],
+      firstValue(proposalData, ["approved_at", "created_at"], firstValue(dispatchData, ["generated_at"], ""))
+    );
+
+    return {
+      task_id: taskId,
+      project_id: projectId,
+      goal_text: goalText,
+      risk,
+      approval_status: approvalStatus,
+      queue_audit_status: queueAuditStatus,
+      queue_task_status: queueTaskStatus,
+      dispatch_stage: dispatchStage,
+      next_stage: nextStage,
+      next_command: nextCommand,
+      runtime_id: runtimeId,
+      worker_id: workerId,
+      execution_route: executionRoute,
+      lifecycle,
+      lifecycle_label,
+      blockers,
+      latest_at: latestAt,
+      proposal_path: proposal?.path ?? "",
+      dispatch_path: dispatch?.path ?? "",
+      audit_path: audit?.path ?? "",
+      proposal: proposalData,
+      dispatch: dispatchData,
+      audit: auditData
+    };
+  }).sort((left, right) =>
+    lifecycleOrder(left.lifecycle) - lifecycleOrder(right.lifecycle)
+    || String(right.latest_at).localeCompare(String(left.latest_at))
+    || String(left.task_id).localeCompare(String(right.task_id))
+  );
+
+  const summary = {
+    total: records.length,
+    pending_approval: records.filter((item) => item.lifecycle === "needs_approval" && item.approval_status !== "APPROVED").length,
+    proposal_only: records.filter((item) => item.lifecycle === "needs_approval" && item.approval_status === "APPROVED").length,
+    ready_inject: records.filter((item) => item.lifecycle === "ready_inject").length,
+    injected: records.filter((item) => item.lifecycle === "injected").length,
+    blocked: records.filter((item) => item.lifecycle === "blocked").length,
+    proposal_missing: records.filter((item) => item.lifecycle === "proposal_missing").length
+  };
+
+  const directActions = records.filter((item) => item.lifecycle === "ready_inject").map((item) => `${item.task_id}：审批并入队`);
+  const approvalItems = records.filter((item) => item.lifecycle === "needs_approval").map((item) => `${item.task_id}：${item.blockers[0] ?? item.lifecycle_label}`);
+  const blockerItems = records.filter((item) => item.lifecycle === "blocked" || item.lifecycle === "proposal_missing").map((item) => `${item.task_id}：${item.blockers[0] ?? item.lifecycle_label}`);
+  const completedItems = records.filter((item) => item.lifecycle === "injected").map((item) => `${item.task_id}：queue=${item.queue_task_status} / audit=PASS`);
+
+  let nextRecommendation = "先生成项目派发计划，形成 proposal -> queue audit 的闭环。";
+  if (summary.pending_approval > 0) {
+    nextRecommendation = "优先清理待审批 Proposal，再决定是否进入队列。";
+  } else if (summary.ready_inject > 0) {
+    nextRecommendation = "LOW / MEDIUM Proposal 已可直接审批并入队。";
+  } else if (summary.blocked > 0 || summary.proposal_missing > 0) {
+    nextRecommendation = "先补齐阻断项：修复 queue audit 或生成缺失的 proposal。";
+  } else if (summary.injected > 0) {
+    nextRecommendation = "已有任务入队，下一步转向观察队列执行与结果回流。";
+  }
+
+  return {
+    records,
+    summary,
+    next_recommendation: nextRecommendation,
+    direct_actions: directActions,
+    approval_items: approvalItems,
+    blocker_items: blockerItems,
+    completed_items: completedItems
+  };
+}
+
 export async function loadConsoleLocalData() {
   const [
     platformState,
@@ -276,6 +421,7 @@ export async function loadConsoleLocalData() {
   const releaseGates = governanceCenterExamples.find((item) => item.path.endsWith("release-gates.example.json"))?.data;
   const accessBundle = await loadAccessCenter();
   const bootstrapAccessProfile = resolveUserProfile(accessBundle, accessBundle.policy.default_console_user_id);
+  const projectRouterLifecycle = buildProjectRouterLifecycle(projectDispatchPlans, projectProposals, projectQueueInjectionAudits);
 
   return {
     loaded_at: new Date().toISOString(),
@@ -299,7 +445,14 @@ export async function loadConsoleLocalData() {
       proposals: projectProposals,
       proposal_count: projectProposals.length,
       queue_injection_audits: projectQueueInjectionAudits,
-      queue_injection_audit_count: projectQueueInjectionAudits.length
+      queue_injection_audit_count: projectQueueInjectionAudits.length,
+      lifecycle_records: projectRouterLifecycle.records,
+      lifecycle_summary: projectRouterLifecycle.summary,
+      lifecycle_next_recommendation: projectRouterLifecycle.next_recommendation,
+      lifecycle_direct_actions: projectRouterLifecycle.direct_actions,
+      lifecycle_approval_items: projectRouterLifecycle.approval_items,
+      lifecycle_blocker_items: projectRouterLifecycle.blocker_items,
+      lifecycle_completed_items: projectRouterLifecycle.completed_items
     },
     accessState,
     accessUsers,

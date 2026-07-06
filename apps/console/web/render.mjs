@@ -45,6 +45,10 @@ function detailsJson(title, value) {
   return `<details class="details-drawer"><summary>${escapeHtml(title)}</summary>${jsonBlock(value)}</details>`;
 }
 
+function inlineDetails(title, value) {
+  return `<details class="mini-details"><summary>${escapeHtml(title)}</summary>${jsonBlock(value)}</details>`;
+}
+
 function normalizeToken(value) {
   return String(value ?? "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
@@ -82,6 +86,22 @@ function projectDisplayLabel(item) {
   if (item.project_id === "phoenix-erp") return "phoenix-erp（GitHub 远程待接入）";
   if (item.project_id === "group-portal") return "group-portal（计划中）";
   return `${item.label}（${item.status}）`;
+}
+
+function lifecycleSummary(data) {
+  return data.project_router.lifecycle_summary ?? {
+    total: 0,
+    pending_approval: 0,
+    proposal_only: 0,
+    ready_inject: 0,
+    injected: 0,
+    blocked: 0,
+    proposal_missing: 0
+  };
+}
+
+function lifecycleRecords(data) {
+  return data.project_router.lifecycle_records ?? [];
 }
 
 function workspaceModeOptions() {
@@ -390,14 +410,69 @@ function smartParkEntryPanel() {
 }
 
 function recommendationPanel(data) {
-  const recommendation = data.autopilot.latest_summary?.next_recommendation ?? "运行 Autopilot dry-run 以刷新下一步建议。";
+  const lifecycle = lifecycleSummary(data);
+  const recommendation = data.project_router.lifecycle_next_recommendation
+    ?? data.autopilot.latest_summary?.next_recommendation
+    ?? "运行 Autopilot dry-run 以刷新下一步建议。";
+  const directItems = data.project_router.lifecycle_direct_actions?.length
+    ? data.project_router.lifecycle_direct_actions
+    : ["当前没有可直接注入的 Proposal。先生成 dispatch plan 或完成审批。"];
+  const approvalItems = data.project_router.lifecycle_approval_items?.length
+    ? data.project_router.lifecycle_approval_items
+    : ["当前没有待审批 Proposal。"];
+  const blockerItems = data.project_router.lifecycle_blocker_items?.length
+    ? data.project_router.lifecycle_blocker_items
+    : ["当前没有 queue audit / proposal 阻断项。"];
+  const completedItems = data.project_router.lifecycle_completed_items?.length
+    ? data.project_router.lifecycle_completed_items
+    : ["当前还没有已入队任务。"];
   return `<section>
     <div class="section-head"><h2>推荐动作区</h2><span class="pill">Planning / Governance</span></div>
+    <div class="grid">
+      ${metric("待审批", lifecycle.pending_approval)}
+      ${metric("待注入", lifecycle.ready_inject)}
+      ${metric("已入队", lifecycle.injected)}
+      ${metric("阻断项", lifecycle.blocked + lifecycle.proposal_missing)}
+    </div>
     <div class="kanban-grid">
       <div class="panel"><h3>下一步建议</h3><p>${escapeHtml(recommendation)}</p></div>
-      <div class="panel"><h3>可直接执行任务</h3>${list(["LOW / MEDIUM 本地 allowlist 命令", "Runtime health", "Worker health", "Smart Park 阻断项检查", "Smart Park 上线计划 Proposal 生成"])}</div>
-      <div class="panel"><h3>仍需审批任务</h3>${list(["HIGH remote worker: proposal_only", "CRITICAL production operation: human_approval_required", "真实凭证后端接入"])}</div>
-      <div class="panel"><h3>最近失败项</h3>${list(["无活动失败项", "SSH/production 相关动作保持 HOLD 或 proposal_only"])}</div>
+      <div class="panel"><h3>可直接执行</h3>${list(directItems)}</div>
+      <div class="panel"><h3>仍需审批</h3>${list(approvalItems)}</div>
+      <div class="panel"><h3>已完成/阻断</h3>${list([...completedItems.slice(0, 2), ...blockerItems.slice(0, 2)])}</div>
+    </div>
+  </section>`;
+}
+
+function projectLifecycleOverview(data) {
+  const lifecycle = lifecycleSummary(data);
+  const recommendation = data.project_router.lifecycle_next_recommendation
+    ?? "先生成 dispatch plan，再完成 Proposal 审批与 queue injection。";
+  const directItems = data.project_router.lifecycle_direct_actions?.length
+    ? data.project_router.lifecycle_direct_actions.slice(0, 3)
+    : ["当前没有可直接注入的任务。"];
+  const blockerItems = data.project_router.lifecycle_blocker_items?.length
+    ? data.project_router.lifecycle_blocker_items.slice(0, 3)
+    : ["当前没有阻断项。"];
+  return `<section>
+    <div class="section-head"><h2>项目闭环状态</h2><span class="pill">project router lifecycle</span></div>
+    <div class="grid">
+      ${metric("派发总数", lifecycle.total)}
+      ${metric("待审批", lifecycle.pending_approval)}
+      ${metric("待注入", lifecycle.ready_inject)}
+      ${metric("已入队", lifecycle.injected)}
+      ${metric("阻断项", lifecycle.blocked + lifecycle.proposal_missing)}
+    </div>
+    <div class="kanban-grid">
+      <div class="panel">
+        <h3>当前建议</h3>
+        <p>${escapeHtml(recommendation)}</p>
+        <div class="button-row compact-row" style="margin-top:10px;">
+          <button type="button" class="secondary" data-quick-action="smart-park-continue" data-goal="继续 Smart Park">继续 Smart Park</button>
+          <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="查看待审批 Proposal">查看 Proposal</button>
+        </div>
+      </div>
+      <div class="panel"><h3>可直接推进</h3>${list(directItems)}</div>
+      <div class="panel"><h3>当前阻断</h3>${list(blockerItems)}</div>
     </div>
   </section>`;
 }
@@ -447,85 +522,79 @@ function workerPanel(data) {
   </section>`;
 }
 
+function dispatchLifecyclePanel(data) {
+  const records = lifecycleRecords(data);
+  const rows = records.slice(0, 8).map((item) => ({
+    task: item.task_id,
+    stage: `<div class="proposal-evidence">
+      ${toneLabel(item.dispatch_stage === "missing" ? "未生成 dispatch plan" : item.dispatch_stage, item.dispatch_stage === "missing" ? "blocked" : "local")}
+      <span class="help">${escapeHtml(item.runtime_id)} / ${escapeHtml(item.worker_id)} / ${escapeHtml(item.execution_route)}</span>
+    </div>`,
+    proposal: toneLabel(item.approval_status, item.approval_status === "APPROVED" ? "pass" : "proposal-only"),
+    queue: `<div class="proposal-evidence">
+      ${toneLabel(item.queue_audit_status, item.queue_audit_status === "PASS" ? "pass" : item.queue_audit_status === "missing" ? "local" : "blocked")}
+      <span class="help">queue: ${escapeHtml(item.queue_task_status)}</span>
+    </div>`,
+    next: `<div class="proposal-evidence">
+      ${toneLabel(item.lifecycle_label, item.lifecycle)}
+      <span class="help">${escapeHtml(item.blockers[0] ?? item.next_stage ?? "无")}</span>
+    </div>`
+  }));
+  return `<section>
+    <div class="section-head"><h2>派发闭环总览</h2><span class="pill">dispatch → proposal → queue audit</span></div>
+    ${rows.length > 0 ? table(rows, [
+      { key: "task", label: "task" },
+      { key: "stage", label: "dispatch", html: true },
+      { key: "proposal", label: "proposal", html: true },
+      { key: "queue", label: "queue audit", html: true },
+      { key: "next", label: "next", html: true }
+    ]) : `<div class="panel"><p class="help">当前没有派发闭环记录。先生成 dispatch plan。</p></div>`}
+  </section>`;
+}
+
 function proposalPanel(data) {
-  const proposals = data.project_router.proposals ?? [];
-  const audits = new Map((data.project_router.queue_injection_audits ?? []).map((item) => [item.data?.task_id ?? item.path, item]));
-  const summary = {
-    total: proposals.length,
-    pendingApproval: 0,
-    proposalOnly: 0,
-    readyInject: 0,
-    injected: 0,
-    blocked: 0
-  };
-  const rows = proposals.slice(0, 8).map((item) => {
-    const proposal = item.data ?? {};
-    const audit = audits.get(proposal.task_id);
-    const risk = proposal.risk ?? "MEDIUM";
-    const approvalStatus = proposal.approval_status ?? "PROPOSED";
-    const queueAuditStatus = audit?.data?.status ?? "missing";
-    const queueTaskStatus = audit?.data?.queue_state?.queue_task_status ?? "pending";
-    const requiresApproval = proposal.approval_required === true || risk === "HIGH" || risk === "CRITICAL";
-    let lifecycleLabel = "待注入";
-    let lifecycleTone = "ready";
-    let blockerLabel = "LOW / MEDIUM 可直接审批并入队";
-    let blockerTone = "ready";
+  const records = lifecycleRecords(data);
+  const summary = lifecycleSummary(data);
+  const rows = records.slice(0, 8).map((item) => {
+    const risk = item.risk ?? "MEDIUM";
+    const approvalStatus = item.approval_status ?? "PROPOSED";
+    const queueAuditStatus = item.queue_audit_status ?? "missing";
+    const queueTaskStatus = item.queue_task_status ?? "pending";
+    const lifecycleLabel = item.lifecycle_label ?? "待注入";
+    const lifecycleTone = item.lifecycle ?? "ready_inject";
+    const blockerLabel = item.blockers[0] ?? "LOW / MEDIUM 可直接审批并入队";
+    const blockerTone = item.lifecycle === "blocked" ? "blocked" : item.lifecycle === "needs_approval" ? "proposal-only" : item.lifecycle === "injected" ? "pass" : "ready";
     let actionHtml = `<div class="button-row compact-row">
-      <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">查看</button>
-      <button type="button" class="secondary" data-proposal-action="proposal-approve-dry-run" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">审批 dry-run</button>
-      <button type="button" class="primary" data-proposal-action="proposal-approve-apply" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">审批并入队</button>
+      <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(item.task_id ?? "")}">查看</button>
+      <button type="button" class="secondary" data-proposal-action="proposal-approve-dry-run" data-proposal-task="${escapeHtml(item.task_id ?? "")}">审批 dry-run</button>
+      <button type="button" class="primary" data-proposal-action="proposal-approve-apply" data-proposal-task="${escapeHtml(item.task_id ?? "")}">审批并入队</button>
     </div>`;
 
-    if (approvalStatus !== "APPROVED") {
-      lifecycleLabel = "待审批";
-      lifecycleTone = "proposal-only";
-      blockerLabel = requiresApproval ? "需先完成 proposal 审批" : "待审批后才能入队";
-      blockerTone = "proposal-only";
-      summary.pendingApproval += 1;
-    } else if (queueAuditStatus === "PASS") {
-      lifecycleLabel = "已入队";
-      lifecycleTone = "pass";
-      blockerLabel = `queue audit PASS / ${queueTaskStatus}`;
-      blockerTone = "pass";
+    if (item.lifecycle === "injected") {
       actionHtml = `<div class="button-row compact-row">
-        <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">查看</button>
+        <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(item.task_id ?? "")}">查看</button>
         <span class="help">已完成队列注入</span>
       </div>`;
-      summary.injected += 1;
-    } else if (risk === "HIGH" || risk === "CRITICAL") {
-      lifecycleLabel = "人工审批";
-      lifecycleTone = "proposal-only";
-      blockerLabel = `${risk} 风险保持 proposal_only`;
-      blockerTone = "proposal-only";
+    } else if (item.lifecycle === "needs_approval" && (risk === "HIGH" || risk === "CRITICAL")) {
       actionHtml = `<div class="button-row compact-row">
-        <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(proposal.task_id ?? "")}">查看</button>
+        <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(item.task_id ?? "")}">查看</button>
         <span class="help">保持人工审批</span>
       </div>`;
-      summary.proposalOnly += 1;
-    } else if (queueAuditStatus === "BLOCKED" || queueAuditStatus === "FAIL") {
-      lifecycleLabel = "入队受阻";
-      lifecycleTone = "blocked";
-      blockerLabel = `queue audit ${queueAuditStatus}`;
-      blockerTone = "blocked";
-      summary.blocked += 1;
-    } else {
-      lifecycleLabel = "待注入";
-      lifecycleTone = "ready";
-      blockerLabel = queueAuditStatus === "missing"
-        ? "待生成 queue audit trace"
-        : `queue audit ${queueAuditStatus}`;
-      blockerTone = queueAuditStatus === "missing" ? "local" : "ready";
-      summary.readyInject += 1;
     }
 
     return {
-      id: proposal.task_id ?? item.path,
+      id: item.task_id,
       risk: riskBadge(risk),
       approval: toneLabel(approvalStatus, approvalStatus === "APPROVED" ? "pass" : "proposal-only"),
       lifecycle: toneLabel(lifecycleLabel, lifecycleTone),
       blocker: `<div class="proposal-evidence">
         ${toneLabel(blockerLabel, blockerTone)}
         <span class="help">queue: ${escapeHtml(queueTaskStatus)} / audit: ${escapeHtml(queueAuditStatus)}</span>
+      </div>`,
+      evidence: `<div class="proposal-evidence">
+        ${item.dispatch_path ? inlineDetails("dispatch", item.dispatch) : ""}
+        ${item.proposal_path ? inlineDetails("proposal", item.proposal) : ""}
+        ${item.audit_path ? inlineDetails("audit", item.audit) : ""}
       </div>`,
       actions: actionHtml
     };
@@ -534,11 +603,11 @@ function proposalPanel(data) {
     <div class="section-head"><h2>Proposal 审批区</h2><span class="pill warn-pill">业务代码写入仍禁用</span></div>
     <div class="grid">
       ${metric("总 Proposal", summary.total)}
-      ${metric("待审批", summary.pendingApproval)}
-      ${metric("待注入", summary.readyInject)}
+      ${metric("待审批", summary.pending_approval)}
+      ${metric("待注入", summary.ready_inject)}
       ${metric("已入队", summary.injected)}
-      ${metric("人工审批", summary.proposalOnly)}
-      ${metric("入队受阻", summary.blocked)}
+      ${metric("人工审批", summary.proposal_only)}
+      ${metric("入队受阻", summary.blocked + summary.proposal_missing)}
     </div>
     <div class="panel">
       <p class="help">LOW / MEDIUM 可在 Console 内审批并注入任务队列；HIGH / CRITICAL 保持 proposal_only；所有项目业务代码写入仍通过独立受控流程执行。</p>
@@ -549,6 +618,7 @@ function proposalPanel(data) {
       { key: "approval", label: "approval_required", html: true },
       { key: "lifecycle", label: "lifecycle", html: true },
       { key: "blocker", label: "evidence / blocker", html: true },
+      { key: "evidence", label: "details", html: true },
       { key: "actions", label: "action", html: true }
     ]) : `<div class="panel"><p class="help">当前没有可审 Proposal。先执行项目派发计划，再进入 Proposal Review。</p></div>`}
   </section>`;
@@ -1358,6 +1428,9 @@ function shell(content, activeId, model, data, auth = {}) {
     .metric strong { display: block; font-size: 18px; overflow-wrap: anywhere; }
     .proposal-evidence { display: grid; gap: 6px; min-width: 0; }
     .proposal-evidence .help { margin-top: 0; }
+    .mini-details { border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; background: #0a0e14; overflow: hidden; }
+    .mini-details summary { cursor: pointer; padding: 6px 8px; color: var(--blue); font-size: 11px; font-weight: 700; }
+    .mini-details pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; font-size: 11px; max-height: 220px; }
     table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 26px var(--shadow); }
     th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 9px 10px; font-size: 13px; vertical-align: top; }
     th { color: var(--muted); background: #172231; font-weight: 700; }
@@ -1444,24 +1517,29 @@ function pageDashboard(_model, data) {
   const release = data.release_consistency ?? {};
   const releaseStages = Array.isArray(release.promotion_stages) ? release.promotion_stages : [];
   const reviewedPublish = releaseStages.find((stage) => stage.stage_id === "reviewed_publish");
+  const lifecycle = lifecycleSummary(data);
   return `${actionWorkbench(data, "统一 AI 开发工作台")}
   <section><h2>控制面快照</h2><div class="grid">
     ${metric("挂接项目", data.project_router.binding_count)}
     ${metric("派发计划", data.project_router.dispatch_plan_count ?? 0)}
+    ${metric("待审批 Proposal", lifecycle.pending_approval)}
+    ${metric("待注入", lifecycle.ready_inject)}
+    ${metric("已入队", lifecycle.injected)}
     ${metric("Worker 控制面", release.status ?? "未生成")}
     ${metric("下一闸门", release.promotion_next_stage ?? "未生成")}
     ${metric("Reviewed Publish", reviewedPublish?.status ?? "未生成")}
     ${metric("Access Enforcement", data.access.enforcement?.policy_id ?? "未生成")}
     ${metric("最新 Autopilot", data.autopilot.latest_summary?.id ?? "not_found")}
-  </div></section>`;
+  </div></section>
+  ${dispatchLifecyclePanel(data)}
+  ${recommendationPanel(data)}`;
 }
 
 function pageProjects(data) {
   const project = data.jinhuProjectState ?? {};
   const workspaceProjects = data.project_router.workspace?.projects ?? [];
   const dispatchPlans = data.project_router.dispatch_plans ?? [];
-  const proposalMap = new Map((data.project_router.proposals ?? []).map((item) => [item.data?.task_id ?? item.path, item]));
-  const auditMap = new Map((data.project_router.queue_injection_audits ?? []).map((item) => [item.data?.task_id ?? item.path, item]));
+  const lifecycleMap = new Map(lifecycleRecords(data).map((item) => [item.task_id, item]));
   const rows = workspaceProjects.map((item) => ({
     project: item.project_id,
     status: item.connection_status,
@@ -1479,6 +1557,7 @@ function pageProjects(data) {
     ${metric("Proposal", data.project_router.proposal_count ?? 0)}
     ${metric("Queue Audit", data.project_router.queue_injection_audit_count ?? 0)}
   </div></section>
+  ${projectLifecycleOverview(data)}
   <section><h2>Attached Project Workspace</h2>${rows.length > 0 ? table(rows, [
     { key: "project", label: "项目" },
     { key: "status", label: "连接" },
@@ -1487,16 +1566,38 @@ function pageProjects(data) {
     { key: "clean", label: "仓库" },
     { key: "write_policy", label: "写入策略" }
   ]) : `<div class="panel"><p class="help">尚未生成绑定快照。先执行 <code>studio project bind --apply</code> 与 <code>studio project workspace --apply</code>。</p></div>`}</section>
-  <section><h2>Project Dispatch Plans</h2>${dispatchPlans.length > 0 ? table(dispatchPlans.slice(0, 8).map((item) => ({
-    project: item.project_id,
-    task_id: item.data?.task_id ?? "unknown",
-    stage: item.data?.pipeline_stage ?? "unknown",
-    proposal: statusLabel(proposalMap.get(item.data?.task_id)?.data?.approval_status ?? "missing"),
-    audit: statusLabel(auditMap.get(item.data?.task_id)?.data?.status ?? "missing"),
-    runtime: item.data?.worker_route?.runtime_id ?? item.data?.task_candidate?.runtime ?? "unknown",
-    worker: item.data?.worker_route?.worker_id ?? "none",
-    next: item.data?.recommended_next_stage ?? "unknown"
-  })), [
+  <section><h2>Project Dispatch Plans</h2>${dispatchPlans.length > 0 ? table(dispatchPlans.slice(0, 8).map((item) => {
+    const taskId = item.data?.task_id ?? "unknown";
+    const lifecycle = lifecycleMap.get(taskId);
+    const isInjected = lifecycle?.lifecycle === "injected";
+    const isManualOnly = lifecycle?.lifecycle === "needs_approval" && ["HIGH", "CRITICAL"].includes(lifecycle?.risk ?? "");
+    return {
+      project: item.project_id,
+      task_id: taskId,
+      stage: item.data?.pipeline_stage ?? "unknown",
+      proposal: statusLabel(lifecycle?.approval_status ?? "missing"),
+      audit: statusLabel(lifecycle?.queue_audit_status ?? "missing"),
+      runtime: item.data?.worker_route?.runtime_id ?? item.data?.task_candidate?.runtime ?? "unknown",
+      worker: item.data?.worker_route?.worker_id ?? "none",
+      closure: toneLabel(lifecycle?.lifecycle_label ?? "待补 proposal", lifecycle?.lifecycle ?? "proposal_missing"),
+      next: `<div class="proposal-evidence">
+        <span class="help">${escapeHtml(lifecycle?.blockers?.[0] ?? item.data?.recommended_next_stage ?? "unknown")}</span>
+        <div class="button-row compact-row">
+          <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(taskId)}">查看</button>
+          ${isInjected
+            ? `<span class="help">已入队</span>`
+            : isManualOnly
+              ? `<span class="help">人工审批</span>`
+              : `<button type="button" class="primary" data-proposal-action="proposal-approve-apply" data-proposal-task="${escapeHtml(taskId)}">审批并入队</button>`}
+        </div>
+      </div>`,
+      evidence: `<div class="proposal-evidence">
+        ${item.path ? inlineDetails("dispatch", item.data ?? {}) : ""}
+        ${lifecycle?.proposal_path ? inlineDetails("proposal", lifecycle.proposal) : ""}
+        ${lifecycle?.audit_path ? inlineDetails("audit", lifecycle.audit) : ""}
+      </div>`
+    };
+  }), [
     { key: "project", label: "项目" },
     { key: "task_id", label: "任务" },
     { key: "stage", label: "阶段" },
@@ -1504,7 +1605,9 @@ function pageProjects(data) {
     { key: "audit", label: "Queue Audit", html: true },
     { key: "runtime", label: "Runtime" },
     { key: "worker", label: "Worker" },
-    { key: "next", label: "下一步" }
+    { key: "closure", label: "闭环状态", html: true },
+    { key: "next", label: "下一步", html: true },
+    { key: "evidence", label: "证据", html: true }
   ]) : `<div class="panel"><p class="help">尚未生成派发计划。先执行 <code>studio project dispatch-plan --project jinhu-smart-park --text "..." --apply</code>。</p></div>`}</section>
   <section><h2>${messages.pages.projects.runtimeMemory}</h2>${detailsJson("查看原始运行记忆 JSON", project)}</section>`;
 }
@@ -1605,6 +1708,8 @@ function pageActions(data) {
   return `<section><h2>${messages.pages.actions.title}</h2><div class="grid">${metric(messages.pages.actions.actions, actions.length)}${metric(messages.pages.actions.defaultMode, "pilot_production")}${metric(messages.pages.actions.writes, messages.common.falseValue)}${metric("Action Log", data.actionServer.action_log_dir)}</div></section>
   ${actionWorkbench(data, "操作中心")}
   ${smartParkEntryPanel()}
+  ${recommendationPanel(data)}
+  ${dispatchLifecyclePanel(data)}
   ${proposalPanel(data)}
   ${releasePromotionPanel(data)}
   <section>${table(actions.map((action) => ({
