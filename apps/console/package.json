@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node web/server.mjs",
+    "dev": "node --watch web/server.mjs",
     "build": "node web/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   }

@@ -206,6 +206,7 @@ function accessLoginPage(data) {
     </div>
     <div class="auth-side">
       <div class="auth-card-head">
+        <span class="auth-kicker">Console Access</span>
         <h3>登录</h3>
       </div>
       <form id="auth-login-form" class="auth-form">
@@ -220,7 +221,7 @@ function accessLoginPage(data) {
         <div class="button-row">
           <button type="submit" class="primary-action auth-submit-button">登录</button>
         </div>
-        <p id="auth-status" class="help auth-status-copy">请使用已分配的内测账号登录。</p>
+        <p id="auth-status" class="help auth-status-copy">仅限已授权账号。</p>
       </form>
     </div>
   </section>`;
@@ -1095,7 +1096,7 @@ function shell(content, activeId, model, data, auth = {}) {
     .entitlement-alert-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
     .entitlement-alert-head strong { font-size: 13px; }
     .workspace-shell { display: grid; grid-template-columns: 160px minmax(0, 1fr) 220px; gap: 10px; align-items: start; }
-    .auth-shell { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(300px, 390px); gap: 18px; align-items: stretch; justify-content: center; }
+    .auth-shell { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(320px, 360px); gap: 18px; align-items: stretch; justify-content: center; max-width: 1280px; margin: 0 auto; }
     .auth-panel, .auth-side { position: relative; overflow: hidden; border-radius: 18px; border: 1px solid #243041; box-shadow: 0 18px 42px rgba(3, 7, 18, 0.32); }
     .auth-panel { min-height: 560px; background: linear-gradient(160deg, rgba(9, 14, 22, 0.9), rgba(7, 11, 18, 0.96)); isolation: isolate; }
     .auth-panel::before { content: ""; position: absolute; inset: 0; background:
@@ -1106,7 +1107,7 @@ function shell(content, activeId, model, data, auth = {}) {
       linear-gradient(90deg, rgba(7, 11, 18, 0.96) 0%, rgba(7, 11, 18, 0.9) 22%, rgba(7, 11, 18, 0.46) 48%, rgba(7, 11, 18, 0.32) 68%, rgba(7, 11, 18, 0.78) 100%),
       linear-gradient(180deg, rgba(7, 11, 18, 0.72) 0%, rgba(7, 11, 18, 0.05) 28%, rgba(7, 11, 18, 0.02) 72%, rgba(7, 11, 18, 0.74) 100%);
       pointer-events: none; z-index: 1; }
-    .auth-side { width: 100%; max-width: 390px; justify-self: end; padding: 22px 22px 20px; background:
+    .auth-side { width: 100%; max-width: 360px; justify-self: end; padding: 26px 24px 22px; background:
       radial-gradient(circle at top, rgba(90, 169, 255, 0.14), transparent 30%),
       linear-gradient(180deg, rgba(17, 23, 34, 0.98), rgba(9, 13, 19, 0.98)); }
     .auth-panel-art { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
@@ -1116,15 +1117,16 @@ function shell(content, activeId, model, data, auth = {}) {
       radial-gradient(circle at 76% 20%, rgba(117, 186, 255, 0.12), transparent 22%); }
     .auth-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 11px; border-radius: 999px; background: rgba(8, 12, 18, 0.88); border: 1px solid #2a3950; color: #d7e2ef; font-size: 12px; font-weight: 700; }
     .auth-chip.subtle { background: rgba(255, 255, 255, 0.02); color: #7f90a3; border-color: rgba(255, 255, 255, 0.05); }
-    .auth-card-head, .auth-form { max-width: 320px; }
-    .auth-card-head h3 { font-size: 28px; line-height: 1.02; margin: 0 0 4px; letter-spacing: 0; }
-    .auth-form { display: grid; gap: 12px; margin-top: 10px; }
-    .auth-form input { min-height: 48px; border-radius: 12px; background: #0a1017; border-color: #263343; padding: 11px 12px; font-size: 14px; }
+    .auth-card-head, .auth-form { max-width: 296px; }
+    .auth-kicker { display: inline-block; margin-bottom: 8px; color: #8394ab; font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; }
+    .auth-card-head h3 { font-size: 24px; line-height: 1.04; margin: 0; letter-spacing: 0; }
+    .auth-form { display: grid; gap: 12px; margin-top: 14px; }
+    .auth-form input { min-height: 46px; border-radius: 12px; background: #0a1017; border-color: #263343; padding: 11px 12px; font-size: 14px; }
     .auth-form input::placeholder { color: #61748b; }
-    .auth-submit-button { width: 100%; min-height: 48px; border-radius: 12px; background: linear-gradient(180deg, #235182, #1a4068); border-color: #2f5f8f; }
+    .auth-submit-button { width: 100%; min-height: 46px; border-radius: 12px; background: linear-gradient(180deg, #235182, #1a4068); border-color: #2f5f8f; }
     .auth-submit-button:hover { background: linear-gradient(180deg, #295d95, #204a78); }
     .auth-form .button-row { margin-top: 4px; }
-    .auth-status-copy { margin-top: 4px; font-size: 11px; color: #7d8ea3; }
+    .auth-status-copy { margin-top: 2px; font-size: 11px; color: #6f8197; }
     .auth-status.error { color: var(--red); }
     .auth-status.success { color: var(--green); }
     .auth-status.pending { color: var(--blue); }
