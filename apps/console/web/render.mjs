@@ -77,6 +77,20 @@ function governanceGateForRisk(risk) {
   return "ALLOW_DIRECT_EXECUTE";
 }
 
+function executionModeLabel(mode = "dry_run_only") {
+  if (mode === "human_approval_required") return "human_approval_required";
+  if (mode === "proposal_only") return "proposal_only";
+  if (mode === "direct_execute") return "direct_execute";
+  return "dry_run_only";
+}
+
+function governanceGateForMode(mode = "dry_run_only") {
+  if (mode === "human_approval_required") return "HUMAN_APPROVAL_REQUIRED";
+  if (mode === "proposal_only") return "PROPOSAL_ONLY";
+  if (mode === "direct_execute") return "ALLOW_DIRECT_EXECUTE";
+  return "ALLOW_DRY_RUN";
+}
+
 function formOption(value, label, selected = false) {
   return `<option value="${escapeHtml(value)}"${selected ? " selected" : ""}>${escapeHtml(label)}</option>`;
 }
@@ -264,6 +278,7 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
     ["smart-park-blockers", "阻断项"],
     ["smart-park-go-live-plan", "上线 Proposal"],
     ["proposal-review", "待审批 Proposal"],
+    ["release-local-preview", "本地预览"],
     ["release-server-preview", "服务器预览"],
     ["release-reviewed-publish", "发布确认"],
     ["worker-health", "Worker 状态"],
@@ -575,7 +590,7 @@ function proposalPanel(data) {
         <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(item.task_id ?? "")}">查看</button>
         <span class="help">已完成队列注入</span>
       </div>`;
-    } else if (item.lifecycle === "needs_approval" && (risk === "HIGH" || risk === "CRITICAL")) {
+    } else if (item.lifecycle === "proposal_only") {
       actionHtml = `<div class="button-row compact-row">
         <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(item.task_id ?? "")}">查看</button>
         <span class="help">保持人工审批</span>
@@ -631,6 +646,13 @@ const releaseStageCatalog = [
 ];
 
 function releaseStageAction(stageId) {
+  if (stageId === "local_preview") {
+    return {
+      actionId: "release-local-preview",
+      label: "确认本地预览",
+      goal: "确认本地预览一致性"
+    };
+  }
   if (stageId === "server_preview") {
     return {
       actionId: "release-server-preview",
@@ -717,7 +739,7 @@ function releasePromotionPanel(data) {
       : `<span class="help">${escapeHtml(stage.status === "PASS" ? "已确认" : stage.blockedReason)}</span>`
   }));
   return `<section>
-    <div class="section-head"><h2>Release Promotion</h2><span class="pill">local / server / reviewed</span></div>
+    <div class="section-head"><h2>发布闸门</h2><span class="pill">local / server / reviewed</span></div>
     <div class="grid">
       ${metric("一致性状态", overallLabel)}
       ${metric("Consistency Key", release.promotion_consistency_key ?? "未生成")}
@@ -749,12 +771,12 @@ function releasePromotionPanel(data) {
       ${list(warnings)}
     </div>` : `<div class="panel"><p class="help">当前没有 release promotion 告警，可以继续按闸门推进。</p></div>`}
     ${stageRows.length > 0 ? table(stageRows, [
-      { key: "stage", label: "stage" },
+      { key: "stage", label: "阶段" },
       { key: "status", label: "status", html: true },
       { key: "key", label: "consistency key" },
       { key: "recorded", label: "recorded_at" },
       { key: "depends_on", label: "depends_on" },
-      { key: "action", label: "action", html: true }
+      { key: "action", label: "动作", html: true }
     ]) : `<div class="panel"><p class="help">尚未生成 release consistency 工件。先执行 <code>studio release consistency --dry-run</code>。</p></div>`}
   </section>`;
 }
@@ -1902,7 +1924,7 @@ function pageAutopilot(data) {
     ${metric("Promotion 状态", release.status ?? "未生成")}
     ${metric("下一闸门", release.promotion_next_stage ?? "completed")}
   </div></section>
-  <section><h2>Proposal / Queue Injection Trace</h2>${queueRows.length > 0 ? table(queueRows, [
+  <section><h2>Proposal / 入队轨迹</h2>${queueRows.length > 0 ? table(queueRows, [
     { key: "task", label: "task" },
     { key: "approval", label: "approval", html: true },
     { key: "queue", label: "queue audit", html: true },
@@ -1926,15 +1948,80 @@ function pageActions(data) {
     id: action.id,
     intent: action.label,
     risk: riskBadge(action.risk),
-    mode: executionModeForRisk(action.risk),
-    gate: governanceGateForRisk(action.risk)
+    mode: executionModeLabel(action.executionMode),
+    gate: governanceGateForMode(action.executionMode)
   })), [{ key: "id", label: messages.pages.actions.action }, { key: "intent", label: messages.pages.actions.intent }, { key: "risk", label: messages.common.risk, html: true }, { key: "mode", label: messages.common.mode }, { key: "gate", label: messages.common.gate }])}</section>`;
 }
 
 function pageConfig(data) {
-  const enforcement = data.access.enforcement ?? {};
+  const access = data.access ?? {};
+  const summary = access.summary ?? {};
+  const enforcement = access.enforcement ?? {};
   const release = data.release_consistency ?? {};
-  const inviteSummary = data.access.invite_summary ?? { invite_count: 0, pending_invite_count: 0, approved_invite_count: 0, materialized_invite_count: 0, invites: [] };
+  const roles = Array.isArray(access.roles) ? access.roles : [];
+  const plans = Array.isArray(access.plans) ? access.plans : [];
+  const users = Array.isArray(access.users) ? access.users : [];
+  const memberships = Array.isArray(access.memberships) ? access.memberships : [];
+  const routeChecks = Array.isArray(access.route_checks) ? access.route_checks : [];
+  const actionChecks = Array.isArray(access.action_checks) ? access.action_checks : [];
+  const inviteSummary = access.invite_summary ?? { invite_count: 0, pending_invite_count: 0, approved_invite_count: 0, materialized_invite_count: 0, invites: [] };
+  const roleMap = new Map(roles.map((role) => [role.role_id, role]));
+  const planMap = new Map(plans.map((plan) => [plan.plan_id, plan]));
+  const currentMembership = memberships.find((membership) => membership.user_id === summary.current_user?.user_id) ?? null;
+  const actionMetaMap = new Map((data.actionServer.actions ?? []).map((actionItem) => [actionItem.id, actionItem]));
+  const roleRows = roles.map((role) => ({
+    role: role.display_name || role.role_id,
+    scope: role.project_scope_mode || "workspace",
+    capabilities: role.capabilities?.includes("*")
+      ? "全部能力"
+      : `${role.capability_count ?? role.capabilities?.length ?? 0} 项`,
+    highlights: role.capabilities?.includes("*")
+      ? "*"
+      : (role.capabilities ?? []).slice(0, 4).join(", ")
+  }));
+  const planRows = plans.map((plan) => ({
+    plan: plan.display_name || plan.plan_id,
+    tier: plan.tier || "unknown",
+    seats: plan.seat_limit ?? "不限",
+    parallel: plan.worker_parallel_limit ?? "不限",
+    direct: plan.direct_execute_max_risk ?? "LOW",
+    runtimes: Array.isArray(plan.runtime_allowlist) && plan.runtime_allowlist.length > 0
+      ? (plan.runtime_allowlist.includes("*") ? "全部 Runtime" : plan.runtime_allowlist.join(", "))
+      : "未配置"
+  }));
+  const userRows = users.map((user) => {
+    const membership = memberships.find((item) => item.user_id === user.user_id) ?? null;
+    return {
+      account: `${user.display_name || user.username} (${user.username})`,
+      role: roleMap.get(user.primary_role_id)?.display_name || user.primary_role_id || "未分配",
+      plan: planMap.get(user.default_plan_id)?.display_name || user.default_plan_id || "未分配",
+      scope: Array.isArray(membership?.project_allowlist) && membership.project_allowlist.length > 0
+        ? (membership.project_allowlist.includes("*") ? "全部项目" : membership.project_allowlist.join(", "))
+        : "未配置",
+      status: statusLabel(user.status || "UNKNOWN")
+    };
+  });
+  const routeRows = routeChecks.map((check) => ({
+    route: check.route_id,
+    status: toneLabel(check.allowed ? "ALLOW" : "DENY", check.allowed ? "pass" : "blocked"),
+    capabilities: Array.isArray(check.required_capabilities) ? check.required_capabilities.join(", ") : "none",
+    missing: Array.isArray(check.missing_capabilities) && check.missing_capabilities.length > 0
+      ? check.missing_capabilities.join(", ")
+      : "none"
+  }));
+  const actionRows = actionChecks.map((check) => {
+    const actionMeta = actionMetaMap.get(check.action_id) ?? {};
+    return {
+      action: check.action_id,
+      risk: riskBadge(actionMeta.risk ?? "LOW"),
+      mode: check.execution_mode || actionMeta.executionMode || "unknown",
+      access: toneLabel(check.status || "UNKNOWN", check.status === "ALLOW" ? "pass" : "blocked"),
+      scope: Array.isArray(check.project_scope) && check.project_scope.length > 0
+        ? (check.project_scope.includes("*") ? "全部项目" : check.project_scope.join(", "))
+        : "none",
+      reason: check.reason || "未提供"
+    };
+  });
   const inviteRows = (inviteSummary.invites ?? []).slice(0, 6).map((invite) => ({
     username: invite.username,
     role: invite.requested_role_name,
@@ -1979,17 +2066,76 @@ function pageConfig(data) {
     CRITICAL: "human_approval_required"
   };
   return `<section><h2>${messages.pages.config.title}</h2><div class="grid">
-    ${metric(messages.pages.config.projects, "draft")}
-    ${metric(messages.pages.config.runtime, "dry-run")}
-    ${metric(messages.pages.config.credentials, "reference_only")}
-    ${metric(messages.pages.config.governance, data.governance.policy_id)}
-  </div><p class="help">${messages.pages.config.draftOnly}</p></section>
-  <section><div class="grid">
+    ${metric("当前账号", summary.current_user?.display_name || summary.current_user?.username || "未登录")}
+    ${metric("当前套餐", summary.current_plan?.display_name || summary.current_plan?.plan_id || "未分配")}
+    ${metric("直执上限", summary.direct_execute_max_risk || "LOW")}
+    ${metric("项目范围", Array.isArray(currentMembership?.project_allowlist) && currentMembership.project_allowlist.length > 0 ? (currentMembership.project_allowlist.includes("*") ? "全部项目" : currentMembership.project_allowlist.join(", ")) : "未配置")}
     ${metric("Access Enforcement", enforcement.policy_id ?? "未生成")}
     ${metric("可见路由", enforcement.summary?.visible_route_count ?? "未生成")}
     ${metric("可执行动作", enforcement.summary?.allowed_action_count ?? "未生成")}
     ${metric("Release Consistency", release.status ?? "未生成")}
-  </div></section>
+  </div><p class="help">${messages.pages.config.draftOnly}</p></section>
+  <section>
+    <div class="section-head"><h2>账号、角色与套餐</h2><span class="pill">Access Center</span></div>
+    <div class="grid">
+      ${metric("角色数", summary.role_count ?? roles.length)}
+      ${metric("用户数", summary.user_count ?? users.length)}
+      ${metric("Membership", summary.membership_count ?? memberships.length)}
+      ${metric("并发上限", summary.current_plan_limits?.worker_parallel_limit ?? "不限")}
+    </div>
+    ${userRows.length > 0 ? table(userRows, [
+      { key: "account", label: "账号" },
+      { key: "role", label: "主角色" },
+      { key: "plan", label: "套餐" },
+      { key: "scope", label: "项目范围" },
+      { key: "status", label: "状态", html: true }
+    ]) : `<div class="panel"><p class="help">当前没有可见账号。</p></div>`}
+  </section>
+  <section class="kanban-grid">
+    <div class="panel">
+      <div class="section-head small"><h3>角色矩阵</h3><span class="pill">${roles.length} 角色</span></div>
+      ${roleRows.length > 0 ? table(roleRows, [
+        { key: "role", label: "角色" },
+        { key: "scope", label: "范围策略" },
+        { key: "capabilities", label: "能力" },
+        { key: "highlights", label: "关键能力" }
+      ]) : `<p class="help">当前没有角色定义。</p>`}
+    </div>
+    <div class="panel">
+      <div class="section-head small"><h3>套餐矩阵</h3><span class="pill">${plans.length} 套餐</span></div>
+      ${planRows.length > 0 ? table(planRows, [
+        { key: "plan", label: "套餐" },
+        { key: "tier", label: "层级" },
+        { key: "seats", label: "席位" },
+        { key: "parallel", label: "并发" },
+        { key: "direct", label: "直执上限" },
+        { key: "runtimes", label: "Runtime" }
+      ]) : `<p class="help">当前没有套餐定义。</p>`}
+    </div>
+  </section>
+  <section>
+    <div class="section-head"><h2>路由与动作授权</h2><span class="pill">Route / Action Gate</span></div>
+    <div class="grid">
+      ${metric("允许路由", routeChecks.filter((check) => check.allowed).length)}
+      ${metric("允许动作", actionChecks.filter((check) => check.status === "ALLOW").length)}
+      ${metric("拒绝动作", actionChecks.filter((check) => check.status !== "ALLOW").length)}
+      ${metric("当前 Runtime 白名单", Array.isArray(summary.current_plan_limits?.runtime_allowlist) && summary.current_plan_limits.runtime_allowlist.length > 0 ? (summary.current_plan_limits.runtime_allowlist.includes("*") ? "全部 Runtime" : `${summary.current_plan_limits.runtime_allowlist.length} 项`) : "未配置")}
+    </div>
+    ${routeRows.length > 0 ? table(routeRows, [
+      { key: "route", label: "路由" },
+      { key: "status", label: "可见性", html: true },
+      { key: "capabilities", label: "所需能力" },
+      { key: "missing", label: "缺失能力" }
+    ]) : `<div class="panel"><p class="help">当前没有路由授权结果。</p></div>`}
+    ${actionRows.length > 0 ? table(actionRows, [
+      { key: "action", label: "动作" },
+      { key: "risk", label: "风险", html: true },
+      { key: "mode", label: "执行模式" },
+      { key: "access", label: "授权结果", html: true },
+      { key: "scope", label: "项目范围" },
+      { key: "reason", label: "原因" }
+    ]) : `<div class="panel"><p class="help">当前没有动作授权结果。</p></div>`}
+  </section>
   ${releasePromotionPanel(data)}
   <section>
     <div class="section-head"><h2>团队邀请与审批草稿</h2><span class="pill">Access Center</span></div>
@@ -2009,14 +2155,17 @@ function pageConfig(data) {
       { key: "next", label: "下一步" }
     ]) : `<div class="panel"><p class="help">当前没有 invite 草稿。可通过 CLI 先创建：<code>studio access invite-user --user ... --dry-run</code></p></div>`}
   </section>
-  <section class="draft-grid">
-    <div class="panel"><label for="draft-project">${messages.pages.config.projects}</label><textarea id="draft-project" data-config-draft>${escapeHtml(JSON.stringify(projectDraft, null, 2))}</textarea></div>
-    <div class="panel"><label for="draft-runtime">${messages.pages.config.runtime}</label><textarea id="draft-runtime" data-config-draft>${escapeHtml(JSON.stringify(runtimeDraft, null, 2))}</textarea></div>
-    <div class="panel"><label for="draft-worker">${messages.pages.config.workers}</label><textarea id="draft-worker" data-config-draft>${escapeHtml(JSON.stringify(workerDraft, null, 2))}</textarea></div>
-    <div class="panel"><label for="draft-credential">${messages.pages.config.credentials}</label><textarea id="draft-credential" data-config-draft>${escapeHtml(JSON.stringify(credentialDraft, null, 2))}</textarea></div>
-    <div class="panel"><label for="draft-governance">${messages.pages.config.governance}</label><textarea id="draft-governance" data-config-draft>${escapeHtml(JSON.stringify(governanceDraft, null, 2))}</textarea></div>
-  </section>
-  <section class="panel"><div class="button-row"><button type="button" data-config-save>保存草稿</button><button type="button" class="danger" data-config-reset>重置草稿</button></div><p id="config-draft-status" class="help">草稿仅保存在浏览器 localStorage，不写仓库、不写真实凭证。</p></section>`;
+  <details class="details-drawer" open>
+    <summary>查看草稿模式配置</summary>
+    <section class="draft-grid">
+      <div class="panel"><label for="draft-project">${messages.pages.config.projects}</label><textarea id="draft-project" data-config-draft>${escapeHtml(JSON.stringify(projectDraft, null, 2))}</textarea></div>
+      <div class="panel"><label for="draft-runtime">${messages.pages.config.runtime}</label><textarea id="draft-runtime" data-config-draft>${escapeHtml(JSON.stringify(runtimeDraft, null, 2))}</textarea></div>
+      <div class="panel"><label for="draft-worker">${messages.pages.config.workers}</label><textarea id="draft-worker" data-config-draft>${escapeHtml(JSON.stringify(workerDraft, null, 2))}</textarea></div>
+      <div class="panel"><label for="draft-credential">${messages.pages.config.credentials}</label><textarea id="draft-credential" data-config-draft>${escapeHtml(JSON.stringify(credentialDraft, null, 2))}</textarea></div>
+      <div class="panel"><label for="draft-governance">${messages.pages.config.governance}</label><textarea id="draft-governance" data-config-draft>${escapeHtml(JSON.stringify(governanceDraft, null, 2))}</textarea></div>
+    </section>
+    <section class="panel"><div class="button-row"><button type="button" data-config-save>保存草稿</button><button type="button" class="danger" data-config-reset>重置草稿</button></div><p id="config-draft-status" class="help">草稿仅保存在浏览器 localStorage，不写仓库、不写真实凭证。</p></section>
+  </details>`;
 }
 
 function pageMemory(data) {

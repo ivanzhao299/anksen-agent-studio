@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import {
   currentSessionSummary,
   evaluateConsoleActionAccess,
+  listConsoleActionCatalog,
   loadAccessCenter,
   resolveSessionContext
 } from "../../../packages/access-center/lib/access-center-utils.mjs";
@@ -201,6 +202,7 @@ export const consoleActionOptions = [
   { id: "smart-park-blockers", label: "检查上线阻断项", risk: "MEDIUM" },
   { id: "smart-park-go-live-plan", label: "Smart Park 上线计划 Proposal", risk: "MEDIUM" },
   { id: "proposal-review", label: "查看待审批 Proposal", risk: "MEDIUM" },
+  { id: "release-local-preview", label: "本地预览确认", risk: "LOW" },
   { id: "release-server-preview", label: "服务器预览确认", risk: "LOW" },
   { id: "release-reviewed-publish", label: "Reviewed Publish 确认", risk: "LOW" },
   { id: "proposal-approve-dry-run", label: "审批 Proposal 草稿", risk: "MEDIUM" },
@@ -349,6 +351,7 @@ function inferWorkspaceActionId(input = {}) {
   if (goal.includes("governance") || goal.includes("治理") || goal.includes("审批")) return "governance-check";
   if (goal.includes("context") || goal.includes("上下文") || goal.includes("记忆")) return "context-summary";
   if (goal.includes("proposal") || goal.includes("待审批")) return "proposal-review";
+  if (goal.includes("本地预览") || goal.includes("local preview")) return "release-local-preview";
   if (goal.includes("服务器预览") || goal.includes("server preview")) return "release-server-preview";
   if (goal.includes("reviewed publish") || goal.includes("发布确认")) return "release-reviewed-publish";
   if (goal.includes("autopilot") || goal.includes("batch") || goal.includes("批处理")) return "autopilot-dry-run";
@@ -363,6 +366,7 @@ function normalizeActionId(actionId, input = {}) {
   if (actionId === "worker-status") return "worker-health";
   if (actionId === "pending-proposals") return "proposal-review";
   if (actionId === "smart-park-go-live-plan-dry-run") return "smart-park-go-live-plan";
+  if (actionId === "local-preview") return "release-local-preview";
   if (actionId === "server-preview") return "release-server-preview";
   if (actionId === "reviewed-publish") return "release-reviewed-publish";
   if (actionId === "workspace-default" || actionId === "workspace-goal") return inferWorkspaceActionId(input);
@@ -506,6 +510,13 @@ function commandFor(input, plan = null) {
       command: process.execPath,
       args: [studioScript, "project", "proposals", "--config", configPath],
       display: `node ${studioScript} project proposals --config ${configPath}`
+    };
+  }
+  if (actionId === "release-local-preview") {
+    return {
+      command: process.execPath,
+      args: [studioScript, "release", "consistency", "--apply", "--target", "local_preview"],
+      display: `node ${studioScript} release consistency --apply --target local_preview`
     };
   }
   if (actionId === "release-server-preview") {
@@ -1114,6 +1125,7 @@ async function executeReleasePromotionFlow(targetStage) {
 async function executeSpecialPlanFlow(plan, input) {
   if (plan.action_id === "project-dispatch") return executeProjectDispatchFlow(plan, input);
   if (plan.action_id === "proposal-review") return executeProposalReviewFlow(plan, input);
+  if (plan.action_id === "release-local-preview") return executeReleasePromotionFlow("local_preview");
   if (plan.action_id === "release-server-preview") return executeReleasePromotionFlow("server_preview");
   if (plan.action_id === "release-reviewed-publish") return executeReleasePromotionFlow("reviewed_publish");
   if (plan.action_id === "proposal-approve-dry-run") return executeProposalApproveDryRunFlow(plan, input);
@@ -1896,6 +1908,7 @@ export async function latestActionLog() {
 }
 
 export function actionServerSummary() {
+  const actionCatalog = new Map(listConsoleActionCatalog().map((entry) => [entry.action_id, entry]));
   return {
     bind_address: "127.0.0.1",
     auth_required: true,
@@ -1910,7 +1923,14 @@ export function actionServerSummary() {
     identity_source: "packages/access-center",
     session_store: "runtime/local-services/access-sessions.json",
     action_log_dir: actionLogDir,
-    actions: consoleActionOptions,
+    actions: consoleActionOptions.map((action) => {
+      const catalog = actionCatalog.get(action.id) ?? {};
+      return {
+        ...action,
+        executionMode: catalog.execution_mode ?? action.executionMode ?? "dry_run_only",
+        projectScoped: catalog.project_scoped ?? false
+      };
+    }),
     projects: Object.entries(projects).map(([project_id, project]) => ({
       project_id,
       label: project.label,

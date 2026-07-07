@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T13:51:20.723Z",
+  "generated_at": "2026-07-07T00:58:25.635Z",
   "policy_id": "studio-access-policy-mvp",
   "workspace_id": "anksen-agent-studio-local",
   "evaluated_user": {
@@ -52,6 +52,7 @@
     "pilotStatus"
   ],
   "allowed_direct_action_ids": [
+    "release-local-preview",
     "release-server-preview",
     "release-reviewed-publish",
     "proposal-approve-apply"
@@ -1009,6 +1010,59 @@
       "reason": "账号 owner 已通过 Access Center 校验。"
     },
     {
+      "action_id": "release-local-preview",
+      "execution_mode": "direct_execute",
+      "project_scoped": false,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "governance.read"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "LOW",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
       "action_id": "release-server-preview",
       "execution_mode": "direct_execute",
       "project_scoped": false,
@@ -1330,7 +1384,7 @@
   "summary": {
     "visible_route_count": 12,
     "blocked_route_count": 0,
-    "allowed_action_count": 18,
+    "allowed_action_count": 19,
     "blocked_action_count": 4
   }
 }

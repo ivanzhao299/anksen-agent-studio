@@ -29,6 +29,7 @@ const directExecuteActionIds = new Set([
   "smart-park-continue",
   "smart-park-blockers",
   "agent-real-plan",
+  "release-local-preview",
   "release-server-preview",
   "release-reviewed-publish",
   "proposal-approve-apply"
@@ -52,6 +53,7 @@ const consoleActionCatalog = {
   "smart-park-blockers": { capabilities: ["console.access", "smart_park.workspace", "project.read"], execution_mode: "direct_execute", projectScoped: true },
   "smart-park-go-live-plan": { capabilities: ["console.access", "smart_park.workspace", "proposal.create"], execution_mode: "proposal_only", projectScoped: true },
   "proposal-review": { capabilities: ["console.access", "proposal.review"], execution_mode: "proposal_only", projectScoped: true },
+  "release-local-preview": { capabilities: ["console.access", "governance.read"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "release-server-preview": { capabilities: ["console.access", "governance.read"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "release-reviewed-publish": { capabilities: ["console.access", "governance.read"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "proposal-approve-dry-run": { capabilities: ["console.access", "proposal.approve"], execution_mode: "proposal_only", projectScoped: true },

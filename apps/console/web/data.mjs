@@ -215,10 +215,11 @@ function lifecycleOrder(value) {
   return {
     blocked: 0,
     needs_approval: 1,
-    ready_inject: 2,
-    injected: 3,
-    proposal_missing: 4,
-    idle: 5
+    proposal_only: 2,
+    ready_inject: 3,
+    injected: 4,
+    proposal_missing: 5,
+    idle: 6
   }[token] ?? 9;
 }
 
@@ -268,9 +269,9 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
       lifecycle = "injected";
       lifecycle_label = "已入队";
     } else if (risk === "HIGH" || risk === "CRITICAL") {
-      lifecycle = "needs_approval";
-      lifecycle_label = "人工审批";
-      blockers.push(`${risk} 风险保持 proposal_only。`);
+      lifecycle = "proposal_only";
+      lifecycle_label = "仅提案";
+      blockers.push(`${risk} 风险已审批，但保持 proposal_only，不自动入队。`);
     } else if (queueAuditStatus === "BLOCKED" || queueAuditStatus === "FAIL") {
       lifecycle = "blocked";
       lifecycle_label = "入队受阻";
@@ -320,8 +321,8 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
 
   const summary = {
     total: records.length,
-    pending_approval: records.filter((item) => item.lifecycle === "needs_approval" && item.approval_status !== "APPROVED").length,
-    proposal_only: records.filter((item) => item.lifecycle === "needs_approval" && item.approval_status === "APPROVED").length,
+    pending_approval: records.filter((item) => item.lifecycle === "needs_approval").length,
+    proposal_only: records.filter((item) => item.lifecycle === "proposal_only").length,
     ready_inject: records.filter((item) => item.lifecycle === "ready_inject").length,
     injected: records.filter((item) => item.lifecycle === "injected").length,
     blocked: records.filter((item) => item.lifecycle === "blocked").length,
@@ -330,6 +331,7 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
 
   const directActions = records.filter((item) => item.lifecycle === "ready_inject").map((item) => `${item.task_id}：审批并入队`);
   const approvalItems = records.filter((item) => item.lifecycle === "needs_approval").map((item) => `${item.task_id}：${item.blockers[0] ?? item.lifecycle_label}`);
+  const proposalOnlyItems = records.filter((item) => item.lifecycle === "proposal_only").map((item) => `${item.task_id}：${item.blockers[0] ?? item.lifecycle_label}`);
   const blockerItems = records.filter((item) => item.lifecycle === "blocked" || item.lifecycle === "proposal_missing").map((item) => `${item.task_id}：${item.blockers[0] ?? item.lifecycle_label}`);
   const completedItems = records.filter((item) => item.lifecycle === "injected").map((item) => `${item.task_id}：queue=${item.queue_task_status} / audit=PASS`);
 
@@ -338,6 +340,8 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
     nextRecommendation = "优先清理待审批 Proposal，再决定是否进入队列。";
   } else if (summary.ready_inject > 0) {
     nextRecommendation = "LOW / MEDIUM Proposal 已可直接审批并入队。";
+  } else if (summary.proposal_only > 0) {
+    nextRecommendation = "HIGH / CRITICAL Proposal 已批准，下一步保持人工复核或人工入队。";
   } else if (summary.blocked > 0 || summary.proposal_missing > 0) {
     nextRecommendation = "先补齐阻断项：修复 queue audit 或生成缺失的 proposal。";
   } else if (summary.injected > 0) {
@@ -350,6 +354,7 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
     next_recommendation: nextRecommendation,
     direct_actions: directActions,
     approval_items: approvalItems,
+    proposal_only_items: proposalOnlyItems,
     blocker_items: blockerItems,
     completed_items: completedItems
   };
@@ -421,6 +426,43 @@ export async function loadConsoleLocalData() {
   const releaseGates = governanceCenterExamples.find((item) => item.path.endsWith("release-gates.example.json"))?.data;
   const accessBundle = await loadAccessCenter();
   const bootstrapAccessProfile = resolveUserProfile(accessBundle, accessBundle.policy.default_console_user_id);
+  const accessRoles = (accessBundle.policy?.roles ?? []).map((role) => ({
+    role_id: role.role_id,
+    display_name: role.display_name,
+    description: role.description ?? "",
+    capability_count: Array.isArray(role.capabilities) ? role.capabilities.length : 0,
+    capabilities: Array.isArray(role.capabilities) ? role.capabilities : [],
+    project_scope_mode: role.project_scope_mode ?? "workspace"
+  }));
+  const accessPlans = (accessBundle.plans?.plans ?? []).map((plan) => ({
+    plan_id: plan.plan_id,
+    display_name: plan.display_name,
+    tier: plan.tier,
+    seat_limit: plan.seat_limit ?? null,
+    project_scope_limit: plan.project_scope_limit ?? null,
+    worker_parallel_limit: plan.worker_parallel_limit ?? null,
+    direct_execute_max_risk: plan.direct_execute_max_risk ?? "LOW",
+    runtime_allowlist: Array.isArray(plan.runtime_allowlist) ? plan.runtime_allowlist : []
+  }));
+  const accessUsersSafe = (accessUsers?.users ?? []).map((user) => ({
+    user_id: user.user_id,
+    username: user.username,
+    display_name: user.display_name,
+    status: user.status,
+    primary_role_id: user.primary_role_id,
+    default_plan_id: user.default_plan_id,
+    feature_overrides: Array.isArray(user.feature_overrides) ? user.feature_overrides : []
+  }));
+  const accessMembershipsSafe = (accessMemberships?.memberships ?? []).map((membership) => ({
+    membership_id: membership.membership_id,
+    workspace_id: membership.workspace_id,
+    user_id: membership.user_id,
+    status: membership.status,
+    plan_id: membership.plan_id,
+    role_ids: Array.isArray(membership.role_ids) ? membership.role_ids : [],
+    project_allowlist: Array.isArray(membership.project_allowlist) ? membership.project_allowlist : [],
+    beta_features: Array.isArray(membership.beta_features) ? membership.beta_features : []
+  }));
   const projectRouterLifecycle = buildProjectRouterLifecycle(projectDispatchPlans, projectProposals, projectQueueInjectionAudits);
 
   return {
@@ -487,6 +529,12 @@ export async function loadConsoleLocalData() {
       summary: accessSummary(accessBundle, bootstrapAccessProfile),
       invite_summary: accessInviteSummary(accessBundle),
       enforcement: accessEnforcement ?? {},
+      roles: accessRoles,
+      plans: accessPlans,
+      users: accessUsersSafe,
+      memberships: accessMembershipsSafe,
+      route_checks: accessEnforcement?.route_checks ?? [],
+      action_checks: accessEnforcement?.action_checks ?? [],
       user_count: countArray(accessUsers?.users, "users"),
       membership_count: countArray(accessMemberships?.memberships, "memberships"),
       invite_count: countArray(accessInvites?.invites, "invites"),

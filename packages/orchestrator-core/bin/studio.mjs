@@ -9689,7 +9689,8 @@ async function consoleSmoke(args) {
     "读取上下文",
     "继续 Smart Park"
   ].every((text) => dashboardHtml.includes(text));
-  const darkThemePresent = dashboardHtml.includes("color-scheme: dark") && dashboardHtml.includes("--bg: #06080c");
+  const darkThemePresent = dashboardHtml.includes("color-scheme: dark")
+    && (dashboardHtml.includes("--bg: #06080c") || dashboardHtml.includes("--bg: #0f1825"));
   const configCenterPresent = [
     "项目配置",
     "Runtime 配置",

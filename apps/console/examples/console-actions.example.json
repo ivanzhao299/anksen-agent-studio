@@ -237,6 +237,23 @@
       "governance_gate": "ALLOW_DRY_RUN"
     },
     {
+      "id": "release-local-preview",
+      "label": "Release Local Preview",
+      "intent": "release local preview",
+      "scope": "release",
+      "command": "node packages/orchestrator-core/bin/studio.mjs release consistency --apply --target local_preview",
+      "risk": "LOW",
+      "mode": "direct_execute",
+      "executionMode": "direct_execute",
+      "requiresApproval": false,
+      "readOnly": true,
+      "write_enabled": false,
+      "production_enabled": false,
+      "source": "runtime/global/release-consistency.json",
+      "governance_gate": "ALLOW_DIRECT_EXECUTE",
+      "notes": "Only records the local preview consistency stage. No deploy, no production operation, no business repo writes."
+    },
+    {
       "id": "release-server-preview",
       "label": "Release Server Preview",
       "intent": "release server preview",
