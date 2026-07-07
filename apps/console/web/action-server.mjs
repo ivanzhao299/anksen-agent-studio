@@ -820,7 +820,7 @@ async function preparePlan(input, options = {}) {
 
 async function detectCommand(command) {
   try {
-    const { stdout } = await execFileAsync("/bin/zsh", ["-lc", `command -v ${command}`], {
+    const { stdout } = await execFileAsync("/bin/sh", ["-lc", `command -v ${command}`], {
       cwd: repoRoot,
       timeout: 10000,
       maxBuffer: 1024 * 256
@@ -841,6 +841,62 @@ async function detectCommand(command) {
   } catch {
     return { command, installed: false, path: "", version: "missing" };
   }
+}
+
+async function completeAgentRuntimeUnavailableFallback(run, input, commandName) {
+  const fallbackArgs = [
+    studioScript,
+    "plan",
+    "--goal",
+    run.plan.goal_summary || safeGoal(input.goal),
+    "--completion-aware",
+    "--dry-run"
+  ];
+  const runtimeLabel = commandName === "claude" ? "Claude Code CLI" : "Codex CLI";
+  const missingMessage = `${runtimeLabel} 未安装或不在服务 PATH 中，已切换为 Studio 内置 Planning Center 安全规划。`;
+  let fallbackSummary = missingMessage;
+  let fallbackStatus = "PASS";
+  let fallbackExitCode = 0;
+  let fallbackError = "";
+
+  try {
+    const fallback = await execFileAsync(process.execPath, fallbackArgs, {
+      cwd: repoRoot,
+      timeout: 120000,
+      maxBuffer: 1024 * 1024 * 10
+    });
+    fallbackSummary = [
+      missingMessage,
+      "",
+      summarizeStdout(fallback.stdout)
+    ].join("\n");
+    fallbackError = summarizeStdout(fallback.stderr);
+  } catch (error) {
+    fallbackStatus = "FAIL";
+    fallbackExitCode = typeof error?.code === "number" ? error.code : 1;
+    fallbackSummary = missingMessage;
+    fallbackError = summarizeStdout(error?.stdout ?? error?.stderr ?? error?.message ?? "");
+  }
+
+  run.status = fallbackStatus;
+  run.phase = fallbackStatus === "PASS" ? "reported" : "failed";
+  run.result = {
+    status: fallbackStatus,
+    exit_code: fallbackExitCode,
+    stdout_summary: fallbackSummary,
+    stderr_summary: fallbackError
+  };
+  run.messages.push({
+    role: "assistant",
+    content: fallbackStatus === "PASS"
+      ? `执行完成：${missingMessage}`
+      : `执行失败：${fallbackError || missingMessage}`,
+    at: new Date().toISOString(),
+    phase: fallbackStatus === "PASS" ? "report" : "failed"
+  });
+  pushTranscriptLine(run, fallbackStatus === "PASS" ? "system" : "stderr", fallbackStatus === "PASS" ? fallbackSummary : (fallbackError || missingMessage));
+  run.timeline = runTimeline(run.status, run.result.status);
+  await persistConversationRun(run);
 }
 
 export async function detectLocalAiRuntimes() {
@@ -1571,6 +1627,16 @@ async function runConversationCommand(runId, input, command) {
   pushTranscriptLine(run, "running", "已通过 Governance Gate，正在启动本地 Agent / CLI 任务...");
   run.timeline = runTimeline(run.status, run.result.status);
   await persistConversationRun(run);
+
+  if (run.plan.action_id === "agent-real-plan") {
+    const runtimeCommand = command.command;
+    const runtimeStatus = await detectCommand(runtimeCommand);
+    if (!runtimeStatus.installed) {
+      pushTranscriptLine(run, "system", `${runtimeCommand} 不在服务 PATH 中，切换到 Studio 内置 Planning Center。`);
+      await completeAgentRuntimeUnavailableFallback(run, input, runtimeCommand);
+      return;
+    }
+  }
 
   const child = spawn(command.command, command.args, {
     cwd: repoRoot,
