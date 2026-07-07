@@ -624,47 +624,139 @@ function proposalPanel(data) {
   </section>`;
 }
 
-function releasePromotionPanel(data) {
+const releaseStageCatalog = [
+  { id: "local_preview", label: "本地预览", hint: "本地 build / smoke / consistency key" },
+  { id: "server_preview", label: "服务器预览", hint: "确认远端预览与本地快照一致" },
+  { id: "reviewed_publish", label: "Reviewed Publish", hint: "最终确认 reviewed publish 快照" }
+];
+
+function releaseStageAction(stageId) {
+  if (stageId === "server_preview") {
+    return {
+      actionId: "release-server-preview",
+      label: "确认服务器预览",
+      goal: "确认服务器预览一致性"
+    };
+  }
+  if (stageId === "reviewed_publish") {
+    return {
+      actionId: "release-reviewed-publish",
+      label: "确认发布",
+      goal: "确认 reviewed publish 一致性"
+    };
+  }
+  return null;
+}
+
+function releaseGateTone(status) {
+  if (status === "PASS") return "pass";
+  if (status === "PENDING_REVIEW" || status === "READY") return "ready";
+  if (status === "missing" || status === "pending") return "local";
+  return "blocked";
+}
+
+function releasePromotionViewModel(data) {
   const release = data.release_consistency ?? {};
-  const stages = Array.isArray(release.promotion_stages) ? release.promotion_stages : [];
-  const rows = stages.map((stage) => ({
-    stage: stage.stage_id,
-    status: statusLabel(stage.status ?? "unknown"),
-    key: stage.consistency_key || stage.source_consistency_key || "pending",
-    next: stage.stage_id === "server_preview"
-      ? `<button type="button" class="secondary" data-quick-action="release-server-preview" data-goal="确认服务器预览一致性">确认服务器预览</button>`
-      : (stage.stage_id === "reviewed_publish"
-          ? `<button type="button" class="secondary" data-quick-action="release-reviewed-publish" data-goal="确认 reviewed publish 一致性">确认发布</button>`
-          : `<span class="help">已记录</span>`),
-    reason: stage.gate_reason || "none"
+  const stageMap = new Map((Array.isArray(release.promotion_stages) ? release.promotion_stages : []).map((stage) => [stage.stage_id, stage]));
+  const warnings = Array.isArray(release.warnings) ? release.warnings : [];
+  const currentIndex = releaseStageCatalog.findIndex((stage) => stage.id === release.promotion_next_stage);
+  const stages = releaseStageCatalog.map((definition, index) => {
+    const stage = stageMap.get(definition.id) ?? {};
+    const status = stage.status ?? "missing";
+    const previousDefinition = index > 0 ? releaseStageCatalog[index - 1] : null;
+    const previousStage = previousDefinition ? stageMap.get(previousDefinition.id) : null;
+    const previousPassed = previousDefinition ? previousStage?.status === "PASS" : true;
+    const action = releaseStageAction(definition.id);
+    const runnable = Boolean(action) && previousPassed && status !== "PASS";
+    const blockedReason = !previousPassed
+      ? `等待 ${previousDefinition.label} 通过后再继续。`
+      : (stage.gate_reason || (status === "PASS" ? "当前阶段已通过。" : "尚未生成该阶段记录。"));
+    return {
+      ...definition,
+      status,
+      tone: releaseGateTone(status),
+      consistencyKey: stage.consistency_key || stage.source_consistency_key || release.promotion_consistency_key || "pending",
+      recordedAt: stage.recorded_at || "pending",
+      dependsOn: stage.depends_on || previousDefinition?.id || "none",
+      current: currentIndex >= 0 ? index === currentIndex : release.promotion_next_stage === "completed" && index === releaseStageCatalog.length - 1,
+      runnable,
+      action,
+      blockedReason,
+      checkCount: Array.isArray(stage.checks) ? stage.checks.length : 0
+    };
+  });
+
+  const passCount = stages.filter((stage) => stage.status === "PASS").length;
+  const nextStageLabel = release.promotion_next_stage === "completed"
+    ? "全部完成"
+    : (releaseStageCatalog.find((stage) => stage.id === release.promotion_next_stage)?.label ?? "未生成");
+  const overallLabel = warnings.length > 0 && release.status === "PASS"
+    ? "PASS_WITH_WARNINGS"
+    : (release.status ?? "未生成");
+
+  return {
+    release,
+    stages,
+    warnings,
+    passCount,
+    nextStageLabel,
+    overallLabel
+  };
+}
+
+function releasePromotionPanel(data) {
+  const { release, stages, warnings, passCount, nextStageLabel, overallLabel } = releasePromotionViewModel(data);
+  const stageRows = stages.map((stage) => ({
+    stage: stage.label,
+    status: toneLabel(stage.status === "PASS" ? "PASS" : stage.status, stage.tone),
+    key: stage.consistencyKey,
+    recorded: stage.recordedAt,
+    depends_on: stage.dependsOn,
+    action: stage.runnable && stage.action
+      ? `<button type="button" class="secondary" data-quick-action="${escapeHtml(stage.action.actionId)}" data-goal="${escapeHtml(stage.action.goal)}">${escapeHtml(stage.action.label)}</button>`
+      : `<span class="help">${escapeHtml(stage.status === "PASS" ? "已确认" : stage.blockedReason)}</span>`
   }));
   return `<section>
     <div class="section-head"><h2>Release Promotion</h2><span class="pill">local / server / reviewed</span></div>
     <div class="grid">
-      ${metric("一致性状态", release.status ?? "未生成")}
+      ${metric("一致性状态", overallLabel)}
       ${metric("Consistency Key", release.promotion_consistency_key ?? "未生成")}
-      ${metric("下一闸门", release.promotion_next_stage ?? "completed")}
-      ${metric("Warnings", Array.isArray(release.warnings) ? release.warnings.length : 0)}
+      ${metric("已通过", `${passCount}/${stages.length}`)}
+      ${metric("下一闸门", nextStageLabel)}
+      ${metric("Warnings", warnings.length)}
     </div>
-    ${rows.length > 0 ? table(rows, [
+    <div class="kanban-grid">
+      ${stages.map((stage) => `<div class="panel">
+        <div class="section-head small">
+          <h3>${escapeHtml(stage.label)}</h3>
+          ${toneLabel(stage.status === "PASS" ? "PASS" : stage.status, stage.tone)}
+        </div>
+        <p class="help">${escapeHtml(stage.hint)}</p>
+        <div class="grid" style="margin-top:10px;">
+          ${metric("依赖", stage.dependsOn)}
+          ${metric("检查项", stage.checkCount)}
+        </div>
+        <p class="help" style="margin-top:10px;">${escapeHtml(stage.blockedReason)}</p>
+        <div class="button-row compact-row" style="margin-top:10px;">
+          ${stage.runnable && stage.action
+            ? `<button type="button" class="primary" data-quick-action="${escapeHtml(stage.action.actionId)}" data-goal="${escapeHtml(stage.action.goal)}">${escapeHtml(stage.action.label)}</button>`
+            : `<span class="help">${escapeHtml(stage.status === "PASS" ? "当前阶段已完成" : "等待条件满足")}</span>`}
+        </div>
+      </div>`).join("")}
+    </div>
+    ${warnings.length > 0 ? `<div class="panel">
+      <div class="section-head small"><h3>当前告警</h3><span class="pill warn-pill">${warnings.length} 项</span></div>
+      ${list(warnings)}
+    </div>` : `<div class="panel"><p class="help">当前没有 release promotion 告警，可以继续按闸门推进。</p></div>`}
+    ${stageRows.length > 0 ? table(stageRows, [
       { key: "stage", label: "stage" },
       { key: "status", label: "status", html: true },
       { key: "key", label: "consistency key" },
-      { key: "next", label: "action", html: true },
-      { key: "reason", label: "gate_reason" }
+      { key: "recorded", label: "recorded_at" },
+      { key: "depends_on", label: "depends_on" },
+      { key: "action", label: "action", html: true }
     ]) : `<div class="panel"><p class="help">尚未生成 release consistency 工件。先执行 <code>studio release consistency --dry-run</code>。</p></div>`}
   </section>`;
-}
-
-function releasePromotionRows(data) {
-  const release = data.release_consistency ?? {};
-  const stages = Array.isArray(release.promotion_stages) ? release.promotion_stages : [];
-  return stages.map((stage) => ({
-    stage: stage.stage_id,
-    status: statusLabel(stage.status ?? "unknown"),
-    key: stage.consistency_key || stage.source_consistency_key || "pending",
-    reason: stage.gate_reason || "none"
-  }));
 }
 
 function projectWorkbench(data) {
@@ -1783,7 +1875,6 @@ function pagePlanning(data) {
 function pageAutopilot(data) {
   const lifecycle = lifecycleSummary(data);
   const release = data.release_consistency ?? {};
-  const stageRows = releasePromotionRows(data);
   const queueRows = lifecycleRecords(data).slice(0, 8).map((item) => ({
     task: item.task_id,
     approval: toneLabel(item.approval_status ?? "missing", (item.approval_status ?? "") === "APPROVED" ? "pass" : "proposal-only"),
@@ -1818,12 +1909,7 @@ function pageAutopilot(data) {
     { key: "next", label: "next", html: true },
     { key: "evidence", label: "evidence", html: true }
   ]) : `<div class="panel"><p class="help">当前没有 Proposal / queue injection trace。先生成 dispatch plan。</p></div>`}</section>
-  <section><h2>Release Promotion Stages</h2>${stageRows.length > 0 ? table(stageRows, [
-    { key: "stage", label: "stage" },
-    { key: "status", label: "status", html: true },
-    { key: "key", label: "consistency key" },
-    { key: "reason", label: "gate_reason" }
-  ]) : `<div class="panel"><p class="help">尚未生成 promotion stages。先执行 release consistency。</p></div>`}</section>
+  ${releasePromotionPanel(data)}
   <section><h2>${messages.pages.autopilot.latestRunSummary}</h2>${detailsJson("查看原始 Autopilot Run JSON", data.autopilot.latest_summary ?? {})}</section>`;
 }
 
@@ -1848,7 +1934,6 @@ function pageActions(data) {
 function pageConfig(data) {
   const enforcement = data.access.enforcement ?? {};
   const release = data.release_consistency ?? {};
-  const releaseStages = Array.isArray(release.promotion_stages) ? release.promotion_stages : [];
   const inviteSummary = data.access.invite_summary ?? { invite_count: 0, pending_invite_count: 0, approved_invite_count: 0, materialized_invite_count: 0, invites: [] };
   const inviteRows = (inviteSummary.invites ?? []).slice(0, 6).map((invite) => ({
     username: invite.username,
@@ -1905,22 +1990,6 @@ function pageConfig(data) {
     ${metric("可执行动作", enforcement.summary?.allowed_action_count ?? "未生成")}
     ${metric("Release Consistency", release.status ?? "未生成")}
   </div></section>
-  <section>
-    <div class="section-head"><h2>Release Promotion Stages</h2><span class="pill">local / server / reviewed</span></div>
-    ${releaseStages.length > 0 ? table(releaseStages.map((stage) => ({
-      stage: stage.stage_id,
-      status: statusLabel(stage.status ?? "unknown"),
-      key: stage.consistency_key || stage.source_consistency_key || "pending",
-      recorded: stage.recorded_at || "pending",
-      reason: stage.gate_reason || "none"
-    })), [
-      { key: "stage", label: "stage" },
-      { key: "status", label: "status", html: true },
-      { key: "key", label: "consistency key" },
-      { key: "recorded", label: "recorded_at" },
-      { key: "reason", label: "gate_reason" }
-    ]) : `<div class="panel"><p class="help">尚未生成 release consistency 工件。先执行 <code>studio release consistency --dry-run</code>。</p></div>`}
-  </section>
   ${releasePromotionPanel(data)}
   <section>
     <div class="section-head"><h2>团队邀请与审批草稿</h2><span class="pill">Access Center</span></div>
