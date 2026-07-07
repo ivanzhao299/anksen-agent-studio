@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-07T13:29:27.610Z",
+  "generated_at": "2026-07-07T13:32:01.845Z",
   "repo_branch": "main",
   "repo_clean": "yes",
-  "latest_head": "340e0ca feat(platform): attach phoenix workspace and harden studio self-test",
+  "latest_head": "9c7052c chore(platform): persist release and self-test artifacts",
   "latest_autopilot_run": "autopilot-runs/v4-continuous-2026-06-23T164157169Z-187199ed-step-04-v4-r-console-operable-read-only.json",
   "console_service": {
     "port": 4317,
@@ -51,7 +51,7 @@
     {
       "check_id": "packages/orchestrator-core/bin/studio.mjs",
       "status": "PASS",
-      "fingerprint": "d5404ae96d9f139a"
+      "fingerprint": "3782206f91767bf6"
     }
   ],
   "safety": {
@@ -62,18 +62,18 @@
     "managed_project_writes": "disabled"
   },
   "warnings": [],
-  "promotion_consistency_key": "8e73315d627338ff",
+  "promotion_consistency_key": "17c4a605a0635fb6",
   "promotion_next_stage": "completed",
   "promotion_stages": [
     {
       "stage_id": "local_preview",
       "label": "本地预览",
       "status": "PASS",
-      "consistency_key": "8e73315d627338ff",
+      "consistency_key": "17c4a605a0635fb6",
       "repo_branch": "main",
-      "repo_head": "340e0ca feat(platform): attach phoenix workspace and harden studio self-test",
+      "repo_head": "9c7052c chore(platform): persist release and self-test artifacts",
       "repo_clean": "yes",
-      "recorded_at": "2026-07-07T13:29:27.405Z",
+      "recorded_at": "2026-07-07T13:32:01.635Z",
       "recorded_by": "studio.release.consistency",
       "gate_reason": "本地预览所需一致性检查已通过。",
       "checks": [
@@ -115,22 +115,22 @@
       "stage_id": "server_preview",
       "label": "服务器预览",
       "status": "PASS",
-      "consistency_key": "8e73315d627338ff",
+      "consistency_key": "17c4a605a0635fb6",
       "depends_on": "local_preview",
-      "recorded_at": "2026-07-07T13:29:27.508Z",
+      "recorded_at": "2026-07-07T13:32:01.742Z",
       "recorded_by": "studio.release.consistency",
-      "source_consistency_key": "8e73315d627338ff",
+      "source_consistency_key": "17c4a605a0635fb6",
       "gate_reason": "服务器预览已确认当前一致性快照。"
     },
     {
       "stage_id": "reviewed_publish",
       "label": "Reviewed Publish",
       "status": "PASS",
-      "consistency_key": "8e73315d627338ff",
+      "consistency_key": "17c4a605a0635fb6",
       "depends_on": "server_preview",
-      "recorded_at": "2026-07-07T13:29:27.610Z",
+      "recorded_at": "2026-07-07T13:32:01.845Z",
       "recorded_by": "studio.release.consistency",
-      "source_consistency_key": "8e73315d627338ff",
+      "source_consistency_key": "17c4a605a0635fb6",
       "gate_reason": "reviewed publish 已确认当前一致性快照。"
     }
   ],
