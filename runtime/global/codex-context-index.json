@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-07T00:58:25.637Z",
+  "generated_at": "2026-07-07T10:51:43.887Z",
   "startup_command": "node packages/orchestrator-core/bin/studio.mjs context summary",
   "project_command": "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
   "global_context_files": [
@@ -13,6 +13,7 @@
     "runtime/global/platform-state.json",
     "runtime/global/release-consistency.json",
     "runtime/global/roadmap-memory.json",
+    "runtime/global/studio-worker-platform-selftest.json",
     "runtime/global/worker-control-plane.json"
   ],
   "project_contexts": [

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T13:57:29.151Z",
+  "generated_at": "2026-07-07T10:51:43.768Z",
   "repo_branch": "main",
   "repo_clean": "yes",
-  "latest_head": "9f13b45 fix(release): exclude generated runtime state from promotion fingerprints",
+  "latest_head": "ac83293 feat(platform): add studio worker self-test",
   "latest_autopilot_run": "autopilot-runs/v4-continuous-2026-06-23T164157169Z-187199ed-step-04-v4-r-console-operable-read-only.json",
   "console_service": {
     "port": 4317,
@@ -41,7 +41,7 @@
     {
       "check_id": "apps/console/web/action-server.mjs",
       "status": "PASS",
-      "fingerprint": "8c2da42f5e1430e0"
+      "fingerprint": "32a85826d66892db"
     },
     {
       "check_id": "apps/console/web/build.mjs",
@@ -51,7 +51,7 @@
     {
       "check_id": "packages/orchestrator-core/bin/studio.mjs",
       "status": "PASS",
-      "fingerprint": "1e5cf576d3e0fdea"
+      "fingerprint": "a0af3b26d0b5640b"
     }
   ],
   "safety": {
@@ -61,21 +61,19 @@
     "credential_values": "not_read",
     "managed_project_writes": "disabled"
   },
-  "warnings": [
-    "Reviewed publish has not been confirmed for the current consistency key."
-  ],
-  "promotion_consistency_key": "b8405c981e396417",
+  "warnings": [],
+  "promotion_consistency_key": "8a5aef76af701f55",
   "promotion_next_stage": "completed",
   "promotion_stages": [
     {
       "stage_id": "local_preview",
       "label": "本地预览",
       "status": "PASS",
-      "consistency_key": "b8405c981e396417",
+      "consistency_key": "8a5aef76af701f55",
       "repo_branch": "main",
-      "repo_head": "9f13b45 fix(release): exclude generated runtime state from promotion fingerprints",
+      "repo_head": "ac83293 feat(platform): add studio worker self-test",
       "repo_clean": "yes",
-      "recorded_at": "2026-07-06T13:57:28.920Z",
+      "recorded_at": "2026-07-07T10:51:43.570Z",
       "recorded_by": "studio.release.consistency",
       "gate_reason": "本地预览所需一致性检查已通过。",
       "checks": [
@@ -117,22 +115,22 @@
       "stage_id": "server_preview",
       "label": "服务器预览",
       "status": "PASS",
-      "consistency_key": "b8405c981e396417",
+      "consistency_key": "8a5aef76af701f55",
       "depends_on": "local_preview",
-      "recorded_at": "2026-07-06T13:57:29.029Z",
+      "recorded_at": "2026-07-07T10:51:43.671Z",
       "recorded_by": "studio.release.consistency",
-      "source_consistency_key": "b8405c981e396417",
+      "source_consistency_key": "8a5aef76af701f55",
       "gate_reason": "服务器预览已确认当前一致性快照。"
     },
     {
       "stage_id": "reviewed_publish",
       "label": "Reviewed Publish",
       "status": "PASS",
-      "consistency_key": "b8405c981e396417",
+      "consistency_key": "8a5aef76af701f55",
       "depends_on": "server_preview",
-      "recorded_at": "2026-07-06T13:57:29.152Z",
+      "recorded_at": "2026-07-07T10:51:43.769Z",
       "recorded_by": "studio.release.consistency",
-      "source_consistency_key": "b8405c981e396417",
+      "source_consistency_key": "8a5aef76af701f55",
       "gate_reason": "reviewed publish 已确认当前一致性快照。"
     }
   ],

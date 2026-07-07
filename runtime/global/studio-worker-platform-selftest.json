@@ -1,0 +1,402 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-07T10:51:43.886Z",
+  "mode": "apply",
+  "overall_score": 88,
+  "overall_status": "READY_FOR_INTERNAL_WORKER_PLATFORM",
+  "verdicts": {
+    "worker_as_cross_project_executor": "PARTIAL_READY",
+    "development_execution_capability": "YES_LOCAL_AND_PROPOSAL_GATED",
+    "production_execution_capability": "GUARDED_PREVIEW_ONLY"
+  },
+  "scores": [
+    {
+      "dimension": "Cross Project Attach",
+      "score": 77,
+      "status": "PARTIAL",
+      "summary": "project_count=2, connected=1, planned=1"
+    },
+    {
+      "dimension": "Worker Control Plane",
+      "score": 86,
+      "status": "PASS",
+      "summary": "executor=local_worker_registry, true_parallel=node_child_process_verified, assign=ASSIGNED"
+    },
+    {
+      "dimension": "Runtime Chain",
+      "score": 80,
+      "status": "PARTIAL",
+      "summary": "providers=6, runtimes=6"
+    },
+    {
+      "dimension": "Dispatch / Proposal / Queue",
+      "score": 90,
+      "status": "PASS",
+      "summary": "dispatch=1, proposal=2, audit=1, injected=1"
+    },
+    {
+      "dimension": "Console Operability",
+      "score": 100,
+      "status": "PASS",
+      "summary": "console_smoke=PASS, action_server=PASS"
+    },
+    {
+      "dimension": "Release Promotion Gates",
+      "score": 92,
+      "status": "PASS",
+      "summary": "local=PASS, server=PASS, reviewed=PASS, next=completed"
+    },
+    {
+      "dimension": "Governance / Production Guard",
+      "score": 86,
+      "status": "PASS",
+      "summary": "production_release_readiness=BLOCKED, critical_gate=CRITICAL"
+    },
+    {
+      "dimension": "Development Execution Readiness",
+      "score": 86,
+      "status": "PASS",
+      "summary": "owner_direct_execute_max_risk=LOW, worker=local-codex-1, connected_projects=1"
+    },
+    {
+      "dimension": "Production Execution Readiness",
+      "score": 82,
+      "status": "PARTIAL",
+      "summary": "release=PASS, next=completed, production_status=PASS"
+    }
+  ],
+  "release": {
+    "status": "PASS",
+    "next_stage": "completed",
+    "warnings": [],
+    "stages": [
+      {
+        "stage_id": "local_preview",
+        "status": "PASS",
+        "consistency_key": "8a5aef76af701f55",
+        "recorded_at": "2026-07-07T10:51:43.570Z",
+        "gate_reason": "本地预览所需一致性检查已通过。"
+      },
+      {
+        "stage_id": "server_preview",
+        "status": "PASS",
+        "consistency_key": "8a5aef76af701f55",
+        "recorded_at": "2026-07-07T10:51:43.671Z",
+        "gate_reason": "服务器预览已确认当前一致性快照。"
+      },
+      {
+        "stage_id": "reviewed_publish",
+        "status": "PASS",
+        "consistency_key": "8a5aef76af701f55",
+        "recorded_at": "2026-07-07T10:51:43.769Z",
+        "gate_reason": "reviewed publish 已确认当前一致性快照。"
+      }
+    ],
+    "apply_attempts": [
+      {
+        "target": "local_preview",
+        "ok": true,
+        "exit_code": 0,
+        "status": "PASS"
+      },
+      {
+        "target": "server_preview",
+        "ok": true,
+        "exit_code": 0,
+        "status": "PASS"
+      },
+      {
+        "target": "reviewed_publish",
+        "ok": true,
+        "exit_code": 0,
+        "status": "PASS"
+      }
+    ]
+  },
+  "dispatch": {
+    "dispatch_plan_count": 1,
+    "proposal_count": 2,
+    "queue_injection_audit_count": 1,
+    "pending_approval": 0,
+    "proposal_only": 1,
+    "ready_inject": 0,
+    "injected": 1,
+    "blocked": 0,
+    "verified_approved_queue_audit": "yes"
+  },
+  "checks": [
+    {
+      "name": "Attached Project Workspace",
+      "command": "node packages/orchestrator-core/bin/studio.mjs project workspace --dry-run",
+      "ok": true,
+      "status": "PASS",
+      "exit_code": 0,
+      "stdout": "# Project Workspace dry-run\n\nworkspace_id: anksen-agent-studio-local\nmode: attached_project_execution_foundation\nproject_count: 2\nconnected_project_count: 1\nplanned_project_count: 1\nmanaged_repo_routed_count: 2\nwritable_project_count: 0\n\n| Project | Status | Route | Branch | Clean | Write Policy | Doctor |\n| --- | --- | --- | --- | --- | --- | --- |\n| jinhu-smart-park | CONNECTED | managed_project_repo | feature/engineering-project-delivery-runtime | yes | disabled | CONDITIONAL_GO |\n| phoenix-erp | NOT_CONNECTED | managed_project_repo | planned | not_connected | disabled | NOT_CONNECTED |\n\nsafety:\n- managed_project_writes: disabled\n- deploy: disabled\n- production_operations: disabled\n- credential_values: disabled",
+      "stderr": "",
+      "summary": {
+        "workspace_id": "anksen-agent-studio-local",
+        "mode": "attached_project_execution_foundation",
+        "project_count": "2",
+        "connected_project_count": "1",
+        "planned_project_count": "1",
+        "managed_repo_routed_count": "2",
+        "writable_project_count": "0"
+      }
+    },
+    {
+      "name": "Worker Control Plane",
+      "command": "node packages/orchestrator-core/bin/studio.mjs worker control-plane --dry-run",
+      "ok": true,
+      "status": "PASS",
+      "exit_code": 0,
+      "stdout": "# Worker Control Plane dry-run\n\ncontrol_plane_id: pilot-2-local-worker-pool-control-plane\nexecutor: local_worker_registry\ntrue_parallel_executor: node_child_process_verified\nworker_count: 2\navailable_worker_count: 2\ncapability_tags: backend, codex, discovery, mobile-android, mobile-ios, production-dry-run, web\nruntimes: codex-cli, local-mobile-dry-run\nheartbeat_mode: local_process_inventory_dry_run\ndispatch_modes: runtime_select, capability_select\nrecent_run_count: 609\nlease_evidence_count: 2\n\ngovernance:\n- local: LOW/MEDIUM direct execute\n- remote: HIGH proposal_only\n- production: CRITICAL human_approval_required\n\n| Worker | Runtime | Heartbeat | Recent Runs | Lease Evidence |\n| --- | --- | --- | ---: | ---: |\n| local-codex-1 | codex-cli | HEALTHY_IDLE | 5 | 2 |\n| local-mobile-macos-1 | local-mobile-dry-run | HEALTHY_IDLE | 0 | 0 |\n\nsafety:\n- server_access: disabled\n- ssh: disabled\n- deploy: disabled\n- production_operations: disabled\n- managed_project_writes: disabled",
+      "stderr": "",
+      "summary": {
+        "control_plane_id": "pilot-2-local-worker-pool-control-plane",
+        "executor": "local_worker_registry",
+        "true_parallel_executor": "node_child_process_verified",
+        "worker_count": "2",
+        "available_worker_count": "2",
+        "capability_tags": "backend, codex, discovery, mobile-android, mobile-ios, production-dry-run, web",
+        "runtimes": "codex-cli, local-mobile-dry-run",
+        "heartbeat_mode": "local_process_inventory_dry_run",
+        "dispatch_modes": "runtime_select, capability_select",
+        "recent_run_count": "609",
+        "lease_evidence_count": "2"
+      }
+    },
+    {
+      "name": "Worker Assign codex-cli",
+      "command": "node packages/orchestrator-core/bin/studio.mjs worker assign --runtime codex-cli --dry-run",
+      "ok": true,
+      "status": "ASSIGNED",
+      "exit_code": 0,
+      "stdout": "# Worker Pool Assign dry-run\n\nassignment_id: assign-b074d81f0b\nstatus: ASSIGNED\nselection_kind: runtime\nruntime_id: codex-cli\ncapability: none\nworker_id: local-codex-1\nrisk: MEDIUM\nexecution_mode: local_repo_execute\nproposal_required: no\nhuman_approval_required: no\nisolation_policy: local-repo-worker-isolation\nworkspace_scope: local_repository_only\ncredential_values: not_read\nmanaged_project_writes: disabled\nserver_connections: disabled\nssh: disabled\ndeploy: disabled\nproduction_operations: disabled\n\nblocked_reasons:\n- none",
+      "stderr": "",
+      "summary": {
+        "assignment_id": "assign-b074d81f0b",
+        "status": "ASSIGNED",
+        "selection_kind": "runtime",
+        "runtime_id": "codex-cli",
+        "capability": "none",
+        "worker_id": "local-codex-1",
+        "risk": "MEDIUM",
+        "execution_mode": "local_repo_execute",
+        "proposal_required": "no",
+        "human_approval_required": "no",
+        "isolation_policy": "local-repo-worker-isolation",
+        "workspace_scope": "local_repository_only",
+        "credential_values": "not_read",
+        "managed_project_writes": "disabled",
+        "server_connections": "disabled",
+        "ssh": "disabled",
+        "deploy": "disabled",
+        "production_operations": "disabled"
+      }
+    },
+    {
+      "name": "Runtime Health",
+      "command": "node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run",
+      "ok": true,
+      "status": "PASS",
+      "exit_code": 0,
+      "stdout": "# Runtime Center Health dry-run\n\nproviders: 6\nruntimes: 6\nadapters: 6\nnetwork_probes: disabled\ncredential_values: not read\n\n| Provider | Runtime | Adapter | Adapter Status | Status | Latency | Auth | Available Skills |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| openai | codex-cli | codex-cli | registered | unknown | n/a | reference_only | code_development, validation_testing, data_integration, evolution_observer |\n| anthropic | claude-code | claude-code | registered | unknown | n/a | reference_only | code_development, data_integration, validation_testing |\n| google | gemini-cli | gemini-cli | registered | unknown | n/a | reference_only | code_development, web_research, spreadsheet_analysis |\n| openhands | openhands | openhands | registered | unknown | n/a | reference_only | code_development, data_integration |\n| aider | aider | aider | registered | unknown | n/a | reference_only | code_development, validation_testing |\n| local-runtime | local-agent | local-agent | registered | unknown | n/a | not_required | validation_testing, evolution_observer, legacy_discovery, replica_scoring |",
+      "stderr": "",
+      "summary": {
+        "providers": "6",
+        "runtimes": "6",
+        "adapters": "6",
+        "network_probes": "disabled",
+        "credential_values": "not read"
+      }
+    },
+    {
+      "name": "Access Enforcement",
+      "command": "node packages/orchestrator-core/bin/studio.mjs access enforcement --dry-run",
+      "ok": true,
+      "status": "PASS",
+      "exit_code": 0,
+      "stdout": "# Access Enforcement dry-run\n\npolicy_id: studio-access-policy-mvp\nworkspace_id: anksen-agent-studio-local\nuser: owner\nproject: jinhu-smart-park\nauthenticated: yes\nallow_anonymous_console_read: no\ndirect_execute_max_risk: LOW\nproject_allowlist: *\nruntime_allowlist: codex-cli, claude-code, gemini, openhands, aider, local-agent, auto\nworker_parallel_limit: 4\n\n| Route | Allowed | Missing Capabilities |\n| --- | --- | --- |\n| dashboard | yes | none |\n| projects | yes | none |\n| workers | yes | none |\n| actions | yes | none |\n| autopilot | yes | none |\n| config | yes | none |\n| runtime | yes | none |\n| credentials | yes | none |\n| governance | yes | none |\n| planning | yes | none |\n| memory | yes | none |\n| pilotStatus | yes | none |\n\n| Action | Status | Mode | Missing Capabilities | Reason |\n| --- | --- | --- | --- | --- |\n| workspace-goal | ALLOW | dry_run_only | none | 账号 owner 已通过 Access Center 校验。 |\n| project-dispatch | ALLOW | dry_run_only | none | 账号 owner 已通过 Access Center 校验。 |\n| agent-real-plan | DENY | direct_execute | none | 当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。 |\n| ai-runtime-status | ALLOW | dry_run_only | none | 账号 owner 已通过 Access Center 校验。 |\n| goal-plan | ALLOW | dry_run_only | none | 账号 owner 已通过 Access Center 校验。 |\n| context-summary | ALLOW | dry_run_only | none | 账号 owner 已通过 Access Center 校验。 |\n| project-inspect | ALLOW | dry_run_only | none | 账号 owner 已通过 Access Center 校验。 |\n| runtime-health | ALLOW | dry_run_only | none | 账号 owner 已通过 Access Center 校验。 |\n| worker-health | ALLOW | dry_run_only | none | 账号 owner 已通过 Access Center 校验。 |\n| governance-check | ALLOW | dry_run_only | none | 账号 owner 已通过 Access Center 校验。 |\n| autopilot-dry-run | ALLOW | dry_run_only | none | 账号 owner 已通过 Access Center 校验。 |\n| autopilot-execute | DENY | direct_execute | none | 当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。 |\n| smart-park-continue | DENY | direct_execute | none | 当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。 |\n| smart-park-blockers | DENY | direct_execute | none | 当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。 |\n| smart-park-go-live-plan | ALLOW | proposal_only | none | 账号 owner 已通过 Access Center 校验。 |\n| proposal-review | ALLOW | proposal_only | none | 账号 owner 已通过 Access Center 校验。 |\n| release-local-preview | ALLOW | direct_execute | none | 账号 owner 已通过 Access Center 校验。 |\n| release-server-preview | ALLOW | direct_execute | none | 账号 owner 已通过 Access Center 校验。 |\n| release-reviewed-publish | ALLOW | direct_execute | none | 账号 owner 已通过 Access Center 校验。 |\n| proposal-approve-dry-run | ALLOW | proposal_only | none | 账号 owner 已通过 Access Center 校验。 |\n| proposal-approve-apply | ALLOW | direct_execute | none | 账号 owner 已通过 Access Center 校验。 |\n| proposal-reject-draft | ALLOW | proposal_only | none | 账号 owner 已通过 Access Center 校验。 |\n| production-operation-request | ALLOW | human_approval_required | none | 账号 owner 已通过 Access Center 校验。 |",
+      "stderr": "",
+      "summary": {
+        "policy_id": "studio-access-policy-mvp",
+        "workspace_id": "anksen-agent-studio-local",
+        "user": "owner",
+        "project": "jinhu-smart-park",
+        "authenticated": "yes",
+        "allow_anonymous_console_read": "no",
+        "direct_execute_max_risk": "LOW",
+        "project_allowlist": "*",
+        "runtime_allowlist": "codex-cli, claude-code, gemini, openhands, aider, local-agent, auto",
+        "worker_parallel_limit": "4"
+      }
+    },
+    {
+      "name": "Project Dispatch Plan",
+      "command": "node packages/orchestrator-core/bin/studio.mjs project dispatch-plan --project jinhu-smart-park --text 跨项目 worker readiness self-test --dry-run",
+      "ok": true,
+      "status": "PASS",
+      "exit_code": 0,
+      "stdout": "# Project Dispatch Plan dry-run\n\nproject_id: jinhu-smart-park\ntask_id: JINHU-SMART-PARK-TASK-WORKER-READINESS-SELF-TEST\nstatus: PASS\npipeline_stage: PROPOSAL_CREATION_READY\nrecommended_next_stage: create_proposal\nrecommended_next_command: node packages/orchestrator-core/bin/studio.mjs project task-plan --config /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/examples/jinhu-smart-park/project.config.example.json --text \"跨项目 worker readiness self-test\" --apply-proposal\nexecution_route: managed_project_repo\nconnection_status: CONNECTED\ndoctor_status: CONDITIONAL_GO\nrepo_branch: feature/engineering-project-delivery-runtime\nrepo_clean: yes\nworker_status: ASSIGNED\nworker_id: local-codex-1\nruntime_id: codex-cli\naccess_status: ALLOW\naccess_reason: 账号 owner 已通过 Access Center 校验。\nexecution_gate_allowed: no\nexecution_gate_reason: 当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。\nproposal_state: missing\nqueue_task_status: missing\n\nblocking_reasons:\n- none\n\nwarnings:\n- Doctor status is CONDITIONAL_GO; execution will require project-side remediation before final run.\n- Managed project business writes remain disabled. Queue/event injection is the only safe downstream write path.\n- 当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。",
+      "stderr": "",
+      "summary": {
+        "project_id": "jinhu-smart-park",
+        "task_id": "JINHU-SMART-PARK-TASK-WORKER-READINESS-SELF-TEST",
+        "status": "PASS",
+        "pipeline_stage": "PROPOSAL_CREATION_READY",
+        "recommended_next_stage": "create_proposal",
+        "recommended_next_command": "node packages/orchestrator-core/bin/studio.mjs project task-plan --config /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/examples/jinhu-smart-park/project.config.example.json --text \"跨项目 worker readiness self-test\" --apply-proposal",
+        "execution_route": "managed_project_repo",
+        "connection_status": "CONNECTED",
+        "doctor_status": "CONDITIONAL_GO",
+        "repo_branch": "feature/engineering-project-delivery-runtime",
+        "repo_clean": "yes",
+        "worker_status": "ASSIGNED",
+        "worker_id": "local-codex-1",
+        "runtime_id": "codex-cli",
+        "access_status": "ALLOW",
+        "access_reason": "账号 owner 已通过 Access Center 校验。",
+        "execution_gate_allowed": "no",
+        "execution_gate_reason": "当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。",
+        "proposal_state": "missing",
+        "queue_task_status": "missing"
+      }
+    },
+    {
+      "name": "Console Smoke",
+      "command": "node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run",
+      "ok": true,
+      "status": "PASS",
+      "exit_code": 0,
+      "stdout": "# Console Smoke dry-run\n\nstatus: PASS\nroutes_count: 12\nmissing_routes: none\ndata_files_readable: yes\nmissing_data_files: none\ndata_dirs_readable: yes\nmissing_data_dirs: none\ndashboard_model_generated: yes\ninteractive_controls: yes\nsmart_park_quick_entries: yes\ncontrol_tower_modules: yes\ndark_professional_theme: yes\nconfig_center: yes\nauth_gate: yes\naction_log_dir: autopilot-runs/console-actions\nlatest_autopilot_source: autopilot-runs/autopilot-batch-2026-06-24T054415256Z-9010ec56.json\nphoenix_erp_local_path: not_connected\nexternal_calls: disabled\ncredential_values_read: no\nmanaged_project_writes: disabled\ndeploy: disabled\nproduction_operations: disabled\nmodel_invocation: disabled\n\npages:\n- AI 工作台: /\n- 项目: /projects\n- Agent: /workers\n- 任务: /actions\n- 报告: /autopilot\n- 配置: /config\n- 运行时: /runtime\n- 凭证: /credentials\n- 治理: /governance\n- 规划: /planning\n- 记忆中心: /memory\n- 试运行状态: /pilot-status",
+      "stderr": "",
+      "summary": {
+        "status": "PASS",
+        "routes_count": "12",
+        "missing_routes": "none",
+        "data_files_readable": "yes",
+        "missing_data_files": "none",
+        "data_dirs_readable": "yes",
+        "missing_data_dirs": "none",
+        "dashboard_model_generated": "yes",
+        "interactive_controls": "yes",
+        "smart_park_quick_entries": "yes",
+        "control_tower_modules": "yes",
+        "dark_professional_theme": "yes",
+        "config_center": "yes",
+        "auth_gate": "yes",
+        "action_log_dir": "autopilot-runs/console-actions",
+        "latest_autopilot_source": "autopilot-runs/autopilot-batch-2026-06-24T054415256Z-9010ec56.json",
+        "phoenix_erp_local_path": "not_connected",
+        "external_calls": "disabled",
+        "credential_values_read": "no",
+        "managed_project_writes": "disabled",
+        "deploy": "disabled",
+        "production_operations": "disabled",
+        "model_invocation": "disabled"
+      }
+    },
+    {
+      "name": "Console Action Server Smoke",
+      "command": "node packages/orchestrator-core/bin/studio.mjs console action-server-smoke --dry-run",
+      "ok": true,
+      "status": "PASS",
+      "exit_code": 0,
+      "stdout": "# Console Action Server Smoke dry-run\n\nstatus: PASS\napi_routes: PASS\nlocal_only: PASS\naction_registry: PASS\nlog_write: PASS\ncommand_mapping: PASS\nattachment_support: PASS\nai_runtime_status: PASS\ngovernance_gate: PASS\nsafety_policy: PASS\nasync_action_api: PASS\naction_log_dir: autopilot-runs/console-actions\nruntime_health_log: autopilot-runs/console-actions/console-action-2026-07-07T105141851Z-c7fd8201.json\nsmart_park_plan_log: autopilot-runs/console-actions/console-action-2026-07-07T105141884Z-aaf06fcc.json\nhigh_risk_plan_log: autopilot-runs/console-actions/console-action-2026-07-07T105142045Z-07edcff1.json\nconversation_run_id: console-action-2026-07-07T105142198Z-2c068f85\ncancel_smoke_status: CANCELLED\ndeploy: disabled\nproduction_operations: disabled\ncredential_values_read: no\nmodel_invocation: disabled\nmanaged_project_writes: disabled",
+      "stderr": "",
+      "summary": {
+        "status": "PASS",
+        "api_routes": "PASS",
+        "local_only": "PASS",
+        "action_registry": "PASS",
+        "log_write": "PASS",
+        "command_mapping": "PASS",
+        "attachment_support": "PASS",
+        "ai_runtime_status": "PASS",
+        "governance_gate": "PASS",
+        "safety_policy": "PASS",
+        "async_action_api": "PASS",
+        "action_log_dir": "autopilot-runs/console-actions",
+        "runtime_health_log": "autopilot-runs/console-actions/console-action-2026-07-07T105141851Z-c7fd8201.json",
+        "smart_park_plan_log": "autopilot-runs/console-actions/console-action-2026-07-07T105141884Z-aaf06fcc.json",
+        "high_risk_plan_log": "autopilot-runs/console-actions/console-action-2026-07-07T105142045Z-07edcff1.json",
+        "conversation_run_id": "console-action-2026-07-07T105142198Z-2c068f85",
+        "cancel_smoke_status": "CANCELLED",
+        "deploy": "disabled",
+        "production_operations": "disabled",
+        "credential_values_read": "no",
+        "model_invocation": "disabled",
+        "managed_project_writes": "disabled"
+      }
+    },
+    {
+      "name": "Production Safety Check",
+      "command": "node packages/orchestrator-core/bin/studio.mjs production safety-check --dry-run",
+      "ok": true,
+      "status": "PASS",
+      "exit_code": 0,
+      "stdout": "# Production Operations Safety Check dry-run\n\nstatus: PASS\npolicy_id: governance-policy-v4-m\nregistry_id: production-server-registry-dry-run\nserver_count: 2\nplan_count: 6\nrelease_readiness: BLOCKED\nblocked_gate_count: 5\nreal_execution_approval_gate: CRITICAL\ndeploy_enabled: no\nproduction_operations_enabled: no\nserver_connections: disabled\ncredential_values_read: no\n\ngovernance_gate:\n- high_risk_status: BLOCKED\n- high_risk_execution_mode: proposal_only\n- high_risk_reason: Release gate blocked forbidden categories: deploy, server_access.\n- critical_status: BLOCKED\n- critical_execution_mode: proposal_only\n- critical_required_approval_gate: CRITICAL\n- critical_human_approval_required: yes\n- critical_reason: Release gate blocked forbidden categories: deploy, server_access.\n\nplans:\n- environment_provisioning: environment-provisioning-plan-dry-run | risk=HIGH | execution=proposal_only | approval=CRITICAL\n- deploy: deploy-plan-dry-run | risk=HIGH | execution=proposal_only | approval=CRITICAL\n- backup: backup-plan-dry-run | risk=HIGH | execution=proposal_only | approval=CRITICAL\n- rollback: rollback-plan-dry-run | risk=HIGH | execution=proposal_only | approval=CRITICAL\n- security_hardening: security-hardening-plan-dry-run | risk=HIGH | execution=proposal_only | approval=CRITICAL\n- monitoring: monitoring-check-dry-run | risk=HIGH | execution=proposal_only | approval=CRITICAL\n\nfindings:\n- none",
+      "stderr": "",
+      "summary": {
+        "status": "PASS",
+        "policy_id": "governance-policy-v4-m",
+        "registry_id": "production-server-registry-dry-run",
+        "server_count": "2",
+        "plan_count": "6",
+        "release_readiness": "BLOCKED",
+        "blocked_gate_count": "5",
+        "real_execution_approval_gate": "CRITICAL",
+        "deploy_enabled": "no",
+        "production_operations_enabled": "no",
+        "server_connections": "disabled",
+        "credential_values_read": "no"
+      }
+    },
+    {
+      "name": "Release Consistency",
+      "command": "node packages/orchestrator-core/bin/studio.mjs release consistency --dry-run",
+      "ok": true,
+      "status": "PASS",
+      "exit_code": 0,
+      "stdout": "# Release Consistency dry-run\n\nstatus: PASS\nrepo_branch: main\nrepo_clean: yes\nlatest_head: ac83293 feat(platform): add studio worker self-test\nlatest_autopilot_run: autopilot-runs/v4-continuous-2026-06-23T164157169Z-187199ed-step-04-v4-r-console-operable-read-only.json\nconsole_service_status: LISTENING\nconsole_service_port: 4317\nconsole_service_pids: 85436\npromotion_consistency_key: 8a5aef76af701f55\npromotion_next_stage: completed\nwarnings: 0\nignored_generated_files: runtime/global/codex-context-index.json, runtime/global/release-consistency.json\n\nchecks:\n- runtime/global/codex-context-index.json: PASS\n- runtime/global/attached-project-workspace.json: PASS\n- runtime/global/worker-control-plane.json: PASS\n- runtime/global/access-enforcement.json: PASS\n- apps/console/web/server.mjs: PASS\n- apps/console/web/action-server.mjs: PASS\n- apps/console/web/build.mjs: PASS\n- packages/orchestrator-core/bin/studio.mjs: PASS\n\npromotion_stages:\n- local_preview: PASS | key=8a5aef76af701f55 | recorded_at=2026-07-07T10:51:43.570Z | 本地预览所需一致性检查已通过。\n- server_preview: PASS | key=8a5aef76af701f55 | recorded_at=2026-07-07T10:51:43.671Z | 服务器预览已确认当前一致性快照。\n- reviewed_publish: PASS | key=8a5aef76af701f55 | recorded_at=2026-07-07T10:51:43.769Z | reviewed publish 已确认当前一致性快照。",
+      "stderr": "",
+      "summary": {
+        "status": "PASS",
+        "repo_branch": "main",
+        "repo_clean": "yes",
+        "latest_head": "ac83293 feat(platform): add studio worker self-test",
+        "latest_autopilot_run": "autopilot-runs/v4-continuous-2026-06-23T164157169Z-187199ed-step-04-v4-r-console-operable-read-only.json",
+        "console_service_status": "LISTENING",
+        "console_service_port": "4317",
+        "console_service_pids": "85436",
+        "promotion_consistency_key": "8a5aef76af701f55",
+        "promotion_next_stage": "completed",
+        "warnings": "0",
+        "ignored_generated_files": "runtime/global/codex-context-index.json, runtime/global/release-consistency.json"
+      }
+    }
+  ],
+  "enhancements": {
+    "P0": [
+      "把平台操作员账号升级为可直执 MEDIUM 的受控套餐，否则跨项目 worker 只能停在 proposal / dry-run。",
+      "挂接第二个真实项目仓库，验证 Studio 不是只对 jinhu-smart-park 生效。",
+      "把 reviewed publish 的结果同步进 Console 发布面板和审计摘要。"
+    ],
+    "P1": [
+      "为 Claude / Gemini / OpenHands 增加 reference-only live probe，让 Runtime Health 不再长期停在 unknown。",
+      "把 approved proposal 的 queue injection audit trace 提炼成专门 API / ViewModel，减少页面里对原始 JSON 的依赖。",
+      "把 attached project onboarding 做成向导化流程：intake → bind → workspace → dispatch plan。"
+    ],
+    "P2": [
+      "增加多项目 worker 回归包，覆盖 attach / dispatch / proposal / queue / release 的端到端快照测试。",
+      "为生产操作中心补 reviewed publish 之后的人工发布签收界面，但继续保持 CRITICAL gate。",
+      "补一套 operator scorecard，把套餐、角色、项目范围、直执上限做成产品化矩阵。"
+    ]
+  },
+  "safety": {
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read",
+    "managed_project_writes": "proposal_or_queue_only"
+  }
+}
