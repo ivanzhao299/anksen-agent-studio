@@ -52,10 +52,10 @@ export const zhCN = {
     projects: {
       title: "项目",
       connectedProject: "已连接项目",
-      phoenixErp: "Phoenix ERP",
-      phoenixStatus: "WAITING_FOR_GITHUB_REPO",
+      phoenixErp: "规划中项目",
+      phoenixStatus: "NOT_CONNECTED",
       writes: "写入",
-      runtimeMemory: "jinhu-smart-park 运行记忆"
+      runtimeMemory: "项目运行记忆"
     },
     runtime: {
       title: "运行时",

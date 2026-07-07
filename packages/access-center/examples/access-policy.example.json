@@ -139,7 +139,7 @@
         "proposal.review",
         "access.manage"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "can_manage_access": true
     }
   ]

@@ -36,6 +36,36 @@
       "risk": "MEDIUM",
       "execution_mode": "local_repo_execute",
       "notes": "No active Xcode or Gradle process was detected. The mobile planning worker remains healthy because it is on-demand only."
+    },
+    {
+      "worker_id": "local-web-1",
+      "runtime_id": "local-agent",
+      "worker_os": "macOS",
+      "capability_tags": ["web", "discovery"],
+      "status": "available",
+      "health_status": "healthy",
+      "process_probe_status": "on_demand_idle",
+      "process_probe_mode": "web_validation_inventory",
+      "active_process_count": 0,
+      "matched_processes": [],
+      "risk": "LOW",
+      "execution_mode": "local_repo_execute",
+      "notes": "Web validation worker is healthy and ready for route smoke or console render checks."
+    },
+    {
+      "worker_id": "local-backend-1",
+      "runtime_id": "local-agent",
+      "worker_os": "macOS",
+      "capability_tags": ["backend", "production-dry-run"],
+      "status": "available",
+      "health_status": "healthy",
+      "process_probe_status": "on_demand_idle",
+      "process_probe_mode": "backend_validation_inventory",
+      "active_process_count": 0,
+      "matched_processes": [],
+      "risk": "LOW",
+      "execution_mode": "local_repo_execute",
+      "notes": "Backend validation worker is healthy and ready for runtime or governance dry-run checks."
     }
   ]
 }

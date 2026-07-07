@@ -95,11 +95,15 @@ function formOption(value, label, selected = false) {
   return `<option value="${escapeHtml(value)}"${selected ? " selected" : ""}>${escapeHtml(label)}</option>`;
 }
 
+function projectStatusText(item = {}) {
+  if (item.connection_status === "CONNECTED" || item.status === "CONNECTED") return "已连接";
+  if (item.connection_status === "NOT_CONNECTED" || item.status === "NOT_CONNECTED") return "未连接";
+  if (item.connection_status === "PLANNED" || item.status === "PLANNED") return "规划中";
+  return item.connection_status ?? item.status ?? "未知";
+}
+
 function projectDisplayLabel(item) {
-  if (item.project_id === "jinhu-smart-park") return "jinhu-smart-park（已连接）";
-  if (item.project_id === "phoenix-erp") return "phoenix-erp（GitHub 远程待接入）";
-  if (item.project_id === "group-portal") return "group-portal（计划中）";
-  return `${item.label}（${item.status}）`;
+  return `${item.project_id}（${projectStatusText(item)}）`;
 }
 
 function lifecycleSummary(data) {
@@ -266,17 +270,21 @@ function accessLoginPage(data) {
 }
 
 function actionWorkbench(data, title = "统一 AI 开发工作台") {
-  const projectOptions = data.actionServer.projects.map((item) => formOption(item.project_id, projectDisplayLabel(item)));
-  const projectCards = data.actionServer.projects.map((item) => `<button type="button" class="project-row${item.project_id === "jinhu-smart-park" ? " active" : ""}" data-project-select="${escapeHtml(item.project_id)}">
+  const activeProjectId = data.active_project_id
+    ?? data.actionServer.projects[0]?.project_id
+    ?? data.project_router.projects?.[0]?.project_id
+    ?? "workspace";
+  const activeProjectLabel = data.active_project?.project_name ?? data.active_project?.label ?? activeProjectId;
+  const projectOptions = data.actionServer.projects.map((item) => formOption(item.project_id, projectDisplayLabel(item), item.project_id === activeProjectId));
+  const projectCards = data.actionServer.projects.map((item) => `<button type="button" class="project-row${item.project_id === activeProjectId ? " active" : ""}" data-project-select="${escapeHtml(item.project_id)}">
     <strong>${escapeHtml(item.label)}</strong>
-    <span>${escapeHtml(item.project_id === "phoenix-erp" ? "WAITING_FOR_GITHUB_REPO" : item.status)}</span>
+    <span>${escapeHtml(projectStatusText(item))}</span>
   </button>`);
   const flowSteps = ["已理解目标", "选择项目", "Agent/Runtime", "生成计划", "Governance", "执行/审批", "结果报告"];
   const quickActions = [
     ["context-summary", "读取上下文"],
-    ["smart-park-continue", "继续 Smart Park"],
-    ["smart-park-blockers", "阻断项"],
-    ["smart-park-go-live-plan", "上线 Proposal"],
+    ["project-inspect", "检查当前项目"],
+    ["project-dispatch", "生成派发计划"],
     ["proposal-review", "待审批 Proposal"],
     ["release-local-preview", "本地预览"],
     ["release-server-preview", "服务器预览"],
@@ -306,7 +314,18 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
       </div>
       ${accessEntitlementPanel(data.renderAuth ?? {})}
       <div class="quick-row compact-quick-row">
-        ${quickActions.map(([id, label]) => `<button type="button" class="quick-chip" data-quick-action="${escapeHtml(id)}" data-goal="${escapeHtml(label === "阻断项" ? "检查 Smart Park 上线阻断项" : label === "上线 Proposal" ? "生成 Smart Park 上线计划 Proposal" : label === "Codex / Claude" ? "检查 Codex / Claude 接入状态" : label)}">${escapeHtml(label)}</button>`).join("")}
+        ${quickActions.map(([id, label]) => {
+          const goal = id === "project-inspect"
+            ? `检查 ${activeProjectLabel}`
+            : id === "project-dispatch"
+              ? `为 ${activeProjectLabel} 生成派发计划`
+              : id === "proposal-review"
+                ? `查看 ${activeProjectLabel} 待审批 Proposal`
+                : id === "ai-runtime-status"
+                  ? "检查 Codex / Claude 接入状态"
+                  : label;
+          return `<button type="button" class="quick-chip" data-quick-action="${escapeHtml(id)}" data-goal="${escapeHtml(goal)}">${escapeHtml(label)}</button>`;
+        }).join("")}
       </div>
       <div id="conversation-stream" class="conversation-stream" aria-live="polite">
         <div class="terminal-line assistant">$ READY</div>
@@ -335,7 +354,7 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
       </div>
       <div class="composer">
         <label for="action-goal">目标</label>
-        <textarea id="action-goal" class="goal-box command-input" placeholder="输入目标，例如：继续推进 Smart Park 巡检闭环">继续推进 Pilot</textarea>
+        <textarea id="action-goal" class="goal-box command-input" placeholder="输入目标，例如：继续推进当前项目巡检闭环">继续推进 ${escapeHtml(activeProjectLabel)}</textarea>
         <div class="attachment-toolbar">
           <div class="attachment-toolbar-head">
             <label class="attachment-label" for="action-attachments">图片 / 文件</label>
@@ -405,20 +424,21 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
   </section>`;
 }
 
-function smartParkEntryPanel() {
+function smartParkEntryPanel(data) {
+  const activeProjectLabel = data.active_project?.project_name ?? data.active_project?.label ?? data.active_project_id ?? "当前项目";
   return `<section class="smart-entry">
     <div class="section-head">
       <div>
-        <h2>Smart Park 上线入口</h2>
-        <p>继续推进前先检查上线阻断项和待审批 Proposal；不会绕过生产审批，也不会写入业务项目。</p>
+        <h2>${escapeHtml(activeProjectLabel)} 工作入口</h2>
+        <p>先检查当前项目状态、派发计划和待审批 Proposal；不会绕过治理闸门，也不会写入业务项目。</p>
       </div>
       <span class="pill warn-pill">生产审批不可绕过</span>
     </div>
     <div class="entry-grid">
-      <button type="button" data-quick-action="smart-park-continue" data-goal="继续 Smart Park">继续 Smart Park</button>
-      <button type="button" class="secondary" data-quick-action="smart-park-blockers" data-goal="检查 Smart Park 上线阻断项">检查上线阻断项</button>
-      <button type="button" class="secondary" data-quick-action="smart-park-go-live-plan" data-goal="生成 Smart Park 上线计划 Proposal">生成上线计划 Proposal</button>
-      <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="查看待审批 Proposal">查看待审批 Proposal</button>
+      <button type="button" data-quick-action="project-inspect" data-goal="${escapeHtml(`检查 ${activeProjectLabel}`)}">检查当前项目</button>
+      <button type="button" class="secondary" data-quick-action="project-dispatch" data-goal="${escapeHtml(`为 ${activeProjectLabel} 生成派发计划`)}">生成派发计划</button>
+      <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="${escapeHtml(`查看 ${activeProjectLabel} 待审批 Proposal`)}">查看待审批 Proposal</button>
+      <button type="button" class="secondary" data-quick-action="autopilot-dry-run" data-goal="${escapeHtml(`继续推进 ${activeProjectLabel}`)}">Autopilot 规划</button>
       <button type="button" class="secondary" data-quick-action="worker-health" data-goal="查看 Worker 状态">查看 Worker 状态</button>
     </div>
   </section>`;
@@ -462,6 +482,7 @@ function projectLifecycleOverview(data) {
   const lifecycle = lifecycleSummary(data);
   const recommendation = data.project_router.lifecycle_next_recommendation
     ?? "先生成 dispatch plan，再完成 Proposal 审批与 queue injection。";
+  const activeProjectLabel = data.active_project?.project_name ?? data.active_project?.label ?? data.active_project_id ?? "当前项目";
   const directItems = data.project_router.lifecycle_direct_actions?.length
     ? data.project_router.lifecycle_direct_actions.slice(0, 3)
     : ["当前没有可直接注入的任务。"];
@@ -482,8 +503,8 @@ function projectLifecycleOverview(data) {
         <h3>当前建议</h3>
         <p>${escapeHtml(recommendation)}</p>
         <div class="button-row compact-row" style="margin-top:10px;">
-          <button type="button" class="secondary" data-quick-action="smart-park-continue" data-goal="继续 Smart Park">继续 Smart Park</button>
-          <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="查看待审批 Proposal">查看 Proposal</button>
+          <button type="button" class="secondary" data-quick-action="project-inspect" data-goal="${escapeHtml(`检查 ${activeProjectLabel}`)}">检查项目</button>
+          <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="${escapeHtml(`查看 ${activeProjectLabel} Proposal`)}">查看 Proposal</button>
         </div>
       </div>
       <div class="panel"><h3>可直接推进</h3>${list(directItems)}</div>
@@ -783,11 +804,12 @@ function releasePromotionPanel(data) {
 }
 
 function projectWorkbench(data) {
-  const rows = [
-    { project: "jinhu-smart-park", status: "CONNECTED", policy: "Pilot Production / guarded", next: "blocker check" },
-    { project: "phoenix-erp", status: "WAITING_FOR_GITHUB_REPO", policy: "planned", next: "GitHub Repo Connector" },
-    { project: "group-portal", status: "PLANNED", policy: "not_connected", next: "project intake" }
-  ];
+  const rows = (data.project_router.projects ?? []).map((item) => ({
+    project: item.project_id,
+    status: projectStatusText(item),
+    policy: item.write_policy === "disabled" ? "guarded / read-safe" : item.write_policy,
+    next: item.connection_status === "CONNECTED" ? "dispatch / inspect" : "attach / bind"
+  }));
   return `<section>
     <div class="section-head"><h2>项目工作台</h2><span class="pill">Multi Project</span></div>
     ${table(rows, [
@@ -828,6 +850,7 @@ function interactiveScript() {
   const modeSelect = document.getElementById("action-mode");
   const agent = document.getElementById("action-agent");
   const draftStatus = document.getElementById("config-draft-status");
+  const currentProjectValue = () => (project ? project.value : "jinhu-smart-park");
   let currentRunId = null;
   let pollTimer = null;
   let selectedAttachments = [];
@@ -1043,7 +1066,7 @@ function interactiveScript() {
 
   function optimisticMessages(body, attachments) {
     const text = escapeClient(body.goal || "继续推进 Pilot");
-    const projectText = escapeClient(body.project_id || "jinhu-smart-park");
+    const projectText = escapeClient(body.project_id || currentProjectValue());
     const agentText = escapeClient(body.agent || "auto");
     const modeText = escapeClient(body.workspace_mode || "auto");
     if (!conversationStream) return;
@@ -1121,7 +1144,7 @@ function interactiveScript() {
     const effectiveActionId = actionOverride || actionForMode();
     return {
       goal: goal ? goal.value : "继续推进 Pilot",
-      project_id: project ? project.value : "jinhu-smart-park",
+      project_id: currentProjectValue(),
       action_id: effectiveActionId,
       task_id: proposalTask && String(effectiveActionId).startsWith("proposal-") ? proposalTask.value : "",
       workspace_mode: modeSelect ? modeSelect.value : "auto",
@@ -1236,7 +1259,6 @@ function interactiveScript() {
 
   document.querySelectorAll("[data-quick-action]").forEach((button) => {
     button.addEventListener("click", async () => {
-      if (project) project.value = "jinhu-smart-park";
       if (action) action.value = button.getAttribute("data-quick-action");
       if (proposalTask) proposalTask.value = "";
       if (goal) goal.value = button.getAttribute("data-goal") || goal.value;
@@ -1252,10 +1274,9 @@ function interactiveScript() {
 
   document.querySelectorAll("[data-proposal-action]").forEach((button) => {
     button.addEventListener("click", async () => {
-      if (project) project.value = "jinhu-smart-park";
       if (action) action.value = button.getAttribute("data-proposal-action");
       if (proposalTask) proposalTask.value = button.getAttribute("data-proposal-task") || "";
-      if (goal) goal.value = button.textContent + " Smart Park proposal";
+      if (goal) goal.value = button.textContent + " " + currentProjectValue() + " proposal";
       const proposalAction = button.getAttribute("data-proposal-action");
       setStatus("生成中");
       try {
@@ -1662,7 +1683,8 @@ function pageDashboard(_model, data) {
 }
 
 function pageProjects(data) {
-  const project = data.jinhuProjectState ?? {};
+  const project = data.active_project_state ?? {};
+  const activeProjectLabel = data.active_project?.project_name ?? data.active_project?.label ?? data.active_project_id ?? "当前项目";
   const workspaceProjects = data.project_router.workspace?.projects ?? [];
   const dispatchPlans = data.project_router.dispatch_plans ?? [];
   const lifecycleMap = new Map(lifecycleRecords(data).map((item) => [item.task_id, item]));
@@ -1674,10 +1696,12 @@ function pageProjects(data) {
     clean: item.repo_clean,
     write_policy: item.write_policy
   }));
+  const connectedProjectCount = workspaceProjects.filter((item) => item.connection_status === "CONNECTED").length;
+  const plannedProjectCount = workspaceProjects.filter((item) => item.connection_status !== "CONNECTED").length;
   return `${projectWorkbench(data)}
   <section><h2>${messages.pages.projects.title}</h2><div class="grid">
-    ${metric(messages.pages.projects.connectedProject, "jinhu-smart-park")}
-    ${metric(messages.pages.projects.phoenixErp, messages.pages.projects.phoenixStatus)}
+    ${metric(messages.pages.projects.connectedProject, connectedProjectCount)}
+    ${metric(messages.pages.projects.phoenixErp, plannedProjectCount)}
     ${metric(messages.pages.projects.writes, data.safety.managed_project_writes)}
     ${metric("挂接绑定", data.project_router.binding_count)}
     ${metric("Proposal", data.project_router.proposal_count ?? 0)}
@@ -1734,8 +1758,8 @@ function pageProjects(data) {
     { key: "closure", label: "闭环状态", html: true },
     { key: "next", label: "下一步", html: true },
     { key: "evidence", label: "证据", html: true }
-  ]) : `<div class="panel"><p class="help">尚未生成派发计划。先执行 <code>studio project dispatch-plan --project jinhu-smart-park --text "..." --apply</code>。</p></div>`}</section>
-  <section><h2>${messages.pages.projects.runtimeMemory}</h2>${detailsJson("查看原始运行记忆 JSON", project)}</section>`;
+  ]) : `<div class="panel"><p class="help">尚未生成派发计划。先执行 <code>studio project dispatch-plan --project ${escapeHtml(data.active_project_id ?? data.project_router.projects?.[0]?.project_id ?? "workspace")} --text "..." --apply</code>。</p></div>`}</section>
+  <section><h2>${escapeHtml(`${activeProjectLabel} 运行记忆`)}</h2>${detailsJson("查看原始运行记忆 JSON", project)}</section>`;
 }
 
 function pageRuntime(data) {
@@ -1940,7 +1964,7 @@ function pageActions(data) {
   const actions = data.actionServer.actions ?? [];
   return `<section><h2>${messages.pages.actions.title}</h2><div class="grid">${metric(messages.pages.actions.actions, actions.length)}${metric(messages.pages.actions.defaultMode, "pilot_production")}${metric(messages.pages.actions.writes, messages.common.falseValue)}${metric("Action Log", data.actionServer.action_log_dir)}</div></section>
   ${actionWorkbench(data, "操作中心")}
-  ${smartParkEntryPanel()}
+  ${smartParkEntryPanel(data)}
   ${recommendationPanel(data)}
   ${dispatchLifecyclePanel(data)}
   ${proposalPanel(data)}
@@ -2036,10 +2060,14 @@ function pageConfig(data) {
         : "none"
   }));
   const projectDraft = {
-    project_id: "jinhu-smart-park",
-    connected: true,
-    phoenix_erp: "WAITING_FOR_GITHUB_REPO",
-    group_portal: "PLANNED",
+    active_project_id: data.active_project_id ?? data.project_router.projects?.[0]?.project_id ?? "workspace",
+    projects: (data.project_router.projects ?? []).map((project) => ({
+      project_id: project.project_id,
+      connection_status: project.connection_status,
+      doctor_status: project.doctor_status,
+      execution_route: project.execution_route,
+      write_policy: project.write_policy
+    })),
     managed_project_writes: false
   };
   const runtimeDraft = {
@@ -2179,6 +2207,7 @@ function pageMemory(data) {
     files: Array.isArray(item.files) ? item.files.length : 0,
     key_files: (Array.isArray(item.files) ? item.files.slice(0, 3) : []).join(", ")
   }));
+  const activeProjectLabel = data.active_project?.project_name ?? data.active_project?.label ?? data.active_project_id ?? "当前项目";
   const decisionRows = decisions.slice(0, 6).map((item) => ({
     date: item.date,
     title: item.title,
@@ -2187,7 +2216,7 @@ function pageMemory(data) {
   return `<section><h2>${messages.pages.memory.title}</h2><div class="grid">
     ${metric(messages.pages.memory.platformState, messages.common.loaded)}
     ${metric(messages.pages.memory.contextIndex, Object.keys(data.codexContextIndex ?? {}).length)}
-    ${metric(messages.pages.memory.projectMemory, "jinhu-smart-park")}
+    ${metric(messages.pages.memory.projectMemory, activeProjectLabel)}
     ${metric("全局文件", globalFiles.length)}
     ${metric("项目上下文", projectContexts.length)}
     ${metric("必读文件", requiredReading.length)}
@@ -2322,11 +2351,11 @@ function normalizeRenderAuth(auth, data) {
   };
 }
 
-export async function renderConsolePage(pathname = "/", auth = null) {
-  const data = await loadConsoleLocalData();
+export async function renderConsolePage(pathname = "/", auth = null, options = {}) {
+  const data = await loadConsoleLocalData(options);
   const resolvedAuth = normalizeRenderAuth(auth, data);
   data.renderAuth = resolvedAuth;
-  const model = await buildConsoleDashboardModel();
+  const model = await buildConsoleDashboardModel(options);
   const gated = data.access?.summary?.allow_anonymous_console_read !== true && !resolvedAuth.authenticated;
   const route = consoleWebRoutes.find((item) => item.path === pathname) ?? consoleWebRoutes[0];
   const contentById = {

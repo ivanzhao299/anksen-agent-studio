@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-07T10:51:43.887Z",
+  "generated_at": "2026-07-07T13:12:55.062Z",
   "startup_command": "node packages/orchestrator-core/bin/studio.mjs context summary",
   "project_command": "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
   "global_context_files": [
@@ -17,6 +17,12 @@
     "runtime/global/worker-control-plane.json"
   ],
   "project_contexts": [
+    {
+      "project_id": "group-portal",
+      "files": [
+        "runtime/projects/group-portal/binding.json"
+      ]
+    },
     {
       "project_id": "jinhu-smart-park",
       "files": [

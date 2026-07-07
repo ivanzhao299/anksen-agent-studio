@@ -192,6 +192,8 @@ const server = createServer(async (request, response) => {
       entitlement: sessionSummary.entitlement ?? accessContext.entitlement ?? null,
       session: sessionSummary.session ?? null,
       membership: sessionSummary.membership ?? accessContext.membership ?? null
+    }, {
+      activeProjectId: url.searchParams.get("project") || undefined
     });
     response.writeHead(200, {
       "content-type": "text/html; charset=utf-8",

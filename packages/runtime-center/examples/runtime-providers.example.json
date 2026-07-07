@@ -8,7 +8,7 @@
       "provider_type": "api",
       "auth_modes": ["api_key", "oauth"],
       "capabilities": ["code_development", "validation_testing", "document_generation", "web_research"],
-      "health_status": "unknown",
+      "health_status": "healthy",
       "notes": "Used by Codex CLI/API-capable runtimes. V4-I stores only provider metadata and credential references."
     },
     {
@@ -17,7 +17,7 @@
       "provider_type": "api",
       "auth_modes": ["api_key", "oauth"],
       "capabilities": ["code_development", "data_integration", "validation_testing"],
-      "health_status": "unknown",
+      "health_status": "healthy",
       "notes": "Used by Claude Code compatible runtimes."
     },
     {
@@ -26,7 +26,7 @@
       "provider_type": "api",
       "auth_modes": ["api_key", "oauth"],
       "capabilities": ["code_development", "web_research", "spreadsheet_analysis"],
-      "health_status": "unknown",
+      "health_status": "degraded",
       "notes": "Used by Gemini CLI/API compatible runtimes."
     },
     {
@@ -35,7 +35,7 @@
       "provider_type": "remote-worker",
       "auth_modes": ["local_login", "ssh", "oauth"],
       "capabilities": ["code_development", "data_integration", "validation_testing"],
-      "health_status": "unknown",
+      "health_status": "degraded",
       "notes": "Reserved for remote worker or self-hosted agent execution."
     },
     {
@@ -44,7 +44,7 @@
       "provider_type": "cli",
       "auth_modes": ["api_key", "local_login"],
       "capabilities": ["code_development", "validation_testing"],
-      "health_status": "unknown",
+      "health_status": "degraded",
       "notes": "Local CLI runtime that can be wired to multiple model providers."
     },
     {
@@ -53,7 +53,7 @@
       "provider_type": "cli",
       "auth_modes": ["none", "local_login"],
       "capabilities": ["code_development", "validation_testing", "evolution_observer"],
-      "health_status": "unknown",
+      "health_status": "healthy",
       "notes": "Local scripts, deterministic adapters, and offline tools."
     }
   ]

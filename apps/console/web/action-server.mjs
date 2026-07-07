@@ -12,6 +12,7 @@ import {
   loadAccessCenter,
   resolveSessionContext
 } from "../../../packages/access-center/lib/access-center-utils.mjs";
+import { loadProjectRegistrySync } from "./project-registry.mjs";
 
 const execFileAsync = promisify(execFile);
 const webDir = dirname(fileURLToPath(import.meta.url));
@@ -26,26 +27,17 @@ const liveAgentRuntimeIds = new Set(["codex-cli", "claude-code"]);
 const maxAttachmentCount = 6;
 const maxAttachmentBytes = 8 * 1024 * 1024;
 
-const projects = {
-  "jinhu-smart-park": {
-    label: "jinhu-smart-park",
-    status: "connected",
-    config: "examples/jinhu-smart-park/project.config.example.json"
-  },
-  "phoenix-erp": {
-    label: "phoenix-erp",
-    status: "WAITING_FOR_GITHUB_REPO",
-    config: "examples/phoenix-erp/project.config.example.json"
-  },
-  "group-portal": {
-    label: "group-portal",
-    status: "PLANNED",
-    config: ""
-  }
-};
+function projectRegistry() {
+  return loadProjectRegistrySync();
+}
+
+function projectsMap() {
+  return Object.fromEntries(projectRegistry().map((project) => [project.project_id, project]));
+}
 
 function projectConfigFor(projectId) {
-  return projects[projectId]?.config || projects["jinhu-smart-park"].config;
+  const projects = projectsMap();
+  return projects[projectId]?.config_path || projects["jinhu-smart-park"]?.config_path || "";
 }
 
 function projectProposalDir(projectId) {
@@ -192,7 +184,7 @@ export const consoleActionOptions = [
   { id: "ai-runtime-status", label: "检查 Codex / Claude", risk: "LOW" },
   { id: "goal-plan", label: "生成任务计划", risk: "MEDIUM" },
   { id: "context-summary", label: "读取上下文", risk: "LOW" },
-  { id: "project-inspect", label: "检查 Smart Park", risk: "MEDIUM" },
+  { id: "project-inspect", label: "检查当前项目", risk: "MEDIUM" },
   { id: "runtime-health", label: "Runtime 健康检查", risk: "LOW" },
   { id: "worker-health", label: "查看 Worker 状态", risk: "MEDIUM" },
   { id: "governance-check", label: "Governance 检查", risk: "LOW" },
@@ -343,8 +335,8 @@ function inferWorkspaceActionId(input = {}) {
   if (mode === "agent") return "agent-real-plan";
   if (hasAttachments) return "agent-real-plan";
   if (liveAgentRuntimeIds.has(requestedAgent)) return "agent-real-plan";
-  if (goal.includes("阻断") || goal.includes("blocker") || goal.includes("blocked")) return "smart-park-blockers";
-  if (goal.includes("上线") || goal.includes("go-live") || goal.includes("golive")) return "smart-park-go-live-plan";
+  if (goal.includes("阻断") || goal.includes("blocker") || goal.includes("blocked")) return "project-inspect";
+  if (goal.includes("上线") || goal.includes("go-live") || goal.includes("golive")) return "project-dispatch";
   if (goal.includes("project inspect") || goal.includes("项目状态") || goal.includes("项目概况")) return "project-inspect";
   if (goal.includes("worker") || goal.includes("agent 状态") || goal.includes("agent状态")) return "worker-health";
   if (goal.includes("runtime") || goal.includes("运行时")) return "runtime-health";
@@ -374,7 +366,8 @@ function normalizeActionId(actionId, input = {}) {
 }
 
 function normalizeProject(projectId) {
-  return projects[projectId] ? projectId : "jinhu-smart-park";
+  const projects = projectsMap();
+  return projects[projectId] ? projectId : (projectRegistry()[0]?.project_id ?? "jinhu-smart-park");
 }
 
 function desiredParallelCountForAction(actionId, input = {}) {
@@ -407,7 +400,7 @@ function commandFor(input, plan = null) {
   const actionId = normalizeActionId(input.action_id, input);
   const projectId = normalizeProject(input.project_id);
   const goal = safeGoal(input.goal);
-  const project = projects[projectId];
+  const project = projectsMap()[projectId];
   const effectiveParallel = Number(plan?.effective_parallel ?? input.parallel ?? input.parallel_count ?? 0) || 1;
 
   if (actionId === "ai-runtime-status") {
@@ -428,7 +421,7 @@ function commandFor(input, plan = null) {
     };
   }
   if (actionId === "project-inspect") {
-    if (projectId !== "jinhu-smart-park" || !project.config || !existsSync(resolve(repoRoot, project.config))) {
+    if (!project?.config_path || !existsSync(resolve(repoRoot, project.config_path))) {
       return {
         command: process.execPath,
         args: [studioScript, "context", "project", "--project", projectId],
@@ -437,8 +430,8 @@ function commandFor(input, plan = null) {
     }
     return {
       command: process.execPath,
-      args: [studioScript, "project", "inspect", "--config", project.config, "--dry-run"],
-      display: `node ${studioScript} project inspect --config ${project.config} --dry-run`
+      args: [studioScript, "project", "inspect", "--config", project.config_path, "--dry-run"],
+      display: `node ${studioScript} project inspect --config ${project.config_path} --dry-run`
     };
   }
   if (actionId === "runtime-health") {
@@ -558,8 +551,8 @@ function commandFor(input, plan = null) {
   }
   return {
     command: process.execPath,
-    args: [studioScript, "project", "proposals", "--config", "examples/jinhu-smart-park/project.config.example.json"],
-    display: `node ${studioScript} project proposals --config examples/jinhu-smart-park/project.config.example.json`
+    args: [studioScript, "project", "proposals", "--config", projectConfigFor(projectId)],
+    display: `node ${studioScript} project proposals --config ${projectConfigFor(projectId)}`
   };
 }
 
@@ -569,7 +562,7 @@ function realAgentPromptFor(input, attachments = []) {
   return [
     "你正在通过 ANKSEN Agent Studio Console 运行。",
     "这是本地 Pilot Production 模式。",
-    "安全边界：只读分析和计划；不要修改文件；不要执行 deploy；不要进行 production operation；不要读取或输出真实凭证；不要写 jinhu-smart-park 业务代码。",
+    "安全边界：只读分析和计划；不要修改文件；不要执行 deploy；不要进行 production operation；不要读取或输出真实凭证；不要写入任何挂接业务项目代码。",
     `项目：${projectId}`,
     `目标：${goal}`,
     ...(attachments.length > 0 ? ["", ...attachmentSummaryLines(attachments)] : []),
@@ -678,6 +671,7 @@ async function resolveActionAccess(input, actionId, meta, options = {}) {
 function buildPlan(input, access = {}) {
   const actionId = normalizeActionId(input.action_id, input);
   const projectId = normalizeProject(input.project_id);
+  const project = projectsMap()[projectId];
   const meta = actionMeta(actionId);
   const gate = governanceGateForRisk(meta.risk);
   const accessContext = access.context ?? null;
@@ -704,7 +698,7 @@ function buildPlan(input, access = {}) {
     action_id: actionId,
     action_label: meta.label,
     target_project: projectId,
-    target_project_status: projects[projectId].status,
+    target_project_status: project?.connection_status ?? "unknown",
     goal_summary: safeGoal(input.goal).slice(0, 240),
     workspace_mode: normalizeWorkspaceMode(input),
     requested_agent: agentSelection.requested,
@@ -1909,6 +1903,7 @@ export async function latestActionLog() {
 
 export function actionServerSummary() {
   const actionCatalog = new Map(listConsoleActionCatalog().map((entry) => [entry.action_id, entry]));
+  const projects = projectRegistry();
   return {
     bind_address: "127.0.0.1",
     auth_required: true,
@@ -1931,10 +1926,13 @@ export function actionServerSummary() {
         projectScoped: catalog.project_scoped ?? false
       };
     }),
-    projects: Object.entries(projects).map(([project_id, project]) => ({
-      project_id,
+    projects: projects.map((project) => ({
+      project_id: project.project_id,
       label: project.label,
-      status: project.status
+      project_name: project.project_name,
+      status: project.connection_status,
+      doctor_status: project.doctor_status,
+      config_path: project.config_path
     }))
   };
 }

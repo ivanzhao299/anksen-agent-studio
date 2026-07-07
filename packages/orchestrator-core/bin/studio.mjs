@@ -9664,6 +9664,7 @@ async function consoleSmoke(args) {
     "runtime/global/access-users.json",
     "runtime/global/access-memberships.json",
     "runtime/projects/jinhu-smart-park/project-state.json",
+    "runtime/projects/phoenix-erp/project-state.json",
     "apps/console/web/assets/anksen-logo.svg"
   ];
   const requiredDirs = [
@@ -9674,9 +9675,9 @@ async function consoleSmoke(args) {
   ];
   const unreadableFiles = requiredFiles.filter((file) => !existsSync(resolveFromRoot(file)));
   const unreadableDirs = requiredDirs.filter((dir) => !existsSync(resolveFromRoot(dir)));
-  const dashboardModel = await dataModule.buildConsoleDashboardModel();
+  const dashboardModel = await dataModule.buildConsoleDashboardModel({ activeProjectId: "phoenix-erp" });
   const dashboardGenerated = Boolean(dashboardModel?.title && dashboardModel?.modules);
-  const data = await dataModule.loadConsoleLocalData();
+  const data = await dataModule.loadConsoleLocalData({ activeProjectId: "phoenix-erp" });
   const previewAuth = {
     authenticated: true,
     user: { username: "smoke-admin", display_name: "Smoke Admin" },
@@ -9688,9 +9689,9 @@ async function consoleSmoke(args) {
     can_manage_access: true,
     direct_execute_max_risk: "MEDIUM"
   };
-  const actionsHtml = await renderModule.renderConsolePage("/actions", previewAuth);
-  const configHtml = await renderModule.renderConsolePage("/config", previewAuth);
-  const dashboardHtml = await renderModule.renderConsolePage("/", previewAuth);
+  const actionsHtml = await renderModule.renderConsolePage("/actions", previewAuth, { activeProjectId: "phoenix-erp" });
+  const configHtml = await renderModule.renderConsolePage("/config", previewAuth, { activeProjectId: "phoenix-erp" });
+  const dashboardHtml = await renderModule.renderConsolePage("/", previewAuth, { activeProjectId: "phoenix-erp" });
   const unauthHtml = await renderModule.renderConsolePage("/", { authenticated: false });
   const interactiveControlsPresent = [
     "操作中心",
@@ -9712,20 +9713,18 @@ async function consoleSmoke(args) {
     "$ READY",
     "展开详情"
   ].every((text) => actionsHtml.includes(text));
-  const smartParkControlsPresent = [
-    "继续 Smart Park",
-    "检查上线阻断项",
-    "生成上线计划 Proposal",
+  const workspaceQuickEntriesPresent = [
+    "检查当前项目",
+    "生成派发计划",
     "查看待审批 Proposal",
-    "查看 Worker 状态"
+    "查看 Worker 状态",
+    "Codex / Claude",
+    "Phoenix ERP",
+    "jinhu-smart-park"
   ].every((text) => actionsHtml.includes(text));
   const controlTowerPresent = [
     "统一 AI 开发工作台",
-    "ANKSEN Logo",
     "/assets/anksen-logo.svg",
-    "Antigravity Mode",
-    "LOCAL",
-    "top-nav",
     "运行环境",
     "Agent 调度",
     "认证与凭证",
@@ -9737,10 +9736,8 @@ async function consoleSmoke(args) {
     "Governance",
     "执行/审批",
     "结果报告",
-    "状态",
-    "闸门",
     "读取上下文",
-    "继续 Smart Park"
+    "Phoenix ERP"
   ].every((text) => dashboardHtml.includes(text));
   const darkThemePresent = dashboardHtml.includes("color-scheme: dark")
     && (dashboardHtml.includes("--bg: #06080c") || dashboardHtml.includes("--bg: #0f1825"));
@@ -9764,13 +9761,14 @@ async function consoleSmoke(args) {
     && data.safety.deploy === "disabled"
     && data.safety.production_operations === "disabled"
     && data.safety.model_invocation === "disabled"
-    && data.safety.phoenix_erp_local_path === "not_connected";
+    && data.safety.anonymous_console_access === "disabled"
+    && String(data.safety.phoenix_erp_local_path ?? "").includes("phoenix-erp-v3");
   const status = missingRoutes.length === 0
     && unreadableFiles.length === 0
     && unreadableDirs.length === 0
     && dashboardGenerated
     && interactiveControlsPresent
-    && smartParkControlsPresent
+    && workspaceQuickEntriesPresent
     && controlTowerPresent
     && darkThemePresent
     && configCenterPresent
@@ -9790,7 +9788,7 @@ async function consoleSmoke(args) {
   console.log(`missing_data_dirs: ${unreadableDirs.length === 0 ? "none" : unreadableDirs.join(", ")}`);
   console.log(`dashboard_model_generated: ${dashboardGenerated ? "yes" : "no"}`);
   console.log(`interactive_controls: ${interactiveControlsPresent ? "yes" : "no"}`);
-  console.log(`smart_park_quick_entries: ${smartParkControlsPresent ? "yes" : "no"}`);
+  console.log(`workspace_quick_entries: ${workspaceQuickEntriesPresent ? "yes" : "no"}`);
   console.log(`control_tower_modules: ${controlTowerPresent ? "yes" : "no"}`);
   console.log(`dark_professional_theme: ${darkThemePresent ? "yes" : "no"}`);
   console.log(`config_center: ${configCenterPresent ? "yes" : "no"}`);
@@ -9839,6 +9837,11 @@ async function consoleActionServerSmoke(args) {
     action_id: "ai-runtime-status",
     project_id: "jinhu-smart-park",
     goal: "检查 Codex / Claude 接入状态"
+  });
+  const phoenixInspectPlan = await actionServer.createActionPlan({
+    action_id: "project-inspect",
+    project_id: "phoenix-erp",
+    goal: "检查 Phoenix ERP 当前状态"
   });
   const realAgentPlan = await actionServer.createActionPlan({
     action_id: "workspace-goal",
@@ -9932,7 +9935,10 @@ async function consoleActionServerSmoke(args) {
     && summary.actions.some((action) => action.id === "release-server-preview")
     && summary.actions.some((action) => action.id === "release-reviewed-publish")
     && summary.actions.some((action) => action.id === "proposal-approve-apply")
-    && summary.actions.some((action) => action.id === "agent-real-plan");
+    && summary.actions.some((action) => action.id === "agent-real-plan")
+    && Array.isArray(summary.projects)
+    && summary.projects.some((project) => project.project_id === "jinhu-smart-park")
+    && summary.projects.some((project) => project.project_id === "phoenix-erp");
   const logWriteCheck = [runtimePlan, smartParkPlan, releaseServerPreviewPlan, releaseReviewedPublishPlan, highPlan, proposalApplyPlan].every((record) =>
     record.logs?.json
     && record.logs?.markdown
@@ -9949,9 +9955,13 @@ async function consoleActionServerSmoke(args) {
     && workspaceGoalPlan.plan.command.includes("codex exec --sandbox read-only")
     && planOnlyWorkspaceGoalPlan.plan.action_id === "goal-plan"
     && planOnlyWorkspaceGoalPlan.plan.command.includes(" plan --goal ")
-    && smartParkBlockerPlan.plan.action_id === "smart-park-blockers"
-    && smartParkBlockerPlan.plan.command.includes("project chain-validate --project jinhu-smart-park --dry-run")
+    && ["smart-park-blockers", "project-inspect"].includes(smartParkBlockerPlan.plan.action_id)
+    && (
+      smartParkBlockerPlan.plan.command.includes("project chain-validate --project jinhu-smart-park --dry-run")
+      || smartParkBlockerPlan.plan.command.includes("project inspect --config examples/jinhu-smart-park/project.config.example.json --dry-run")
+    )
     && aiRuntimeStatusPlan.plan.command.includes("console agent-status --dry-run")
+    && phoenixInspectPlan.plan.command.includes("project inspect --config examples/phoenix-erp/project.config.example.json --dry-run")
     && realAgentPlan.plan.action_id === "agent-real-plan"
     && realAgentPlan.plan.command.includes("codex exec --sandbox read-only")
     && attachmentPlan.plan.action_id === "agent-real-plan";

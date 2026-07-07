@@ -1,38 +1,45 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T08:27:05.086Z",
+  "generated_at": "2026-07-07T13:12:54.801Z",
   "project_id": "phoenix-erp",
   "project_name": "Phoenix ERP",
-  "project_type": "planned-business-repository",
-  "description": "Placeholder project adapter for V5 multi-project readiness validation.",
-  "binding_status": "context_ready",
+  "project_type": "business-repository",
+  "description": "Phoenix ERP V3 business project adapter for ANKSEN Agent Studio.",
+  "binding_status": "attached",
   "config_path": "examples/phoenix-erp/project.config.example.json",
   "context_dir": "runtime/projects/phoenix-erp",
   "connector": {
     "source_type": "local_path",
-    "mode": "planned_project_not_connected",
-    "connection_status": "NOT_CONNECTED",
-    "doctor_status": "NOT_CONNECTED",
+    "mode": "external-project-adapter-example",
+    "connection_status": "CONNECTED",
+    "doctor_status": "unknown",
     "default_branch": "main",
-    "package_manager": "unknown"
+    "package_manager": "pnpm"
   },
   "execution": {
     "execution_route": "managed_project_repo",
-    "repo_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/examples/phoenix-erp-planned",
-    "repo_path_display": "examples/phoenix-erp-planned",
-    "repo_resolved": false,
-    "repo_branch": "planned",
-    "repo_head": "not_connected",
-    "repo_clean": "not_connected",
+    "repo_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3",
+    "repo_path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3",
+    "repo_resolved": true,
+    "repo_branch": "main",
+    "repo_head": "85a3c6b fix(ops): parse agent result headings for bug writeback",
+    "repo_clean": "yes",
     "dirty_files": [],
     "remote_url_present": false
   },
   "workspace": {
     "state_dir": "ops/agent-orchestrator",
-    "runtime_memory_dir": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/examples/phoenix-erp-planned/runtime/projects/phoenix-erp",
-    "runtime_memory_dir_display": "examples/phoenix-erp-planned/runtime/projects/phoenix-erp",
-    "worktree_count": 0,
-    "worktrees": []
+    "runtime_memory_dir": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3/runtime/projects/phoenix-erp",
+    "runtime_memory_dir_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3/runtime/projects/phoenix-erp",
+    "worktree_count": 1,
+    "worktrees": [
+      {
+        "slot": "main",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3",
+        "exists": true
+      }
+    ]
   },
   "policies": {
     "write_policy": "disabled",
@@ -42,7 +49,14 @@
     "dry_run_only": true
   },
   "path_policies": {
-    "read_paths": [],
+    "read_paths": [
+      "apps/**",
+      "packages/**",
+      "docs/**",
+      "scripts/**",
+      "pnpm-lock.yaml",
+      "package.json"
+    ],
     "write_paths": [],
     "frozen_paths": [
       "**"

@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-06T13:00:35.198Z",
+  "generated_at": "2026-07-07T13:12:55.061Z",
   "control_plane_id": "pilot-2-local-worker-pool-control-plane",
   "executor": "local_worker_registry",
   "true_parallel_executor": "node_child_process_verified",
-  "worker_count": 2,
-  "available_worker_count": 2,
+  "worker_count": 4,
+  "available_worker_count": 4,
   "capability_tags": [
     "backend",
     "codex",
@@ -17,6 +17,7 @@
   ],
   "runtimes": [
     "codex-cli",
+    "local-agent",
     "local-mobile-dry-run"
   ],
   "governance": {
@@ -26,9 +27,9 @@
   },
   "heartbeat_mode": "local_process_inventory_dry_run",
   "process_inventory_status": "ok",
-  "process_inventory_count": 562,
-  "active_worker_process_count": 0,
-  "recent_run_count": 312,
+  "process_inventory_count": 505,
+  "active_worker_process_count": 2,
+  "recent_run_count": 622,
   "lease_evidence_count": 2,
   "dispatch_modes": [
     "runtime_select",
@@ -40,7 +41,7 @@
       "runtime_id": "codex-cli",
       "status": "available",
       "heartbeat_status": "HEALTHY_IDLE",
-      "last_heartbeat_at": "2026-07-06T13:00:35.145Z",
+      "last_heartbeat_at": "2026-07-07T13:12:54.954Z",
       "capability_tags": [
         "codex",
         "web",
@@ -59,56 +60,56 @@
           "source": "console_action",
           "worker_id": "local-codex-1",
           "runtime_id": "codex-cli",
-          "run_id": "console-action-2026-07-06T125042609Z-e432411b",
+          "run_id": "console-action-2026-07-07T105142198Z-2c068f85",
           "status": "PASS",
           "task": "node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run",
-          "started_at": "2026-07-06T12:50:42.638Z",
+          "started_at": "2026-07-07T10:51:42.227Z",
           "completed_at": "",
-          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-06T125042609Z-e432411b.json"
+          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-07T105142198Z-2c068f85.json"
         },
         {
           "source": "console_action",
           "worker_id": "local-codex-1",
           "runtime_id": "codex-cli",
-          "run_id": "console-action-2026-07-06T125042610Z-d876a47a",
+          "run_id": "console-action-2026-07-07T105142199Z-50f7faeb",
           "status": "CANCELLED",
           "task": "node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal \"Cancel smoke\" --dry-run --parallel 4",
-          "started_at": "2026-07-06T12:50:42.610Z",
+          "started_at": "2026-07-07T10:51:42.199Z",
           "completed_at": "",
-          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-06T125042610Z-d876a47a.json"
+          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-07T105142199Z-50f7faeb.json"
         },
         {
           "source": "console_action",
           "worker_id": "local-codex-1",
           "runtime_id": "codex-cli",
-          "run_id": "console-action-2026-07-06T124251865Z-fad95168",
-          "status": "NEEDS_APPROVAL",
-          "task": "node packages/orchestrator-core/bin/studio.mjs project dispatch-plan --project jinhu-smart-park --text \"继续推进 Smart Park 工程管理闭环\" --apply -> project task-plan --apply-proposal -> project proposals",
-          "started_at": "2026-07-06T12:42:51.865Z",
-          "completed_at": "",
-          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-06T124251865Z-fad95168.json"
-        },
-        {
-          "source": "console_action",
-          "worker_id": "local-codex-1",
-          "runtime_id": "codex-cli",
-          "run_id": "console-action-2026-07-06T124121219Z-7f00d8ec",
+          "run_id": "console-action-2026-07-07T105020507Z-cc2139ff",
           "status": "PASS",
           "task": "node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run",
-          "started_at": "2026-07-06T12:41:21.247Z",
+          "started_at": "2026-07-07T10:50:20.536Z",
           "completed_at": "",
-          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-06T124121219Z-7f00d8ec.json"
+          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-07T105020507Z-cc2139ff.json"
         },
         {
           "source": "console_action",
           "worker_id": "local-codex-1",
           "runtime_id": "codex-cli",
-          "run_id": "console-action-2026-07-06T124121220Z-40d53ad8",
+          "run_id": "console-action-2026-07-07T105020508Z-6443373f",
           "status": "CANCELLED",
           "task": "node packages/orchestrator-core/bin/studio.mjs autopilot batch --goal \"Cancel smoke\" --dry-run --parallel 4",
-          "started_at": "2026-07-06T12:41:21.220Z",
+          "started_at": "2026-07-07T10:50:20.508Z",
           "completed_at": "",
-          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-06T124121220Z-40d53ad8.json"
+          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-07T105020508Z-6443373f.json"
+        },
+        {
+          "source": "console_action",
+          "worker_id": "local-codex-1",
+          "runtime_id": "codex-cli",
+          "run_id": "console-action-2026-07-07T104842083Z-f8de905d",
+          "status": "PASS",
+          "task": "node packages/orchestrator-core/bin/studio.mjs runtime health --dry-run",
+          "started_at": "2026-07-07T10:48:42.111Z",
+          "completed_at": "",
+          "evidence_path": "autopilot-runs/console-actions/console-action-2026-07-07T104842083Z-f8de905d.json"
         }
       ],
       "task_lease_evidence": [
@@ -147,7 +148,7 @@
       "runtime_id": "local-mobile-dry-run",
       "status": "available",
       "heartbeat_status": "HEALTHY_IDLE",
-      "last_heartbeat_at": "2026-07-06T13:00:35.145Z",
+      "last_heartbeat_at": "2026-07-07T13:12:54.954Z",
       "capability_tags": [
         "mobile-ios",
         "mobile-android"
@@ -156,6 +157,54 @@
       "active_process_count": 0,
       "matched_processes": [],
       "notes": "No active process matched. The worker remains healthy because it is allowed to start on demand.",
+      "recent_run_count": 0,
+      "task_lease_evidence_count": 0,
+      "recent_runs": [],
+      "task_lease_evidence": []
+    },
+    {
+      "worker_id": "local-web-1",
+      "runtime_id": "local-agent",
+      "status": "available",
+      "heartbeat_status": "HEALTHY_ACTIVE",
+      "last_heartbeat_at": "2026-07-07T13:12:54.954Z",
+      "capability_tags": [
+        "web",
+        "discovery"
+      ],
+      "process_probe_mode": "web_validation_inventory",
+      "active_process_count": 1,
+      "matched_processes": [
+        {
+          "pid": 85436,
+          "command": "/usr/local/bin/node /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/apps/console/web/server.mjs"
+        }
+      ],
+      "notes": "Matched local process inventory for this worker.",
+      "recent_run_count": 0,
+      "task_lease_evidence_count": 0,
+      "recent_runs": [],
+      "task_lease_evidence": []
+    },
+    {
+      "worker_id": "local-backend-1",
+      "runtime_id": "local-agent",
+      "status": "available",
+      "heartbeat_status": "HEALTHY_ACTIVE",
+      "last_heartbeat_at": "2026-07-07T13:12:54.954Z",
+      "capability_tags": [
+        "backend",
+        "production-dry-run"
+      ],
+      "process_probe_mode": "backend_validation_inventory",
+      "active_process_count": 1,
+      "matched_processes": [
+        {
+          "pid": 41222,
+          "command": "node packages/orchestrator-core/bin/studio.mjs worker control-plane --apply"
+        }
+      ],
+      "notes": "Matched local process inventory for this worker.",
       "recent_run_count": 0,
       "task_lease_evidence_count": 0,
       "recent_runs": [],

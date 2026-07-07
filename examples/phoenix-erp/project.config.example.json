@@ -2,25 +2,51 @@
   "schema_version": 1,
   "project_id": "phoenix-erp",
   "project_name": "Phoenix ERP",
-  "project_type": "planned-business-repository",
-  "description": "Placeholder project adapter for V5 multi-project readiness validation.",
-  "project_root": "../phoenix-erp-planned",
-  "local_path": "../phoenix-erp-planned",
-  "git_url": "planned://phoenix-erp",
+  "project_type": "business-repository",
+  "description": "Phoenix ERP V3 business project adapter for ANKSEN Agent Studio.",
+  "project_root": "../phoenix-erp-v3",
+  "local_path": "../phoenix-erp-v3",
+  "git_url": "https://github.com/ivanzhao299/phoenix-erp-v3.git",
   "state_dir": "ops/agent-orchestrator",
-  "mode": "planned_project_not_connected",
-  "status": "PLANNED",
-  "connection_status": "NOT_CONNECTED",
+  "mode": "external-project-adapter-example",
+  "status": "CONNECTED",
+  "connection_status": "CONNECTED",
   "default_branch": "main",
-  "package_manager": "unknown",
-  "repo_metadata": {
-    "repository_exists": false,
-    "connection_required": true,
-    "placeholder_only": true
+  "package_manager": "pnpm",
+  "worktrees": {
+    "main": "../phoenix-erp-v3"
   },
-  "detected_stack_hints": [],
-  "available_commands": [],
-  "read_paths": [],
+  "repo_metadata": {
+    "repository_exists": true,
+    "connection_required": false,
+    "placeholder_only": false
+  },
+  "detected_stack_hints": [
+    "pnpm-workspace",
+    "Next.js",
+    "NestJS",
+    "TypeScript",
+    "Vitest",
+    "PostgreSQL"
+  ],
+  "available_commands": [
+    "pnpm install",
+    "pnpm lint",
+    "pnpm build",
+    "pnpm --filter web typecheck",
+    "pnpm --filter web test",
+    "pnpm --filter phoenix-erp-v3-nest test",
+    "pnpm dev:web",
+    "pnpm dev:api"
+  ],
+  "read_paths": [
+    "apps/**",
+    "packages/**",
+    "docs/**",
+    "scripts/**",
+    "pnpm-lock.yaml",
+    "package.json"
+  ],
   "write_paths": [],
   "frozen_paths": [
     "**"

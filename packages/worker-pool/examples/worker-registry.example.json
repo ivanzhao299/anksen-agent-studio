@@ -51,6 +51,54 @@
         "on_demand_ok": true
       },
       "notes": "Pilot-2 local macOS mobile worker metadata only. It can plan iOS and Android stack validation but does not invoke Xcode, Gradle, simulators, emulators, signing, deploy, or production operations."
+    },
+    {
+      "worker_id": "local-web-1",
+      "display_name": "Local Web Worker 1",
+      "worker_kind": "local",
+      "worker_os": "macOS",
+      "runtime_id": "local-agent",
+      "adapter_id": "local-agent",
+      "status": "available",
+      "supported_skills": ["validation_testing", "data_integration", "legacy_discovery"],
+      "capability_tags": ["web", "discovery"],
+      "max_parallel_tasks": 1,
+      "risk": "LOW",
+      "execution_mode": "local_repo_execute",
+      "isolation_policy_id": "local-repo-worker-isolation",
+      "process_probe": {
+        "label": "web_validation_inventory",
+        "match_any": [
+          "apps/console/web",
+          "runtime/global/attached-project-workspace.json"
+        ],
+        "on_demand_ok": true
+      },
+      "notes": "Local read-safe web validation worker used for route smoke, render checks, and workspace summaries."
+    },
+    {
+      "worker_id": "local-backend-1",
+      "display_name": "Local Backend Worker 1",
+      "worker_kind": "local",
+      "worker_os": "macOS",
+      "runtime_id": "local-agent",
+      "adapter_id": "local-agent",
+      "status": "available",
+      "supported_skills": ["validation_testing", "data_integration", "evolution_observer"],
+      "capability_tags": ["backend", "production-dry-run"],
+      "max_parallel_tasks": 1,
+      "risk": "LOW",
+      "execution_mode": "local_repo_execute",
+      "isolation_policy_id": "local-repo-worker-isolation",
+      "process_probe": {
+        "label": "backend_validation_inventory",
+        "match_any": [
+          "packages/orchestrator-core/bin/studio.mjs",
+          "packages/runtime-center/examples"
+        ],
+        "on_demand_ok": true
+      },
+      "notes": "Local backend validation worker used for runtime, governance, and pipeline dry-run checks."
     }
   ],
   "required_capability_tags": ["codex", "mobile-ios", "mobile-android", "web", "backend", "discovery", "production-dry-run"],

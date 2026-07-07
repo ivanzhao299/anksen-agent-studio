@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { actionServerSummary, latestActionLog } from "./action-server.mjs";
+import { loadProjectRegistry, resolveActiveProjectId } from "./project-registry.mjs";
 import { accessInviteSummary, accessSummary, loadAccessCenter, resolveUserProfile } from "../../../packages/access-center/lib/access-center-utils.mjs";
 
 const webDir = dirname(fileURLToPath(import.meta.url));
@@ -95,6 +96,25 @@ async function readProjectBindings() {
     });
   }
   return bindings.sort((left, right) => left.project_id.localeCompare(right.project_id));
+}
+
+async function readProjectStates() {
+  const projectsDir = resolve(repoRoot, "runtime/projects");
+  if (!existsSync(projectsDir)) return [];
+  const entries = await readdir(projectsDir, { withFileTypes: true });
+  const projectStates = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const relativeProjectStatePath = join("runtime/projects", entry.name, "project-state.json");
+    const data = await readJson(relativeProjectStatePath, null);
+    if (!data) continue;
+    projectStates.push({
+      project_id: entry.name,
+      path: relativeProjectStatePath,
+      data
+    });
+  }
+  return projectStates.sort((left, right) => left.project_id.localeCompare(right.project_id));
 }
 
 async function readProjectDispatchPlans() {
@@ -367,12 +387,11 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
   };
 }
 
-export async function loadConsoleLocalData() {
+export async function loadConsoleLocalData(options = {}) {
   const [
     platformState,
     roadmapMemory,
     v5Roadmap,
-    jinhuProjectState,
     codexContextIndex,
     decisionLog,
     attachedProjectWorkspace,
@@ -391,6 +410,8 @@ export async function loadConsoleLocalData() {
     accessCenterExamples,
     latestRun,
     latestConsoleActionLog,
+    projectRegistry,
+    projectStates,
     projectBindings,
     projectDispatchPlans,
     projectProposals,
@@ -399,7 +420,6 @@ export async function loadConsoleLocalData() {
     readJson(dataFiles.platformState, {}),
     readJson(dataFiles.roadmapMemory, {}),
     readJson(dataFiles.v5Roadmap, {}),
-    readJson(dataFiles.jinhuProjectState, {}),
     readJson(dataFiles.codexContextIndex, {}),
     readJson(dataFiles.decisionLog, {}),
     readJson(dataFiles.attachedProjectWorkspace, {}),
@@ -418,6 +438,8 @@ export async function loadConsoleLocalData() {
     readExampleDirectory(exampleDirs.accessCenter),
     latestAutopilotRun(),
     latestActionLog(),
+    loadProjectRegistry(),
+    readProjectStates(),
     readProjectBindings(),
     readProjectDispatchPlans(),
     readProjectProposals(),
@@ -471,6 +493,10 @@ export async function loadConsoleLocalData() {
     beta_features: Array.isArray(membership.beta_features) ? membership.beta_features : []
   }));
   const projectRouterLifecycle = buildProjectRouterLifecycle(projectDispatchPlans, projectProposals, projectQueueInjectionAudits);
+  const activeProjectId = resolveActiveProjectId(options.activeProjectId, projectRegistry);
+  const activeProject = projectRegistry.find((project) => project.project_id === activeProjectId) ?? projectRegistry[0] ?? null;
+  const activeProjectState = projectStates.find((project) => project.project_id === activeProjectId)?.data
+    ?? {};
 
   return {
     loaded_at: new Date().toISOString(),
@@ -482,11 +508,15 @@ export async function loadConsoleLocalData() {
     platformState,
     roadmapMemory,
     v5Roadmap,
-    jinhuProjectState,
+    active_project_id: activeProjectId,
+    active_project: activeProject,
+    active_project_state: activeProjectState,
+    project_states: projectStates,
     codexContextIndex,
     decisionLog,
     project_router: {
       workspace: attachedProjectWorkspace ?? {},
+      projects: projectRegistry,
       bindings: projectBindings,
       binding_count: projectBindings.length,
       dispatch_plans: projectDispatchPlans,
@@ -570,22 +600,22 @@ export async function loadConsoleLocalData() {
       deploy: "disabled",
       production_operations: "disabled",
       model_invocation: "disabled",
-      phoenix_erp_local_path: "not_connected",
+      phoenix_erp_local_path: projectRegistry.find((project) => project.project_id === "phoenix-erp")?.repo_path_display ?? "not_connected",
       anonymous_console_access: accessBundle.policy.allow_anonymous_console_read ? "enabled" : "disabled"
     },
     release_consistency: releaseConsistency ?? {}
   };
 }
 
-export async function buildConsoleDashboardModel() {
-  const data = await loadConsoleLocalData();
+export async function buildConsoleDashboardModel(options = {}) {
+  const data = await loadConsoleLocalData(options);
   return {
     title: "ANKSEN Agent Studio",
     mode: "local_read_only_pilot",
     platform_status: firstValue(data.platformState, ["status", "platform_status"], "READY_FOR_PILOT"),
     v5_status: "READY_FOR_PILOT",
-    active_project: "jinhu-smart-park",
-    project_status: firstValue(data.jinhuProjectState, ["status", "project_status", "doctor_status"], "connected"),
+    active_project: data.active_project?.project_id ?? data.project_router.projects?.[0]?.project_id ?? "workspace",
+    project_status: firstValue(data.active_project_state, ["status", "project_status", "doctor_status"], data.active_project?.connection_status ?? "connected"),
     modules: {
       runtime_profiles: data.runtime.profile_count,
       runtime_providers: data.runtime.provider_count,

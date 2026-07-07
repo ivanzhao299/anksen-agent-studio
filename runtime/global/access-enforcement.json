@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-07T00:58:25.635Z",
+  "generated_at": "2026-07-07T13:12:54.896Z",
   "policy_id": "studio-access-policy-mvp",
   "workspace_id": "anksen-agent-studio-local",
   "evaluated_user": {
@@ -23,7 +23,7 @@
   "evaluated_project": "jinhu-smart-park",
   "authenticated": true,
   "allow_anonymous_console_read": false,
-  "direct_execute_max_risk": "LOW",
+  "direct_execute_max_risk": "MEDIUM",
   "project_allowlist": [
     "*"
   ],
@@ -52,6 +52,10 @@
     "pilotStatus"
   ],
   "allowed_direct_action_ids": [
+    "agent-real-plan",
+    "autopilot-execute",
+    "smart-park-continue",
+    "smart-park-blockers",
     "release-local-preview",
     "release-server-preview",
     "release-reviewed-publish",
@@ -190,7 +194,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -244,7 +248,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -268,7 +272,7 @@
       "action_id": "agent-real-plan",
       "execution_mode": "direct_execute",
       "project_scoped": true,
-      "status": "DENY",
+      "status": "ALLOW",
       "required_capabilities": [
         "console.access",
         "agent.runtime.readonly"
@@ -297,7 +301,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -315,7 +319,7 @@
           "auto"
         ]
       },
-      "reason": "当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。"
+      "reason": "账号 owner 已通过 Access Center 校验。"
     },
     {
       "action_id": "ai-runtime-status",
@@ -350,7 +354,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -403,7 +407,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -456,7 +460,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -509,7 +513,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -562,7 +566,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -615,7 +619,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -668,7 +672,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -721,7 +725,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -745,7 +749,7 @@
       "action_id": "autopilot-execute",
       "execution_mode": "direct_execute",
       "project_scoped": true,
-      "status": "DENY",
+      "status": "ALLOW",
       "required_capabilities": [
         "console.access",
         "autopilot.execute.local"
@@ -774,7 +778,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -792,13 +796,13 @@
           "auto"
         ]
       },
-      "reason": "当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。"
+      "reason": "账号 owner 已通过 Access Center 校验。"
     },
     {
       "action_id": "smart-park-continue",
       "execution_mode": "direct_execute",
       "project_scoped": true,
-      "status": "DENY",
+      "status": "ALLOW",
       "required_capabilities": [
         "console.access",
         "smart_park.workspace",
@@ -828,7 +832,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -846,13 +850,13 @@
           "auto"
         ]
       },
-      "reason": "当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。"
+      "reason": "账号 owner 已通过 Access Center 校验。"
     },
     {
       "action_id": "smart-park-blockers",
       "execution_mode": "direct_execute",
       "project_scoped": true,
-      "status": "DENY",
+      "status": "ALLOW",
       "required_capabilities": [
         "console.access",
         "smart_park.workspace",
@@ -882,7 +886,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -900,7 +904,7 @@
           "auto"
         ]
       },
-      "reason": "当前账号最高只允许直接执行 LOW 风险动作，不能直接执行 MEDIUM。"
+      "reason": "账号 owner 已通过 Access Center 校验。"
     },
     {
       "action_id": "smart-park-go-live-plan",
@@ -936,7 +940,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -989,7 +993,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -1042,7 +1046,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -1095,7 +1099,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -1148,7 +1152,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -1201,7 +1205,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -1254,7 +1258,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -1307,7 +1311,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -1360,7 +1364,7 @@
         "smart_park.workspace",
         "*"
       ],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "project_scope": [
         "*"
       ],
@@ -1384,7 +1388,7 @@
   "summary": {
     "visible_route_count": 12,
     "blocked_route_count": 0,
-    "allowed_action_count": 19,
-    "blocked_action_count": 4
+    "allowed_action_count": 23,
+    "blocked_action_count": 0
   }
 }
