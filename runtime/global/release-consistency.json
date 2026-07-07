@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-07T10:51:43.768Z",
+  "generated_at": "2026-07-07T13:29:27.610Z",
   "repo_branch": "main",
   "repo_clean": "yes",
-  "latest_head": "ac83293 feat(platform): add studio worker self-test",
+  "latest_head": "340e0ca feat(platform): attach phoenix workspace and harden studio self-test",
   "latest_autopilot_run": "autopilot-runs/v4-continuous-2026-06-23T164157169Z-187199ed-step-04-v4-r-console-operable-read-only.json",
   "console_service": {
     "port": 4317,
@@ -21,12 +21,12 @@
     {
       "check_id": "runtime/global/attached-project-workspace.json",
       "status": "PASS",
-      "fingerprint": "44652108c297ae08"
+      "fingerprint": "d97f8f8e88e9523c"
     },
     {
       "check_id": "runtime/global/worker-control-plane.json",
       "status": "PASS",
-      "fingerprint": "bffb03f51d549853"
+      "fingerprint": "818b6503855315e5"
     },
     {
       "check_id": "runtime/global/access-enforcement.json",
@@ -36,12 +36,12 @@
     {
       "check_id": "apps/console/web/server.mjs",
       "status": "PASS",
-      "fingerprint": "7e9914a026d22de8"
+      "fingerprint": "58088e684cc2afdb"
     },
     {
       "check_id": "apps/console/web/action-server.mjs",
       "status": "PASS",
-      "fingerprint": "32a85826d66892db"
+      "fingerprint": "78c5f4430d04fe54"
     },
     {
       "check_id": "apps/console/web/build.mjs",
@@ -51,7 +51,7 @@
     {
       "check_id": "packages/orchestrator-core/bin/studio.mjs",
       "status": "PASS",
-      "fingerprint": "a0af3b26d0b5640b"
+      "fingerprint": "d5404ae96d9f139a"
     }
   ],
   "safety": {
@@ -62,18 +62,18 @@
     "managed_project_writes": "disabled"
   },
   "warnings": [],
-  "promotion_consistency_key": "8a5aef76af701f55",
+  "promotion_consistency_key": "8e73315d627338ff",
   "promotion_next_stage": "completed",
   "promotion_stages": [
     {
       "stage_id": "local_preview",
       "label": "本地预览",
       "status": "PASS",
-      "consistency_key": "8a5aef76af701f55",
+      "consistency_key": "8e73315d627338ff",
       "repo_branch": "main",
-      "repo_head": "ac83293 feat(platform): add studio worker self-test",
+      "repo_head": "340e0ca feat(platform): attach phoenix workspace and harden studio self-test",
       "repo_clean": "yes",
-      "recorded_at": "2026-07-07T10:51:43.570Z",
+      "recorded_at": "2026-07-07T13:29:27.405Z",
       "recorded_by": "studio.release.consistency",
       "gate_reason": "本地预览所需一致性检查已通过。",
       "checks": [
@@ -115,22 +115,22 @@
       "stage_id": "server_preview",
       "label": "服务器预览",
       "status": "PASS",
-      "consistency_key": "8a5aef76af701f55",
+      "consistency_key": "8e73315d627338ff",
       "depends_on": "local_preview",
-      "recorded_at": "2026-07-07T10:51:43.671Z",
+      "recorded_at": "2026-07-07T13:29:27.508Z",
       "recorded_by": "studio.release.consistency",
-      "source_consistency_key": "8a5aef76af701f55",
+      "source_consistency_key": "8e73315d627338ff",
       "gate_reason": "服务器预览已确认当前一致性快照。"
     },
     {
       "stage_id": "reviewed_publish",
       "label": "Reviewed Publish",
       "status": "PASS",
-      "consistency_key": "8a5aef76af701f55",
+      "consistency_key": "8e73315d627338ff",
       "depends_on": "server_preview",
-      "recorded_at": "2026-07-07T10:51:43.769Z",
+      "recorded_at": "2026-07-07T13:29:27.610Z",
       "recorded_by": "studio.release.consistency",
-      "source_consistency_key": "8a5aef76af701f55",
+      "source_consistency_key": "8e73315d627338ff",
       "gate_reason": "reviewed publish 已确认当前一致性快照。"
     }
   ],

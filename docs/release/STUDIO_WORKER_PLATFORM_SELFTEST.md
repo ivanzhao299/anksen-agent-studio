@@ -1,10 +1,10 @@
 # Studio Worker Platform Self-Test
 
-- generated_at: 2026-07-07T10:51:43.886Z
+- generated_at: 2026-07-07T13:29:27.729Z
 - mode: apply
-- overall_score: 88/100
+- overall_score: 96/100
 - overall_status: READY_FOR_INTERNAL_WORKER_PLATFORM
-- worker_as_cross_project_executor: PARTIAL_READY
+- worker_as_cross_project_executor: YES_GUARDED
 - development_execution_capability: YES_LOCAL_AND_PROPOSAL_GATED
 - production_execution_capability: GUARDED_PREVIEW_ONLY
 - release_promotion_status: PASS
@@ -14,15 +14,15 @@
 
 | Dimension | Score | Status | Summary |
 | --- | ---: | --- | --- |
-| Cross Project Attach | 77 | PARTIAL | project_count=2, connected=1, planned=1 |
-| Worker Control Plane | 86 | PASS | executor=local_worker_registry, true_parallel=node_child_process_verified, assign=ASSIGNED |
-| Runtime Chain | 80 | PARTIAL | providers=6, runtimes=6 |
+| Cross Project Attach | 100 | PASS | project_count=3, connected=2, planned=1 |
+| Worker Control Plane | 100 | PASS | executor=local_worker_registry, true_parallel=node_child_process_verified, assign=ASSIGNED |
+| Runtime Chain | 92 | PASS | providers=6, runtimes=6 |
 | Dispatch / Proposal / Queue | 90 | PASS | dispatch=1, proposal=2, audit=1, injected=1 |
 | Console Operability | 100 | PASS | console_smoke=PASS, action_server=PASS |
 | Release Promotion Gates | 92 | PASS | local=PASS, server=PASS, reviewed=PASS, next=completed |
-| Governance / Production Guard | 86 | PASS | production_release_readiness=BLOCKED, critical_gate=CRITICAL |
-| Development Execution Readiness | 86 | PASS | owner_direct_execute_max_risk=LOW, worker=local-codex-1, connected_projects=1 |
-| Production Execution Readiness | 82 | PARTIAL | release=PASS, next=completed, production_status=PASS |
+| Governance / Production Guard | 94 | PASS | production_release_readiness=BLOCKED, critical_gate=CRITICAL |
+| Development Execution Readiness | 97 | PASS | owner_direct_execute_max_risk=MEDIUM, worker=local-codex-1, connected_projects=2 |
+| Production Execution Readiness | 85 | PASS | release=PASS, next=completed, production_status=PASS |
 
 ## Check Commands
 
@@ -43,9 +43,9 @@
 
 | Stage | Status | Recorded At | Gate Reason |
 | --- | --- | --- | --- |
-| local_preview | PASS | 2026-07-07T10:51:43.570Z | 本地预览所需一致性检查已通过。 |
-| server_preview | PASS | 2026-07-07T10:51:43.671Z | 服务器预览已确认当前一致性快照。 |
-| reviewed_publish | PASS | 2026-07-07T10:51:43.769Z | reviewed publish 已确认当前一致性快照。 |
+| local_preview | PASS | 2026-07-07T13:29:27.405Z | 本地预览所需一致性检查已通过。 |
+| server_preview | PASS | 2026-07-07T13:29:27.508Z | 服务器预览已确认当前一致性快照。 |
+| reviewed_publish | PASS | 2026-07-07T13:29:27.610Z | reviewed publish 已确认当前一致性快照。 |
 
 ## Dispatch / Proposal / Queue Evidence
 
@@ -62,8 +62,8 @@
 ## Enhancement Plan
 
 ### P0
-- 把平台操作员账号升级为可直执 MEDIUM 的受控套餐，否则跨项目 worker 只能停在 proposal / dry-run。
-- 挂接第二个真实项目仓库，验证 Studio 不是只对 jinhu-smart-park 生效。
+- 保持当前直执上限，并为高风险动作继续保留 proposal / approval gate。
+- 继续对第二、第三个项目做 attach regression，验证跨项目路由稳定。
 - 把 reviewed publish 的结果同步进 Console 发布面板和审计摘要。
 
 ### P1
