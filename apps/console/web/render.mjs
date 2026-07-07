@@ -14,11 +14,17 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function nav(activeId, auth = {}) {
+function routeHref(path, activeProjectId = "") {
+  if (!activeProjectId) return path;
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}project=${encodeURIComponent(activeProjectId)}`;
+}
+
+function nav(activeId, auth = {}, activeProjectId = "") {
   const visibleRoutes = new Set(visibleConsoleRouteIds(auth));
   return `<nav class="top-nav">${consoleWebRoutes.filter((route) => route.showInNav !== false && visibleRoutes.has(route.id)).map((route) => {
     const active = route.id === activeId ? "active" : "";
-    return `<a class="${active}" href="${route.navPath}"><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
+    return `<a class="${active}" href="${routeHref(route.navPath, activeProjectId)}"><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
   }).join("")}</nav>`;
 }
 
@@ -849,6 +855,15 @@ function interactiveScript() {
   const proposalTask = document.getElementById("proposal-task-id");
   const modeSelect = document.getElementById("action-mode");
   const agent = document.getElementById("action-agent");
+  const projectConnectId = document.getElementById("project-connect-id");
+  const projectConnectName = document.getElementById("project-connect-name");
+  const projectConnectSource = document.getElementById("project-connect-source");
+  const projectConnectLocalPath = document.getElementById("project-connect-local-path");
+  const projectConnectUrl = document.getElementById("project-connect-url");
+  const projectConnectBranch = document.getElementById("project-connect-branch");
+  const projectConnectPackageManager = document.getElementById("project-connect-package-manager");
+  const projectConnectType = document.getElementById("project-connect-type");
+  const projectConnectDescription = document.getElementById("project-connect-description");
   const draftStatus = document.getElementById("config-draft-status");
   const currentProjectValue = () => (project ? project.value : "jinhu-smart-park");
   let currentRunId = null;
@@ -1140,9 +1155,23 @@ function interactiveScript() {
     return "workspace-goal";
   }
 
+  function projectConnectPayload() {
+    return {
+      connect_project_id: projectConnectId ? projectConnectId.value.trim() : "",
+      connect_project_name: projectConnectName ? projectConnectName.value.trim() : "",
+      connect_source_type: projectConnectSource ? projectConnectSource.value.trim() : "auto",
+      connect_local_path: projectConnectLocalPath ? projectConnectLocalPath.value.trim() : "",
+      connect_url: projectConnectUrl ? projectConnectUrl.value.trim() : "",
+      connect_default_branch: projectConnectBranch ? projectConnectBranch.value.trim() : "",
+      connect_package_manager: projectConnectPackageManager ? projectConnectPackageManager.value.trim() : "",
+      connect_project_type: projectConnectType ? projectConnectType.value.trim() : "",
+      connect_description: projectConnectDescription ? projectConnectDescription.value.trim() : ""
+    };
+  }
+
   function payload(actionOverride) {
     const effectiveActionId = actionOverride || actionForMode();
-    return {
+    const body = {
       goal: goal ? goal.value : "继续推进 Pilot",
       project_id: currentProjectValue(),
       action_id: effectiveActionId,
@@ -1161,6 +1190,10 @@ function interactiveScript() {
         data_url: attachment.data_url
       }))
     };
+    if (String(effectiveActionId).startsWith("project-connect-")) {
+      Object.assign(body, projectConnectPayload());
+    }
+    return body;
   }
 
   async function postJson(url, body) {
@@ -1287,12 +1320,36 @@ function interactiveScript() {
     });
   });
 
+  document.querySelectorAll("[data-project-connect-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const connectAction = button.getAttribute("data-project-connect-action");
+      if (action) action.value = connectAction;
+      if (goal) goal.value = goal.value || "接入新项目";
+      setStatus(connectAction === "project-connect-apply" ? "执行中" : "生成中");
+      try {
+        await startAction(connectAction);
+      } catch (error) {
+        renderActionResult({ result: { status: "FAIL", stderr_summary: String(error && error.message ? error.message : error) } });
+      }
+    });
+  });
+
   document.querySelectorAll("[data-project-select]").forEach((button) => {
     button.addEventListener("click", () => {
       const value = button.getAttribute("data-project-select");
       if (project) project.value = value;
       document.querySelectorAll("[data-project-select]").forEach((item) => item.classList.toggle("active", item === button));
+      const url = new URL(window.location.href);
+      url.searchParams.set("project", value || "");
+      window.location.assign(url.pathname + url.search);
     });
+  });
+
+  project?.addEventListener("change", () => {
+    document.querySelectorAll("[data-project-select]").forEach((item) => item.classList.toggle("active", item.getAttribute("data-project-select") === project.value));
+    const url = new URL(window.location.href);
+    url.searchParams.set("project", project.value || "");
+    window.history.replaceState({}, "", url.pathname + url.search);
   });
 
   attachmentTrigger?.addEventListener("click", () => attachmentInput?.click());
@@ -1377,7 +1434,7 @@ function shell(content, activeId, model, data, auth = {}) {
     ? ""
     : `${authHeaderBar(auth)}
     ${topStatusBar(model, data, auth)}
-    ${nav(activeId, auth)}`;
+    ${nav(activeId, auth, data.active_project_id ?? data.project_router.projects?.[0]?.project_id ?? "")}`;
   const pageTitle = gated ? `登录 - ${messages.app.title}` : `${route.label} - ${messages.app.title}`;
   return `<!doctype html>
 <html lang="${messages.locale}">
@@ -1608,6 +1665,8 @@ function shell(content, activeId, model, data, auth = {}) {
     button.primary-action:hover { background: linear-gradient(180deg, #21426b, #1a3a61); }
     button.secondary { background: #0a0e14; color: #c8d3e2; }
     button.danger { border-color: #4b2430; color: #fda4af; background: #140c10; }
+    .link-button { display: inline-flex; align-items: center; justify-content: center; min-height: 39px; padding: 9px 12px; border: 1px solid #223043; border-radius: 8px; background: #0a0e14; color: #c8d3e2; text-decoration: none; font: inherit; font-weight: 700; }
+    .link-button:hover { background: #171e29; color: #e8eef7; }
     .quick-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
     .compact-quick-row { margin-bottom: 8px; }
     .quick-chip { min-height: 30px; padding: 6px 10px; border-radius: 999px; background: #090d13; color: #b8c6d8; font-size: 12px; font-weight: 600; }
@@ -1685,6 +1744,7 @@ function pageDashboard(_model, data) {
 function pageProjects(data) {
   const project = data.active_project_state ?? {};
   const activeProjectLabel = data.active_project?.project_name ?? data.active_project?.label ?? data.active_project_id ?? "当前项目";
+  const activeProjectId = data.active_project_id ?? data.project_router.projects?.[0]?.project_id ?? "workspace";
   const workspaceProjects = data.project_router.workspace?.projects ?? [];
   const dispatchPlans = data.project_router.dispatch_plans ?? [];
   const lifecycleMap = new Map(lifecycleRecords(data).map((item) => [item.task_id, item]));
@@ -1699,6 +1759,80 @@ function pageProjects(data) {
   const connectedProjectCount = workspaceProjects.filter((item) => item.connection_status === "CONNECTED").length;
   const plannedProjectCount = workspaceProjects.filter((item) => item.connection_status !== "CONNECTED").length;
   return `${projectWorkbench(data)}
+  <section>
+    <div class="section-head"><h2>当前项目上下文</h2><span class="pill">${escapeHtml(activeProjectId)}</span></div>
+    <div class="kanban-grid">
+      <div class="panel">
+        <div class="grid">
+          ${metric("当前项目", activeProjectLabel)}
+          ${metric("连接状态", data.active_project?.connection_status ?? "unknown")}
+          ${metric("执行路由", data.active_project?.execution_route ?? "managed_project_repo")}
+          ${metric("写入策略", data.active_project?.write_policy ?? "disabled")}
+        </div>
+        <div class="button-row" style="margin-top:12px;">
+          <button type="button" class="secondary" data-quick-action="project-inspect" data-goal="${escapeHtml(`检查 ${activeProjectLabel}`)}">检查项目</button>
+          <button type="button" class="secondary" data-quick-action="project-dispatch" data-goal="${escapeHtml(`为 ${activeProjectLabel} 生成派发计划`)}">生成派发计划</button>
+          <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="${escapeHtml(`查看 ${activeProjectLabel} 待审批 Proposal`)}">查看 Proposal</button>
+          <a class="secondary link-button" href="${escapeHtml(routeHref("/actions", activeProjectId))}">切到任务台</a>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="section-head"><h2>接入新项目</h2><span class="pill">GitHub / 本地目录 / 链接占位</span></div>
+    <div class="kanban-grid">
+      <div class="panel">
+        <p class="help">支持三种入口：直接绑定本地目录、粘贴 GitHub / Git 仓库地址自动接入，或先登记一个链接地址 / Zip 占位项目。当前只写 Studio 的连接器、绑定和运行记忆，不会写业务仓库。</p>
+        <div class="form-grid">
+          <div>
+            <label for="project-connect-id">项目 ID</label>
+            <input id="project-connect-id" type="text" placeholder="可留空，系统自动推断">
+          </div>
+          <div>
+            <label for="project-connect-name">项目名称</label>
+            <input id="project-connect-name" type="text" placeholder="可留空，自动生成">
+          </div>
+          <div>
+            <label for="project-connect-source">接入方式</label>
+            <select id="project-connect-source">
+              ${formOption("auto", "自动识别地址", true)}
+              ${formOption("local_path", "本地目录")}
+              ${formOption("git_url", "GitHub / Git 仓库")}
+              ${formOption("zip_placeholder", "链接地址 / Zip 占位")}
+            </select>
+          </div>
+          <div>
+            <label for="project-connect-local-path">本地路径</label>
+            <input id="project-connect-local-path" type="text" placeholder="../my-project or /absolute/path">
+          </div>
+          <div>
+            <label for="project-connect-url">地址 / 仓库 URL</label>
+            <input id="project-connect-url" type="text" placeholder="https://github.com/org/repo or https://example.com/archive.zip">
+          </div>
+          <div>
+            <label for="project-connect-branch">默认分支</label>
+            <input id="project-connect-branch" type="text" placeholder="main">
+          </div>
+          <div>
+            <label for="project-connect-package-manager">包管理器</label>
+            <input id="project-connect-package-manager" type="text" placeholder="pnpm / npm / yarn">
+          </div>
+          <div>
+            <label for="project-connect-type">项目类型</label>
+            <input id="project-connect-type" type="text" placeholder="business-repository">
+          </div>
+          <div>
+            <label for="project-connect-description">说明</label>
+            <input id="project-connect-description" type="text" placeholder="可选，记录该项目用途">
+          </div>
+        </div>
+        <div class="button-row">
+          <button type="button" class="secondary" data-project-connect-action="project-connect-dry-run">生成连接草稿</button>
+          <button type="button" class="primary" data-project-connect-action="project-connect-apply">写入并接入工作区</button>
+        </div>
+      </div>
+    </div>
+  </section>
   <section><h2>${messages.pages.projects.title}</h2><div class="grid">
     ${metric(messages.pages.projects.connectedProject, connectedProjectCount)}
     ${metric(messages.pages.projects.phoenixErp, plannedProjectCount)}

@@ -23,6 +23,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs project intake --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project stack --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project commands --config <file> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs project connect [--project-id <project_id>] [--project-name <name>] [--source-type auto|local_path|git_url|zip_placeholder] [--local-path <path>] [--git-url <url>] [--url <url>] [--description <text>] [--default-branch <branch>] [--package-manager <pm>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs project bind --config <file> [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs project workspace [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs project exec-context --project <project_id> --dry-run
@@ -157,6 +158,18 @@ function parseArgs(argv) {
     projects: "",
     inviteId: "",
     comment: "",
+    projectId: "",
+    projectName: "",
+    sourceType: "",
+    localPath: "",
+    gitUrl: "",
+    url: "",
+    zipPlaceholder: "",
+    stateDir: "",
+    projectType: "",
+    description: "",
+    defaultBranch: "",
+    packageManager: "",
     approve: rest.includes("--approve"),
     reject: rest.includes("--reject"),
     serviceAction: command === "console" && subcommand === "service" ? rest[1] ?? "status" : "",
@@ -230,6 +243,42 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--comment") {
       args.comment = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--project-id") {
+      args.projectId = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--project-name") {
+      args.projectName = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--source-type") {
+      args.sourceType = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--local-path") {
+      args.localPath = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--git-url") {
+      args.gitUrl = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--url") {
+      args.url = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--zip-placeholder") {
+      args.zipPlaceholder = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--state-dir") {
+      args.stateDir = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--project-type") {
+      args.projectType = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--description") {
+      args.description = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--default-branch") {
+      args.defaultBranch = rest[index + 1] ?? "";
+      index += 1;
+    } else if (arg === "--package-manager") {
+      args.packageManager = rest[index + 1] ?? "";
       index += 1;
     } else if (arg === "--port") {
       args.port = Number(rest[index + 1] ?? "4317");
@@ -9845,6 +9894,18 @@ async function consoleActionServerSmoke(args) {
     project_id: "phoenix-erp",
     goal: "检查 Phoenix ERP 当前状态"
   });
+  const projectConnectPlan = await actionServer.createActionPlan({
+    action_id: "project-connect-dry-run",
+    goal: "接入 Phoenix ERP 仓库",
+    connect_project_id: "phoenix-erp-v3",
+    connect_project_name: "Phoenix ERP V3",
+    connect_source_type: "git_url",
+    connect_url: "https://github.com/ivanzhao299/phoenix-erp-v3.git",
+    connect_default_branch: "main",
+    connect_package_manager: "pnpm",
+    connect_project_type: "business-repository",
+    connect_description: "用于验证多项目接入链路"
+  });
   const realAgentPlan = await actionServer.createActionPlan({
     action_id: "workspace-goal",
     project_id: "jinhu-smart-park",
@@ -9937,11 +9998,13 @@ async function consoleActionServerSmoke(args) {
     && summary.actions.some((action) => action.id === "release-server-preview")
     && summary.actions.some((action) => action.id === "release-reviewed-publish")
     && summary.actions.some((action) => action.id === "proposal-approve-apply")
+    && summary.actions.some((action) => action.id === "project-connect-dry-run")
+    && summary.actions.some((action) => action.id === "project-connect-apply")
     && summary.actions.some((action) => action.id === "agent-real-plan")
     && Array.isArray(summary.projects)
     && summary.projects.some((project) => project.project_id === "jinhu-smart-park")
     && summary.projects.some((project) => project.project_id === "phoenix-erp");
-  const logWriteCheck = [runtimePlan, smartParkPlan, releaseServerPreviewPlan, releaseReviewedPublishPlan, highPlan, proposalApplyPlan].every((record) =>
+  const logWriteCheck = [runtimePlan, smartParkPlan, releaseServerPreviewPlan, releaseReviewedPublishPlan, highPlan, proposalApplyPlan, projectConnectPlan].every((record) =>
     record.logs?.json
     && record.logs?.markdown
     && existsSync(resolveFromRoot(record.logs.json))
@@ -9964,6 +10027,11 @@ async function consoleActionServerSmoke(args) {
     )
     && aiRuntimeStatusPlan.plan.command.includes("console agent-status --dry-run")
     && phoenixInspectPlan.plan.command.includes("project inspect --config examples/phoenix-erp/project.config.example.json --dry-run")
+    && projectConnectPlan.plan.command.includes("project connect")
+    && projectConnectPlan.plan.command.includes("--project-id phoenix-erp-v3")
+    && projectConnectPlan.plan.command.includes("--source-type git_url")
+    && projectConnectPlan.plan.command.includes("--url https://github.com/ivanzhao299/phoenix-erp-v3.git")
+    && projectConnectPlan.plan.command.includes("--dry-run")
     && realAgentPlan.plan.action_id === "agent-real-plan"
     && realAgentPlan.plan.command.includes("codex exec --sandbox read-only")
     && attachmentPlan.plan.action_id === "agent-real-plan";
@@ -10024,6 +10092,7 @@ async function consoleActionServerSmoke(args) {
   console.log(`runtime_health_log: ${runtimePlan.logs.json}`);
   console.log(`smart_park_plan_log: ${smartParkPlan.logs.json}`);
   console.log(`high_risk_plan_log: ${highPlan.logs.json}`);
+  console.log(`project_connect_log: ${projectConnectPlan.logs.json}`);
   console.log(`conversation_run_id: ${asyncRun.run_id}`);
   console.log(`cancel_smoke_status: ${cancelledRun?.status ?? "UNKNOWN"}`);
   console.log("deploy: disabled");
@@ -10567,6 +10636,393 @@ function projectConfigPathFromArgs(args) {
     throw new Error(`Project config not found: ${configPath}`);
   }
   return configPath;
+}
+
+function titleCaseProjectName(value) {
+  return String(value ?? "")
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
+function looksLikeGitUrl(value) {
+  const text = String(value ?? "").trim().toLowerCase();
+  return Boolean(text)
+    && (
+      text.endsWith(".git")
+      || text.startsWith("git@")
+      || text.startsWith("ssh://git@")
+      || text.includes("github.com/")
+      || text.includes("gitlab.com/")
+      || text.includes("bitbucket.org/")
+    );
+}
+
+function inferredSourceType(args) {
+  const explicit = String(args.sourceType ?? "").trim();
+  if (explicit && explicit !== "auto") return explicit;
+  if (String(args.localPath ?? "").trim()) return "local_path";
+  if (String(args.gitUrl ?? "").trim()) return "git_url";
+  if (String(args.zipPlaceholder ?? "").trim()) return "zip_placeholder";
+  const genericUrl = String(args.url ?? "").trim();
+  if (genericUrl) return looksLikeGitUrl(genericUrl) ? "git_url" : "zip_placeholder";
+  return "local_path";
+}
+
+function inferredProjectId(args, sourceType) {
+  if (String(args.projectId ?? "").trim()) return safeSegment(args.projectId).toLowerCase();
+  const localPath = String(args.localPath ?? "").trim();
+  if (localPath) {
+    return safeSegment(localPath.split(/[/\\]/).filter(Boolean).at(-1) ?? "attached-project").toLowerCase();
+  }
+  const directUrl = String(args.gitUrl || args.url || args.zipPlaceholder || "").trim();
+  if (directUrl) {
+    const cleaned = directUrl.replace(/[#?].*$/, "").replace(/\.git$/i, "");
+    return safeSegment(
+      cleaned.split("/").filter(Boolean).at(-1)
+      ?? (sourceType === "zip_placeholder" ? "linked-project" : "github-project")
+    ).toLowerCase();
+  }
+  return "attached-project";
+}
+
+function inferredProjectName(args, projectId) {
+  if (String(args.projectName ?? "").trim()) return String(args.projectName).trim();
+  return titleCaseProjectName(projectId);
+}
+
+function preferredLocalPath(args, projectId) {
+  if (String(args.localPath ?? "").trim()) {
+    return relativePath(resolve(repoRoot, String(args.localPath).trim()));
+  }
+  return relativePath(resolve(repoRoot, "..", "attached-projects", safeSegment(projectId)));
+}
+
+function projectConnectConfigPath(projectId) {
+  return resolveFromRoot(`examples/${safeSegment(projectId)}/project.config.example.json`);
+}
+
+function projectConnectContextPaths(projectId) {
+  const dir = projectContextDir(projectId);
+  return {
+    dir,
+    binding: join(dir, "binding.json"),
+    projectState: join(dir, "project-state.json"),
+    architecture: join(dir, "architecture.json"),
+    status: join(dir, "agent-studio-status.json"),
+    handoff: join(dir, "handoff-summary.md")
+  };
+}
+
+function nonEmptyString(value) {
+  const text = String(value ?? "").trim();
+  return text ? text : "";
+}
+
+function uniqueStrings(values) {
+  return [...new Set((values ?? []).map((value) => String(value ?? "").trim()).filter(Boolean))];
+}
+
+async function readJsonIfPresent(path) {
+  return existsSync(path) ? readJson(path) : null;
+}
+
+function baseProjectConnectConfig({
+  projectId,
+  projectName,
+  sourceType,
+  projectRoot,
+  gitUrl,
+  linkedUrl,
+  description,
+  defaultBranch,
+  packageManager,
+  stateDir,
+  projectType,
+  existingConfig,
+  projectExists
+}) {
+  const sanitizedProjectRoot = String(projectRoot).trim();
+  const nextDefaultBranch = defaultBranch || existingConfig?.default_branch || existingConfig?.intake?.repo_metadata?.default_branch || "main";
+  const nextPackageManager = packageManager || existingConfig?.package_manager || existingConfig?.intake?.repo_metadata?.package_manager || "unknown";
+  const nextStateDir = stateDir || existingConfig?.state_dir || "ops/agent-orchestrator";
+  const resolvedProjectType = projectType || existingConfig?.project_type || (projectExists ? "business-repository" : "planned-business-repository");
+  const resolvedDescription = description || existingConfig?.description || `${projectName} project connector for ANKSEN Agent Studio.`;
+  const readPaths = Array.isArray(existingConfig?.read_paths) && existingConfig.read_paths.length > 0
+    ? existingConfig.read_paths
+    : [
+        "apps/**",
+        "packages/**",
+        "docs/**",
+        "scripts/**",
+        "package.json",
+        "pnpm-lock.yaml"
+      ];
+  const writePaths = Array.isArray(existingConfig?.write_paths) ? existingConfig.write_paths : [];
+  const frozenPaths = Array.isArray(existingConfig?.frozen_paths) && existingConfig.frozen_paths.length > 0
+    ? existingConfig.frozen_paths
+    : ["**"];
+  const guardedPaths = Array.isArray(existingConfig?.guarded_paths) && existingConfig.guarded_paths.length > 0
+    ? existingConfig.guarded_paths
+    : ["**", ".env", ".env.*"];
+  const intake = {
+    ...(existingConfig?.intake ?? {}),
+    source_type: sourceType,
+    local_path: sourceType === "local_path" || projectExists ? sanitizedProjectRoot : (existingConfig?.intake?.local_path ?? sanitizedProjectRoot),
+    git_url: sourceType === "git_url" ? gitUrl : (existingConfig?.intake?.git_url ?? (gitUrl || undefined)),
+    zip_placeholder: sourceType === "zip_placeholder" ? linkedUrl : (existingConfig?.intake?.zip_placeholder ?? (linkedUrl || undefined)),
+    repo_metadata: {
+      ...(existingConfig?.intake?.repo_metadata ?? {}),
+      default_branch: nextDefaultBranch,
+      package_manager: nextPackageManager,
+      repository_kind: sourceType === "git_url"
+        ? "git_repository"
+        : sourceType === "local_path"
+          ? "local_workspace"
+          : "linked_placeholder"
+    }
+  };
+  return {
+    ...(existingConfig ?? {}),
+    schema_version: 1,
+    project_id: projectId,
+    project_name: projectName,
+    project_type: resolvedProjectType,
+    description: resolvedDescription,
+    project_root: sanitizedProjectRoot,
+    local_path: sanitizedProjectRoot,
+    git_url: gitUrl || existingConfig?.git_url,
+    zip_placeholder: linkedUrl || existingConfig?.zip_placeholder,
+    state_dir: nextStateDir,
+    mode: projectExists ? "external-project-adapter-example" : "planned_project_not_connected",
+    status: projectExists ? "CONNECTED" : "PLANNED",
+    connection_status: projectExists ? "CONNECTED" : "NOT_CONNECTED",
+    default_branch: nextDefaultBranch,
+    package_manager: nextPackageManager,
+    worktrees: {
+      ...(existingConfig?.worktrees ?? {}),
+      main: sanitizedProjectRoot
+    },
+    detected_stack_hints: uniqueStrings(existingConfig?.detected_stack_hints ?? []),
+    available_commands: uniqueStrings(existingConfig?.available_commands ?? []),
+    repo_metadata: {
+      ...(existingConfig?.repo_metadata ?? {}),
+      repository_exists: projectExists,
+      connection_required: !projectExists,
+      placeholder_only: sourceType === "zip_placeholder" || !projectExists
+    },
+    intake,
+    read_paths: readPaths,
+    write_paths: writePaths,
+    frozen_paths: frozenPaths,
+    guarded_paths: guardedPaths,
+    runtime_memory: {
+      directory: existingConfig?.runtime_memory?.directory ?? `runtime/projects/${projectId}`,
+      summary_file: existingConfig?.runtime_memory?.summary_file ?? "handoff-summary.md",
+      platform_state_file: existingConfig?.runtime_memory?.platform_state_file ?? "project-state.json",
+      validate_command: existingConfig?.runtime_memory?.validate_command ?? ""
+    },
+    inspection: {
+      dry_run_only: true,
+      allow_agent_execution: false,
+      allow_project_writes: false,
+      allow_deploy: false,
+      allow_production_operations: false,
+      ...(existingConfig?.inspection ?? {})
+    },
+    production_operations: {
+      deploy: "forbidden",
+      migration: "forbidden",
+      seed: "forbidden",
+      reset: "forbidden",
+      cleanup: "forbidden",
+      ...(existingConfig?.production_operations ?? {})
+    }
+  };
+}
+
+async function cloneConnectedProjectIfNeeded(sourceType, gitUrl, projectPath, defaultBranch) {
+  if (sourceType !== "git_url" || !gitUrl || existsSync(projectPath)) {
+    return {
+      attempted: false,
+      status: existsSync(projectPath) ? "present" : "skipped",
+      detail: existsSync(projectPath) ? "local path already exists" : "clone not required"
+    };
+  }
+  await mkdir(dirname(projectPath), { recursive: true });
+  const args = ["clone", "--depth", "1"];
+  if (defaultBranch) args.push("--branch", defaultBranch);
+  args.push(gitUrl, projectPath);
+  const result = await execReadOnly(repoRoot, "git", args, 600000);
+  return {
+    attempted: true,
+    status: result.ok ? "cloned" : "failed",
+    detail: result.ok ? "git clone completed" : (result.stderr || result.stdout || "git clone failed"),
+    command: `git ${args.join(" ")}`
+  };
+}
+
+async function projectConnect(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("project connect requires --dry-run or --apply.");
+  }
+  const sourceType = inferredSourceType(args);
+  const projectId = inferredProjectId(args, sourceType);
+  const projectName = inferredProjectName(args, projectId);
+  const projectRoot = preferredLocalPath(args, projectId);
+  const configPath = projectConnectConfigPath(projectId);
+  const existingConfig = await readJsonIfPresent(configPath);
+  const gitUrl = nonEmptyString(args.gitUrl || (sourceType === "git_url" ? args.url : ""));
+  const linkedUrl = nonEmptyString(args.zipPlaceholder || (sourceType === "zip_placeholder" ? args.url : ""));
+  const absoluteProjectPath = resolve(repoRoot, projectRoot);
+  const initialProjectExists = existsSync(absoluteProjectPath);
+  let config = baseProjectConnectConfig({
+    projectId,
+    projectName,
+    sourceType,
+    projectRoot,
+    gitUrl,
+    linkedUrl,
+    description: nonEmptyString(args.description),
+    defaultBranch: nonEmptyString(args.defaultBranch),
+    packageManager: nonEmptyString(args.packageManager),
+    stateDir: nonEmptyString(args.stateDir),
+    projectType: nonEmptyString(args.projectType),
+    existingConfig,
+    projectExists: initialProjectExists
+  });
+  const filesWritten = [];
+  let cloneSummary = {
+    attempted: false,
+    status: initialProjectExists ? "present" : "not_attempted",
+    detail: initialProjectExists ? "local path already exists" : "no clone attempted"
+  };
+
+  if (args.apply) {
+    await mkdir(dirname(configPath), { recursive: true });
+    await writeJsonFile(configPath, config);
+    filesWritten.push(relativePath(configPath));
+
+    cloneSummary = await cloneConnectedProjectIfNeeded(sourceType, gitUrl, absoluteProjectPath, config.default_branch);
+
+    const projectExists = existsSync(absoluteProjectPath);
+    config = baseProjectConnectConfig({
+      projectId,
+      projectName,
+      sourceType,
+      projectRoot,
+      gitUrl,
+      linkedUrl,
+      description: nonEmptyString(args.description),
+      defaultBranch: config.default_branch,
+      packageManager: config.package_manager,
+      stateDir: config.state_dir,
+      projectType: config.project_type,
+      existingConfig: config,
+      projectExists
+    });
+
+    const api = await loadProjectConnectorApi();
+    const stack = await api.detectProjectStack(configPath, repoRoot);
+    const commands = await api.detectProjectCommands(configPath, repoRoot);
+    config.detected_stack_hints = uniqueStrings(stack.detected_stack);
+    config.available_commands = uniqueStrings((commands.commands ?? []).map((command) => command.command));
+    await writeJsonFile(configPath, config);
+
+    const binding = await api.buildProjectBinding(configPath, repoRoot);
+    const workspace = await api.buildWorkspaceBindingSummary(repoRoot);
+    const contextPaths = projectConnectContextPaths(projectId);
+    const snapshot = await collectProjectSnapshot(configPath);
+    const memory = buildProjectMemory(snapshot);
+    const workspacePath = resolveFromRoot("runtime/global/attached-project-workspace.json");
+
+    await writeJsonFile(contextPaths.binding, binding);
+    await writeProjectMemory(contextPaths.dir, memory);
+    await writeJsonFile(workspacePath, workspace);
+    filesWritten.push(
+      relativePath(contextPaths.binding),
+      relativePath(contextPaths.projectState),
+      relativePath(contextPaths.architecture),
+      relativePath(contextPaths.status),
+      relativePath(contextPaths.handoff),
+      relativePath(workspacePath)
+    );
+
+    const indexPath = await updateCodexContextIndexArtifacts({
+      globalFiles: [relativePath(workspacePath)],
+      projectFiles: {
+        [projectId]: [
+          relativePath(configPath),
+          relativePath(contextPaths.binding),
+          relativePath(contextPaths.projectState),
+          relativePath(contextPaths.architecture),
+          relativePath(contextPaths.status),
+          relativePath(contextPaths.handoff)
+        ]
+      }
+    });
+    filesWritten.push(relativePath(indexPath));
+  }
+
+  const projectExists = existsSync(absoluteProjectPath);
+  const connectionStatus = projectExists ? "CONNECTED" : "NOT_CONNECTED";
+  const mode = projectExists ? "bound_local_or_cloned" : "planned_connector_only";
+
+  console.log(`# Project Connect ${args.apply ? "apply" : "dry-run"}`);
+  console.log("");
+  console.log(`project_id: ${projectId}`);
+  console.log(`project_name: ${projectName}`);
+  console.log(`source_type: ${sourceType}`);
+  console.log(`mode: ${mode}`);
+  console.log(`project_root: ${projectRoot}`);
+  console.log(`config_path: ${relativePath(configPath)}`);
+  console.log(`project_exists: ${projectExists ? "yes" : "no"}`);
+  console.log(`connection_status: ${connectionStatus}`);
+  console.log(`git_url: ${gitUrl || "none"}`);
+  console.log(`linked_url: ${linkedUrl || "none"}`);
+  console.log(`clone_attempted: ${cloneSummary.attempted ? "yes" : "no"}`);
+  console.log(`clone_status: ${cloneSummary.status}`);
+  console.log(`clone_detail: ${cloneSummary.detail}`);
+  console.log("");
+  console.log("safety:");
+  console.log("- project_writes: disabled");
+  console.log("- deploy: disabled");
+  console.log("- production_operations: disabled");
+  console.log("- credential_values: not_read");
+  console.log("- model_invocation: disabled");
+  console.log("");
+  if (args.apply) {
+    console.log("written_files:");
+    for (const file of uniqueStrings(filesWritten)) console.log(`- ${file}`);
+    console.log("");
+  } else {
+    const contextPaths = projectConnectContextPaths(projectId);
+    console.log("would_write_files:");
+    for (const file of [
+      relativePath(configPath),
+      relativePath(contextPaths.binding),
+      relativePath(contextPaths.projectState),
+      relativePath(contextPaths.architecture),
+      relativePath(contextPaths.status),
+      relativePath(contextPaths.handoff),
+      "runtime/global/attached-project-workspace.json"
+    ]) console.log(`- ${file}`);
+    console.log("");
+  }
+  console.log("next_steps:");
+  if (connectionStatus === "CONNECTED") {
+    console.log(`- node packages/orchestrator-core/bin/studio.mjs project inspect --config ${relativePath(configPath)} --dry-run`);
+    console.log(`- node packages/orchestrator-core/bin/studio.mjs context project --project ${projectId}`);
+  } else {
+    console.log(`- Provide a local checkout at ${projectRoot} or rerun with --local-path.`);
+    if (sourceType === "git_url") {
+      console.log(`- 确认 ${gitUrl} 的仓库访问权限后，重新执行 --apply。`);
+    }
+  }
+  if (args.apply && cloneSummary.status === "failed") {
+    process.exitCode = 1;
+  }
 }
 
 async function projectIntake(args) {
@@ -12925,6 +13381,7 @@ async function main() {
   }
 
   if (args.command === "doctor") return doctor(args);
+  if (args.command === "project" && args.subcommand === "connect") return projectConnect(args);
   if (args.command === "project" && args.subcommand === "intake") return projectIntake(args);
   if (args.command === "project" && args.subcommand === "stack") return projectStack(args);
   if (args.command === "project" && args.subcommand === "commands") return projectCommands(args);

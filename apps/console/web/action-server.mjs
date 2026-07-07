@@ -185,6 +185,8 @@ export const consoleActionOptions = [
   { id: "goal-plan", label: "生成任务计划", risk: "MEDIUM" },
   { id: "context-summary", label: "读取上下文", risk: "LOW" },
   { id: "project-inspect", label: "检查当前项目", risk: "MEDIUM" },
+  { id: "project-connect-dry-run", label: "项目接入草稿", risk: "LOW" },
+  { id: "project-connect-apply", label: "项目接入写入", risk: "MEDIUM" },
   { id: "runtime-health", label: "Runtime 健康检查", risk: "LOW" },
   { id: "worker-health", label: "查看 Worker 状态", risk: "MEDIUM" },
   { id: "governance-check", label: "Governance 检查", risk: "LOW" },
@@ -337,6 +339,7 @@ function inferWorkspaceActionId(input = {}) {
   if (liveAgentRuntimeIds.has(requestedAgent)) return "agent-real-plan";
   if (goal.includes("阻断") || goal.includes("blocker") || goal.includes("blocked")) return "project-inspect";
   if (goal.includes("上线") || goal.includes("go-live") || goal.includes("golive")) return "project-dispatch";
+  if (goal.includes("接入项目") || goal.includes("连接项目") || goal.includes("github") || goal.includes("仓库接入") || goal.includes("本地项目")) return "project-connect-dry-run";
   if (goal.includes("project inspect") || goal.includes("项目状态") || goal.includes("项目概况")) return "project-inspect";
   if (goal.includes("worker") || goal.includes("agent 状态") || goal.includes("agent状态")) return "worker-health";
   if (goal.includes("runtime") || goal.includes("运行时")) return "runtime-health";
@@ -355,6 +358,7 @@ function normalizeActionId(actionId, input = {}) {
   if (actionId === "autopilot-run") return "autopilot-dry-run";
   if (actionId === "proposal-approve") return "proposal-approve-dry-run";
   if (actionId === "proposal-inject") return "proposal-approve-apply";
+  if (actionId === "project-connect") return "project-connect-dry-run";
   if (actionId === "worker-status") return "worker-health";
   if (actionId === "pending-proposals") return "proposal-review";
   if (actionId === "smart-park-go-live-plan-dry-run") return "smart-park-go-live-plan";
@@ -432,6 +436,28 @@ function commandFor(input, plan = null) {
       command: process.execPath,
       args: [studioScript, "project", "inspect", "--config", project.config_path, "--dry-run"],
       display: `node ${studioScript} project inspect --config ${project.config_path} --dry-run`
+    };
+  }
+  if (actionId === "project-connect-dry-run" || actionId === "project-connect-apply") {
+    const flags = [];
+    if (String(input.connect_project_id ?? "").trim()) flags.push("--project-id", String(input.connect_project_id).trim());
+    if (String(input.connect_project_name ?? "").trim()) flags.push("--project-name", String(input.connect_project_name).trim());
+    if (String(input.connect_source_type ?? "").trim() && String(input.connect_source_type).trim() !== "auto") {
+      flags.push("--source-type", String(input.connect_source_type).trim());
+    }
+    if (String(input.connect_local_path ?? "").trim()) flags.push("--local-path", String(input.connect_local_path).trim());
+    if (String(input.connect_git_url ?? "").trim()) flags.push("--git-url", String(input.connect_git_url).trim());
+    if (String(input.connect_url ?? "").trim()) flags.push("--url", String(input.connect_url).trim());
+    if (String(input.connect_zip_placeholder ?? "").trim()) flags.push("--zip-placeholder", String(input.connect_zip_placeholder).trim());
+    if (String(input.connect_description ?? "").trim()) flags.push("--description", String(input.connect_description).trim());
+    if (String(input.connect_default_branch ?? "").trim()) flags.push("--default-branch", String(input.connect_default_branch).trim());
+    if (String(input.connect_package_manager ?? "").trim()) flags.push("--package-manager", String(input.connect_package_manager).trim());
+    if (String(input.connect_project_type ?? "").trim()) flags.push("--project-type", String(input.connect_project_type).trim());
+    const finalArgs = [studioScript, "project", "connect", ...flags, actionId === "project-connect-apply" ? "--apply" : "--dry-run"];
+    return {
+      command: process.execPath,
+      args: finalArgs,
+      display: `node ${finalArgs.join(" ")}`
     };
   }
   if (actionId === "runtime-health") {

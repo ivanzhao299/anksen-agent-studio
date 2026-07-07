@@ -109,6 +109,34 @@
 4. 会话只保存在本机 `runtime/local-services/access-sessions.json`。
 5. Console 仍只监听 `127.0.0.1`。
 
+## 系统管理员登录方式
+
+当前默认系统管理员入口：
+
+- 登录地址：`/login`
+- 系统管理员账号：`owner`
+- 默认密码：`StudioPilot!2026`
+
+如需工作区级管理入口，可使用：
+
+- 工作区管理员账号：`beta-admin`
+- 默认密码：`BetaPilot!2026`
+
+密码轮换命令：
+
+```bash
+node packages/orchestrator-core/bin/studio.mjs access reset-password \
+  --user owner \
+  --password "NewOwnerPassword!2026" \
+  --apply
+```
+
+说明：
+
+- 这些账号只用于 Studio 本地 / 预览环境。
+- 不代表任何真实业务系统管理员账号。
+- 如需分配给团队内测，建议先创建独立账号，不直接共享 `owner`。
+
 ## CLI 命令
 
 ### 只读命令

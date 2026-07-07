@@ -44,6 +44,8 @@ const consoleActionCatalog = {
   "goal-plan": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "context-summary": { capabilities: ["console.access", "context.read"], execution_mode: "dry_run_only", projectScoped: false },
   "project-inspect": { capabilities: ["console.access", "project.read"], execution_mode: "dry_run_only", projectScoped: true },
+  "project-connect-dry-run": { capabilities: ["console.access", "access.manage"], execution_mode: "dry_run_only", projectScoped: false },
+  "project-connect-apply": { capabilities: ["console.access", "access.manage"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "runtime-health": { capabilities: ["console.access", "runtime.read"], execution_mode: "dry_run_only", projectScoped: false },
   "worker-health": { capabilities: ["console.access", "worker.read"], execution_mode: "dry_run_only", projectScoped: false },
   "governance-check": { capabilities: ["console.access", "governance.read"], execution_mode: "dry_run_only", projectScoped: false },
