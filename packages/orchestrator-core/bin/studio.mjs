@@ -111,6 +111,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs console service stop [--apply]
   node packages/orchestrator-core/bin/studio.mjs console service uninstall [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs release consistency [--dry-run|--apply] [--target local_preview|server_preview|reviewed_publish]
+  node packages/orchestrator-core/bin/studio.mjs platform self-test [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs goal-to-queue --text "..." [--dry-run]
   node packages/orchestrator-core/bin/studio.mjs runtime-memory --summary
   node packages/orchestrator-core/bin/studio.mjs observe [--dry-run]
@@ -127,7 +128,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "release", "adapter", "worker", "mobile", "production", "production-ops", "context", "access", "autopilot", "debug", "console", "pilot"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "release", "adapter", "worker", "mobile", "production", "production-ops", "context", "access", "autopilot", "debug", "console", "pilot", "platform"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -338,6 +339,34 @@ async function execProjectCommand(cwd, command, args, timeout = 30 * 60 * 1000) 
       stderr: String(error?.stderr ?? error?.message ?? "").trim()
     };
   }
+}
+
+function parseSimpleKeyValueStdout(stdout) {
+  const entries = {};
+  for (const rawLine of String(stdout ?? "").split("\n")) {
+    const line = rawLine.trim();
+    const match = /^([a-zA-Z0-9_.-]+):\s*(.+)$/.exec(line);
+    if (!match) continue;
+    entries[match[1]] = match[2];
+  }
+  return entries;
+}
+
+async function runStudioSubcommand(args, timeout = 5 * 60 * 1000) {
+  const result = await execReadOnly(repoRoot, process.execPath, [
+    "packages/orchestrator-core/bin/studio.mjs",
+    ...args
+  ], timeout);
+  const summary = parseSimpleKeyValueStdout(result.stdout);
+  return {
+    command: `node packages/orchestrator-core/bin/studio.mjs ${args.join(" ")}`,
+    ok: result.ok,
+    status: summary.status ?? (result.ok ? "PASS" : "FAIL"),
+    exit_code: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    summary
+  };
 }
 
 async function countFiles(path) {
@@ -9449,6 +9478,29 @@ function applyReleasePromotionStage({ artifact, targetStage, actor = "studio.rel
   artifact.promotion_stages = ["local_preview", "server_preview", "reviewed_publish"].map((stageId) => stageMap[stageId]);
 }
 
+function refreshReleaseConsistencyArtifactState(artifact) {
+  const stageMap = Object.fromEntries((artifact.promotion_stages ?? []).map((stage) => [stage.stage_id, stage]));
+  const localStage = stageMap.local_preview ?? {};
+  const serverStage = stageMap.server_preview ?? {};
+  const reviewedStage = stageMap.reviewed_publish ?? {};
+  const checksPass = Array.isArray(artifact.checks) && artifact.checks.every((check) => check.status === "PASS");
+  const localPreviewPass = localStage.status === "PASS" && artifact.repo_clean === "yes" && checksPass && artifact.console_service?.status === "LISTENING";
+  const serverPreviewPass = serverStage.status === "PASS" && serverStage.consistency_key === artifact.promotion_consistency_key;
+  const reviewedPublishPass = reviewedStage.status === "PASS" && reviewedStage.consistency_key === artifact.promotion_consistency_key;
+
+  artifact.promotion_next_stage = !localPreviewPass
+    ? "local_preview"
+    : (!serverPreviewPass ? "server_preview" : (!reviewedPublishPass ? "reviewed_publish" : "completed"));
+
+  artifact.warnings = [];
+  if (artifact.repo_clean !== "yes") artifact.warnings.push("Repository has uncommitted changes.");
+  if (artifact.console_service?.status !== "LISTENING") artifact.warnings.push("Console local service is not listening on the expected port.");
+  if (!serverPreviewPass) artifact.warnings.push("Server preview has not been confirmed for the current consistency key.");
+  if (!reviewedPublishPass) artifact.warnings.push("Reviewed publish has not been confirmed for the current consistency key.");
+  artifact.status = localPreviewPass ? "PASS" : "FAIL";
+  return artifact;
+}
+
 async function releaseConsistency(args) {
   if (!args.dryRun && !args.apply) {
     throw new Error("release consistency requires --dry-run or --apply.");
@@ -9533,6 +9585,7 @@ async function releaseConsistency(args) {
     if (appliedStage) {
       applyReleasePromotionStage({ artifact, targetStage: appliedStage });
     }
+    refreshReleaseConsistencyArtifactState(artifact);
     const outputPath = resolveFromRoot("runtime/global/release-consistency.json");
     await writeJsonFile(outputPath, artifact);
     filesWritten.push(relativePath(outputPath));
@@ -9967,6 +10020,475 @@ async function consoleActionServerSmoke(args) {
   console.log("model_invocation: disabled");
   console.log("managed_project_writes: disabled");
   if (status !== "PASS") process.exitCode = 1;
+}
+
+function platformSelfTestPaths() {
+  return {
+    json: "runtime/global/studio-worker-platform-selftest.json",
+    markdown: "docs/release/STUDIO_WORKER_PLATFORM_SELFTEST.md"
+  };
+}
+
+function toInt(value, fallback = 0) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toFloat(value, fallback = 0) {
+  const parsed = Number.parseFloat(String(value ?? ""));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function scoreClamp(value) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function weightedAverage(items) {
+  const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
+  if (totalWeight === 0) return 0;
+  const totalScore = items.reduce((sum, item) => sum + (item.score * item.weight), 0);
+  return scoreClamp(totalScore / totalWeight);
+}
+
+function parseTableRows(stdout) {
+  return String(stdout ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("|") && !/^\|\s*---/.test(line) && !/^#/.test(line));
+}
+
+function parseReleaseStagesFromStdout(stdout) {
+  return String(stdout ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .map((line) => {
+      const match = /^-\s+([a-z_]+):\s+([A-Z_]+)\s+\|\s+key=([^|]+)\s+\|\s+recorded_at=([^|]+)\s+\|\s+(.+)$/.exec(line);
+      if (!match) return null;
+      return {
+        stage_id: match[1],
+        status: match[2],
+        consistency_key: match[3].trim(),
+        recorded_at: match[4].trim(),
+        gate_reason: match[5].trim()
+      };
+    })
+    .filter(Boolean);
+}
+
+function releaseStageSummaryMap(releaseArtifact = {}) {
+  return Object.fromEntries((releaseArtifact.promotion_stages ?? []).map((stage) => [stage.stage_id, stage]));
+}
+
+async function reconcileReleasePromotionStages() {
+  const targets = ["local_preview", "server_preview", "reviewed_publish"];
+  const attempts = [];
+  for (const target of targets) {
+    const result = await runStudioSubcommand(["release", "consistency", "--apply", "--target", target], 5 * 60 * 1000);
+    attempts.push({ target, ...result });
+    if (!result.ok) break;
+  }
+  return attempts;
+}
+
+function platformSelfTestReportMarkdown(report) {
+  const checkRows = report.checks.map((check) =>
+    `| ${check.name} | ${check.status} | ${check.exit_code} | ${check.command} |`
+  ).join("\n");
+  const scoreRows = report.scores.map((item) =>
+    `| ${item.dimension} | ${item.score} | ${item.status} | ${item.summary} |`
+  ).join("\n");
+  const releaseRows = report.release.stages.map((stage) =>
+    `| ${stage.stage_id} | ${stage.status} | ${stage.recorded_at || "pending"} | ${stage.gate_reason} |`
+  ).join("\n");
+
+  return `# Studio Worker Platform Self-Test
+
+- generated_at: ${report.generated_at}
+- mode: ${report.mode}
+- overall_score: ${report.overall_score}/100
+- overall_status: ${report.overall_status}
+- worker_as_cross_project_executor: ${report.verdicts.worker_as_cross_project_executor}
+- development_execution_capability: ${report.verdicts.development_execution_capability}
+- production_execution_capability: ${report.verdicts.production_execution_capability}
+- release_promotion_status: ${report.release.status}
+- release_next_stage: ${report.release.next_stage}
+
+## Capability Scores
+
+| Dimension | Score | Status | Summary |
+| --- | ---: | --- | --- |
+${scoreRows}
+
+## Check Commands
+
+| Check | Status | Exit | Command |
+| --- | --- | ---: | --- |
+${checkRows}
+
+## Release Promotion Stages
+
+| Stage | Status | Recorded At | Gate Reason |
+| --- | --- | --- | --- |
+${releaseRows}
+
+## Dispatch / Proposal / Queue Evidence
+
+- dispatch_plan_count: ${report.dispatch.dispatch_plan_count}
+- proposal_count: ${report.dispatch.proposal_count}
+- queue_injection_audit_count: ${report.dispatch.queue_injection_audit_count}
+- ready_inject: ${report.dispatch.ready_inject}
+- injected: ${report.dispatch.injected}
+- pending_approval: ${report.dispatch.pending_approval}
+- proposal_only: ${report.dispatch.proposal_only}
+- blocked: ${report.dispatch.blocked}
+- verified_approved_queue_audit: ${report.dispatch.verified_approved_queue_audit}
+
+## Enhancement Plan
+
+### P0
+${report.enhancements.P0.map((item) => `- ${item}`).join("\n")}
+
+### P1
+${report.enhancements.P1.map((item) => `- ${item}`).join("\n")}
+
+### P2
+${report.enhancements.P2.map((item) => `- ${item}`).join("\n")}
+
+## Safety Boundary
+
+- deploy: disabled
+- production_operations: disabled
+- server_access: local/read-only evidence only
+- credential_values: not_read
+- managed_project_writes: proposal / queue injection only
+
+本次自测覆盖的是平台级接入、调度、治理、发布闸门与 Console 闭环，不包含真实服务器部署与生产操作。
+`;
+}
+
+async function platformSelfTest(args) {
+  if (!args.dryRun && !args.apply) {
+    throw new Error("platform self-test requires --dry-run or --apply.");
+  }
+
+  const checks = await Promise.all([
+    runStudioSubcommand(["project", "workspace", "--dry-run"]),
+    runStudioSubcommand(["worker", "control-plane", "--dry-run"]),
+    runStudioSubcommand(["worker", "assign", "--runtime", "codex-cli", "--dry-run"]),
+    runStudioSubcommand(["runtime", "health", "--dry-run"]),
+    runStudioSubcommand(["access", "enforcement", "--dry-run"]),
+    runStudioSubcommand(["project", "dispatch-plan", "--project", "jinhu-smart-park", "--text", "跨项目 worker readiness self-test", "--dry-run"]),
+    runStudioSubcommand(["console", "smoke", "--dry-run"]),
+    runStudioSubcommand(["console", "action-server-smoke", "--dry-run"]),
+    runStudioSubcommand(["production", "safety-check", "--dry-run"])
+  ]);
+
+  const checkMap = new Map([
+    ["workspace", { name: "Attached Project Workspace", ...checks[0] }],
+    ["workerControl", { name: "Worker Control Plane", ...checks[1] }],
+    ["workerAssign", { name: "Worker Assign codex-cli", ...checks[2] }],
+    ["runtimeHealth", { name: "Runtime Health", ...checks[3] }],
+    ["access", { name: "Access Enforcement", ...checks[4] }],
+    ["dispatch", { name: "Project Dispatch Plan", ...checks[5] }],
+    ["consoleSmoke", { name: "Console Smoke", ...checks[6] }],
+    ["actionServerSmoke", { name: "Console Action Server Smoke", ...checks[7] }],
+    ["productionSafety", { name: "Production Safety Check", ...checks[8] }]
+  ]);
+
+  const releaseApplyAttempts = args.apply ? await reconcileReleasePromotionStages() : [];
+  const releaseCheck = await runStudioSubcommand(["release", "consistency", "--dry-run"], 5 * 60 * 1000);
+  checkMap.set("release", { name: "Release Consistency", ...releaseCheck });
+
+  const dataModule = await import(pathToFileURL(resolveFromRoot("apps/console/web/data.mjs")).href);
+  const data = await dataModule.loadConsoleLocalData();
+  const releaseArtifact = await readJsonIfExists(resolveFromRoot("runtime/global/release-consistency.json")) ?? {};
+  const releaseSummary = releaseCheck.summary ?? {};
+  const releaseStagesFromStdout = parseReleaseStagesFromStdout(releaseCheck.stdout);
+  const releaseStageSource = releaseStagesFromStdout.length > 0
+    ? { promotion_stages: releaseStagesFromStdout }
+    : releaseArtifact;
+  const releaseStages = releaseStageSummaryMap(releaseStageSource);
+  const releaseStatus = releaseSummary.status ?? releaseArtifact.status ?? "unknown";
+  const releaseNextStage = releaseSummary.promotion_next_stage ?? releaseArtifact.promotion_next_stage ?? "unknown";
+  const releaseWarnings = Array.isArray(releaseSummary.warnings) && releaseSummary.warnings.length > 0
+    ? releaseSummary.warnings
+    : (Array.isArray(releaseArtifact.warnings) ? releaseArtifact.warnings : []);
+  const lifecycle = data.project_router.lifecycle_summary ?? {};
+  const workspaceSummary = checkMap.get("workspace")?.summary ?? {};
+  const workerSummary = checkMap.get("workerControl")?.summary ?? {};
+  const assignSummary = checkMap.get("workerAssign")?.summary ?? {};
+  const accessSummary = checkMap.get("access")?.summary ?? {};
+  const dispatchSummary = checkMap.get("dispatch")?.summary ?? {};
+  const productionSummary = checkMap.get("productionSafety")?.summary ?? {};
+  const runtimeRows = parseTableRows(checkMap.get("runtimeHealth")?.stdout ?? "");
+
+  const crossProjectScore = scoreClamp(
+    20
+    + Math.min(toInt(workspaceSummary.project_count), 3) * 8
+    + Math.min(toInt(workspaceSummary.connected_project_count), 3) * 12
+    + Math.min(toInt(workspaceSummary.planned_project_count), 2) * 5
+    + Math.min(toInt(workspaceSummary.managed_repo_routed_count), 3) * 8
+    + (String(workspaceSummary.writable_project_count ?? "0") === "0" ? 8 : 0)
+  );
+
+  const workerScore = scoreClamp(
+    18
+    + (workerSummary.true_parallel_executor === "node_child_process_verified" ? 24 : 0)
+    + Math.min(toInt(workerSummary.worker_count), 4) * 9
+    + Math.min(toInt(workerSummary.available_worker_count), 4) * 6
+    + (assignSummary.status === "ASSIGNED" ? 14 : 0)
+  );
+
+  const runtimeScore = scoreClamp(
+    15
+    + Math.min(toInt(checkMap.get("runtimeHealth")?.summary?.providers), 6) * 4
+    + Math.min(toInt(checkMap.get("runtimeHealth")?.summary?.runtimes), 6) * 4
+    + (runtimeRows.some((line) => line.includes("| openai | codex-cli |")) ? 15 : 0)
+    + (runtimeRows.some((line) => line.includes("| anthropic | claude-code |")) ? 6 : 0)
+    + (runtimeRows.some((line) => line.includes("reference_only")) ? 8 : 0)
+    - (runtimeRows.some((line) => line.includes("| unknown |")) ? 12 : 0)
+  );
+
+  const dispatchScore = scoreClamp(
+    12
+    + (dispatchSummary.status === "PASS" ? 18 : 0)
+    + ((data.project_router.dispatch_plan_count ?? 0) >= 1 ? 14 : 0)
+    + ((data.project_router.proposal_count ?? 0) >= 1 ? 12 : 0)
+    + ((data.project_router.queue_injection_audit_count ?? 0) >= 1 ? 16 : 0)
+    + ((lifecycle.injected ?? 0) >= 1 ? 18 : 0)
+    - ((lifecycle.pending_approval ?? 0) > 0 ? 6 : 0)
+    - ((lifecycle.blocked ?? 0) > 0 ? 10 : 0)
+  );
+
+  const consoleScore = scoreClamp(
+    (checkMap.get("consoleSmoke")?.summary?.status === "PASS" ? 50 : 0)
+    + (checkMap.get("actionServerSmoke")?.summary?.status === "PASS" ? 50 : 0)
+  );
+
+  const releaseScore = scoreClamp(
+    (releaseStages.local_preview?.status === "PASS" ? 28 : 0)
+    + (releaseStages.server_preview?.status === "PASS" ? 28 : 0)
+    + (releaseStages.reviewed_publish?.status === "PASS" ? 28 : 0)
+    + (releaseStatus === "PASS" ? 8 : 0)
+    - Math.min(releaseWarnings.length, 4) * 6
+  );
+
+  const governanceScore = scoreClamp(
+    18
+    + (checkMap.get("access")?.summary?.authenticated === "yes" ? 12 : 0)
+    + (checkMap.get("access")?.summary?.policy_id ? 12 : 0)
+    + (productionSummary.status === "PASS" ? 12 : 0)
+    + (productionSummary.release_readiness === "BLOCKED" ? 12 : 0)
+    + (productionSummary.real_execution_approval_gate === "CRITICAL" ? 16 : 0)
+    + (accessSummary.direct_execute_max_risk === "LOW" ? 4 : 12)
+  );
+
+  const developmentExecutionScore = weightedAverage([
+    { score: crossProjectScore, weight: 2 },
+    { score: workerScore, weight: 2 },
+    { score: runtimeScore, weight: 1 },
+    { score: dispatchScore, weight: 2 },
+    { score: consoleScore, weight: 1 }
+  ]);
+
+  const productionExecutionScore = weightedAverage([
+    { score: releaseScore, weight: 2 },
+    { score: governanceScore, weight: 2 },
+    { score: 52, weight: 1 }
+  ]);
+
+  const overallScore = weightedAverage([
+    { score: crossProjectScore, weight: 2 },
+    { score: workerScore, weight: 2 },
+    { score: runtimeScore, weight: 1 },
+    { score: dispatchScore, weight: 2 },
+    { score: consoleScore, weight: 2 },
+    { score: releaseScore, weight: 1 },
+    { score: governanceScore, weight: 2 }
+  ]);
+
+  const dimensionStatus = (score) => (score >= 85 ? "PASS" : score >= 70 ? "PARTIAL" : "FAIL");
+  const scores = [
+    {
+      dimension: "Cross Project Attach",
+      score: crossProjectScore,
+      status: dimensionStatus(crossProjectScore),
+      summary: `project_count=${workspaceSummary.project_count ?? 0}, connected=${workspaceSummary.connected_project_count ?? 0}, planned=${workspaceSummary.planned_project_count ?? 0}`
+    },
+    {
+      dimension: "Worker Control Plane",
+      score: workerScore,
+      status: dimensionStatus(workerScore),
+      summary: `executor=${workerSummary.executor ?? "unknown"}, true_parallel=${workerSummary.true_parallel_executor ?? "unknown"}, assign=${assignSummary.status ?? "unknown"}`
+    },
+    {
+      dimension: "Runtime Chain",
+      score: runtimeScore,
+      status: dimensionStatus(runtimeScore),
+      summary: `providers=${checkMap.get("runtimeHealth")?.summary?.providers ?? 0}, runtimes=${checkMap.get("runtimeHealth")?.summary?.runtimes ?? 0}`
+    },
+    {
+      dimension: "Dispatch / Proposal / Queue",
+      score: dispatchScore,
+      status: dimensionStatus(dispatchScore),
+      summary: `dispatch=${data.project_router.dispatch_plan_count ?? 0}, proposal=${data.project_router.proposal_count ?? 0}, audit=${data.project_router.queue_injection_audit_count ?? 0}, injected=${lifecycle.injected ?? 0}`
+    },
+    {
+      dimension: "Console Operability",
+      score: consoleScore,
+      status: dimensionStatus(consoleScore),
+      summary: `console_smoke=${checkMap.get("consoleSmoke")?.summary?.status ?? "unknown"}, action_server=${checkMap.get("actionServerSmoke")?.summary?.status ?? "unknown"}`
+    },
+    {
+      dimension: "Release Promotion Gates",
+      score: releaseScore,
+      status: dimensionStatus(releaseScore),
+      summary: `local=${releaseStages.local_preview?.status ?? "missing"}, server=${releaseStages.server_preview?.status ?? "missing"}, reviewed=${releaseStages.reviewed_publish?.status ?? "missing"}, next=${releaseNextStage}`
+    },
+    {
+      dimension: "Governance / Production Guard",
+      score: governanceScore,
+      status: dimensionStatus(governanceScore),
+      summary: `production_release_readiness=${productionSummary.release_readiness ?? "unknown"}, critical_gate=${productionSummary.real_execution_approval_gate ?? "unknown"}`
+    },
+    {
+      dimension: "Development Execution Readiness",
+      score: developmentExecutionScore,
+      status: dimensionStatus(developmentExecutionScore),
+      summary: `owner_direct_execute_max_risk=${accessSummary.direct_execute_max_risk ?? "unknown"}, worker=${assignSummary.worker_id ?? "none"}, connected_projects=${workspaceSummary.connected_project_count ?? 0}`
+    },
+    {
+      dimension: "Production Execution Readiness",
+      score: productionExecutionScore,
+      status: dimensionStatus(productionExecutionScore),
+      summary: `release=${releaseStatus}, next=${releaseNextStage}, production_status=${productionSummary.status ?? "unknown"}`
+    }
+  ];
+
+  const verdicts = {
+    worker_as_cross_project_executor: crossProjectScore >= 80 && workerScore >= 80 && dispatchScore >= 75 ? "YES_GUARDED" : "PARTIAL_READY",
+    development_execution_capability: developmentExecutionScore >= 80 ? "YES_LOCAL_AND_PROPOSAL_GATED" : "PARTIAL",
+    production_execution_capability: productionExecutionScore >= 80
+      ? "GUARDED_PREVIEW_ONLY"
+      : "NOT_READY_FOR_DIRECT_PRODUCTION"
+  };
+
+  const enhancements = {
+    P0: [
+      accessSummary.direct_execute_max_risk === "LOW"
+        ? "把平台操作员账号升级为可直执 MEDIUM 的受控套餐，否则跨项目 worker 只能停在 proposal / dry-run。"
+        : "保持当前直执上限，并为高风险动作继续保留 proposal / approval gate。",
+      toInt(workspaceSummary.connected_project_count) < 2
+        ? "挂接第二个真实项目仓库，验证 Studio 不是只对 jinhu-smart-park 生效。"
+        : "继续对第二、第三个项目做 attach regression，验证跨项目路由稳定。",
+      releaseStages.reviewed_publish?.status !== "PASS"
+        ? "补齐 local preview / server preview / reviewed publish 一致性留痕，避免发布链路停在人工口头确认。"
+        : "把 reviewed publish 的结果同步进 Console 发布面板和审计摘要。"
+    ],
+    P1: [
+      "为 Claude / Gemini / OpenHands 增加 reference-only live probe，让 Runtime Health 不再长期停在 unknown。",
+      "把 approved proposal 的 queue injection audit trace 提炼成专门 API / ViewModel，减少页面里对原始 JSON 的依赖。",
+      "把 attached project onboarding 做成向导化流程：intake → bind → workspace → dispatch plan。"
+    ],
+    P2: [
+      "增加多项目 worker 回归包，覆盖 attach / dispatch / proposal / queue / release 的端到端快照测试。",
+      "为生产操作中心补 reviewed publish 之后的人工发布签收界面，但继续保持 CRITICAL gate。",
+      "补一套 operator scorecard，把套餐、角色、项目范围、直执上限做成产品化矩阵。"
+    ]
+  };
+
+  const overallStatus = overallScore >= 86
+    ? "READY_FOR_INTERNAL_WORKER_PLATFORM"
+    : (overallScore >= 72 ? "USABLE_WITH_GAPS" : "HOLD");
+
+  const report = {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    mode: args.apply ? "apply" : "dry-run",
+    overall_score: overallScore,
+    overall_status: overallStatus,
+    verdicts,
+    scores,
+    release: {
+      status: releaseStatus,
+      next_stage: releaseNextStage,
+      warnings: releaseWarnings,
+      stages: releaseStagesFromStdout.length > 0
+        ? releaseStagesFromStdout
+        : (releaseArtifact.promotion_stages ?? []),
+      apply_attempts: releaseApplyAttempts.map((attempt) => ({
+        target: attempt.target,
+        ok: attempt.ok,
+        exit_code: attempt.exit_code,
+        status: attempt.summary.status ?? (attempt.ok ? "PASS" : "FAIL")
+      }))
+    },
+    dispatch: {
+      dispatch_plan_count: data.project_router.dispatch_plan_count ?? 0,
+      proposal_count: data.project_router.proposal_count ?? 0,
+      queue_injection_audit_count: data.project_router.queue_injection_audit_count ?? 0,
+      pending_approval: lifecycle.pending_approval ?? 0,
+      proposal_only: lifecycle.proposal_only ?? 0,
+      ready_inject: lifecycle.ready_inject ?? 0,
+      injected: lifecycle.injected ?? 0,
+      blocked: (lifecycle.blocked ?? 0) + (lifecycle.proposal_missing ?? 0),
+      verified_approved_queue_audit: (data.project_router.queue_injection_audits ?? []).some((item) =>
+        item?.data?.status === "PASS" && item?.data?.proposal?.approval_status === "APPROVED")
+        ? "yes"
+        : "no"
+    },
+    checks: [...checkMap.values()],
+    enhancements,
+    safety: {
+      deploy: "disabled",
+      production_operations: "disabled",
+      credential_values: "not_read",
+      managed_project_writes: "proposal_or_queue_only"
+    }
+  };
+
+  const filesWritten = [];
+  if (args.apply) {
+    const paths = platformSelfTestPaths();
+    const jsonPath = resolveFromRoot(paths.json);
+    const markdownPath = resolveFromRoot(paths.markdown);
+    await writeJsonFile(jsonPath, report);
+    await writeFile(markdownPath, `${platformSelfTestReportMarkdown(report)}\n`, "utf8");
+    filesWritten.push(paths.json, paths.markdown);
+    const indexPath = await updateCodexContextIndexArtifacts({
+      globalFiles: [paths.json, "runtime/global/release-consistency.json"]
+    });
+    filesWritten.push(relativePath(indexPath));
+  }
+
+  console.log(`# Studio Worker Platform Self-Test ${args.apply ? "apply" : "dry-run"}`);
+  console.log("");
+  console.log(`overall_score: ${report.overall_score}`);
+  console.log(`overall_status: ${report.overall_status}`);
+  console.log(`worker_as_cross_project_executor: ${report.verdicts.worker_as_cross_project_executor}`);
+  console.log(`development_execution_capability: ${report.verdicts.development_execution_capability}`);
+  console.log(`production_execution_capability: ${report.verdicts.production_execution_capability}`);
+  console.log(`release_status: ${report.release.status}`);
+  console.log(`release_next_stage: ${report.release.next_stage}`);
+  console.log(`dispatch_plan_count: ${report.dispatch.dispatch_plan_count}`);
+  console.log(`proposal_count: ${report.dispatch.proposal_count}`);
+  console.log(`queue_injection_audit_count: ${report.dispatch.queue_injection_audit_count}`);
+  console.log(`verified_approved_queue_audit: ${report.dispatch.verified_approved_queue_audit}`);
+  console.log("");
+  console.log("| Dimension | Score | Status |");
+  console.log("| --- | ---: | --- |");
+  for (const item of report.scores) {
+    console.log(`| ${item.dimension} | ${item.score} | ${item.status} |`);
+  }
+  console.log("");
+  console.log("enhancement_p0:");
+  for (const item of report.enhancements.P0) console.log(`- ${item}`);
+  if (filesWritten.length > 0) {
+    console.log("");
+    console.log("written_files:");
+    for (const file of filesWritten) console.log(`- ${file}`);
+  }
+  if (report.overall_status === "HOLD") process.exitCode = 1;
 }
 
 async function loadRuntimeCenterApi() {
@@ -12473,6 +12995,7 @@ async function main() {
   if (args.command === "console" && args.subcommand === "actions") return consoleActionsDryRun(args);
   if (args.command === "console" && args.subcommand === "action-plan") return consoleActionPlan(args);
   if (args.command === "release" && args.subcommand === "consistency") return releaseConsistency(args);
+  if (args.command === "platform" && args.subcommand === "self-test") return platformSelfTest(args);
   if (args.command === "skill-route") {
     if (!args.text.trim()) throw new Error("Missing --text for skill-route.");
     console.log(JSON.stringify(await loadSkillRoute(args.text), null, 2));

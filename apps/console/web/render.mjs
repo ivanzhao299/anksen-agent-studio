@@ -548,11 +548,11 @@ function dispatchLifecyclePanel(data) {
     proposal: toneLabel(item.approval_status, item.approval_status === "APPROVED" ? "pass" : "proposal-only"),
     queue: `<div class="proposal-evidence">
       ${toneLabel(item.queue_audit_status, item.queue_audit_status === "PASS" ? "pass" : item.queue_audit_status === "missing" ? "local" : "blocked")}
-      <span class="help">queue: ${escapeHtml(item.queue_task_status)}</span>
+      <span class="help">queue: ${escapeHtml(item.queue_task_status)} / audit: ${escapeHtml(item.audit_id || "none")} / rebuild: ${escapeHtml(item.queue_rebuild_status || "unknown")}</span>
     </div>`,
     next: `<div class="proposal-evidence">
       ${toneLabel(item.lifecycle_label, item.lifecycle)}
-      <span class="help">${escapeHtml(item.blockers[0] ?? item.next_stage ?? "无")}</span>
+      <span class="help">${escapeHtml(item.blockers[0] ?? item.next_stage ?? "无")}${item.approved_at ? ` / approved_at: ${escapeHtml(item.approved_at)}` : ""}</span>
     </div>`
   }));
   return `<section>
@@ -604,9 +604,10 @@ function proposalPanel(data) {
       lifecycle: toneLabel(lifecycleLabel, lifecycleTone),
       blocker: `<div class="proposal-evidence">
         ${toneLabel(blockerLabel, blockerTone)}
-        <span class="help">queue: ${escapeHtml(queueTaskStatus)} / audit: ${escapeHtml(queueAuditStatus)}</span>
+        <span class="help">queue: ${escapeHtml(queueTaskStatus)} / audit: ${escapeHtml(queueAuditStatus)}${item.approved_by ? ` / by: ${escapeHtml(item.approved_by)}` : ""}</span>
       </div>`,
       evidence: `<div class="proposal-evidence">
+        <span class="help">${escapeHtml(item.audit_id || "no_audit_id")}${item.queue_event_file ? ` / event: ${escapeHtml(item.queue_event_file)}` : ""}</span>
         ${item.dispatch_path ? inlineDetails("dispatch", item.dispatch) : ""}
         ${item.proposal_path ? inlineDetails("proposal", item.proposal) : ""}
         ${item.audit_path ? inlineDetails("audit", item.audit) : ""}
