@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "request_id": "model-gateway-request-example",
+  "created_at": "2026-07-08T00:00:00.000Z",
+  "runtime": "deepseek-chat",
+  "project_id": "jinhu-smart-park",
+  "user": "owner",
+  "goal": "生成 Smart Park 上线计划",
+  "skill_type": "code_development",
+  "dry_run": true,
+  "attachments": []
+}

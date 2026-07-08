@@ -26,6 +26,8 @@ importers:
 
   packages/mobile-stack-pack: {}
 
+  packages/model-gateway: {}
+
   packages/orchestrator-core: {}
 
   packages/planning-center: {}

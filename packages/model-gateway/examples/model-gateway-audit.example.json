@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "audit_id": "model-gateway-audit-example",
+  "gateway_id": "managed-model-gateway-mvp",
+  "created_at": "2026-07-08T00:00:00.000Z",
+  "events": [
+    {
+      "event_type": "gateway_route",
+      "status": "PASS",
+      "credential_values_read": false,
+      "model_invocation": "disabled",
+      "notes": "Runtime selected from package allowlist and Credential Vault reference presence."
+    },
+    {
+      "event_type": "gateway_invoke_plan",
+      "status": "PASS",
+      "credential_values_read": false,
+      "model_invocation": "disabled",
+      "notes": "Invocation plan generated without calling any external model."
+    },
+    {
+      "event_type": "queue_injection",
+      "status": "BLOCKED_UNTIL_APPROVED_PROPOSAL",
+      "credential_values_read": false,
+      "model_invocation": "disabled",
+      "notes": "Queue injection stays disabled unless a proposal is approved by Governance."
+    }
+  ]
+}

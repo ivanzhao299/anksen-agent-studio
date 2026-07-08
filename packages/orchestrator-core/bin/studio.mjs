@@ -52,6 +52,10 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs adapter list --dry-run
   node packages/orchestrator-core/bin/studio.mjs adapter health --dry-run
   node packages/orchestrator-core/bin/studio.mjs adapter invoke-plan --runtime <runtime_id> --skill <skill_type> --dry-run
+  node packages/orchestrator-core/bin/studio.mjs model-gateway status --dry-run
+  node packages/orchestrator-core/bin/studio.mjs model-gateway route --runtime <runtime_id|auto> --goal "..." [--project <project_id>] [--user <username>] --dry-run
+  node packages/orchestrator-core/bin/studio.mjs model-gateway invoke-plan --runtime <runtime_id|auto> --goal "..." [--project <project_id>] [--user <username>] --dry-run
+  node packages/orchestrator-core/bin/studio.mjs model-gateway audit --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker list --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker registry --dry-run
   node packages/orchestrator-core/bin/studio.mjs worker health --dry-run
@@ -129,7 +133,7 @@ Project execution is available only through explicit project execute --apply. De
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "release", "adapter", "worker", "mobile", "production", "production-ops", "context", "access", "autopilot", "debug", "console", "pilot", "platform"].includes(command) ? rest[0] : "";
+  const subcommand = ["project", "runtime", "credential", "governance", "release-gate", "release", "adapter", "model-gateway", "worker", "mobile", "production", "production-ops", "context", "access", "autopilot", "debug", "console", "pilot", "platform"].includes(command) ? rest[0] : "";
   const args = {
     command,
     subcommand,
@@ -174,6 +178,7 @@ function parseArgs(argv) {
     reject: rest.includes("--reject"),
     serviceAction: command === "console" && subcommand === "service" ? rest[1] ?? "status" : "",
     region: "local",
+    regionProvided: false,
     port: 4317,
     budgetUsd: null,
     taskId: "",
@@ -285,6 +290,7 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--region") {
       args.region = rest[index + 1] ?? "";
+      args.regionProvided = true;
       index += 1;
     } else if (arg === "--budget-usd") {
       args.budgetUsd = Number(rest[index + 1] ?? "0");
@@ -2908,6 +2914,10 @@ function runtimeCenterUtilsUrl() {
 
 function runtimeAdapterUtilsUrl() {
   return pathToFileURL(resolve(packageDir, "../runtime-adapters/lib/runtime-adapter-utils.mjs")).href;
+}
+
+function modelGatewayUtilsUrl() {
+  return pathToFileURL(resolve(packageDir, "../model-gateway/lib/model-gateway-utils.mjs")).href;
 }
 
 function projectConnectorUtilsUrl() {
@@ -10595,6 +10605,12 @@ async function loadRuntimeAdapterApi() {
   return { api, bundle };
 }
 
+async function loadModelGatewayApi() {
+  const api = await import(modelGatewayUtilsUrl());
+  const bundle = await api.loadModelGateway();
+  return { api, bundle };
+}
+
 async function loadProjectConnectorApi() {
   return import(projectConnectorUtilsUrl());
 }
@@ -12135,6 +12151,143 @@ async function adapterInvokePlan(args) {
   if (plan.execution_status !== "planned") process.exitCode = 1;
 }
 
+async function modelGatewayStatus(args) {
+  assertDryRun(args, "model-gateway status");
+  const { api, bundle } = await loadModelGatewayApi();
+  const status = api.gatewayStatus(bundle);
+  console.log("# Managed Model Gateway Status dry-run");
+  console.log("");
+  console.log(`status: ${status.status}`);
+  console.log(`gateway_id: ${status.gateway_id}`);
+  console.log(`mode: ${status.mode}`);
+  console.log(`default_region: ${status.default_region}`);
+  console.log(`model_invocation: ${status.model_invocation}`);
+  console.log(`credential_values_read: ${status.credential_values_read ? "yes" : "no"}`);
+  console.log(`external_calls: ${status.external_calls}`);
+  console.log("");
+  console.log("| Runtime | Provider | Region | Management | Plans | Credential Ref | Adapter | Risk | Direct Model Call |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+  for (const runtime of status.runtimes) {
+    console.log(`| ${runtime.runtime_id} | ${runtime.provider} | ${runtime.region} | ${runtime.management_mode} | ${(runtime.available_to_plans ?? []).join(", ")} | ${runtime.credential_reference_status} | ${runtime.adapter_status} | ${runtime.risk_baseline} | ${runtime.direct_model_call_enabled ? "yes" : "no"} |`);
+  }
+  console.log("");
+  console.log("findings:");
+  if (status.findings.length === 0) {
+    console.log("- none");
+  } else {
+    for (const finding of status.findings) {
+      console.log(`- [${finding.severity}] ${finding.message ?? finding.path}`);
+    }
+  }
+  if (status.status !== "PASS") process.exitCode = 1;
+}
+
+async function modelGatewayRoute(args) {
+  assertDryRun(args, "model-gateway route");
+  const { api, bundle } = await loadModelGatewayApi();
+  const region = args.regionProvided ? args.region : "cn";
+  const route = api.routeManagedModel(bundle, {
+    runtime: args.runtime || "auto",
+    goal: args.goal || args.text,
+    project: args.project || args.projectId || "jinhu-smart-park",
+    user: args.user || "owner",
+    region
+  });
+  console.log("# Managed Model Gateway Route dry-run");
+  console.log("");
+  console.log(`route_id: ${route.route_id}`);
+  console.log(`requested_runtime: ${route.requested_runtime}`);
+  console.log(`selected_runtime: ${route.selected_runtime ?? "none"}`);
+  console.log(`selected_provider: ${route.selected_provider ?? "none"}`);
+  console.log(`project_id: ${route.project_id}`);
+  console.log(`user: ${route.user?.username ?? "not_found"}`);
+  console.log(`plan: ${route.plan?.plan_id ?? "not_found"}`);
+  console.log(`risk: ${route.risk}`);
+  console.log(`execution_mode: ${route.execution_mode}`);
+  console.log(`credential_reference_id: ${route.credential_reference_id ?? "none"}`);
+  console.log(`credential_reference_status: ${route.credential_reference_status}`);
+  console.log(`model_invocation: ${route.model_invocation}`);
+  console.log(`credential_values_read: ${route.credential_values_read ? "yes" : "no"}`);
+  console.log(`external_calls: ${route.external_calls}`);
+  console.log(`queue_injection_policy: ${route.queue_injection_policy}`);
+  console.log("");
+  console.log("blocked_reasons:");
+  if (route.blocked_reasons.length === 0) {
+    console.log("- none");
+  } else {
+    for (const reason of route.blocked_reasons) console.log(`- ${reason}`);
+  }
+  if (route.execution_mode === "blocked") process.exitCode = 1;
+}
+
+async function modelGatewayInvokePlan(args) {
+  assertDryRun(args, "model-gateway invoke-plan");
+  const { api, bundle } = await loadModelGatewayApi();
+  const region = args.regionProvided ? args.region : "cn";
+  const plan = api.buildModelGatewayInvokePlan(bundle, {
+    runtime: args.runtime || "auto",
+    goal: args.goal || args.text,
+    project: args.project || args.projectId || "jinhu-smart-park",
+    user: args.user || "owner",
+    region,
+    skillType: args.skill || "code_development"
+  });
+  console.log("# Managed Model Gateway Invoke Plan dry-run");
+  console.log("");
+  console.log(`invocation_id: ${plan.invocation_id}`);
+  console.log(`route_id: ${plan.route_id}`);
+  console.log(`runtime_id: ${plan.runtime_id ?? "none"}`);
+  console.log(`provider: ${plan.provider ?? "none"}`);
+  console.log(`project_id: ${plan.project_id}`);
+  console.log(`user: ${plan.user?.username ?? "not_found"}`);
+  console.log(`skill_type: ${plan.skill_type}`);
+  console.log(`execution_status: ${plan.execution_status}`);
+  console.log(`execution_mode: ${plan.execution_mode}`);
+  console.log(`governance_risk: ${plan.governance_risk}`);
+  console.log(`credential_reference_id: ${plan.credential_reference_id ?? "none"}`);
+  console.log(`credential_reference_status: ${plan.credential_reference_status}`);
+  console.log(`model_invocation: ${plan.model_invocation}`);
+  console.log(`credential_values_read: ${plan.credential_values_read ? "yes" : "no"}`);
+  console.log(`external_calls: ${plan.external_calls}`);
+  console.log(`audit_trace_required: ${plan.audit_trace_required ? "yes" : "no"}`);
+  console.log(`proposal_review_bridge: ${plan.proposal_review_bridge.enabled ? "enabled" : "disabled"}`);
+  console.log(`queue_injection_requires_approved_proposal: ${plan.proposal_review_bridge.approved_proposal_required_for_queue_injection ? "yes" : "no"}`);
+  console.log("");
+  console.log("steps:");
+  for (const step of plan.steps) console.log(`- ${step}`);
+  console.log("");
+  console.log("blocked_reasons:");
+  if (plan.blocked_reasons.length === 0) {
+    console.log("- none");
+  } else {
+    for (const reason of plan.blocked_reasons) console.log(`- ${reason}`);
+  }
+  if (plan.execution_status !== "planned") process.exitCode = 1;
+}
+
+async function modelGatewayAudit(args) {
+  assertDryRun(args, "model-gateway audit");
+  const { api, bundle } = await loadModelGatewayApi();
+  const audit = api.gatewayAuditSummary(bundle);
+  console.log("# Managed Model Gateway Audit dry-run");
+  console.log("");
+  console.log(`audit_id: ${audit.audit_id}`);
+  console.log(`gateway_id: ${audit.gateway_id}`);
+  console.log(`status: ${audit.status}`);
+  console.log(`event_count: ${audit.event_count}`);
+  console.log(`model_invocation: ${audit.model_invocation}`);
+  console.log(`credential_values_read: ${audit.credential_values_read ? "yes" : "no"}`);
+  console.log(`external_calls: ${audit.external_calls}`);
+  console.log(`queue_injection_requires_approved_proposal: ${audit.queue_injection_requires_approved_proposal ? "yes" : "no"}`);
+  console.log("");
+  console.log("| Event | Status | Model Invocation | Credential Values Read |");
+  console.log("| --- | --- | --- | --- |");
+  for (const event of audit.events) {
+    console.log(`| ${event.event_type} | ${event.status} | ${event.model_invocation} | ${event.credential_values_read ? "yes" : "no"} |`);
+  }
+  if (audit.status !== "PASS") process.exitCode = 1;
+}
+
 async function workerList(args) {
   assertDryRun(args, "worker list");
   const { api, bundle } = await loadWorkerPoolApi();
@@ -13423,6 +13576,10 @@ async function main() {
   if (args.command === "adapter" && args.subcommand === "list") return adapterList(args);
   if (args.command === "adapter" && args.subcommand === "health") return adapterHealth(args);
   if (args.command === "adapter" && args.subcommand === "invoke-plan") return adapterInvokePlan(args);
+  if (args.command === "model-gateway" && args.subcommand === "status") return modelGatewayStatus(args);
+  if (args.command === "model-gateway" && args.subcommand === "route") return modelGatewayRoute(args);
+  if (args.command === "model-gateway" && args.subcommand === "invoke-plan") return modelGatewayInvokePlan(args);
+  if (args.command === "model-gateway" && args.subcommand === "audit") return modelGatewayAudit(args);
   if (args.command === "worker" && args.subcommand === "list") return workerList(args);
   if (args.command === "worker" && args.subcommand === "registry") return workerRegistry(args);
   if (args.command === "worker" && args.subcommand === "health") return workerHealth(args);

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/managed-model-gateway.schema.json",
+  "title": "Managed Model Gateway",
+  "type": "object",
+  "required": ["schema_version", "gateway_id", "mode", "secret_values", "model_invocation", "default_region", "runtimes", "policies"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "gateway_id": { "type": "string" },
+    "mode": { "enum": ["reference_only_invoke_plan"] },
+    "secret_values": { "enum": ["forbidden"] },
+    "model_invocation": { "enum": ["disabled"] },
+    "default_region": { "type": "string" },
+    "runtimes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["runtime_id", "provider", "adapter_id", "display_name", "region", "management_mode", "supported_skills", "available_to_plans", "risk_baseline", "max_parallel_tasks", "direct_model_call_enabled"],
+        "properties": {
+          "runtime_id": { "type": "string" },
+          "provider": { "type": "string" },
+          "adapter_id": { "type": "string" },
+          "display_name": { "type": "string" },
+          "region": { "type": "string" },
+          "management_mode": { "type": "string" },
+          "credential_reference_id": { "type": "string" },
+          "supported_skills": { "type": "array", "items": { "type": "string" } },
+          "available_to_plans": { "type": "array", "items": { "type": "string" } },
+          "risk_baseline": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          "max_parallel_tasks": { "type": "integer", "minimum": 1 },
+          "direct_model_call_enabled": { "const": false },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "policies": { "type": "object" }
+  },
+  "additionalProperties": true
+}

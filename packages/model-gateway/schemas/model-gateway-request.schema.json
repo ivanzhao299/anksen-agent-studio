@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/model-gateway-request.schema.json",
+  "title": "Model Gateway Request",
+  "type": "object",
+  "required": ["schema_version", "request_id", "runtime", "project_id", "goal", "dry_run"],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "request_id": { "type": "string" },
+    "runtime": { "type": "string" },
+    "project_id": { "type": "string" },
+    "user": { "type": "string" },
+    "goal": { "type": "string" },
+    "skill_type": { "type": "string" },
+    "dry_run": { "const": true },
+    "attachments": { "type": "array" }
+  },
+  "additionalProperties": true
+}

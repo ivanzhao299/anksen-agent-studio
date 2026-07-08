@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "gateway_id": "managed-model-gateway-mvp",
+  "updated_at": "2026-07-08T00:00:00.000Z",
+  "mode": "reference_only_invoke_plan",
+  "secret_values": "forbidden",
+  "model_invocation": "disabled",
+  "default_region": "cn",
+  "runtimes": [
+    {
+      "runtime_id": "deepseek-chat",
+      "provider": "deepseek",
+      "adapter_id": "deepseek-chat",
+      "display_name": "DeepSeek",
+      "region": "cn",
+      "management_mode": "admin_managed_reference",
+      "credential_reference_id": "deepseek-platform-ref",
+      "supported_skills": ["code_development", "validation_testing", "data_integration", "planning"],
+      "available_to_plans": ["starter", "team", "internal_preview", "enterprise"],
+      "risk_baseline": "MEDIUM",
+      "max_parallel_tasks": 4,
+      "direct_model_call_enabled": false,
+      "notes": "Domestic managed model runtime. Studio verifies credential reference presence only."
+    },
+    {
+      "runtime_id": "qwen-plus",
+      "provider": "qwen",
+      "adapter_id": "qwen-plus",
+      "display_name": "通义千问",
+      "region": "cn",
+      "management_mode": "admin_managed_reference",
+      "credential_reference_id": "qwen-platform-ref",
+      "supported_skills": ["code_development", "validation_testing", "document_generation", "planning"],
+      "available_to_plans": ["starter", "team", "internal_preview", "enterprise"],
+      "risk_baseline": "MEDIUM",
+      "max_parallel_tasks": 4,
+      "direct_model_call_enabled": false,
+      "notes": "Domestic managed model runtime backed by a Credential Vault reference."
+    },
+    {
+      "runtime_id": "codex-cli",
+      "provider": "openai",
+      "adapter_id": "codex-cli",
+      "display_name": "Codex CLI",
+      "region": "local",
+      "management_mode": "external_cli_session",
+      "credential_reference_id": "openai-primary-ref",
+      "supported_skills": ["code_development", "validation_testing", "data_integration", "evolution_observer"],
+      "available_to_plans": ["starter", "team", "internal_preview", "enterprise"],
+      "risk_baseline": "MEDIUM",
+      "max_parallel_tasks": 2,
+      "direct_model_call_enabled": false,
+      "notes": "External CLI session remains separate from managed API gateway execution."
+    }
+  ],
+  "policies": {
+    "default_runtime_by_region": {
+      "cn": "deepseek-chat",
+      "local": "codex-cli"
+    },
+    "fallback_order": ["deepseek-chat", "qwen-plus", "codex-cli"],
+    "admin_managed_reference_only": true,
+    "user_bring_your_own_allowed": true,
+    "direct_model_calls_in_mvp": false,
+    "queue_injection_requires_approved_proposal": true,
+    "audit_log_required": true
+  }
+}

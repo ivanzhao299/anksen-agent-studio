@@ -24,6 +24,7 @@ const actionRuns = new Map();
 const terminalRunStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED"]);
 const actionTimeoutMs = 180000;
 const liveCliAgentRuntimeIds = new Set(["codex-cli", "claude-code"]);
+const managedModelGatewayRuntimeIds = new Set(["deepseek-chat", "qwen-plus"]);
 const selectableAgentRuntimeIds = new Set([
   "codex-cli",
   "claude-code",
@@ -628,6 +629,9 @@ function realAgentPromptFor(input, attachments = []) {
 function realAgentCommandFor(input, attachments = []) {
   const agent = normalizeRequestedAgent(input);
   const prompt = realAgentPromptFor(input, attachments);
+  const goal = safeGoal(input.goal);
+  const projectId = normalizeProject(input.project_id);
+  const username = input.username || input.user || "owner";
   if (agent === "claude-code") {
     return {
       command: "claude",
@@ -639,6 +643,26 @@ function realAgentCommandFor(input, attachments = []) {
         prompt
       ],
       display: `claude --print --bare --disallowedTools Bash,Edit,Write,MultiEdit,NotebookEdit "<prompt>"`
+    };
+  }
+  if (managedModelGatewayRuntimeIds.has(agent)) {
+    return {
+      command: process.execPath,
+      args: [
+        studioScript,
+        "model-gateway",
+        "invoke-plan",
+        "--runtime",
+        agent,
+        "--goal",
+        goal,
+        "--project",
+        projectId,
+        "--user",
+        username,
+        "--dry-run"
+      ],
+      display: `node ${studioScript} model-gateway invoke-plan --runtime ${agent} --goal "<goal>" --project ${projectId} --user ${username} --dry-run`
     };
   }
   if (agent !== "codex-cli") {
@@ -999,7 +1023,7 @@ export async function detectLocalAiRuntimes() {
         installed: true,
         path: "credential-reference:deepseek-platform-ref",
         version: "reference-only",
-        invocation_mode: "adapter invoke-plan / proposal flow",
+        invocation_mode: "model-gateway invoke-plan / proposal flow",
         credential_policy: "admin_managed_reference",
         secret_values_read_by_console: false,
         managed_by_admin: true,
@@ -1012,7 +1036,7 @@ export async function detectLocalAiRuntimes() {
         installed: true,
         path: "credential-reference:qwen-platform-ref",
         version: "reference-only",
-        invocation_mode: "adapter invoke-plan / proposal flow",
+        invocation_mode: "model-gateway invoke-plan / proposal flow",
         credential_policy: "admin_managed_reference",
         secret_values_read_by_console: false,
         managed_by_admin: true,
