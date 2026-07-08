@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  createAccessInvite,
   currentSessionSummary,
   loadAccessCenter,
   loginToAccessCenter,
@@ -21,12 +22,11 @@ import {
 } from "./action-server.mjs";
 
 const port = Number(process.env.PORT ?? 4317);
-const allowedPaths = new Set([...consoleWebRoutes.map((route) => route.path), "/login"]);
+const allowedPaths = new Set([...consoleWebRoutes.map((route) => route.path), "/login", "/register"]);
 const webDir = dirname(fileURLToPath(import.meta.url));
 const assetsDir = join(webDir, "assets");
 const staticAssets = new Map([
-  ["/assets/anksen-logo.svg", { path: join(assetsDir, "anksen-logo.svg"), type: "image/svg+xml; charset=utf-8" }],
-  ["/assets/login-panel-image.png", { path: join(assetsDir, "login-panel-image.png"), type: "image/png" }]
+  ["/assets/anksen-logo.svg", { path: join(assetsDir, "anksen-logo.svg"), type: "image/svg+xml; charset=utf-8" }]
 ]);
 
 function localOnly(request) {
@@ -89,14 +89,14 @@ const server = createServer(async (request, response) => {
       return;
     }
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
-    const pathname = url.pathname === "/dashboard" || url.pathname === "/login" ? "/" : url.pathname;
+    const pathname = url.pathname === "/dashboard" ? "/" : url.pathname;
     const accessBundle = await loadAccessCenter();
     const sessionToken = sessionTokenFromRequest(request);
     const accessContext = await resolveSessionContext(accessBundle, {
       session_token: sessionToken,
       allow_default_user: false
     });
-    const isAuthRoute = pathname === "/api/access/login" || pathname === "/api/access/logout" || pathname === "/api/access/session";
+    const isAuthRoute = pathname === "/api/access/login" || pathname === "/api/access/register" || pathname === "/api/access/logout" || pathname === "/api/access/session";
     const actionRunMatch = pathname.match(/^\/api\/actions\/([^/]+)$/);
     const actionCancelMatch = pathname.match(/^\/api\/actions\/([^/]+)\/cancel$/);
     if (request.method === "POST" && pathname === "/api/access/login") {
@@ -111,6 +111,42 @@ const server = createServer(async (request, response) => {
       sendJson(response, 200, result, {
         "set-cookie": sessionCookie(result.token, accessBundle.policy.session_ttl_hours)
       });
+      return;
+    }
+    if (request.method === "POST" && pathname === "/api/access/register") {
+      const body = await readJsonBody(request);
+      const requestType = String(body.request_type ?? body.requestType ?? "viewer").trim();
+      const requestProfiles = {
+        viewer: { role_id: "viewer", plan_id: "starter" },
+        operator: { role_id: "operator", plan_id: "team" },
+        reviewer: { role_id: "reviewer", plan_id: "team" }
+      };
+      const profile = requestProfiles[requestType] ?? requestProfiles.viewer;
+      try {
+        const result = await createAccessInvite(accessBundle, {
+          username: body.username,
+          display_name: body.display_name ?? body.displayName,
+          role_id: profile.role_id,
+          plan_id: profile.plan_id,
+          project_allowlist: body.project_allowlist ?? body.projectAllowlist ?? ["jinhu-smart-park"],
+          request_comment: body.request_comment ?? body.requestComment,
+          requested_by_user_id: "self-registration",
+          requested_by_name: "注册申请"
+        });
+        sendJson(response, 202, {
+          status: "PENDING_APPROVAL",
+          invite_id: result.invite.invite_id,
+          requested_role_id: result.invite.requested_role_id,
+          requested_plan_id: result.invite.requested_plan_id,
+          approval_required: true,
+          next_step: "管理员审批后初始化账号密码。"
+        });
+      } catch (error) {
+        sendJson(response, 409, {
+          status: "REGISTRATION_REJECTED",
+          reason: error instanceof Error ? error.message : String(error)
+        });
+      }
       return;
     }
     if (request.method === "POST" && pathname === "/api/access/logout") {
