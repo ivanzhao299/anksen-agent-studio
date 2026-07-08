@@ -45,6 +45,21 @@ node packages/orchestrator-core/bin/studio.mjs model-gateway audit --dry-run
 
 Console Agent selection now routes DeepSeek and Qwen through Managed Model Gateway invoke-plan. The Console receives a planned route, risk, credential reference status, blocked reasons, and audit requirements. It still does not invoke the model directly.
 
+The project-dispatch action now also writes a Proposal Review bridge for managed model plans:
+
+- `runtime/projects/<project_id>/model-gateway-proposals/*.json`
+- `runtime/projects/<project_id>/model-gateway-queue-audits/*.json`
+
+This connects the user flow:
+
+1. Choose Agent.
+2. Generate an invoke plan.
+3. Review the generated proposal.
+4. Approve LOW/MEDIUM proposals.
+5. Write a queue injection audit trace.
+
+The queue audit trace is intentionally not a real model execution. It records that the approved proposal is ready for the future worker queue while preserving the safety boundary.
+
 ## Guardrails
 
 - no real model call

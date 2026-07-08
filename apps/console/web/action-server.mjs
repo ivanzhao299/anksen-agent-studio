@@ -64,6 +64,14 @@ function projectQueueAuditDir(projectId) {
   return resolve(repoRoot, "runtime/projects", projectId, "queue-injection-audits");
 }
 
+function modelGatewayProposalDir(projectId) {
+  return resolve(repoRoot, "runtime/projects", projectId, "model-gateway-proposals");
+}
+
+function modelGatewayQueueAuditDir(projectId) {
+  return resolve(repoRoot, "runtime/projects", projectId, "model-gateway-queue-audits");
+}
+
 async function readJsonIfExists(path) {
   if (!existsSync(path)) return null;
   return JSON.parse(await readFile(path, "utf8"));
@@ -102,6 +110,14 @@ async function readProjectQueueAuditRecords(projectId) {
   return readProjectJsonRecords(projectQueueAuditDir(projectId), projectId);
 }
 
+async function readModelGatewayProposalRecords(projectId) {
+  return readProjectJsonRecords(modelGatewayProposalDir(projectId), projectId);
+}
+
+async function readModelGatewayQueueAuditRecords(projectId) {
+  return readProjectJsonRecords(modelGatewayQueueAuditDir(projectId), projectId);
+}
+
 function parseStudioFieldMap(output) {
   const fields = {};
   for (const line of String(output || "").split("\n")) {
@@ -130,8 +146,17 @@ async function runShellCommand(command, args, timeout = 120000) {
   }
 }
 
+function isProposalApprovalCleared(record) {
+  const status = String(record?.data?.approval_status || "");
+  return status === "APPROVED" || status === "APPROVAL_NOT_REQUIRED";
+}
+
 function findPendingProposal(records = []) {
-  return records.find((record) => record.data?.approval_status !== "APPROVED") ?? records[0] ?? null;
+  return records.find((record) => !isProposalApprovalCleared(record)) ?? records[0] ?? null;
+}
+
+function findPendingModelGatewayProposal(records = []) {
+  return records.find((record) => !isProposalApprovalCleared(record)) ?? records[0] ?? null;
 }
 
 function summarizeProposalRecords(records = []) {
@@ -157,6 +182,132 @@ function summarizeQueueAuditRecords(records = []) {
       record.path
     ].join(" | ");
   }).join("\n");
+}
+
+function shouldBridgeModelGatewayProposal(plan, input) {
+  const requested = normalizeRequestedAgent(input);
+  return plan.action_id === "project-dispatch" && (requested === "auto" || managedModelGatewayRuntimeIds.has(requested));
+}
+
+async function writeModelGatewayProposalBridge(projectId, input, plan, fields) {
+  const now = new Date().toISOString();
+  const runtimeId = fields.runtime_id || (managedModelGatewayRuntimeIds.has(normalizeRequestedAgent(input)) ? normalizeRequestedAgent(input) : "auto");
+  const invocationId = fields.invocation_id || `model-gateway-plan-${createHash("sha1").update(`${projectId}:${safeGoal(input.goal)}:${now}`).digest("hex").slice(0, 12)}`;
+  const taskId = invocationId;
+  const record = {
+    schema_version: 1,
+    kind: "model_gateway_proposal",
+    task_id: taskId,
+    invocation_id: invocationId,
+    route_id: fields.route_id || "",
+    project_id: projectId,
+    text: safeGoal(input.goal),
+    goal_text: safeGoal(input.goal),
+    source: "managed_model_gateway",
+    risk: fields.governance_risk || plan.risk || "MEDIUM",
+    approval_required: true,
+    approval_status: "PENDING_REVIEW",
+    proposal_review_bridge: fields.proposal_review_bridge || "enabled",
+    queue_injection_requires_approved_proposal: fields.queue_injection_requires_approved_proposal || "yes",
+    runtime_id: runtimeId,
+    provider: fields.provider || "",
+    execution_status: fields.execution_status || "planned",
+    execution_mode: fields.execution_mode || "gateway_invoke_plan_allowed",
+    credential_reference_id: fields.credential_reference_id || "",
+    credential_reference_status: fields.credential_reference_status || "reference_only",
+    model_invocation: fields.model_invocation || "disabled",
+    credential_values_read: fields.credential_values_read || "no",
+    external_calls: fields.external_calls || "disabled",
+    audit_trace_required: fields.audit_trace_required || "yes",
+    requested_by: plan.requested_by ?? null,
+    created_at: now,
+    created_by: plan.requested_by?.username || input.username || input.user || "owner",
+    safety: {
+      external_model_call: "disabled",
+      credential_values: "not_read",
+      managed_project_writes: "disabled",
+      production_operation: "disabled"
+    },
+    model_gateway_plan: fields
+  };
+  const absoluteDir = modelGatewayProposalDir(projectId);
+  await mkdir(absoluteDir, { recursive: true });
+  const relativePath = relative(repoRoot, join(absoluteDir, `${taskId}.json`));
+  await writeFile(resolve(repoRoot, relativePath), `${JSON.stringify(record, null, 2)}\n`, "utf8");
+  return {
+    record,
+    path: relativePath
+  };
+}
+
+async function approveModelGatewayProposal(record, input, plan) {
+  const now = new Date().toISOString();
+  const data = {
+    ...(record.data ?? {}),
+    approval_status: "APPROVED",
+    approved_at: now,
+    approved_by: plan.requested_by?.username || input.username || input.user || "owner",
+    approval_comment: input.comment || "Approved from Console proposal review flow."
+  };
+  await writeFile(resolve(repoRoot, record.path), `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  return {
+    ...record,
+    data
+  };
+}
+
+async function writeModelGatewayQueueInjectionAudit(projectId, proposalRecord, input, plan) {
+  const now = new Date().toISOString();
+  const proposal = proposalRecord.data ?? {};
+  const taskId = String(proposal.task_id || proposal.invocation_id || "");
+  const auditId = `model-gateway-queue-audit-${timestampForFile(now)}-${createHash("sha1").update(`${projectId}:${taskId}:${now}`).digest("hex").slice(0, 8)}`;
+  const audit = {
+    schema_version: 1,
+    kind: "model_gateway_queue_injection_audit",
+    audit_id: auditId,
+    task_id: taskId,
+    project_id: projectId,
+    generated_at: now,
+    status: "PASS",
+    source: "managed_model_gateway_proposal",
+    risk: proposal.risk || "MEDIUM",
+    approval_status: proposal.approval_status || "APPROVED",
+    approved_by: proposal.approved_by || plan.requested_by?.username || input.username || input.user || "owner",
+    approved_at: proposal.approved_at || now,
+    queue_state: {
+      queue_task_status: "queued_audit_trace",
+      queue_mode: "approved_proposal_trace",
+      executor: "not_started"
+    },
+    injection: {
+      event_file: "",
+      rebuild_status: "not_required",
+      rebuild_exit_code: ""
+    },
+    proposal: {
+      path: proposalRecord.path,
+      task_id: taskId,
+      invocation_id: proposal.invocation_id || taskId,
+      runtime_id: proposal.runtime_id || "",
+      provider: proposal.provider || "",
+      goal_text: proposal.goal_text || proposal.text || ""
+    },
+    safety: {
+      model_invocation: "disabled",
+      credential_values_read: "no",
+      external_calls: "disabled",
+      managed_project_writes: "disabled",
+      production_operation: "disabled"
+    }
+  };
+  const absoluteDir = modelGatewayQueueAuditDir(projectId);
+  await mkdir(absoluteDir, { recursive: true });
+  const relativePath = relative(repoRoot, join(absoluteDir, `${taskId}.json`));
+  await writeFile(resolve(repoRoot, relativePath), `${JSON.stringify(audit, null, 2)}\n`, "utf8");
+  return {
+    data: audit,
+    path: relativePath
+  };
 }
 
 async function readReleaseConsistencyArtifact() {
@@ -1081,6 +1232,36 @@ export async function detectLocalAiRuntimes() {
 async function executeProjectDispatchFlow(plan, input) {
   const projectId = plan.target_project;
   const configPath = projectConfigFor(projectId);
+  let modelGatewayBridge = null;
+  if (shouldBridgeModelGatewayProposal(plan, input)) {
+    const requested = normalizeRequestedAgent(input);
+    const runtimeId = managedModelGatewayRuntimeIds.has(requested) ? requested : "deepseek-chat";
+    const modelGatewayResult = await runShellCommand(process.execPath, [
+      studioScript,
+      "model-gateway",
+      "invoke-plan",
+      "--runtime",
+      runtimeId,
+      "--goal",
+      safeGoal(input.goal),
+      "--project",
+      projectId,
+      "--user",
+      input.username || input.user || plan.requested_by?.username || "owner",
+      "--dry-run"
+    ]);
+    if (!modelGatewayResult.ok) {
+      return {
+        status: "FAIL",
+        exit_code: modelGatewayResult.exit_code,
+        stdout_summary: summarizeStdout(modelGatewayResult.stdout),
+        stderr_summary: summarizeStdout(modelGatewayResult.stderr)
+      };
+    }
+    const modelGatewayFields = parseStudioFieldMap(modelGatewayResult.stdout);
+    modelGatewayBridge = await writeModelGatewayProposalBridge(projectId, input, plan, modelGatewayFields);
+  }
+
   const dispatchResult = await runShellCommand(process.execPath, [
     studioScript,
     "project",
@@ -1129,25 +1310,31 @@ async function executeProjectDispatchFlow(plan, input) {
   }
 
   const proposals = await readProjectProposalRecords(projectId);
-  const pending = findPendingProposal(proposals);
+  const modelGatewayProposals = await readModelGatewayProposalRecords(projectId);
+  const allProposalRecords = [...proposals, ...modelGatewayProposals];
+  const pending = allProposalRecords.find((record) => !isProposalApprovalCleared(record)) ?? null;
+  const reviewCandidate = pending ?? allProposalRecords[0] ?? null;
   const summary = [
     `selected_agent: ${plan.agent || plan.runtime_id || "auto"}`,
     `runtime_id: ${plan.runtime_id || "auto"}`,
+    modelGatewayBridge
+      ? `model_gateway_proposal: ${modelGatewayBridge.record.task_id} | ${modelGatewayBridge.path}`
+      : "model_gateway_proposal: skipped",
     `dispatch_plan: ${dispatchFields.pipeline_stage || "unknown"}`,
     `recommended_next_stage: ${dispatchFields.recommended_next_stage || "unknown"}`,
     proposalCreated
       ? `proposal_created: ${proposalCreated.task_id} | ${proposalCreated.proposal_file || "file pending"}`
-      : `proposal_state: ${pending?.data?.approval_status || "none"}`,
-    `proposal_review_ready: ${pending ? "yes" : "no"}`,
+      : `proposal_state: ${reviewCandidate?.data?.approval_status || "none"}`,
+    `proposal_review_ready: ${reviewCandidate ? "yes" : "no"}`,
     "",
-    summarizeProposalRecords(proposals)
+    summarizeProposalRecords(allProposalRecords)
   ].join("\n");
   return {
     status: pending ? "NEEDS_APPROVAL" : "PASS",
     exit_code: 0,
     stdout_summary: summary,
     stderr_summary: "",
-    proposal_task_id: proposalCreated?.task_id || pending?.data?.task_id || ""
+    proposal_task_id: proposalCreated?.task_id || pending?.data?.task_id || reviewCandidate?.data?.task_id || ""
   };
 }
 
@@ -1155,17 +1342,22 @@ async function executeProposalReviewFlow(plan) {
   const projectId = plan.target_project;
   const proposals = await readProjectProposalRecords(projectId);
   const audits = await readProjectQueueAuditRecords(projectId);
-  const pending = proposals.filter((record) => record.data?.approval_status !== "APPROVED");
+  const modelGatewayProposals = await readModelGatewayProposalRecords(projectId);
+  const modelGatewayAudits = await readModelGatewayQueueAuditRecords(projectId);
+  const allProposals = [...proposals, ...modelGatewayProposals];
+  const allAudits = [...audits, ...modelGatewayAudits];
+  const pending = allProposals.filter((record) => !isProposalApprovalCleared(record));
   return {
     status: pending.length > 0 ? "NEEDS_APPROVAL" : "PASS",
     exit_code: 0,
     stdout_summary: [
-      `proposal_count: ${proposals.length}`,
+      `proposal_count: ${allProposals.length}`,
+      `model_gateway_proposal_count: ${modelGatewayProposals.length}`,
       `pending_approval: ${pending.length}`,
       "",
-      summarizeProposalRecords(proposals),
+      summarizeProposalRecords(allProposals),
       "",
-      summarizeQueueAuditRecords(audits)
+      summarizeQueueAuditRecords(allAudits)
     ].join("\n"),
     stderr_summary: ""
   };
@@ -1175,7 +1367,30 @@ async function executeProposalApproveDryRunFlow(plan, input) {
   const projectId = plan.target_project;
   const configPath = projectConfigFor(projectId);
   const proposals = await readProjectProposalRecords(projectId);
-  const selected = proposals.find((record) => record.data?.task_id === input.task_id) ?? findPendingProposal(proposals);
+  const modelGatewayProposals = await readModelGatewayProposalRecords(projectId);
+  const requestedTaskId = String(input.task_id || "");
+  const exactProposal = requestedTaskId ? proposals.find((record) => record.data?.task_id === requestedTaskId) : null;
+  const exactModelGatewayProposal = requestedTaskId ? modelGatewayProposals.find((record) => record.data?.task_id === requestedTaskId) : null;
+  const selected = exactProposal ?? (!requestedTaskId ? findPendingProposal(proposals) : null);
+  const selectedModelGateway = exactModelGatewayProposal ?? (!requestedTaskId && !selected ? findPendingModelGatewayProposal(modelGatewayProposals) : null);
+  if (selectedModelGateway) {
+    return {
+      status: "NEEDS_APPROVAL",
+      exit_code: 0,
+      stdout_summary: [
+        `model_gateway_proposal: ${selectedModelGateway.data?.task_id || "unknown"}`,
+        `runtime_id: ${selectedModelGateway.data?.runtime_id || "unknown"}`,
+        `risk: ${selectedModelGateway.data?.risk || "MEDIUM"}`,
+        "dry_run: approved proposal would write queue injection audit trace only.",
+        "model_invocation: disabled",
+        "credential_values_read: no",
+        "",
+        summarizeProposalRecords(modelGatewayProposals)
+      ].join("\n"),
+      stderr_summary: "",
+      proposal_task_id: selectedModelGateway.data?.task_id || ""
+    };
+  }
   if (!selected) {
     return {
       status: "BLOCKED",
@@ -1213,7 +1428,64 @@ async function executeProposalApproveApplyFlow(plan, input) {
   const configPath = projectConfigFor(projectId);
   const proposals = await readProjectProposalRecords(projectId);
   const existingAudits = await readProjectQueueAuditRecords(projectId);
-  const selected = proposals.find((record) => record.data?.task_id === input.task_id) ?? findPendingProposal(proposals) ?? proposals[0] ?? null;
+  const modelGatewayProposals = await readModelGatewayProposalRecords(projectId);
+  const modelGatewayAudits = await readModelGatewayQueueAuditRecords(projectId);
+  const requestedTaskId = String(input.task_id || "");
+  const exactProposal = requestedTaskId ? proposals.find((record) => record.data?.task_id === requestedTaskId) : null;
+  const exactModelGatewayProposal = requestedTaskId ? modelGatewayProposals.find((record) => record.data?.task_id === requestedTaskId) : null;
+  const selected = exactProposal ?? (!requestedTaskId ? (findPendingProposal(proposals) ?? proposals[0] ?? null) : null);
+  const selectedModelGateway = exactModelGatewayProposal ?? (!requestedTaskId && !selected ? findPendingModelGatewayProposal(modelGatewayProposals) : null);
+  if (selectedModelGateway) {
+    const taskId = String(selectedModelGateway.data?.task_id || "");
+    const risk = String(selectedModelGateway.data?.risk || "MEDIUM");
+    const existingModelGatewayAudit = modelGatewayAudits.find((record) => record.data?.task_id === taskId) ?? null;
+    if (existingModelGatewayAudit?.data?.status === "PASS") {
+      return {
+        status: "PASS",
+        exit_code: 0,
+        stdout_summary: [
+          `model gateway proposal ${taskId} 已存在 PASS 的 queue injection audit trace。`,
+          "",
+          summarizeProposalRecords(modelGatewayProposals),
+          "",
+          summarizeQueueAuditRecords(modelGatewayAudits)
+        ].join("\n"),
+        stderr_summary: "",
+        proposal_task_id: taskId,
+        queue_injection_audit_status: existingModelGatewayAudit.data.status
+      };
+    }
+    if (risk === "HIGH" || risk === "CRITICAL") {
+      return {
+        status: "NEEDS_APPROVAL",
+        exit_code: null,
+        stdout_summary: `model gateway proposal ${taskId} 风险为 ${risk}，保持人工审批，不自动入队。`,
+        stderr_summary: ""
+      };
+    }
+    const approved = await approveModelGatewayProposal(selectedModelGateway, input, plan);
+    const audit = await writeModelGatewayQueueInjectionAudit(projectId, approved, input, plan);
+    const refreshedModelGatewayProposals = await readModelGatewayProposalRecords(projectId);
+    const refreshedModelGatewayAudits = await readModelGatewayQueueAuditRecords(projectId);
+    return {
+      status: "PASS",
+      exit_code: 0,
+      stdout_summary: [
+        `model_gateway_proposal_approved: ${taskId}`,
+        `queue_injection_audit: ${audit.path}`,
+        "queue_injection_mode: audit_trace_only",
+        "model_invocation: disabled",
+        "credential_values_read: no",
+        "",
+        summarizeProposalRecords(refreshedModelGatewayProposals),
+        "",
+        summarizeQueueAuditRecords(refreshedModelGatewayAudits)
+      ].join("\n"),
+      stderr_summary: "",
+      proposal_task_id: taskId,
+      queue_injection_audit_status: audit.data.status
+    };
+  }
   if (!selected) {
     return {
       status: "BLOCKED",

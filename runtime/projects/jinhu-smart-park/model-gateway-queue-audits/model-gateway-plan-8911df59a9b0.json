@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "kind": "model_gateway_queue_injection_audit",
+  "audit_id": "model-gateway-queue-audit-2026-07-08T054157688Z-0ac5ef93",
+  "task_id": "model-gateway-plan-8911df59a9b0",
+  "project_id": "jinhu-smart-park",
+  "generated_at": "2026-07-08T05:41:57.688Z",
+  "status": "PASS",
+  "source": "managed_model_gateway_proposal",
+  "risk": "MEDIUM",
+  "approval_status": "APPROVED",
+  "approved_by": "owner",
+  "approved_at": "2026-07-08T05:41:57.687Z",
+  "queue_state": {
+    "queue_task_status": "queued_audit_trace",
+    "queue_mode": "approved_proposal_trace",
+    "executor": "not_started"
+  },
+  "injection": {
+    "event_file": "",
+    "rebuild_status": "not_required",
+    "rebuild_exit_code": ""
+  },
+  "proposal": {
+    "path": "runtime/projects/jinhu-smart-park/model-gateway-proposals/model-gateway-plan-8911df59a9b0.json",
+    "task_id": "model-gateway-plan-8911df59a9b0",
+    "invocation_id": "model-gateway-plan-8911df59a9b0",
+    "runtime_id": "deepseek-chat",
+    "provider": "deepseek",
+    "goal_text": "用 DeepSeek 生成派发计划闭环测试"
+  },
+  "safety": {
+    "model_invocation": "disabled",
+    "credential_values_read": "no",
+    "external_calls": "disabled",
+    "managed_project_writes": "disabled",
+    "production_operation": "disabled"
+  }
+}

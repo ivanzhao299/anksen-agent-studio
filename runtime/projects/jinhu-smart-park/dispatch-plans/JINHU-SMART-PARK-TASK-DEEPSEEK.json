@@ -1,0 +1,264 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-08T05:41:16.846Z",
+  "dispatcher_id": "dispatch-plan-cfcc3ace3a1f",
+  "project_id": "jinhu-smart-park",
+  "project_name": "Jinhu Smart Park",
+  "goal_text": "用 DeepSeek 生成派发计划闭环测试",
+  "task_id": "JINHU-SMART-PARK-TASK-DEEPSEEK",
+  "status": "PASS",
+  "pipeline_stage": "PROPOSAL_CREATION_READY",
+  "recommended_next_stage": "create_proposal",
+  "recommended_next_command": "node packages/orchestrator-core/bin/studio.mjs project task-plan --config /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/examples/jinhu-smart-park/project.config.example.json --text \"用 DeepSeek 生成派发计划闭环测试\" --apply-proposal",
+  "config_path": "examples/jinhu-smart-park/project.config.example.json",
+  "binding_path": "runtime/projects/jinhu-smart-park/binding.json",
+  "latest_existing_dispatch_plan": "",
+  "binding_summary": {
+    "binding_status": "attached",
+    "connection_status": "CONNECTED",
+    "doctor_status": "CONDITIONAL_GO",
+    "execution_route": "managed_project_repo",
+    "repo_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park",
+    "repo_branch": "feature/engineering-project-delivery-runtime",
+    "repo_clean": "yes",
+    "write_policy": "disabled",
+    "deploy_policy": "forbidden",
+    "production_operation_policy": "forbidden",
+    "worktree_count": 6
+  },
+  "execution_context": {
+    "schema_version": 1,
+    "generated_at": "2026-07-08T05:41:14.641Z",
+    "project_id": "jinhu-smart-park",
+    "project_name": "Jinhu Smart Park",
+    "resolved": true,
+    "execution_route": "managed_project_repo",
+    "repo_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park",
+    "repo_path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park",
+    "repo_branch": "feature/engineering-project-delivery-runtime",
+    "repo_head": "ef7a1e4 chore(orchestrator): refresh runtime memory context",
+    "repo_clean": "yes",
+    "connection_status": "CONNECTED",
+    "doctor_status": "CONDITIONAL_GO",
+    "write_policy": "disabled",
+    "deploy_policy": "forbidden",
+    "production_operation_policy": "forbidden",
+    "runtime_memory_dir": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park/ops/agent-orchestrator/runtime",
+    "worktrees": [
+      {
+        "slot": "main",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park",
+        "exists": true
+      },
+      {
+        "slot": "agent-1",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-1",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-1",
+        "exists": true
+      },
+      {
+        "slot": "agent-2",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-2",
+        "exists": true
+      },
+      {
+        "slot": "agent-3",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-3",
+        "exists": true
+      },
+      {
+        "slot": "agent-4",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-4",
+        "exists": true
+      },
+      {
+        "slot": "agent-5",
+        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5",
+        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/jinhu-smart-park-agent-5",
+        "exists": true
+      }
+    ],
+    "write_paths": [
+      "ops/agent-orchestrator/events/**",
+      "ops/agent-orchestrator/queue/**",
+      "ops/agent-orchestrator/results/**",
+      "ops/agent-orchestrator/reports/**",
+      "ops/agent-orchestrator/runtime/**"
+    ],
+    "guarded_paths": [
+      "apps/**",
+      "packages/**",
+      "database/**",
+      "infra/**",
+      ".github/**",
+      "Dockerfile",
+      "Dockerfile.*",
+      "docker-compose*",
+      "deploy/**",
+      "auth/**",
+      ".env",
+      ".env.*"
+    ],
+    "recommended_checks": [
+      "Verify doctor status before dispatch.",
+      "Respect guarded paths even when execution route is resolved.",
+      "Keep deploy and production operations disabled from Studio execution flows."
+    ]
+  },
+  "task_candidate": {
+    "task_id": "JINHU-SMART-PARK-TASK-DEEPSEEK",
+    "owner": "agent-2",
+    "skill_type": "validation_testing",
+    "skill_id": "skill-validation-testing",
+    "runtime": "codex-cli",
+    "risk": "MEDIUM",
+    "approval_required": false,
+    "allowed_paths": [
+      "docs/testing/**",
+      "docs/release/**",
+      "ops/agent-orchestrator/reports/**",
+      "ops/agent-orchestrator/results/**"
+    ],
+    "forbidden_paths": [
+      "apps/**",
+      "packages/**",
+      "database/**",
+      "infra/**",
+      ".github/**",
+      "Dockerfile",
+      "Dockerfile.*",
+      "docker-compose*",
+      "deploy/**",
+      "auth/**",
+      ".env",
+      ".env.*",
+      "apps/api/**"
+    ],
+    "validation_commands": [
+      "pnpm typecheck",
+      "pnpm lint",
+      "node ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor",
+      "node ops/agent-orchestrator/scripts/audit-all-results.mjs --dry-run"
+    ],
+    "routing": {
+      "confidence": 0.8,
+      "fallback_used": false,
+      "matched_keywords": [
+        "测试"
+      ],
+      "reason": "Validation/testing/audit tasks should route to agent-2."
+    },
+    "project_context": {
+      "repo_branch": "feature/engineering-project-delivery-runtime",
+      "repo_clean": "yes",
+      "doctor_status": "CONDITIONAL_GO",
+      "detected_stack": [
+        "Agent Orchestrator project state",
+        "Docker deployment scripts",
+        "NestJS API",
+        "Next.js App Router",
+        "Next.js web app",
+        "PostgreSQL",
+        "React",
+        "TypeScript",
+        "database migrations",
+        "database seeds",
+        "e2e smoke scripts",
+        "pnpm workspace",
+        "pnpm-workspace",
+        "project-local Agent Orchestrator state",
+        "release documentation",
+        "shared package"
+      ],
+      "queue_status_counts": {
+        "AUDITED": 35,
+        "BLOCKED": 4
+      },
+      "runtime_memory_imported_at": "2026-06-29T03:55:05.560Z"
+    }
+  },
+  "proposal_state": null,
+  "queue_state": {
+    "task_status": "missing",
+    "result_status": "missing",
+    "ready_task_count": 1,
+    "active_locks": 0
+  },
+  "access_gate": {
+    "user": "studio-owner",
+    "status": "ALLOW",
+    "execution_mode": "dry_run_only",
+    "direct_execute_max_risk": "MEDIUM",
+    "required_capabilities": [
+      "console.access",
+      "project.read",
+      "autopilot.plan"
+    ],
+    "missing_capabilities": [],
+    "project_scope": [
+      "*"
+    ],
+    "reason": "账号 owner 已通过 Access Center 校验。"
+  },
+  "execution_gate": {
+    "requested_risk": "MEDIUM",
+    "direct_execute_max_risk": "MEDIUM",
+    "allowed": true,
+    "reason": "当前账号可覆盖 MEDIUM 风险。"
+  },
+  "worker_route": {
+    "schema_version": 1,
+    "dispatch_id": "dispatch-9d8b94ebae",
+    "created_at": "2026-07-08T05:41:16.845Z",
+    "requested_runtime": "codex-cli",
+    "requested_capability": "",
+    "selection_kind": "runtime",
+    "worker_id": "local-codex-1",
+    "runtime_id": "codex-cli",
+    "status": "ASSIGNED",
+    "execution_mode": "local_repo_execute",
+    "risk": "MEDIUM",
+    "proposal_required": false,
+    "human_approval_required": false,
+    "blocked_reasons": [],
+    "isolation_policy": {
+      "policy_id": "local-repo-worker-isolation",
+      "workspace_scope": "local_repository_only",
+      "network": "metadata_only",
+      "credential_values": "not_read",
+      "managed_project_writes": "disabled"
+    },
+    "safety": {
+      "server_access": "disabled",
+      "ssh": "disabled",
+      "deploy": "disabled",
+      "production_operations": "disabled",
+      "credential_values": "not_read",
+      "managed_project_writes": "disabled"
+    }
+  },
+  "command_plan": {
+    "inspect_context": "node packages/orchestrator-core/bin/studio.mjs project exec-context --project jinhu-smart-park --dry-run",
+    "create_proposal": "node packages/orchestrator-core/bin/studio.mjs project task-plan --config /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/examples/jinhu-smart-park/project.config.example.json --text \"用 DeepSeek 生成派发计划闭环测试\" --apply-proposal",
+    "inspect_proposals": "node packages/orchestrator-core/bin/studio.mjs project proposals --config /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/examples/jinhu-smart-park/project.config.example.json",
+    "approve_proposal": "node packages/orchestrator-core/bin/studio.mjs project approve-proposal --config /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/examples/jinhu-smart-park/project.config.example.json --task-id JINHU-SMART-PARK-TASK-DEEPSEEK --dry-run",
+    "execute_task": "node packages/orchestrator-core/bin/studio.mjs project execute --config /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio/examples/jinhu-smart-park/project.config.example.json --task-id JINHU-SMART-PARK-TASK-DEEPSEEK --dry-run"
+  },
+  "blocking_reasons": [],
+  "warnings": [
+    "Doctor status is CONDITIONAL_GO; execution will require project-side remediation before final run.",
+    "Managed project business writes remain disabled. Queue/event injection is the only safe downstream write path."
+  ],
+  "safety": {
+    "business_project_writes": "disabled",
+    "queue_event_injection": "proposal_approval_path_only",
+    "deploy": "disabled",
+    "production_operations": "disabled",
+    "credential_values": "not_read",
+    "model_invocation": "disabled"
+  }
+}

@@ -213,6 +213,70 @@ async function readProjectQueueInjectionAudits() {
   return audits;
 }
 
+async function readModelGatewayProposals() {
+  const projectsDir = resolve(repoRoot, "runtime/projects");
+  if (!existsSync(projectsDir)) return [];
+  const entries = await readdir(projectsDir, { withFileTypes: true });
+  const proposals = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const relativeDir = join("runtime/projects", entry.name, "model-gateway-proposals");
+    const absoluteDir = resolve(repoRoot, relativeDir);
+    if (!existsSync(absoluteDir)) continue;
+    const files = (await readdir(absoluteDir, { withFileTypes: true }))
+      .filter((file) => file.isFile() && file.name.endsWith(".json"))
+      .map((file) => join(relativeDir, file.name))
+      .sort();
+    for (const file of files) {
+      const data = await readJson(file, null);
+      if (!data) continue;
+      proposals.push({
+        project_id: entry.name,
+        path: file,
+        data
+      });
+    }
+  }
+  proposals.sort((left, right) => {
+    const leftDate = String(left.data?.approved_at ?? left.data?.created_at ?? "");
+    const rightDate = String(right.data?.approved_at ?? right.data?.created_at ?? "");
+    return rightDate.localeCompare(leftDate) || left.project_id.localeCompare(right.project_id);
+  });
+  return proposals;
+}
+
+async function readModelGatewayQueueInjectionAudits() {
+  const projectsDir = resolve(repoRoot, "runtime/projects");
+  if (!existsSync(projectsDir)) return [];
+  const entries = await readdir(projectsDir, { withFileTypes: true });
+  const audits = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const relativeDir = join("runtime/projects", entry.name, "model-gateway-queue-audits");
+    const absoluteDir = resolve(repoRoot, relativeDir);
+    if (!existsSync(absoluteDir)) continue;
+    const files = (await readdir(absoluteDir, { withFileTypes: true }))
+      .filter((file) => file.isFile() && file.name.endsWith(".json"))
+      .map((file) => join(relativeDir, file.name))
+      .sort();
+    for (const file of files) {
+      const data = await readJson(file, null);
+      if (!data) continue;
+      audits.push({
+        project_id: entry.name,
+        path: file,
+        data
+      });
+    }
+  }
+  audits.sort((left, right) => {
+    const leftDate = String(left.data?.generated_at ?? "");
+    const rightDate = String(right.data?.generated_at ?? "");
+    return rightDate.localeCompare(leftDate) || left.project_id.localeCompare(right.project_id);
+  });
+  return audits;
+}
+
 function countArray(value, key) {
   if (Array.isArray(value)) return value.length;
   if (value && Array.isArray(value[key])) return value[key].length;
@@ -267,12 +331,13 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
     const dispatchStage = firstValue(dispatchData, ["pipeline_stage"], "missing");
     const nextStage = firstValue(dispatchData, ["recommended_next_stage"], "idle");
     const nextCommand = firstValue(dispatchData, ["recommended_next_command", "command_plan.create_proposal"], "");
-    const runtimeId = firstValue(dispatchData, ["worker_route.runtime_id", "task_candidate.runtime"], "unknown");
-    const workerId = firstValue(dispatchData, ["worker_route.worker_id"], "none");
-    const executionRoute = firstValue(dispatchData, ["binding_summary.execution_route"], "unknown");
+    const runtimeId = firstValue(dispatchData, ["worker_route.runtime_id", "task_candidate.runtime"], firstValue(proposalData, ["runtime_id", "model_gateway_plan.runtime_id"], "unknown"));
+    const workerId = firstValue(dispatchData, ["worker_route.worker_id"], firstValue(proposalData, ["source"], "none"));
+    const executionRoute = firstValue(dispatchData, ["binding_summary.execution_route"], firstValue(proposalData, ["execution_mode"], "unknown"));
     const goalText = firstValue(dispatchData, ["goal_text"], firstValue(proposalData, ["text"], "unknown"));
     const projectId = firstValue(dispatchData, ["project_id"], firstValue(proposalData, ["project_id"], firstValue(auditData, ["project_id"], "unknown")));
     const requiresApproval = proposalData.approval_required === true || risk === "HIGH" || risk === "CRITICAL";
+    const approvalCleared = approvalStatus === "APPROVED" || approvalStatus === "APPROVAL_NOT_REQUIRED";
     const blockers = [];
     let lifecycle = "idle";
     let lifecycle_label = "待补 proposal";
@@ -281,7 +346,7 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
       lifecycle = "proposal_missing";
       lifecycle_label = "待生成 proposal";
       blockers.push("派发计划已生成，但 proposal 尚未落盘。");
-    } else if (approvalStatus !== "APPROVED") {
+    } else if (!approvalCleared) {
       lifecycle = "needs_approval";
       lifecycle_label = "待审批";
       blockers.push(requiresApproval ? "需先完成 proposal 审批。" : "需确认 proposal 后才能进入队列。");
@@ -415,7 +480,9 @@ export async function loadConsoleLocalData(options = {}) {
     projectBindings,
     projectDispatchPlans,
     projectProposals,
-    projectQueueInjectionAudits
+    projectQueueInjectionAudits,
+    modelGatewayProposals,
+    modelGatewayQueueInjectionAudits
   ] = await Promise.all([
     readJson(dataFiles.platformState, {}),
     readJson(dataFiles.roadmapMemory, {}),
@@ -443,7 +510,9 @@ export async function loadConsoleLocalData(options = {}) {
     readProjectBindings(),
     readProjectDispatchPlans(),
     readProjectProposals(),
-    readProjectQueueInjectionAudits()
+    readProjectQueueInjectionAudits(),
+    readModelGatewayProposals(),
+    readModelGatewayQueueInjectionAudits()
   ]);
 
   const runtimeProfiles = runtimeCenterExamples.find((item) => item.path.endsWith("runtime-profiles.example.json"))?.data;
@@ -492,7 +561,9 @@ export async function loadConsoleLocalData(options = {}) {
     project_allowlist: Array.isArray(membership.project_allowlist) ? membership.project_allowlist : [],
     beta_features: Array.isArray(membership.beta_features) ? membership.beta_features : []
   }));
-  const projectRouterLifecycle = buildProjectRouterLifecycle(projectDispatchPlans, projectProposals, projectQueueInjectionAudits);
+  const allProjectProposals = [...projectProposals, ...modelGatewayProposals];
+  const allProjectQueueInjectionAudits = [...projectQueueInjectionAudits, ...modelGatewayQueueInjectionAudits];
+  const projectRouterLifecycle = buildProjectRouterLifecycle(projectDispatchPlans, allProjectProposals, allProjectQueueInjectionAudits);
   const activeProjectId = resolveActiveProjectId(options.activeProjectId, projectRegistry);
   const activeProject = projectRegistry.find((project) => project.project_id === activeProjectId) ?? projectRegistry[0] ?? null;
   const activeProjectState = projectStates.find((project) => project.project_id === activeProjectId)?.data
@@ -521,10 +592,16 @@ export async function loadConsoleLocalData(options = {}) {
       binding_count: projectBindings.length,
       dispatch_plans: projectDispatchPlans,
       dispatch_plan_count: projectDispatchPlans.length,
-      proposals: projectProposals,
-      proposal_count: projectProposals.length,
-      queue_injection_audits: projectQueueInjectionAudits,
-      queue_injection_audit_count: projectQueueInjectionAudits.length,
+      proposals: allProjectProposals,
+      proposal_count: allProjectProposals.length,
+      project_proposals: projectProposals,
+      model_gateway_proposals: modelGatewayProposals,
+      model_gateway_proposal_count: modelGatewayProposals.length,
+      queue_injection_audits: allProjectQueueInjectionAudits,
+      queue_injection_audit_count: allProjectQueueInjectionAudits.length,
+      project_queue_injection_audits: projectQueueInjectionAudits,
+      model_gateway_queue_injection_audits: modelGatewayQueueInjectionAudits,
+      model_gateway_queue_injection_audit_count: modelGatewayQueueInjectionAudits.length,
       lifecycle_records: projectRouterLifecycle.records,
       lifecycle_summary: projectRouterLifecycle.summary,
       lifecycle_next_recommendation: projectRouterLifecycle.next_recommendation,
