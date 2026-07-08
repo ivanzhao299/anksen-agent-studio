@@ -32,7 +32,8 @@ const directExecuteActionIds = new Set([
   "release-local-preview",
   "release-server-preview",
   "release-reviewed-publish",
-  "proposal-approve-apply"
+  "proposal-approve-apply",
+  "worker-claim-preflight"
 ]);
 const agentRuntimeIds = new Set([
   "auto",
@@ -71,6 +72,7 @@ const consoleActionCatalog = {
   "release-reviewed-publish": { capabilities: ["console.access", "governance.read"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "proposal-approve-dry-run": { capabilities: ["console.access", "proposal.approve"], execution_mode: "proposal_only", projectScoped: true },
   "proposal-approve-apply": { capabilities: ["console.access", "proposal.approve"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
+  "worker-claim-preflight": { capabilities: ["console.access", "worker.read", "proposal.approve"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
   "proposal-reject-draft": { capabilities: ["console.access", "proposal.reject"], execution_mode: "proposal_only", projectScoped: true },
   "production-operation-request": { capabilities: ["console.access", "production.request"], execution_mode: "human_approval_required", projectScoped: true }
 };

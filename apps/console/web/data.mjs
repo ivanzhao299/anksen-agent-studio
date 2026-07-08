@@ -309,6 +309,38 @@ async function readControlledWorkerQueuePreflightTasks() {
   return tasks;
 }
 
+async function readWorkerClaimAudits() {
+  const projectsDir = resolve(repoRoot, "runtime/projects");
+  if (!existsSync(projectsDir)) return [];
+  const entries = await readdir(projectsDir, { withFileTypes: true });
+  const audits = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const relativeDir = join("runtime/projects", entry.name, "worker-claim-audits");
+    const absoluteDir = resolve(repoRoot, relativeDir);
+    if (!existsSync(absoluteDir)) continue;
+    const files = (await readdir(absoluteDir, { withFileTypes: true }))
+      .filter((file) => file.isFile() && file.name.endsWith(".json"))
+      .map((file) => join(relativeDir, file.name))
+      .sort();
+    for (const file of files) {
+      const data = await readJson(file, null);
+      if (!data) continue;
+      audits.push({
+        project_id: entry.name,
+        path: file,
+        data
+      });
+    }
+  }
+  audits.sort((left, right) => {
+    const leftDate = String(left.data?.generated_at ?? "");
+    const rightDate = String(right.data?.generated_at ?? "");
+    return rightDate.localeCompare(leftDate) || left.project_id.localeCompare(right.project_id);
+  });
+  return audits;
+}
+
 function countArray(value, key) {
   if (Array.isArray(value)) return value.length;
   if (value && Array.isArray(value[key])) return value[key].length;
@@ -339,16 +371,18 @@ function lifecycleOrder(value) {
   }[token] ?? 9;
 }
 
-function buildProjectRouterLifecycle(dispatchPlans, proposals, audits, controlledQueueTasks = []) {
+function buildProjectRouterLifecycle(dispatchPlans, proposals, audits, controlledQueueTasks = [], workerClaimAudits = []) {
   const dispatchMap = new Map(dispatchPlans.map((item) => [item.data?.task_id ?? item.path, item]));
   const proposalMap = new Map(proposals.map((item) => [item.data?.task_id ?? item.path, item]));
   const auditMap = new Map(audits.map((item) => [item.data?.task_id ?? item.path, item]));
   const controlledQueueMap = new Map(controlledQueueTasks.map((item) => [item.data?.task_id ?? item.path, item]));
+  const workerClaimMap = new Map(workerClaimAudits.map((item) => [item.data?.task_id ?? item.path, item]));
   const taskIds = new Set([
     ...dispatchMap.keys(),
     ...proposalMap.keys(),
     ...auditMap.keys(),
-    ...controlledQueueMap.keys()
+    ...controlledQueueMap.keys(),
+    ...workerClaimMap.keys()
   ]);
 
   const records = [...taskIds].map((taskId) => {
@@ -356,10 +390,12 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits, controlle
     const proposal = proposalMap.get(taskId);
     const audit = auditMap.get(taskId);
     const controlledQueue = controlledQueueMap.get(taskId);
+    const workerClaim = workerClaimMap.get(taskId);
     const dispatchData = dispatch?.data ?? {};
     const proposalData = proposal?.data ?? {};
     const auditData = audit?.data ?? {};
     const controlledQueueData = controlledQueue?.data ?? {};
+    const workerClaimData = workerClaim?.data ?? {};
     const risk = firstValue(proposalData, ["risk"], firstValue(dispatchData, ["task_candidate.risk"], "MEDIUM"));
     const approvalStatus = firstValue(proposalData, ["approval_status"], "PROPOSED");
     const queueAuditStatus = firstValue(auditData, ["status"], "missing");
@@ -428,6 +464,10 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits, controlle
       controlled_queue_preflight_id: firstValue(controlledQueueData, ["preflight_id"], ""),
       controlled_queue_worker_claim_enabled: firstValue(controlledQueueData, ["worker_claim_enabled"], false),
       controlled_queue_next_gate: firstValue(controlledQueueData, ["next_required_gate"], ""),
+      worker_claim_status: firstValue(workerClaimData, ["status"], firstValue(controlledQueueData, ["worker_claim_status"], "missing")),
+      worker_claim_id: firstValue(workerClaimData, ["claim_id"], ""),
+      claimed_worker_id: firstValue(workerClaimData, ["claimed_worker_id"], firstValue(controlledQueueData, ["claimed_worker_id"], "")),
+      worker_claim_next_gate: firstValue(workerClaimData, ["next_required_gate"], firstValue(controlledQueueData, ["next_required_gate"], "")),
       dispatch_stage: dispatchStage,
       next_stage: nextStage,
       next_command: nextCommand,
@@ -442,10 +482,12 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits, controlle
       dispatch_path: dispatch?.path ?? "",
       audit_path: audit?.path ?? "",
       controlled_queue_path: controlledQueue?.path ?? "",
+      worker_claim_path: workerClaim?.path ?? "",
       proposal: proposalData,
       dispatch: dispatchData,
       audit: auditData,
-      controlled_queue: controlledQueueData
+      controlled_queue: controlledQueueData,
+      worker_claim: workerClaimData
     };
   }).sort((left, right) =>
     lifecycleOrder(left.lifecycle) - lifecycleOrder(right.lifecycle)
@@ -461,14 +503,15 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits, controlle
     injected: records.filter((item) => item.lifecycle === "injected").length,
     blocked: records.filter((item) => item.lifecycle === "blocked").length,
     proposal_missing: records.filter((item) => item.lifecycle === "proposal_missing").length,
-    controlled_queue_ready: records.filter((item) => item.controlled_queue_status === "PREFLIGHT_READY").length
+    controlled_queue_ready: records.filter((item) => item.controlled_queue_status === "PREFLIGHT_READY").length,
+    worker_claimed: records.filter((item) => item.worker_claim_status === "PASS" || item.controlled_queue_status === "CLAIMED_DRY_RUN_READY").length
   };
 
   const directActions = records.filter((item) => item.lifecycle === "ready_inject").map((item) => `${item.task_id}：审批并入队`);
   const approvalItems = records.filter((item) => item.lifecycle === "needs_approval").map((item) => `${item.task_id}：${item.blockers[0] ?? item.lifecycle_label}`);
   const proposalOnlyItems = records.filter((item) => item.lifecycle === "proposal_only").map((item) => `${item.task_id}：${item.blockers[0] ?? item.lifecycle_label}`);
   const blockerItems = records.filter((item) => item.lifecycle === "blocked" || item.lifecycle === "proposal_missing").map((item) => `${item.task_id}：${item.blockers[0] ?? item.lifecycle_label}`);
-  const completedItems = records.filter((item) => item.lifecycle === "injected").map((item) => `${item.task_id}：queue=${item.queue_task_status} / audit=PASS / preflight=${item.controlled_queue_status}`);
+  const completedItems = records.filter((item) => item.lifecycle === "injected").map((item) => `${item.task_id}：queue=${item.queue_task_status} / audit=PASS / preflight=${item.controlled_queue_status} / claim=${item.worker_claim_status}`);
 
   let nextRecommendation = "先生成项目派发计划，形成 proposal -> queue audit 的闭环。";
   if (summary.pending_approval > 0) {
@@ -526,7 +569,8 @@ export async function loadConsoleLocalData(options = {}) {
     projectQueueInjectionAudits,
     modelGatewayProposals,
     modelGatewayQueueInjectionAudits,
-    controlledWorkerQueuePreflightTasks
+    controlledWorkerQueuePreflightTasks,
+    workerClaimAudits
   ] = await Promise.all([
     readJson(dataFiles.platformState, {}),
     readJson(dataFiles.roadmapMemory, {}),
@@ -557,7 +601,8 @@ export async function loadConsoleLocalData(options = {}) {
     readProjectQueueInjectionAudits(),
     readModelGatewayProposals(),
     readModelGatewayQueueInjectionAudits(),
-    readControlledWorkerQueuePreflightTasks()
+    readControlledWorkerQueuePreflightTasks(),
+    readWorkerClaimAudits()
   ]);
 
   const runtimeProfiles = runtimeCenterExamples.find((item) => item.path.endsWith("runtime-profiles.example.json"))?.data;
@@ -608,7 +653,7 @@ export async function loadConsoleLocalData(options = {}) {
   }));
   const allProjectProposals = [...projectProposals, ...modelGatewayProposals];
   const allProjectQueueInjectionAudits = [...projectQueueInjectionAudits, ...modelGatewayQueueInjectionAudits];
-  const projectRouterLifecycle = buildProjectRouterLifecycle(projectDispatchPlans, allProjectProposals, allProjectQueueInjectionAudits, controlledWorkerQueuePreflightTasks);
+  const projectRouterLifecycle = buildProjectRouterLifecycle(projectDispatchPlans, allProjectProposals, allProjectQueueInjectionAudits, controlledWorkerQueuePreflightTasks, workerClaimAudits);
   const activeProjectId = resolveActiveProjectId(options.activeProjectId, projectRegistry);
   const activeProject = projectRegistry.find((project) => project.project_id === activeProjectId) ?? projectRegistry[0] ?? null;
   const activeProjectState = projectStates.find((project) => project.project_id === activeProjectId)?.data
@@ -649,6 +694,8 @@ export async function loadConsoleLocalData(options = {}) {
       model_gateway_queue_injection_audit_count: modelGatewayQueueInjectionAudits.length,
       controlled_worker_queue_preflight_tasks: controlledWorkerQueuePreflightTasks,
       controlled_worker_queue_preflight_count: controlledWorkerQueuePreflightTasks.length,
+      worker_claim_audits: workerClaimAudits,
+      worker_claim_audit_count: workerClaimAudits.length,
       lifecycle_records: projectRouterLifecycle.records,
       lifecycle_summary: projectRouterLifecycle.summary,
       lifecycle_next_recommendation: projectRouterLifecycle.next_recommendation,

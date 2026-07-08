@@ -648,7 +648,7 @@ function dispatchLifecyclePanel(data) {
     proposal: toneLabel(item.approval_status, item.approval_status === "APPROVED" ? "pass" : "proposal-only"),
     queue: `<div class="proposal-evidence">
       ${toneLabel(item.queue_audit_status, item.queue_audit_status === "PASS" ? "pass" : item.queue_audit_status === "missing" ? "local" : "blocked")}
-      <span class="help">queue: ${escapeHtml(item.queue_task_status)} / audit: ${escapeHtml(item.audit_id || "none")} / preflight: ${escapeHtml(item.controlled_queue_status || "missing")} / rebuild: ${escapeHtml(item.queue_rebuild_status || "unknown")}</span>
+      <span class="help">queue: ${escapeHtml(item.queue_task_status)} / audit: ${escapeHtml(item.audit_id || "none")} / preflight: ${escapeHtml(item.controlled_queue_status || "missing")} / claim: ${escapeHtml(item.worker_claim_status || "missing")} / rebuild: ${escapeHtml(item.queue_rebuild_status || "unknown")}</span>
     </div>`,
     next: `<div class="proposal-evidence">
       ${toneLabel(item.lifecycle_label, item.lifecycle)}
@@ -688,7 +688,9 @@ function proposalPanel(data) {
     if (item.lifecycle === "injected") {
       actionHtml = `<div class="button-row compact-row">
         <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(item.task_id ?? "")}">查看</button>
-        <span class="help">已完成队列注入</span>
+        ${item.worker_claim_status === "PASS" || item.controlled_queue_status === "CLAIMED_DRY_RUN_READY"
+          ? `<span class="help">Worker 已领取</span>`
+          : `<button type="button" class="primary" data-proposal-action="worker-claim-preflight" data-proposal-task="${escapeHtml(item.task_id ?? "")}">领取 Worker</button>`}
       </div>`;
     } else if (item.lifecycle === "proposal_only") {
       actionHtml = `<div class="button-row compact-row">
@@ -704,13 +706,14 @@ function proposalPanel(data) {
       lifecycle: toneLabel(lifecycleLabel, lifecycleTone),
       blocker: `<div class="proposal-evidence">
         ${toneLabel(blockerLabel, blockerTone)}
-        <span class="help">queue: ${escapeHtml(queueTaskStatus)} / audit: ${escapeHtml(queueAuditStatus)} / preflight: ${escapeHtml(item.controlled_queue_status || "missing")}${item.approved_by ? ` / by: ${escapeHtml(item.approved_by)}` : ""}</span>
+        <span class="help">queue: ${escapeHtml(queueTaskStatus)} / audit: ${escapeHtml(queueAuditStatus)} / preflight: ${escapeHtml(item.controlled_queue_status || "missing")} / claim: ${escapeHtml(item.worker_claim_status || "missing")}${item.approved_by ? ` / by: ${escapeHtml(item.approved_by)}` : ""}</span>
       </div>`,
       evidence: `<div class="proposal-evidence">
         <span class="help">${escapeHtml(item.audit_id || "no_audit_id")}${item.queue_event_file ? ` / event: ${escapeHtml(item.queue_event_file)}` : ""}</span>
         ${item.dispatch_path ? inlineDetails("dispatch", item.dispatch) : ""}
         ${item.proposal_path ? inlineDetails("proposal", item.proposal) : ""}
         ${item.audit_path ? inlineDetails("audit", item.audit) : ""}
+        ${item.worker_claim_path ? inlineDetails("claim", item.worker_claim) : ""}
       </div>`,
       actions: actionHtml
     };
@@ -722,6 +725,7 @@ function proposalPanel(data) {
       ${metric("待审批", summary.pending_approval)}
       ${metric("待注入", summary.ready_inject)}
       ${metric("已入队", summary.injected)}
+      ${metric("已领取", summary.worker_claimed)}
       ${metric("人工审批", summary.proposal_only)}
       ${metric("入队受阻", summary.blocked + summary.proposal_missing)}
     </div>
@@ -1983,7 +1987,9 @@ function pageProjects(data) {
         <div class="button-row compact-row">
           <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(taskId)}">查看</button>
           ${isInjected
-            ? `<span class="help">已入队</span>`
+            ? (lifecycle?.worker_claim_status === "PASS" || lifecycle?.controlled_queue_status === "CLAIMED_DRY_RUN_READY"
+                ? `<span class="help">Worker 已领取</span>`
+                : `<button type="button" class="primary" data-proposal-action="worker-claim-preflight" data-proposal-task="${escapeHtml(taskId)}">领取 Worker</button>`)
             : isManualOnly
               ? `<span class="help">人工审批</span>`
               : `<button type="button" class="primary" data-proposal-action="proposal-approve-apply" data-proposal-task="${escapeHtml(taskId)}">审批并入队</button>`}
@@ -1993,6 +1999,7 @@ function pageProjects(data) {
         ${item.path ? inlineDetails("dispatch", item.data ?? {}) : ""}
         ${lifecycle?.proposal_path ? inlineDetails("proposal", lifecycle.proposal) : ""}
         ${lifecycle?.audit_path ? inlineDetails("audit", lifecycle.audit) : ""}
+        ${lifecycle?.worker_claim_path ? inlineDetails("claim", lifecycle.worker_claim) : ""}
       </div>`
     };
   }), [
@@ -2175,7 +2182,7 @@ function pageAutopilot(data) {
     approval: toneLabel(item.approval_status ?? "missing", (item.approval_status ?? "") === "APPROVED" ? "pass" : "proposal-only"),
     queue: `<div class="proposal-evidence">
       ${toneLabel(item.queue_audit_status ?? "missing", (item.queue_audit_status ?? "") === "PASS" ? "pass" : (item.queue_audit_status ?? "") === "missing" ? "local" : "blocked")}
-      <span class="help">queue: ${escapeHtml(item.queue_task_status ?? "pending")} / preflight: ${escapeHtml(item.controlled_queue_status ?? "missing")}</span>
+      <span class="help">queue: ${escapeHtml(item.queue_task_status ?? "pending")} / preflight: ${escapeHtml(item.controlled_queue_status ?? "missing")} / claim: ${escapeHtml(item.worker_claim_status ?? "missing")}</span>
     </div>`,
     next: `<div class="proposal-evidence">
       ${toneLabel(item.lifecycle_label ?? "待处理", item.lifecycle ?? "idle")}
@@ -2185,6 +2192,7 @@ function pageAutopilot(data) {
       ${item.dispatch_path ? inlineDetails("dispatch", item.dispatch) : ""}
       ${item.proposal_path ? inlineDetails("proposal", item.proposal) : ""}
       ${item.audit_path ? inlineDetails("audit", item.audit) : ""}
+      ${item.worker_claim_path ? inlineDetails("claim", item.worker_claim) : ""}
     </div>`
   }));
   return `<section><h2>${messages.pages.autopilot.title}</h2><div class="grid">

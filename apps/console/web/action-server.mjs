@@ -76,6 +76,10 @@ function controlledWorkerQueueDir(projectId) {
   return resolve(repoRoot, "runtime/projects", projectId, "controlled-worker-queue");
 }
 
+function workerClaimAuditDir(projectId) {
+  return resolve(repoRoot, "runtime/projects", projectId, "worker-claim-audits");
+}
+
 async function readJsonIfExists(path) {
   if (!existsSync(path)) return null;
   return JSON.parse(await readFile(path, "utf8"));
@@ -124,6 +128,15 @@ async function readModelGatewayQueueAuditRecords(projectId) {
 
 async function readControlledWorkerQueueRecords(projectId) {
   return readProjectJsonRecords(controlledWorkerQueueDir(projectId), projectId);
+}
+
+async function readWorkerClaimAuditRecords(projectId) {
+  return readProjectJsonRecords(workerClaimAuditDir(projectId), projectId);
+}
+
+async function readWorkerRegistry() {
+  const registry = await readJsonIfExists(resolve(repoRoot, "packages/worker-pool/examples/worker-registry.example.json"));
+  return Array.isArray(registry?.workers) ? registry.workers : [];
 }
 
 function parseStudioFieldMap(output) {
@@ -375,6 +388,146 @@ async function writeControlledWorkerQueuePreflight(projectId, proposalRecord, au
   };
 }
 
+function validateControlledWorkerPreflightForClaim(preflight) {
+  const errors = [];
+  const risk = String(preflight?.risk || "MEDIUM");
+  if (!preflight) errors.push("controlled worker queue preflight missing");
+  if (preflight?.status && !["PREFLIGHT_READY", "CLAIMED_DRY_RUN_READY"].includes(preflight.status)) {
+    errors.push(`preflight status ${preflight.status} is not claimable`);
+  }
+  if (risk === "HIGH" || risk === "CRITICAL") errors.push(`${risk} risk cannot be worker-claimed from Console`);
+  if (!["APPROVED", "APPROVAL_NOT_REQUIRED"].includes(String(preflight?.approval_status || ""))) {
+    errors.push("proposal approval is not cleared");
+  }
+  if (String(preflight?.queue_audit_status || "") !== "PASS") errors.push("queue audit is not PASS");
+  if (String(preflight?.model_invocation || "") !== "disabled") errors.push("model invocation is not disabled");
+  if (String(preflight?.credential_values_read || "") !== "no") errors.push("credential values read policy is not no");
+  if (String(preflight?.managed_project_writes || "") !== "disabled") errors.push("managed project writes are not disabled");
+  if (String(preflight?.production_operation || "") !== "disabled") errors.push("production operation is not disabled");
+  return errors;
+}
+
+function resolveClaimWorker(preflight, workerRegistry, input = {}) {
+  const requestedWorkerId = String(input.worker_id || preflight?.worker_id || "").trim();
+  const exact = workerRegistry.find((worker) => worker.worker_id === requestedWorkerId);
+  if (exact) {
+    return {
+      status: exact.status === "available" ? "PASS" : "BLOCKED",
+      worker_id: exact.worker_id,
+      worker_kind: exact.worker_kind,
+      runtime_id: exact.runtime_id,
+      registry_status: exact.status,
+      registry_source: "worker-pool",
+      reason: exact.status === "available" ? "worker is available" : `worker status is ${exact.status}`
+    };
+  }
+  if (requestedWorkerId === "managed-model-gateway") {
+    return {
+      status: "PASS",
+      worker_id: "managed-model-gateway",
+      worker_kind: "virtual_gateway",
+      runtime_id: preflight?.runtime_id || "managed-model-gateway",
+      registry_status: "virtual_gateway_worker",
+      registry_source: "model-gateway",
+      reason: "managed model gateway is claimed as a virtual worker; real model invocation remains disabled"
+    };
+  }
+  return {
+    status: "BLOCKED",
+    worker_id: requestedWorkerId || "unknown",
+    worker_kind: "unknown",
+    runtime_id: preflight?.runtime_id || "unknown",
+    registry_status: "missing",
+    registry_source: "worker-pool",
+    reason: "worker is not present in worker registry"
+  };
+}
+
+async function writeWorkerClaimAudit(projectId, preflightRecord, input, plan) {
+  const now = new Date().toISOString();
+  const preflight = preflightRecord?.data ?? {};
+  const taskId = String(preflight.task_id || input.task_id || "");
+  const validationErrors = validateControlledWorkerPreflightForClaim(preflight);
+  const workerRegistry = await readWorkerRegistry();
+  const worker = resolveClaimWorker(preflight, workerRegistry, input);
+  const status = validationErrors.length === 0 && worker.status === "PASS" ? "PASS" : "BLOCKED";
+  const claimId = `worker-claim-${timestampForFile(now)}-${createHash("sha1").update(`${projectId}:${taskId}:${worker.worker_id}:${now}`).digest("hex").slice(0, 8)}`;
+  const audit = {
+    schema_version: 1,
+    kind: "controlled_worker_claim_audit",
+    claim_id: claimId,
+    task_id: taskId,
+    project_id: projectId,
+    generated_at: now,
+    status,
+    preflight_id: preflight.preflight_id || "",
+    preflight_path: preflightRecord?.path || "",
+    risk: preflight.risk || "MEDIUM",
+    approval_status: preflight.approval_status || "unknown",
+    queue_audit_status: preflight.queue_audit_status || "unknown",
+    claim_mode: "dry_run_claim_only",
+    claimed_worker_id: worker.worker_id,
+    worker_kind: worker.worker_kind,
+    runtime_id: worker.runtime_id,
+    worker_registry_status: worker.registry_status,
+    worker_registry_source: worker.registry_source,
+    validation: {
+      status,
+      errors: validationErrors,
+      worker_reason: worker.reason
+    },
+    next_required_gate: status === "PASS" ? "result_artifact_callback_or_explicit_execution" : "fix_worker_claim_blocker",
+    execution_enabled: false,
+    model_invocation: "disabled",
+    credential_values_read: "no",
+    managed_project_writes: "disabled",
+    production_operation: "disabled",
+    requested_by: plan.requested_by ?? null,
+    safety: {
+      real_model_call: "disabled",
+      credential_values: "not_read",
+      business_code_writes: "disabled",
+      deploy: "disabled",
+      production_operation: "disabled"
+    }
+  };
+  const absoluteAuditDir = workerClaimAuditDir(projectId);
+  await mkdir(absoluteAuditDir, { recursive: true });
+  const relativeAuditPath = relative(repoRoot, join(absoluteAuditDir, `${sanitizeFileName(taskId)}.json`));
+  await writeFile(resolve(repoRoot, relativeAuditPath), `${JSON.stringify(audit, null, 2)}\n`, "utf8");
+
+  if (status === "PASS") {
+    const updatedPreflight = {
+      ...preflight,
+      updated_at: now,
+      status: "CLAIMED_DRY_RUN_READY",
+      worker_claim_enabled: true,
+      worker_claim_status: "CLAIMED",
+      claimed_at: now,
+      claimed_by: plan.requested_by?.username || input.username || input.user || "owner",
+      claimed_worker_id: worker.worker_id,
+      worker_claim_audit_path: relativeAuditPath,
+      next_required_gate: "result_artifact_callback_or_explicit_execution",
+      execution_enabled: false
+    };
+    await writeFile(resolve(repoRoot, preflightRecord.path), `${JSON.stringify(updatedPreflight, null, 2)}\n`, "utf8");
+    return {
+      data: audit,
+      path: relativeAuditPath,
+      preflight: {
+        ...preflightRecord,
+        data: updatedPreflight
+      }
+    };
+  }
+
+  return {
+    data: audit,
+    path: relativeAuditPath,
+    preflight: preflightRecord
+  };
+}
+
 async function readReleaseConsistencyArtifact() {
   return readJsonIfExists(resolve(repoRoot, "runtime/global/release-consistency.json"));
 }
@@ -429,6 +582,7 @@ export const consoleActionOptions = [
   { id: "release-reviewed-publish", label: "Reviewed Publish 确认", risk: "LOW" },
   { id: "proposal-approve-dry-run", label: "审批 Proposal 草稿", risk: "MEDIUM" },
   { id: "proposal-approve-apply", label: "审批并注入队列", risk: "LOW" },
+  { id: "worker-claim-preflight", label: "领取 Worker 队列任务", risk: "LOW" },
   { id: "production-operation-request", label: "生产操作请求", risk: "CRITICAL" },
   { id: "proposal-reject-draft", label: "拒绝草稿", risk: "MEDIUM" }
 ];
@@ -594,6 +748,7 @@ function normalizeActionId(actionId, input = {}) {
   if (actionId === "proposal-inject") return "proposal-approve-apply";
   if (actionId === "project-connect") return "project-connect-dry-run";
   if (actionId === "worker-status") return "worker-health";
+  if (actionId === "worker-claim" || actionId === "queue-claim") return "worker-claim-preflight";
   if (actionId === "pending-proposals") return "proposal-review";
   if (actionId === "smart-park-go-live-plan-dry-run") return "smart-park-go-live-plan";
   if (actionId === "local-preview") return "release-local-preview";
@@ -800,6 +955,13 @@ function commandFor(input, plan = null) {
       command: process.execPath,
       args: [studioScript, "project", "approve-proposal", "--config", configPath, "--task-id", input.task_id || "<auto>", "--apply"],
       display: `node ${studioScript} project approve-proposal --config ${configPath} --task-id ${input.task_id || "<auto>"} --apply`
+    };
+  }
+  if (actionId === "worker-claim-preflight") {
+    return {
+      command: process.execPath,
+      args: [studioScript, "worker", "dispatch", "--runtime", String(input.agent || "local-agent"), "--dry-run"],
+      display: `controlled worker claim gate --project ${projectId} --task-id ${input.task_id || "<auto>"}`
     };
   }
   if (actionId === "proposal-reject-draft") {
@@ -1634,6 +1796,74 @@ async function executeProposalApproveApplyFlow(plan, input) {
   };
 }
 
+async function executeWorkerClaimPreflightFlow(plan, input) {
+  const projectId = plan.target_project;
+  const records = await readControlledWorkerQueueRecords(projectId);
+  const audits = await readWorkerClaimAuditRecords(projectId);
+  const requestedTaskId = String(input.task_id || "");
+  const selected = requestedTaskId
+    ? records.find((record) => record.data?.task_id === requestedTaskId)
+    : records.find((record) => record.data?.status === "PREFLIGHT_READY")
+      ?? records.find((record) => record.data?.status === "CLAIMED_DRY_RUN_READY")
+      ?? records[0]
+      ?? null;
+
+  if (!selected) {
+    return {
+      status: "BLOCKED",
+      exit_code: null,
+      stdout_summary: "当前没有可领取的 controlled worker queue preflight task。请先完成 Proposal 审批并生成 queue audit。",
+      stderr_summary: ""
+    };
+  }
+
+  const taskId = String(selected.data?.task_id || "");
+  const existingAudit = audits.find((record) => record.data?.task_id === taskId && record.data?.status === "PASS");
+  if (existingAudit && selected.data?.status === "CLAIMED_DRY_RUN_READY") {
+    return {
+      status: "PASS",
+      exit_code: 0,
+      stdout_summary: [
+        `worker_claim_status: already_claimed`,
+        `task_id: ${taskId}`,
+        `claim_audit: ${existingAudit.path}`,
+        `claimed_worker_id: ${existingAudit.data?.claimed_worker_id || selected.data?.claimed_worker_id || "unknown"}`,
+        "execution_enabled: false",
+        "model_invocation: disabled",
+        "credential_values_read: no",
+        "managed_project_writes: disabled",
+        "next_required_gate: result_artifact_callback_or_explicit_execution"
+      ].join("\n"),
+      stderr_summary: "",
+      proposal_task_id: taskId,
+      worker_claim_audit_status: existingAudit.data?.status || "PASS"
+    };
+  }
+
+  const claim = await writeWorkerClaimAudit(projectId, selected, input, plan);
+  const ok = claim.data.status === "PASS";
+  return {
+    status: ok ? "PASS" : "BLOCKED",
+    exit_code: ok ? 0 : null,
+    stdout_summary: [
+      `worker_claim_status: ${claim.data.status}`,
+      `task_id: ${taskId}`,
+      `claim_audit: ${claim.path}`,
+      `claimed_worker_id: ${claim.data.claimed_worker_id}`,
+      `worker_registry_status: ${claim.data.worker_registry_status}`,
+      `validation_errors: ${(claim.data.validation?.errors ?? []).join("; ") || "none"}`,
+      "execution_enabled: false",
+      "model_invocation: disabled",
+      "credential_values_read: no",
+      "managed_project_writes: disabled",
+      `next_required_gate: ${claim.data.next_required_gate}`
+    ].join("\n"),
+    stderr_summary: "",
+    proposal_task_id: taskId,
+    worker_claim_audit_status: claim.data.status
+  };
+}
+
 async function executeReleasePromotionFlow(targetStage) {
   const existingArtifact = await readReleaseConsistencyArtifact();
   const existingTarget = existingArtifact?.promotion_stages?.find((stage) => stage.stage_id === targetStage);
@@ -1692,6 +1922,7 @@ async function executeSpecialPlanFlow(plan, input) {
   if (plan.action_id === "release-reviewed-publish") return executeReleasePromotionFlow("reviewed_publish");
   if (plan.action_id === "proposal-approve-dry-run") return executeProposalApproveDryRunFlow(plan, input);
   if (plan.action_id === "proposal-approve-apply") return executeProposalApproveApplyFlow(plan, input);
+  if (plan.action_id === "worker-claim-preflight") return executeWorkerClaimPreflightFlow(plan, input);
   if (plan.action_id === "proposal-reject-draft") {
     return {
       status: "BLOCKED",

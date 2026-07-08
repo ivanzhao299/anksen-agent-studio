@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "kind": "controlled_worker_claim_audit",
+  "claim_id": "worker-claim-2026-07-08T064759670Z-22419d54",
+  "task_id": "model-gateway-plan-8911df59a9b0",
+  "project_id": "jinhu-smart-park",
+  "generated_at": "2026-07-08T06:47:59.670Z",
+  "status": "PASS",
+  "preflight_id": "controlled-worker-preflight-2026-07-08T061938299Z-9cbac4fc",
+  "preflight_path": "runtime/projects/jinhu-smart-park/controlled-worker-queue/model-gateway-plan-8911df59a9b0.json",
+  "risk": "MEDIUM",
+  "approval_status": "APPROVED",
+  "queue_audit_status": "PASS",
+  "claim_mode": "dry_run_claim_only",
+  "claimed_worker_id": "managed-model-gateway",
+  "worker_kind": "virtual_gateway",
+  "runtime_id": "deepseek-chat",
+  "worker_registry_status": "virtual_gateway_worker",
+  "worker_registry_source": "model-gateway",
+  "validation": {
+    "status": "PASS",
+    "errors": [],
+    "worker_reason": "managed model gateway is claimed as a virtual worker; real model invocation remains disabled"
+  },
+  "next_required_gate": "result_artifact_callback_or_explicit_execution",
+  "execution_enabled": false,
+  "model_invocation": "disabled",
+  "credential_values_read": "no",
+  "managed_project_writes": "disabled",
+  "production_operation": "disabled",
+  "requested_by": {
+    "user_id": "studio-owner",
+    "username": "owner",
+    "display_name": "Studio 平台所有者",
+    "roles": [
+      "platform_owner",
+      "security_admin"
+    ],
+    "plan_id": "internal_preview",
+    "feature_flags": [
+      "console_live_execute",
+      "multi_project_beta",
+      "real_runtime_visibility",
+      "pilot_team_beta",
+      "access_center_admin"
+    ]
+  },
+  "safety": {
+    "real_model_call": "disabled",
+    "credential_values": "not_read",
+    "business_code_writes": "disabled",
+    "deploy": "disabled",
+    "production_operation": "disabled"
+  }
+}

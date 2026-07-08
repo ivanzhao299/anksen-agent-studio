@@ -59,6 +59,7 @@ This connects the user flow:
 4. Approve LOW/MEDIUM proposals.
 5. Write a queue injection audit trace.
 6. Write a controlled worker queue preflight task.
+7. Claim the preflight task through a controlled Worker Claim gate.
 
 The queue audit trace is intentionally not a real model execution. It records that the approved proposal is ready for the future worker queue while preserving the safety boundary.
 
@@ -74,6 +75,25 @@ The controlled worker queue preflight task is also not execution. It is the hand
 
 This gives Console a visible queue state without letting a button silently invoke a model, read credentials, modify a managed project, or perform production work.
 
+## Controlled Worker Claim Gate
+
+Console can now advance a `PREFLIGHT_READY` item into a claim audit:
+
+- `runtime/projects/<project_id>/worker-claim-audits/*.json`
+
+The claim gate verifies:
+
+- proposal approval is cleared
+- queue audit status is `PASS`
+- risk is not `HIGH` or `CRITICAL`
+- model invocation remains disabled
+- credential values are not read
+- managed project writes remain disabled
+- production operations remain disabled
+- the target worker is either present in the Worker Registry or is the managed model gateway virtual worker
+
+When the gate passes, the controlled queue record moves to `CLAIMED_DRY_RUN_READY`. This still does not execute a model or write business code. It only proves that the task has passed the explicit worker-claim boundary and is ready for a later result-artifact callback or separately approved execution gate.
+
 ## Guardrails
 
 - no real model call
@@ -85,7 +105,8 @@ This gives Console a visible queue state without letting a button silently invok
 - no managed project writes
 - queue injection requires proposal approval and audit trace
 - worker execution requires a later explicit Worker Claim / Project Execute gate
+- worker claim writes audit trace only; result artifacts are a separate gate
 
 ## Next
 
-The next production step is implementing a Worker Claim gate that can pick up `PREFLIGHT_READY` tasks and either produce a dry-run execution plan or, when explicitly permitted, execute approved LOW/MEDIUM work inside the configured runtime boundary. Real gateway execution against admin-managed model credentials must include rate limits, budget tracking, request redaction, audit retention, and user-visible result artifacts.
+The next production step is implementing result artifact callback for claimed tasks. After that, a separately approved execution gate can execute approved LOW/MEDIUM work inside the configured runtime boundary. Real gateway execution against admin-managed model credentials must include rate limits, budget tracking, request redaction, audit retention, and user-visible result artifacts.

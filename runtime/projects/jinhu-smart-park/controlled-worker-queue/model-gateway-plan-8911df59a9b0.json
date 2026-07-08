@@ -5,8 +5,8 @@
   "task_id": "model-gateway-plan-8911df59a9b0",
   "project_id": "jinhu-smart-park",
   "created_at": "2026-07-08T06:19:38.299Z",
-  "updated_at": "2026-07-08T06:24:00.132Z",
-  "status": "PREFLIGHT_READY",
+  "updated_at": "2026-07-08T06:47:59.670Z",
+  "status": "CLAIMED_DRY_RUN_READY",
   "source": "managed_model_gateway_proposal",
   "runtime_id": "deepseek-chat",
   "worker_id": "managed-model-gateway",
@@ -14,8 +14,8 @@
   "approval_status": "APPROVED",
   "queue_audit_status": "PASS",
   "execution_mode": "controlled_queue_preflight_only",
-  "next_required_gate": "worker_claim_or_project_execute_explicit",
-  "worker_claim_enabled": false,
+  "next_required_gate": "result_artifact_callback_or_explicit_execution",
+  "worker_claim_enabled": true,
   "model_invocation": "disabled",
   "credential_values_read": "no",
   "external_calls": "disabled",
@@ -48,5 +48,11 @@
     "real_model_call": "disabled",
     "business_code_writes": "disabled",
     "allowed_next_step": "explicit_worker_queue_execution_gate"
-  }
+  },
+  "worker_claim_status": "CLAIMED",
+  "claimed_at": "2026-07-08T06:47:59.670Z",
+  "claimed_by": "owner",
+  "claimed_worker_id": "managed-model-gateway",
+  "worker_claim_audit_path": "runtime/projects/jinhu-smart-park/worker-claim-audits/model-gateway-plan-8911df59a9b0.json",
+  "execution_enabled": false
 }
