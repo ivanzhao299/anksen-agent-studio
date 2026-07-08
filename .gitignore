@@ -10,3 +10,8 @@ coverage/
 !.env.example
 autopilot-runs/console-actions/
 runtime/local-services/
+runtime/agent-bin/
+runtime/agent-tools/
+runtime/pipx/
+runtime/uv-python/
+runtime/uv-tools/
