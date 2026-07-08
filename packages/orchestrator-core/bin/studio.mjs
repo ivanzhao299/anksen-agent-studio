@@ -9756,6 +9756,7 @@ async function consoleSmoke(args) {
   const configHtml = await renderModule.renderConsolePage("/config", previewAuth, { activeProjectId: "phoenix-erp" });
   const dashboardHtml = await renderModule.renderConsolePage("/", previewAuth, { activeProjectId: "phoenix-erp" });
   const unauthHtml = await renderModule.renderConsolePage("/", { authenticated: false });
+  const unauthLoginHtml = await renderModule.renderConsolePage("/login", { authenticated: false });
   const interactiveControlsPresent = [
     "操作中心",
     "目标",
@@ -9811,13 +9812,19 @@ async function consoleSmoke(args) {
     "Credential Reference 配置",
     "Governance 策略查看"
   ].every((text) => configHtml.includes(text));
-  const authGatePresent = [
+  const authEntryPresent = [
+    "统一 AI 工作台",
+    "登录",
+    "申请加入"
+  ].every((text) => unauthHtml.includes(text));
+  const authLoginPresent = [
     "Console Access",
     "登录",
     "用户名",
     "密码",
     "仅限已授权账号"
-  ].every((text) => unauthHtml.includes(text));
+  ].every((text) => unauthLoginHtml.includes(text));
+  const authGatePresent = authEntryPresent && authLoginPresent;
   const safetyPass = data.safety.external_calls === "disabled"
     && data.safety.credential_values === "not_read"
     && data.safety.managed_project_writes === "disabled"

@@ -250,15 +250,13 @@ function routeForbiddenPage(route, auth = {}) {
 
 function authVisualPanel() {
   return `<div class="auth-product-panel" aria-hidden="true">
-    <div class="auth-mark-cloud">
-      <img class="auth-mark-ghost" src="/assets/anksen-logo.svg" alt="">
-      <span class="orbit orbit-one"></span>
-      <span class="orbit orbit-two"></span>
-      <span class="pixel p1"></span>
-      <span class="pixel p2"></span>
-      <span class="pixel p3"></span>
-      <span class="pixel p4"></span>
-    </div>
+    <span class="auth-orb orb-a"></span>
+    <span class="auth-orb orb-b"></span>
+    <span class="auth-line line-a"></span>
+    <span class="auth-line line-b"></span>
+    <span class="auth-node node-a"></span>
+    <span class="auth-node node-b"></span>
+    <span class="auth-node node-c"></span>
   </div>`;
 }
 
@@ -266,17 +264,11 @@ function accessEntryPage(_data) {
   return `<section class="auth-shell auth-entry-shell">
     ${authVisualPanel()}
     <div class="auth-side entry-side">
-      <span class="auth-kicker">AI Control Plane</span>
+      <span class="auth-kicker">Agent Studio</span>
       <h2>统一 AI 工作台</h2>
-      <p class="auth-lead">一个入口管理项目、Agent、Worker、Proposal 与交付报告。</p>
       <div class="auth-path-actions">
         <a class="primary-action auth-link-button" href="/login">登录</a>
         <a class="link-button auth-link-button" href="/register">申请加入</a>
-      </div>
-      <div class="auth-mini-grid">
-        <span>Access Center</span>
-        <span>Governance Gate</span>
-        <span>Worker Runtime</span>
       </div>
     </div>
   </section>`;
@@ -289,7 +281,6 @@ function accessLoginPage(_data) {
       <div class="auth-card-head">
         <span class="auth-kicker">Console Access</span>
         <h3>登录</h3>
-        <p>使用已授权账号进入控制台。</p>
       </div>
       <form id="auth-login-form" class="auth-form">
         <div>
@@ -303,7 +294,7 @@ function accessLoginPage(_data) {
         <div class="button-row">
           <button type="submit" class="primary-action auth-submit-button">登录</button>
         </div>
-        <p id="auth-status" class="help auth-status-copy">没有账号？<a href="/register">申请加入内测</a></p>
+        <p id="auth-status" class="help auth-status-copy">仅限已授权账号 · <a href="/register">申请加入</a></p>
       </form>
     </div>
   </section>`;
@@ -316,16 +307,15 @@ function accessRegisterPage(_data) {
       <div class="auth-card-head">
         <span class="auth-kicker">Team Beta</span>
         <h3>申请加入</h3>
-        <p>提交后进入审批队列，管理员批准后初始化账号。</p>
       </div>
       <form id="auth-register-form" class="auth-form">
         <div>
           <label for="register-display-name">姓名</label>
-          <input id="register-display-name" name="display_name" type="text" placeholder="例如：邵明洪" autocomplete="name">
+          <input id="register-display-name" name="display_name" type="text" placeholder="请输入姓名" autocomplete="name">
         </div>
         <div>
           <label for="register-username">用户名</label>
-          <input id="register-username" name="username" type="text" placeholder="建议使用姓名拼音或工号" autocomplete="username">
+          <input id="register-username" name="username" type="text" placeholder="请输入用户名" autocomplete="username">
         </div>
         <div>
           <label for="register-request-type">申请类型</label>
@@ -337,7 +327,7 @@ function accessRegisterPage(_data) {
         </div>
         <div>
           <label for="register-comment">申请说明</label>
-          <textarea id="register-comment" name="request_comment" placeholder="说明使用场景、负责项目或团队内测原因"></textarea>
+          <textarea id="register-comment" name="request_comment" placeholder="项目或使用场景"></textarea>
         </div>
         <div class="button-row">
           <button type="submit" class="primary-action auth-submit-button">提交申请</button>
@@ -1534,19 +1524,21 @@ function shell(content, activeId, model, data, auth = {}) {
   const gated = data.access?.summary?.allow_anonymous_console_read !== true && !auth.authenticated;
   const forbidden = !gated && !evaluateConsoleRouteAccess(route.id, auth).allowed;
   const authView = data.authView ?? "entry";
+  const authRoute = data.authRoute === true;
   const gatedPage = authView === "login"
     ? accessLoginPage(data)
     : authView === "register"
       ? accessRegisterPage(data)
       : accessEntryPage(data);
-  const mainContent = gated ? gatedPage : (forbidden ? routeForbiddenPage(route, auth) : content);
-  const headerClass = gated ? "login-header" : "";
-  const headerMeta = gated
+  const useAuthLayout = gated || authRoute;
+  const mainContent = useAuthLayout ? gatedPage : (forbidden ? routeForbiddenPage(route, auth) : content);
+  const headerClass = useAuthLayout ? "login-header" : "";
+  const headerMeta = useAuthLayout
     ? ""
     : `${authHeaderBar(auth)}
     ${topStatusBar(model, data, auth)}
     ${nav(activeId, auth, data.active_project_id ?? data.project_router.projects?.[0]?.project_id ?? "")}`;
-  const pageTitle = gated ? `登录 - ${messages.app.title}` : `${route.label} - ${messages.app.title}`;
+  const pageTitle = useAuthLayout ? `登录 - ${messages.app.title}` : `${route.label} - ${messages.app.title}`;
   return `<!doctype html>
 <html lang="${messages.locale}">
 <head>
@@ -1557,13 +1549,13 @@ function shell(content, activeId, model, data, auth = {}) {
     :root { color-scheme: dark; --bg: #0f1825; --nav: #122032; --panel: #142131; --panel-2: #1a2a3f; --text: #f3f7fc; --muted: #99abc1; --line: #30445e; --blue: #a8d6ff; --green: #4ade80; --yellow: #fbbf24; --red: #fb7185; --shadow: rgba(7, 18, 34, 0.18); }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top, rgba(170, 212, 255, 0.18), transparent 30%), var(--bg); color: var(--text); }
-    body.login-gated { color-scheme: light; background:
-      radial-gradient(circle at 16% 16%, rgba(76, 141, 255, 0.18), transparent 26%),
-      radial-gradient(circle at 78% 12%, rgba(14, 165, 233, 0.14), transparent 28%),
-      linear-gradient(180deg, #f7fbff 0%, #eef5fb 48%, #e8f0f8 100%); color: #0b1726; }
+    body.login-gated { color-scheme: dark; background:
+      radial-gradient(circle at 18% 12%, rgba(77, 147, 255, 0.22), transparent 28%),
+      radial-gradient(circle at 72% 18%, rgba(55, 210, 255, 0.12), transparent 30%),
+      linear-gradient(180deg, #0f1724 0%, #101a28 48%, #0b111a 100%); color: #f5f8fc; }
     header { padding: 10px 16px 8px; border-bottom: 1px solid var(--line); background: rgba(6, 8, 12, 0.92); backdrop-filter: blur(16px); position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 28px var(--shadow); }
-    header.login-header { padding: 14px 18px; background: rgba(247, 251, 255, 0.82); border-bottom-color: rgba(18, 38, 63, 0.08); box-shadow: none; position: relative; backdrop-filter: blur(16px); color: #0b1726; }
-    header.login-header .subhead { color: #64748b; }
+    header.login-header { padding: 14px 22px; background: rgba(9, 15, 24, 0.72); border-bottom-color: rgba(140, 177, 220, 0.12); box-shadow: none; position: relative; backdrop-filter: blur(18px); color: #f5f8fc; }
+    header.login-header .subhead { color: #8ea1b8; }
     .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .brand-lockup { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .logo-frame { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 40px; flex: 0 0 auto; border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; }
@@ -1611,42 +1603,40 @@ function shell(content, activeId, model, data, auth = {}) {
     .entitlement-alert-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
     .entitlement-alert-head strong { font-size: 13px; }
     .workspace-shell { display: grid; grid-template-columns: 160px minmax(0, 1fr) 220px; gap: 10px; align-items: start; }
-    .auth-shell { display: grid; grid-template-columns: minmax(460px, 1fr) minmax(340px, 420px); gap: 22px; align-items: stretch; justify-content: center; max-width: 1160px; margin: 20px auto 0; }
-    .auth-entry-shell { grid-template-columns: minmax(500px, 1.1fr) minmax(360px, 0.8fr); }
-    .auth-product-panel, .auth-side { position: relative; overflow: hidden; border-radius: 28px; border: 1px solid rgba(28, 62, 104, 0.12); box-shadow: 0 24px 70px rgba(23, 56, 96, 0.14); }
-    .auth-product-panel { min-height: 540px; background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(236, 246, 255, 0.9)),
-      radial-gradient(circle at 18% 22%, rgba(59, 130, 246, 0.2), transparent 28%); }
-    .auth-product-panel::before { content: ""; position: absolute; inset: 28px; border-radius: 24px; border: 1px solid rgba(56, 103, 163, 0.1); background:
-      linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
-      background-size: 32px 32px; mask-image: linear-gradient(180deg, #000, transparent 80%); }
-    .auth-side { align-self: center; padding: 34px 34px 30px; background: rgba(255, 255, 255, 0.9); color: #0b1726; backdrop-filter: blur(18px); }
-    .entry-side { align-self: center; min-height: 360px; display: flex; flex-direction: column; justify-content: center; }
-    .auth-mark-cloud { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-    .auth-mark-ghost { width: min(54%, 430px); height: auto; opacity: 0.18; filter: saturate(1.05) drop-shadow(0 20px 50px rgba(37, 99, 235, 0.2)); }
-    .orbit { position: absolute; border-radius: 999px; border: 1px solid rgba(37, 99, 235, 0.14); }
-    .orbit-one { width: 360px; height: 360px; transform: rotate(-18deg) scaleX(1.18); }
-    .orbit-two { width: 250px; height: 250px; transform: rotate(22deg) scaleX(1.28); border-color: rgba(14, 165, 233, 0.16); }
-    .pixel { position: absolute; width: 10px; height: 10px; border-radius: 3px; background: #2563eb; opacity: 0.26; }
-    .p1 { transform: translate(170px, -120px); }
-    .p2 { transform: translate(218px, -82px); width: 14px; height: 14px; }
-    .p3 { transform: translate(-210px, 132px); background: #0ea5e9; }
-    .p4 { transform: translate(88px, 170px); background: #38bdf8; }
-    .auth-kicker { display: inline-block; margin-bottom: 10px; color: #2563eb; font-size: 11px; font-weight: 900; letter-spacing: 0.2em; text-transform: uppercase; }
-    .auth-card-head h3, .auth-side h2 { color: #0b1726; font-size: 34px; line-height: 1.02; margin: 0; letter-spacing: 0; }
-    .auth-card-head p, .auth-lead { color: #52657c; font-size: 14px; margin-top: 10px; }
+    .auth-shell { display: grid; grid-template-columns: minmax(360px, 1fr) 360px; gap: 22px; align-items: stretch; justify-content: center; max-width: 1040px; margin: 28px auto 0; }
+    .auth-entry-shell { grid-template-columns: minmax(380px, 1fr) 360px; }
+    .auth-product-panel, .auth-side { position: relative; overflow: hidden; border-radius: 22px; }
+    .auth-product-panel { min-height: 500px; background:
+      radial-gradient(circle at 62% 40%, rgba(79, 142, 255, 0.24), transparent 20%),
+      radial-gradient(circle at 36% 62%, rgba(36, 211, 255, 0.1), transparent 24%),
+      linear-gradient(140deg, rgba(19, 31, 48, 0.14), rgba(5, 10, 18, 0.04)); }
+    .auth-product-panel::before { content: ""; position: absolute; inset: 32px; border-radius: 18px; background:
+      linear-gradient(120deg, transparent 0%, rgba(139, 184, 255, 0.08) 48%, transparent 52%),
+      linear-gradient(180deg, rgba(255,255,255,0.03), transparent); }
+    .auth-product-panel::after { content: ""; position: absolute; inset: auto 14% 14% 18%; height: 1px; background: linear-gradient(90deg, transparent, rgba(118, 184, 255, 0.5), transparent); box-shadow: 0 0 28px rgba(85, 164, 255, 0.32); }
+    .auth-orb { position: absolute; border-radius: 999px; filter: blur(2px); opacity: 0.62; }
+    .orb-a { width: 240px; height: 240px; left: 18%; top: 22%; background: radial-gradient(circle, rgba(78, 151, 255, 0.22), transparent 68%); }
+    .orb-b { width: 180px; height: 180px; right: 20%; bottom: 18%; background: radial-gradient(circle, rgba(65, 215, 255, 0.16), transparent 70%); }
+    .auth-line { position: absolute; height: 1px; width: 42%; background: linear-gradient(90deg, transparent, rgba(170, 206, 255, 0.42), transparent); transform-origin: center; }
+    .line-a { left: 24%; top: 42%; transform: rotate(-18deg); }
+    .line-b { right: 18%; top: 58%; transform: rotate(18deg); }
+    .auth-node { position: absolute; width: 8px; height: 8px; border-radius: 3px; background: rgba(96, 165, 250, 0.78); box-shadow: 0 0 18px rgba(96, 165, 250, 0.72); }
+    .node-a { left: 33%; top: 44%; }
+    .node-b { right: 31%; top: 54%; }
+    .node-c { right: 39%; bottom: 31%; width: 12px; height: 12px; }
+    .auth-side { align-self: center; padding: 30px; background: rgba(15, 26, 41, 0.84); color: #f6f9fd; backdrop-filter: blur(20px); border: 1px solid rgba(129, 160, 202, 0.22); box-shadow: 0 28px 80px rgba(0, 0, 0, 0.24); }
+    .entry-side { align-self: center; min-height: 300px; display: flex; flex-direction: column; justify-content: center; }
+    .auth-kicker { display: inline-block; margin-bottom: 9px; color: #9abcf1; font-size: 10px; font-weight: 900; letter-spacing: 0.22em; text-transform: uppercase; }
+    .auth-card-head h3, .auth-side h2 { color: #f6f9fd; font-size: 30px; line-height: 1.05; margin: 0; letter-spacing: 0; }
     .auth-form { display: grid; gap: 14px; margin-top: 24px; }
-    .auth-form input, .auth-form select, .auth-form textarea { min-height: 48px; border-radius: 14px; background: #f8fbff; border-color: #cbdbea; color: #0b1726; padding: 12px 13px; font-size: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.9); }
-    .auth-form textarea { min-height: 96px; }
-    .auth-form input::placeholder, .auth-form textarea::placeholder { color: #8aa0b8; }
-    .auth-form label { color: #13243a; }
-    .auth-submit-button, .auth-link-button.primary-action { width: 100%; min-height: 48px; border-radius: 14px; background: linear-gradient(180deg, #2563eb, #1d4ed8); border-color: #2563eb; color: #fff; box-shadow: 0 14px 28px rgba(37, 99, 235, 0.22); }
-    .auth-submit-button:hover, .auth-link-button.primary-action:hover { background: linear-gradient(180deg, #2f6ff4, #2358df); }
-    .auth-path-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 28px; max-width: 360px; }
-    .auth-link-button { min-height: 48px; border-radius: 14px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; }
-    .auth-mini-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; color: #52657c; }
-    .auth-mini-grid span { display: inline-flex; min-height: 28px; align-items: center; padding: 0 10px; border-radius: 999px; background: #eff6ff; border: 1px solid #d8e6f4; font-size: 12px; font-weight: 800; }
+    .auth-form input, .auth-form select, .auth-form textarea { min-height: 46px; border-radius: 12px; background: rgba(6, 12, 20, 0.78); border-color: rgba(130, 166, 211, 0.24); color: #f6f9fd; padding: 11px 12px; font-size: 14px; box-shadow: none; }
+    .auth-form textarea { min-height: 86px; }
+    .auth-form input::placeholder, .auth-form textarea::placeholder { color: #748aa5; }
+    .auth-form label { color: #e7edf6; }
+    .auth-submit-button, .auth-link-button.primary-action { width: 100%; min-height: 46px; border-radius: 12px; background: linear-gradient(180deg, #3976d6, #24599f); border-color: rgba(118, 174, 255, 0.28); color: #fff; box-shadow: 0 16px 36px rgba(26, 94, 185, 0.22); }
+    .auth-submit-button:hover, .auth-link-button.primary-action:hover { background: linear-gradient(180deg, #4383ec, #2e66b6); }
+    .auth-path-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 28px; max-width: 320px; }
+    .auth-link-button { min-height: 46px; border-radius: 12px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; }
     .auth-form .button-row { margin-top: 4px; }
     .auth-status-copy { margin-top: 2px; font-size: 12px; color: #64748b; }
     .auth-status-copy a { color: #2563eb; font-weight: 800; text-decoration: none; }
@@ -1814,11 +1804,11 @@ function shell(content, activeId, model, data, auth = {}) {
     .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
-    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .top-nav { margin-top: 8px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user, .attachment-bubble, .attachment-list { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } .auth-strip, .auth-actions, .auth-help-row { align-items: flex-start; flex-direction: column; } .auth-card-head h3, .auth-side h2 { font-size: 30px; } .auth-product-panel { min-height: 220px; } .auth-product-panel::before { inset: 18px; background-size: 26px 26px; } .auth-mark-ghost { width: 42%; } .orbit-one { width: 220px; height: 220px; } .orbit-two { width: 150px; height: 150px; } .auth-path-actions { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .top-nav { margin-top: 8px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user, .attachment-bubble, .attachment-list { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } .auth-strip, .auth-actions, .auth-help-row { align-items: flex-start; flex-direction: column; } .auth-card-head h3, .auth-side h2 { font-size: 28px; } .auth-product-panel { min-height: 180px; } .auth-product-panel::before { inset: 18px; } .auth-side { padding: 24px; } .auth-path-actions { grid-template-columns: 1fr; } }
     @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell, .auth-shell, .auth-entry-shell { grid-template-columns: 1fr; } .advanced-config, .project-rail { position: static; } .auth-side { order: -1; justify-self: stretch; } }
   </style>
 </head>
-<body class="${gated ? "login-gated" : ""}">
+<body class="${useAuthLayout ? "login-gated" : ""}">
   <header class="${headerClass}">
     <div class="brand-row">
       <div class="brand-lockup">
@@ -2612,6 +2602,7 @@ export async function renderConsolePage(pathname = "/", auth = null, options = {
   const resolvedAuth = normalizeRenderAuth(auth, data);
   data.renderAuth = resolvedAuth;
   data.authView = pathname === "/login" ? "login" : pathname === "/register" ? "register" : "entry";
+  data.authRoute = pathname === "/login" || pathname === "/register";
   const model = await buildConsoleDashboardModel(options);
   const gated = data.access?.summary?.allow_anonymous_console_read !== true && !resolvedAuth.authenticated;
   const route = consoleWebRoutes.find((item) => item.path === pathname) ?? consoleWebRoutes[0];
