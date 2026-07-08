@@ -72,6 +72,10 @@ function modelGatewayQueueAuditDir(projectId) {
   return resolve(repoRoot, "runtime/projects", projectId, "model-gateway-queue-audits");
 }
 
+function controlledWorkerQueueDir(projectId) {
+  return resolve(repoRoot, "runtime/projects", projectId, "controlled-worker-queue");
+}
+
 async function readJsonIfExists(path) {
   if (!existsSync(path)) return null;
   return JSON.parse(await readFile(path, "utf8"));
@@ -116,6 +120,10 @@ async function readModelGatewayProposalRecords(projectId) {
 
 async function readModelGatewayQueueAuditRecords(projectId) {
   return readProjectJsonRecords(modelGatewayQueueAuditDir(projectId), projectId);
+}
+
+async function readControlledWorkerQueueRecords(projectId) {
+  return readProjectJsonRecords(controlledWorkerQueueDir(projectId), projectId);
 }
 
 function parseStudioFieldMap(output) {
@@ -306,6 +314,63 @@ async function writeModelGatewayQueueInjectionAudit(projectId, proposalRecord, i
   await writeFile(resolve(repoRoot, relativePath), `${JSON.stringify(audit, null, 2)}\n`, "utf8");
   return {
     data: audit,
+    path: relativePath
+  };
+}
+
+async function writeControlledWorkerQueuePreflight(projectId, proposalRecord, auditRecord, input, plan) {
+  const now = new Date().toISOString();
+  const proposal = proposalRecord?.data ?? {};
+  const audit = auditRecord?.data ?? {};
+  const taskId = String(proposal.task_id || audit.task_id || proposal.invocation_id || `preflight-${createHash("sha1").update(`${projectId}:${now}`).digest("hex").slice(0, 8)}`);
+  const runtimeId = String(proposal.runtime_id || proposal.runtime || proposal.model_gateway_plan?.runtime_id || audit.proposal?.runtime_id || plan.runtime_id || "unknown");
+  const risk = String(proposal.risk || audit.risk || "MEDIUM");
+  const existingRecords = await readControlledWorkerQueueRecords(projectId);
+  const existing = existingRecords.find((record) => record.data?.task_id === taskId) ?? null;
+  const preflightId = existing?.data?.preflight_id
+    || `controlled-worker-preflight-${timestampForFile(now)}-${createHash("sha1").update(`${projectId}:${taskId}:${runtimeId}`).digest("hex").slice(0, 8)}`;
+  const record = {
+    schema_version: 1,
+    kind: "controlled_worker_queue_preflight_task",
+    preflight_id: preflightId,
+    task_id: taskId,
+    project_id: projectId,
+    created_at: existing?.data?.created_at || now,
+    updated_at: now,
+    status: "PREFLIGHT_READY",
+    source: proposal.source === "managed_model_gateway" ? "managed_model_gateway_proposal" : "project_proposal",
+    runtime_id: runtimeId,
+    worker_id: proposal.source === "managed_model_gateway" ? "managed-model-gateway" : "local-codex-1",
+    risk,
+    approval_status: proposal.approval_status || audit.approval_status || "APPROVED",
+    queue_audit_status: audit.status || "PASS",
+    execution_mode: "controlled_queue_preflight_only",
+    next_required_gate: "worker_claim_or_project_execute_explicit",
+    worker_claim_enabled: false,
+    model_invocation: "disabled",
+    credential_values_read: "no",
+    external_calls: "disabled",
+    managed_project_writes: "disabled",
+    production_operation: "disabled",
+    goal_text: proposal.goal_text || proposal.text || audit.proposal?.goal_text || "",
+    proposal_path: proposalRecord?.path || audit.proposal?.path || "",
+    queue_audit_path: auditRecord?.path || "",
+    requested_by: plan.requested_by ?? null,
+    safety: {
+      deploy: "disabled",
+      production_operation: "disabled",
+      credential_values: "not_read",
+      real_model_call: "disabled",
+      business_code_writes: "disabled",
+      allowed_next_step: "explicit_worker_queue_execution_gate"
+    }
+  };
+  const absoluteDir = controlledWorkerQueueDir(projectId);
+  await mkdir(absoluteDir, { recursive: true });
+  const relativePath = relative(repoRoot, join(absoluteDir, `${sanitizeFileName(taskId)}.json`));
+  await writeFile(resolve(repoRoot, relativePath), `${JSON.stringify(record, null, 2)}\n`, "utf8");
+  return {
+    data: record,
     path: relativePath
   };
 }
@@ -1440,11 +1505,13 @@ async function executeProposalApproveApplyFlow(plan, input) {
     const risk = String(selectedModelGateway.data?.risk || "MEDIUM");
     const existingModelGatewayAudit = modelGatewayAudits.find((record) => record.data?.task_id === taskId) ?? null;
     if (existingModelGatewayAudit?.data?.status === "PASS") {
+      const preflight = await writeControlledWorkerQueuePreflight(projectId, selectedModelGateway, existingModelGatewayAudit, input, plan);
       return {
         status: "PASS",
         exit_code: 0,
         stdout_summary: [
           `model gateway proposal ${taskId} 已存在 PASS 的 queue injection audit trace。`,
+          `controlled_worker_queue_preflight: ${preflight.path}`,
           "",
           summarizeProposalRecords(modelGatewayProposals),
           "",
@@ -1465,6 +1532,7 @@ async function executeProposalApproveApplyFlow(plan, input) {
     }
     const approved = await approveModelGatewayProposal(selectedModelGateway, input, plan);
     const audit = await writeModelGatewayQueueInjectionAudit(projectId, approved, input, plan);
+    const preflight = await writeControlledWorkerQueuePreflight(projectId, approved, audit, input, plan);
     const refreshedModelGatewayProposals = await readModelGatewayProposalRecords(projectId);
     const refreshedModelGatewayAudits = await readModelGatewayQueueAuditRecords(projectId);
     return {
@@ -1473,6 +1541,7 @@ async function executeProposalApproveApplyFlow(plan, input) {
       stdout_summary: [
         `model_gateway_proposal_approved: ${taskId}`,
         `queue_injection_audit: ${audit.path}`,
+        `controlled_worker_queue_preflight: ${preflight.path}`,
         "queue_injection_mode: audit_trace_only",
         "model_invocation: disabled",
         "credential_values_read: no",
@@ -1499,11 +1568,13 @@ async function executeProposalApproveApplyFlow(plan, input) {
   const risk = String(selected.data?.risk || "MEDIUM");
   const existingAudit = existingAudits.find((record) => record.data?.task_id === taskId) ?? null;
   if (existingAudit?.data?.status === "PASS") {
+    const preflight = await writeControlledWorkerQueuePreflight(projectId, selected, existingAudit, input, plan);
     return {
       status: "PASS",
       exit_code: 0,
       stdout_summary: [
         `proposal ${taskId} 已存在 PASS 的 queue injection audit trace，无需重复入队。`,
+        `controlled_worker_queue_preflight: ${preflight.path}`,
         "",
         summarizeProposalRecords(proposals),
         "",
@@ -1540,6 +1611,9 @@ async function executeProposalApproveApplyFlow(plan, input) {
   const stdout = summarizeStdout(result.stdout || result.stderr);
   const stderr = summarizeStdout(result.stderr);
   const precheckBlocked = /Project injection precheck failed:/i.test(`${result.stdout}\n${result.stderr}`);
+  const preflight = result.ok && refreshedAudit?.data?.status === "PASS"
+    ? await writeControlledWorkerQueuePreflight(projectId, refreshedProposals.find((record) => record.data?.task_id === taskId) ?? selected, refreshedAudit, input, plan)
+    : null;
 
   return {
     status: result.ok ? "PASS" : (precheckBlocked ? "BLOCKED" : "FAIL"),
@@ -1547,6 +1621,7 @@ async function executeProposalApproveApplyFlow(plan, input) {
     stdout_summary: result.ok
       ? [
           stdout,
+          preflight ? `controlled_worker_queue_preflight: ${preflight.path}` : "",
           "",
           summarizeProposalRecords(refreshedProposals),
           "",

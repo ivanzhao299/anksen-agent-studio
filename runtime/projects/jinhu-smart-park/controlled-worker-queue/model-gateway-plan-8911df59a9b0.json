@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "kind": "controlled_worker_queue_preflight_task",
+  "preflight_id": "controlled-worker-preflight-2026-07-08T061938299Z-9cbac4fc",
+  "task_id": "model-gateway-plan-8911df59a9b0",
+  "project_id": "jinhu-smart-park",
+  "created_at": "2026-07-08T06:19:38.299Z",
+  "updated_at": "2026-07-08T06:24:00.132Z",
+  "status": "PREFLIGHT_READY",
+  "source": "managed_model_gateway_proposal",
+  "runtime_id": "deepseek-chat",
+  "worker_id": "managed-model-gateway",
+  "risk": "MEDIUM",
+  "approval_status": "APPROVED",
+  "queue_audit_status": "PASS",
+  "execution_mode": "controlled_queue_preflight_only",
+  "next_required_gate": "worker_claim_or_project_execute_explicit",
+  "worker_claim_enabled": false,
+  "model_invocation": "disabled",
+  "credential_values_read": "no",
+  "external_calls": "disabled",
+  "managed_project_writes": "disabled",
+  "production_operation": "disabled",
+  "goal_text": "用 DeepSeek 生成派发计划闭环测试",
+  "proposal_path": "runtime/projects/jinhu-smart-park/model-gateway-proposals/model-gateway-plan-8911df59a9b0.json",
+  "queue_audit_path": "runtime/projects/jinhu-smart-park/model-gateway-queue-audits/model-gateway-plan-8911df59a9b0.json",
+  "requested_by": {
+    "user_id": "studio-owner",
+    "username": "owner",
+    "display_name": "Studio 平台所有者",
+    "roles": [
+      "platform_owner",
+      "security_admin"
+    ],
+    "plan_id": "internal_preview",
+    "feature_flags": [
+      "console_live_execute",
+      "multi_project_beta",
+      "real_runtime_visibility",
+      "pilot_team_beta",
+      "access_center_admin"
+    ]
+  },
+  "safety": {
+    "deploy": "disabled",
+    "production_operation": "disabled",
+    "credential_values": "not_read",
+    "real_model_call": "disabled",
+    "business_code_writes": "disabled",
+    "allowed_next_step": "explicit_worker_queue_execution_gate"
+  }
+}

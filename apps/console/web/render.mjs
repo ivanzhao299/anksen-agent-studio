@@ -648,7 +648,7 @@ function dispatchLifecyclePanel(data) {
     proposal: toneLabel(item.approval_status, item.approval_status === "APPROVED" ? "pass" : "proposal-only"),
     queue: `<div class="proposal-evidence">
       ${toneLabel(item.queue_audit_status, item.queue_audit_status === "PASS" ? "pass" : item.queue_audit_status === "missing" ? "local" : "blocked")}
-      <span class="help">queue: ${escapeHtml(item.queue_task_status)} / audit: ${escapeHtml(item.audit_id || "none")} / rebuild: ${escapeHtml(item.queue_rebuild_status || "unknown")}</span>
+      <span class="help">queue: ${escapeHtml(item.queue_task_status)} / audit: ${escapeHtml(item.audit_id || "none")} / preflight: ${escapeHtml(item.controlled_queue_status || "missing")} / rebuild: ${escapeHtml(item.queue_rebuild_status || "unknown")}</span>
     </div>`,
     next: `<div class="proposal-evidence">
       ${toneLabel(item.lifecycle_label, item.lifecycle)}
@@ -704,7 +704,7 @@ function proposalPanel(data) {
       lifecycle: toneLabel(lifecycleLabel, lifecycleTone),
       blocker: `<div class="proposal-evidence">
         ${toneLabel(blockerLabel, blockerTone)}
-        <span class="help">queue: ${escapeHtml(queueTaskStatus)} / audit: ${escapeHtml(queueAuditStatus)}${item.approved_by ? ` / by: ${escapeHtml(item.approved_by)}` : ""}</span>
+        <span class="help">queue: ${escapeHtml(queueTaskStatus)} / audit: ${escapeHtml(queueAuditStatus)} / preflight: ${escapeHtml(item.controlled_queue_status || "missing")}${item.approved_by ? ` / by: ${escapeHtml(item.approved_by)}` : ""}</span>
       </div>`,
       evidence: `<div class="proposal-evidence">
         <span class="help">${escapeHtml(item.audit_id || "no_audit_id")}${item.queue_event_file ? ` / event: ${escapeHtml(item.queue_event_file)}` : ""}</span>
@@ -2175,7 +2175,7 @@ function pageAutopilot(data) {
     approval: toneLabel(item.approval_status ?? "missing", (item.approval_status ?? "") === "APPROVED" ? "pass" : "proposal-only"),
     queue: `<div class="proposal-evidence">
       ${toneLabel(item.queue_audit_status ?? "missing", (item.queue_audit_status ?? "") === "PASS" ? "pass" : (item.queue_audit_status ?? "") === "missing" ? "local" : "blocked")}
-      <span class="help">queue: ${escapeHtml(item.queue_task_status ?? "pending")}</span>
+      <span class="help">queue: ${escapeHtml(item.queue_task_status ?? "pending")} / preflight: ${escapeHtml(item.controlled_queue_status ?? "missing")}</span>
     </div>`,
     next: `<div class="proposal-evidence">
       ${toneLabel(item.lifecycle_label ?? "待处理", item.lifecycle ?? "idle")}

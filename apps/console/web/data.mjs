@@ -277,6 +277,38 @@ async function readModelGatewayQueueInjectionAudits() {
   return audits;
 }
 
+async function readControlledWorkerQueuePreflightTasks() {
+  const projectsDir = resolve(repoRoot, "runtime/projects");
+  if (!existsSync(projectsDir)) return [];
+  const entries = await readdir(projectsDir, { withFileTypes: true });
+  const tasks = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const relativeDir = join("runtime/projects", entry.name, "controlled-worker-queue");
+    const absoluteDir = resolve(repoRoot, relativeDir);
+    if (!existsSync(absoluteDir)) continue;
+    const files = (await readdir(absoluteDir, { withFileTypes: true }))
+      .filter((file) => file.isFile() && file.name.endsWith(".json"))
+      .map((file) => join(relativeDir, file.name))
+      .sort();
+    for (const file of files) {
+      const data = await readJson(file, null);
+      if (!data) continue;
+      tasks.push({
+        project_id: entry.name,
+        path: file,
+        data
+      });
+    }
+  }
+  tasks.sort((left, right) => {
+    const leftDate = String(left.data?.updated_at ?? left.data?.created_at ?? "");
+    const rightDate = String(right.data?.updated_at ?? right.data?.created_at ?? "");
+    return rightDate.localeCompare(leftDate) || left.project_id.localeCompare(right.project_id);
+  });
+  return tasks;
+}
+
 function countArray(value, key) {
   if (Array.isArray(value)) return value.length;
   if (value && Array.isArray(value[key])) return value[key].length;
@@ -307,23 +339,27 @@ function lifecycleOrder(value) {
   }[token] ?? 9;
 }
 
-function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
+function buildProjectRouterLifecycle(dispatchPlans, proposals, audits, controlledQueueTasks = []) {
   const dispatchMap = new Map(dispatchPlans.map((item) => [item.data?.task_id ?? item.path, item]));
   const proposalMap = new Map(proposals.map((item) => [item.data?.task_id ?? item.path, item]));
   const auditMap = new Map(audits.map((item) => [item.data?.task_id ?? item.path, item]));
+  const controlledQueueMap = new Map(controlledQueueTasks.map((item) => [item.data?.task_id ?? item.path, item]));
   const taskIds = new Set([
     ...dispatchMap.keys(),
     ...proposalMap.keys(),
-    ...auditMap.keys()
+    ...auditMap.keys(),
+    ...controlledQueueMap.keys()
   ]);
 
   const records = [...taskIds].map((taskId) => {
     const dispatch = dispatchMap.get(taskId);
     const proposal = proposalMap.get(taskId);
     const audit = auditMap.get(taskId);
+    const controlledQueue = controlledQueueMap.get(taskId);
     const dispatchData = dispatch?.data ?? {};
     const proposalData = proposal?.data ?? {};
     const auditData = audit?.data ?? {};
+    const controlledQueueData = controlledQueue?.data ?? {};
     const risk = firstValue(proposalData, ["risk"], firstValue(dispatchData, ["task_candidate.risk"], "MEDIUM"));
     const approvalStatus = firstValue(proposalData, ["approval_status"], "PROPOSED");
     const queueAuditStatus = firstValue(auditData, ["status"], "missing");
@@ -388,6 +424,10 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
       queue_event_file: firstValue(auditData, ["injection.event_file"], ""),
       queue_rebuild_status: firstValue(auditData, ["injection.rebuild_status"], ""),
       queue_rebuild_exit_code: firstValue(auditData, ["injection.rebuild_exit_code"], ""),
+      controlled_queue_status: firstValue(controlledQueueData, ["status"], "missing"),
+      controlled_queue_preflight_id: firstValue(controlledQueueData, ["preflight_id"], ""),
+      controlled_queue_worker_claim_enabled: firstValue(controlledQueueData, ["worker_claim_enabled"], false),
+      controlled_queue_next_gate: firstValue(controlledQueueData, ["next_required_gate"], ""),
       dispatch_stage: dispatchStage,
       next_stage: nextStage,
       next_command: nextCommand,
@@ -401,9 +441,11 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
       proposal_path: proposal?.path ?? "",
       dispatch_path: dispatch?.path ?? "",
       audit_path: audit?.path ?? "",
+      controlled_queue_path: controlledQueue?.path ?? "",
       proposal: proposalData,
       dispatch: dispatchData,
-      audit: auditData
+      audit: auditData,
+      controlled_queue: controlledQueueData
     };
   }).sort((left, right) =>
     lifecycleOrder(left.lifecycle) - lifecycleOrder(right.lifecycle)
@@ -418,14 +460,15 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits) {
     ready_inject: records.filter((item) => item.lifecycle === "ready_inject").length,
     injected: records.filter((item) => item.lifecycle === "injected").length,
     blocked: records.filter((item) => item.lifecycle === "blocked").length,
-    proposal_missing: records.filter((item) => item.lifecycle === "proposal_missing").length
+    proposal_missing: records.filter((item) => item.lifecycle === "proposal_missing").length,
+    controlled_queue_ready: records.filter((item) => item.controlled_queue_status === "PREFLIGHT_READY").length
   };
 
   const directActions = records.filter((item) => item.lifecycle === "ready_inject").map((item) => `${item.task_id}：审批并入队`);
   const approvalItems = records.filter((item) => item.lifecycle === "needs_approval").map((item) => `${item.task_id}：${item.blockers[0] ?? item.lifecycle_label}`);
   const proposalOnlyItems = records.filter((item) => item.lifecycle === "proposal_only").map((item) => `${item.task_id}：${item.blockers[0] ?? item.lifecycle_label}`);
   const blockerItems = records.filter((item) => item.lifecycle === "blocked" || item.lifecycle === "proposal_missing").map((item) => `${item.task_id}：${item.blockers[0] ?? item.lifecycle_label}`);
-  const completedItems = records.filter((item) => item.lifecycle === "injected").map((item) => `${item.task_id}：queue=${item.queue_task_status} / audit=PASS`);
+  const completedItems = records.filter((item) => item.lifecycle === "injected").map((item) => `${item.task_id}：queue=${item.queue_task_status} / audit=PASS / preflight=${item.controlled_queue_status}`);
 
   let nextRecommendation = "先生成项目派发计划，形成 proposal -> queue audit 的闭环。";
   if (summary.pending_approval > 0) {
@@ -482,7 +525,8 @@ export async function loadConsoleLocalData(options = {}) {
     projectProposals,
     projectQueueInjectionAudits,
     modelGatewayProposals,
-    modelGatewayQueueInjectionAudits
+    modelGatewayQueueInjectionAudits,
+    controlledWorkerQueuePreflightTasks
   ] = await Promise.all([
     readJson(dataFiles.platformState, {}),
     readJson(dataFiles.roadmapMemory, {}),
@@ -512,7 +556,8 @@ export async function loadConsoleLocalData(options = {}) {
     readProjectProposals(),
     readProjectQueueInjectionAudits(),
     readModelGatewayProposals(),
-    readModelGatewayQueueInjectionAudits()
+    readModelGatewayQueueInjectionAudits(),
+    readControlledWorkerQueuePreflightTasks()
   ]);
 
   const runtimeProfiles = runtimeCenterExamples.find((item) => item.path.endsWith("runtime-profiles.example.json"))?.data;
@@ -563,7 +608,7 @@ export async function loadConsoleLocalData(options = {}) {
   }));
   const allProjectProposals = [...projectProposals, ...modelGatewayProposals];
   const allProjectQueueInjectionAudits = [...projectQueueInjectionAudits, ...modelGatewayQueueInjectionAudits];
-  const projectRouterLifecycle = buildProjectRouterLifecycle(projectDispatchPlans, allProjectProposals, allProjectQueueInjectionAudits);
+  const projectRouterLifecycle = buildProjectRouterLifecycle(projectDispatchPlans, allProjectProposals, allProjectQueueInjectionAudits, controlledWorkerQueuePreflightTasks);
   const activeProjectId = resolveActiveProjectId(options.activeProjectId, projectRegistry);
   const activeProject = projectRegistry.find((project) => project.project_id === activeProjectId) ?? projectRegistry[0] ?? null;
   const activeProjectState = projectStates.find((project) => project.project_id === activeProjectId)?.data
@@ -602,6 +647,8 @@ export async function loadConsoleLocalData(options = {}) {
       project_queue_injection_audits: projectQueueInjectionAudits,
       model_gateway_queue_injection_audits: modelGatewayQueueInjectionAudits,
       model_gateway_queue_injection_audit_count: modelGatewayQueueInjectionAudits.length,
+      controlled_worker_queue_preflight_tasks: controlledWorkerQueuePreflightTasks,
+      controlled_worker_queue_preflight_count: controlledWorkerQueuePreflightTasks.length,
       lifecycle_records: projectRouterLifecycle.records,
       lifecycle_summary: projectRouterLifecycle.summary,
       lifecycle_next_recommendation: projectRouterLifecycle.next_recommendation,
