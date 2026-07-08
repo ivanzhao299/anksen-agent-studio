@@ -9207,6 +9207,7 @@ async function consoleAgentStatus(args) {
   console.log(`- default_invocation: ${status.safety.default_invocation}`);
   console.log(`- codex_sandbox: ${status.safety.codex_sandbox}`);
   console.log(`- claude_tools: ${status.safety.claude_tools}`);
+  if (status.safety.openhands) console.log(`- openhands: ${status.safety.openhands}`);
 }
 
 async function consoleService(args) {
@@ -10042,8 +10043,8 @@ async function consoleActionServerSmoke(args) {
     && attachmentPlan.plan.attachment_count === 1
     && Array.isArray(attachmentPlan.plan.attachments)
     && attachmentPlan.plan.attachments[0]?.stored_path?.includes("autopilot-runs/console-actions/uploads/");
-  const aiRuntimeCheck = aiRuntimeStatus.runtimes.some((runtime) => runtime.runtime_id === "codex-cli")
-    && aiRuntimeStatus.runtimes.some((runtime) => runtime.runtime_id === "claude-code")
+  const expectedRuntimeIds = ["codex-cli", "claude-code", "gemini-cli", "aider", "local-agent", "openhands"];
+  const aiRuntimeCheck = expectedRuntimeIds.every((runtimeId) => aiRuntimeStatus.runtimes.some((runtime) => runtime.runtime_id === runtimeId))
     && aiRuntimeStatus.safety.console_reads_secret_values === false
     && aiRuntimeStatus.safety.console_stores_secret_values === false;
   const governanceCheck = runtimePlan.plan.governance_gate === "ALLOW_DIRECT_EXECUTE"

@@ -900,9 +900,13 @@ async function completeAgentRuntimeUnavailableFallback(run, input, commandName) 
 }
 
 export async function detectLocalAiRuntimes() {
-  const [codex, claude] = await Promise.all([
+  const [codex, claude, gemini, aider, localAgent, openhands] = await Promise.all([
     detectCommand("codex"),
-    detectCommand("claude")
+    detectCommand("claude"),
+    detectCommand("gemini"),
+    detectCommand("aider"),
+    detectCommand("local-agent"),
+    detectCommand("openhands")
   ]);
   return {
     schema_version: 1,
@@ -929,6 +933,51 @@ export async function detectLocalAiRuntimes() {
         invocation_mode: "claude --print --bare",
         credential_policy: "external_cli_session_or_env",
         secret_values_read_by_console: false
+      },
+      {
+        runtime_id: "gemini-cli",
+        provider: "google",
+        command: gemini.command,
+        installed: gemini.installed,
+        path: gemini.path,
+        version: gemini.version,
+        invocation_mode: "gemini CLI",
+        credential_policy: "external_cli_session_or_env",
+        secret_values_read_by_console: false
+      },
+      {
+        runtime_id: "aider",
+        provider: "aider",
+        command: aider.command,
+        installed: aider.installed,
+        path: aider.path,
+        version: aider.version,
+        invocation_mode: "aider CLI",
+        credential_policy: "external_model_env_or_config",
+        secret_values_read_by_console: false
+      },
+      {
+        runtime_id: "local-agent",
+        provider: "local-runtime",
+        command: localAgent.command,
+        installed: localAgent.installed,
+        path: localAgent.path,
+        version: localAgent.version,
+        invocation_mode: "deterministic local helper",
+        credential_policy: "not_required",
+        secret_values_read_by_console: false
+      },
+      {
+        runtime_id: "openhands",
+        provider: "openhands",
+        command: openhands.command,
+        installed: openhands.installed,
+        path: openhands.path,
+        version: openhands.version,
+        invocation_mode: "remote-worker/proposal-only",
+        credential_policy: "external_worker_reference",
+        secret_values_read_by_console: false,
+        proposal_only: true
       }
     ],
     safety: {
@@ -936,7 +985,8 @@ export async function detectLocalAiRuntimes() {
       console_stores_secret_values: false,
       default_invocation: "user_selected_only",
       codex_sandbox: "read-only",
-      claude_tools: "Bash/Edit/Write/MultiEdit/NotebookEdit disallowed"
+      claude_tools: "Bash/Edit/Write/MultiEdit/NotebookEdit disallowed",
+      openhands: "remote worker remains HIGH/proposal_only until approved"
     }
   };
 }
