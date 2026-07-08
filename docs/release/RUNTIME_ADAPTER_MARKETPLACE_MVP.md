@@ -4,7 +4,7 @@
 
 V4-K defines a shared Runtime Adapter Marketplace so Agent Studio can describe different AI and Agent execution paths behind one dry-run contract.
 
-The MVP registers adapters for Codex CLI, Claude Code, Gemini CLI, OpenHands, Aider, and Local Agent. It does not invoke models, run CLIs, open browsers, call webhooks, start remote workers, read credential values, connect to servers, deploy, or perform production operations.
+The MVP registers adapters for Codex CLI, Claude Code, Gemini CLI, DeepSeek, Qwen/DashScope, OpenHands, Aider, and Local Agent. It does not invoke models, run unsafe CLIs, open browsers, call webhooks, start remote workers, read credential values, connect to servers, deploy, or perform production operations.
 
 ## Package
 
@@ -35,6 +35,8 @@ Initial adapters:
 | `codex-cli` | `cli` | required | yes | yes | MEDIUM |
 | `claude-code` | `cli` | required | yes | yes | MEDIUM |
 | `gemini-cli` | `cli` | required | yes | yes | MEDIUM |
+| `deepseek-chat` | `api` | required | yes | yes | MEDIUM |
+| `qwen-plus` | `api` | required | yes | yes | MEDIUM |
 | `openhands` | `remote-worker` | required | yes | yes | HIGH |
 | `aider` | `cli` | required | yes | yes | MEDIUM |
 | `local-agent` | `cli` | not required | no | yes | LOW |

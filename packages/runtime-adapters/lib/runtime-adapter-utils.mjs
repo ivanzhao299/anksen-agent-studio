@@ -12,7 +12,16 @@ export const runtimeAdapterPaths = {
   result: resolve(packageRoot, "examples/adapter-result.example.json")
 };
 
-const requiredAdapters = ["codex-cli", "claude-code", "gemini-cli", "openhands", "aider", "local-agent"];
+const requiredAdapters = [
+  "codex-cli",
+  "claude-code",
+  "gemini-cli",
+  "deepseek-chat",
+  "qwen-plus",
+  "openhands",
+  "aider",
+  "local-agent"
+];
 const requiredGuardrails = [
   "dry_run_invocation_plan_only",
   "no_model_invocation",

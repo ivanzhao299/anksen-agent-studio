@@ -76,6 +76,22 @@
       "scope_notes": "Codex CLI may use local reference metadata only. Secret values remain outside Studio."
     },
     {
+      "runtime_id": "deepseek-chat",
+      "credential_reference_id": "deepseek-platform-ref",
+      "environment": "local",
+      "allowed_backends": ["local-env-ref", "macos-keychain-ref"],
+      "production_allowed": false,
+      "scope_notes": "DeepSeek is available through admin-managed reference metadata. Studio never reads DEEPSEEK_API_KEY."
+    },
+    {
+      "runtime_id": "qwen-plus",
+      "credential_reference_id": "qwen-platform-ref",
+      "environment": "local",
+      "allowed_backends": ["local-env-ref", "macos-keychain-ref"],
+      "production_allowed": false,
+      "scope_notes": "Qwen/DashScope is available through admin-managed reference metadata. Studio never reads DASHSCOPE_API_KEY."
+    },
+    {
       "runtime_id": "local-agent",
       "credential_reference_id": "local-runtime-none",
       "environment": "local",

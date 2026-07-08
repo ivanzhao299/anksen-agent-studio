@@ -30,6 +30,24 @@
       "notes": "Used by Gemini CLI/API compatible runtimes."
     },
     {
+      "provider_id": "deepseek",
+      "provider_name": "DeepSeek",
+      "provider_type": "api",
+      "auth_modes": ["api_key", "platform_managed"],
+      "capabilities": ["code_development", "validation_testing", "data_integration", "planning"],
+      "health_status": "healthy",
+      "notes": "Domestic API runtime for customers who cannot self-provision overseas agent accounts. Studio stores only credential references."
+    },
+    {
+      "provider_id": "qwen",
+      "provider_name": "Qwen / DashScope",
+      "provider_type": "api",
+      "auth_modes": ["api_key", "platform_managed"],
+      "capabilities": ["code_development", "validation_testing", "document_generation", "planning"],
+      "health_status": "healthy",
+      "notes": "Domestic API runtime option. Admin can bind a reference for team usage without exposing secret values to users."
+    },
+    {
       "provider_id": "openhands",
       "provider_name": "OpenHands",
       "provider_type": "remote-worker",

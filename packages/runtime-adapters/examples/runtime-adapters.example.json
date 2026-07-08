@@ -70,6 +70,56 @@
       ]
     },
     {
+      "adapter_id": "deepseek-chat",
+      "runtime_id": "deepseek-chat",
+      "provider": "deepseek",
+      "invoke_mode": "api",
+      "supported_skills": ["code_development", "validation_testing", "data_integration", "planning"],
+      "credential_reference_required": true,
+      "credential_reference_id": "deepseek-platform-ref",
+      "network_required": true,
+      "workspace_required": true,
+      "max_parallel_tasks": 4,
+      "health_status": "healthy",
+      "risk_baseline": "MEDIUM",
+      "guardrails": [
+        "dry_run_invocation_plan_only",
+        "no_model_invocation",
+        "admin_managed_reference_only",
+        "no_secret_value_read",
+        "no_deploy",
+        "no_production_operation",
+        "no_managed_project_write",
+        "proposal_required_for_high_risk"
+      ],
+      "notes": "Domestic API adapter. Studio stores only a credential reference and does not call the model during invoke-plan."
+    },
+    {
+      "adapter_id": "qwen-plus",
+      "runtime_id": "qwen-plus",
+      "provider": "qwen",
+      "invoke_mode": "api",
+      "supported_skills": ["code_development", "validation_testing", "document_generation", "planning"],
+      "credential_reference_required": true,
+      "credential_reference_id": "qwen-platform-ref",
+      "network_required": true,
+      "workspace_required": true,
+      "max_parallel_tasks": 4,
+      "health_status": "healthy",
+      "risk_baseline": "MEDIUM",
+      "guardrails": [
+        "dry_run_invocation_plan_only",
+        "no_model_invocation",
+        "admin_managed_reference_only",
+        "no_secret_value_read",
+        "no_deploy",
+        "no_production_operation",
+        "no_managed_project_write",
+        "proposal_required_for_high_risk"
+      ],
+      "notes": "Qwen/DashScope API adapter. Available through plan entitlement and reference-only credential binding."
+    },
+    {
       "adapter_id": "openhands",
       "runtime_id": "openhands",
       "provider": "openhands",

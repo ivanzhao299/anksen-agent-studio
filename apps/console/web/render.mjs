@@ -141,7 +141,9 @@ function aiAgentOptions() {
     formOption("auto", "自动选择", true),
     formOption("codex-cli", "Codex CLI"),
     formOption("claude-code", "Claude Code"),
-    formOption("gemini", "Gemini"),
+    formOption("gemini-cli", "Gemini CLI"),
+    formOption("deepseek-chat", "DeepSeek"),
+    formOption("qwen-plus", "通义千问"),
     formOption("openhands", "OpenHands"),
     formOption("aider", "Aider"),
     formOption("local-agent", "Local Agent")

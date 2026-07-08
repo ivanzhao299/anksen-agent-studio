@@ -23,7 +23,18 @@ const studioScript = "packages/orchestrator-core/bin/studio.mjs";
 const actionRuns = new Map();
 const terminalRunStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED"]);
 const actionTimeoutMs = 180000;
-const liveAgentRuntimeIds = new Set(["codex-cli", "claude-code"]);
+const liveCliAgentRuntimeIds = new Set(["codex-cli", "claude-code"]);
+const selectableAgentRuntimeIds = new Set([
+  "codex-cli",
+  "claude-code",
+  "gemini-cli",
+  "gemini",
+  "deepseek-chat",
+  "qwen-plus",
+  "openhands",
+  "aider",
+  "local-agent"
+]);
 const maxAttachmentCount = 6;
 const maxAttachmentBytes = 8 * 1024 * 1024;
 
@@ -314,18 +325,24 @@ function normalizeWorkspaceMode(input = {}) {
 }
 
 function normalizeRequestedAgent(input = {}) {
-  return String(input.agent || "auto");
+  const requested = String(input.agent || "auto").trim() || "auto";
+  return requested === "gemini" ? "gemini-cli" : requested;
 }
 
 function resolveExecutionAgent(input = {}) {
   const requested = normalizeRequestedAgent(input);
-  if (liveAgentRuntimeIds.has(requested)) {
-    return { requested, effective: requested, fallback: false };
+  if (selectableAgentRuntimeIds.has(requested)) {
+    return {
+      requested,
+      effective: requested,
+      fallback: false,
+      direct_cli: liveCliAgentRuntimeIds.has(requested)
+    };
   }
   if (!requested || requested === "auto") {
-    return { requested: "auto", effective: "codex-cli", fallback: false };
+    return { requested: "auto", effective: "codex-cli", fallback: false, direct_cli: true };
   }
-  return { requested, effective: "codex-cli", fallback: true };
+  return { requested, effective: "codex-cli", fallback: true, direct_cli: true };
 }
 
 function inferWorkspaceActionId(input = {}) {
@@ -336,7 +353,7 @@ function inferWorkspaceActionId(input = {}) {
   if (mode === "plan_only") return "goal-plan";
   if (mode === "agent") return "agent-real-plan";
   if (hasAttachments) return "agent-real-plan";
-  if (liveAgentRuntimeIds.has(requestedAgent)) return "agent-real-plan";
+  if (selectableAgentRuntimeIds.has(requestedAgent)) return "agent-real-plan";
   if (goal.includes("阻断") || goal.includes("blocker") || goal.includes("blocked")) return "project-inspect";
   if (goal.includes("上线") || goal.includes("go-live") || goal.includes("golive")) return "project-dispatch";
   if (goal.includes("接入项目") || goal.includes("连接项目") || goal.includes("github") || goal.includes("仓库接入") || goal.includes("本地项目")) return "project-connect-dry-run";
@@ -609,7 +626,7 @@ function realAgentPromptFor(input, attachments = []) {
 }
 
 function realAgentCommandFor(input, attachments = []) {
-  const agent = String(input.agent || "codex-cli");
+  const agent = normalizeRequestedAgent(input);
   const prompt = realAgentPromptFor(input, attachments);
   if (agent === "claude-code") {
     return {
@@ -622,6 +639,23 @@ function realAgentCommandFor(input, attachments = []) {
         prompt
       ],
       display: `claude --print --bare --disallowedTools Bash,Edit,Write,MultiEdit,NotebookEdit "<prompt>"`
+    };
+  }
+  if (agent !== "codex-cli") {
+    const runtimeId = selectableAgentRuntimeIds.has(agent) ? agent : "codex-cli";
+    return {
+      command: process.execPath,
+      args: [
+        studioScript,
+        "adapter",
+        "invoke-plan",
+        "--runtime",
+        runtimeId,
+        "--skill",
+        "code_development",
+        "--dry-run"
+      ],
+      display: `node ${studioScript} adapter invoke-plan --runtime ${runtimeId} --skill code_development --dry-run`
     };
   }
   return {
@@ -790,7 +824,9 @@ function buildPlan(input, access = {}) {
       credential_values: "not_read",
       credential_storage: "disabled",
       managed_project_writes: "disabled",
-      external_model_call: actionId === "agent-real-plan" ? "user_selected_local_cli_runtime" : "disabled"
+      external_model_call: actionId === "agent-real-plan" && agentSelection.direct_cli
+        ? "user_selected_local_cli_runtime"
+        : "disabled_or_invoke_plan_only"
     }
   };
   const command = commandFor({ ...input, action_id: actionId, project_id: projectId }, plan);
@@ -957,6 +993,32 @@ export async function detectLocalAiRuntimes() {
         secret_values_read_by_console: false
       },
       {
+        runtime_id: "deepseek-chat",
+        provider: "deepseek",
+        command: "platform-managed-api",
+        installed: true,
+        path: "credential-reference:deepseek-platform-ref",
+        version: "reference-only",
+        invocation_mode: "adapter invoke-plan / proposal flow",
+        credential_policy: "admin_managed_reference",
+        secret_values_read_by_console: false,
+        managed_by_admin: true,
+        direct_model_call_by_console: false
+      },
+      {
+        runtime_id: "qwen-plus",
+        provider: "qwen",
+        command: "platform-managed-api",
+        installed: true,
+        path: "credential-reference:qwen-platform-ref",
+        version: "reference-only",
+        invocation_mode: "adapter invoke-plan / proposal flow",
+        credential_policy: "admin_managed_reference",
+        secret_values_read_by_console: false,
+        managed_by_admin: true,
+        direct_model_call_by_console: false
+      },
+      {
         runtime_id: "local-agent",
         provider: "local-runtime",
         command: localAgent.command,
@@ -986,7 +1048,8 @@ export async function detectLocalAiRuntimes() {
       default_invocation: "user_selected_only",
       codex_sandbox: "read-only",
       claude_tools: "Bash/Edit/Write/MultiEdit/NotebookEdit disallowed",
-      openhands: "remote worker remains HIGH/proposal_only until approved"
+      openhands: "remote worker remains HIGH/proposal_only until approved",
+      domestic_models: "DeepSeek/Qwen are reference-only and routed through invoke-plan until a managed API gateway is approved"
     }
   };
 }
@@ -1044,6 +1107,8 @@ async function executeProjectDispatchFlow(plan, input) {
   const proposals = await readProjectProposalRecords(projectId);
   const pending = findPendingProposal(proposals);
   const summary = [
+    `selected_agent: ${plan.agent || plan.runtime_id || "auto"}`,
+    `runtime_id: ${plan.runtime_id || "auto"}`,
     `dispatch_plan: ${dispatchFields.pipeline_stage || "unknown"}`,
     `recommended_next_stage: ${dispatchFields.recommended_next_stage || "unknown"}`,
     proposalCreated

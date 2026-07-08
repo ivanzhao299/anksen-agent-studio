@@ -6,8 +6,8 @@ Agent Runtime Center makes ANKSEN Agent Studio runtime-neutral. The platform sho
 
 ## MVP Scope
 
-- Maintain a provider registry for OpenAI, Anthropic, Google, OpenHands, Aider, and Local Runtime.
-- Maintain runtime profiles for `codex-cli`, `claude-code`, `gemini-cli`, `openhands`, `aider`, and `local-agent`.
+- Maintain a provider registry for OpenAI, Anthropic, Google, DeepSeek, Qwen/DashScope, OpenHands, Aider, and Local Runtime.
+- Maintain runtime profiles for `codex-cli`, `claude-code`, `gemini-cli`, `deepseek-chat`, `qwen-plus`, `openhands`, `aider`, and `local-agent`.
 - Store credential references only; never store real API keys, SSH keys, tokens, or passwords.
 - Provide a registry-based health check that reports provider, runtime, status, auth reference state, and available skills.
 - Enrich Skill Router metadata so task type can influence runtime selection before agent assignment.
@@ -36,6 +36,7 @@ Skill Router remains the first routing layer, but each skill may now include run
 
 - ERP/frontend/UI code: prefer `claude-code`, fallback `codex-cli`.
 - General guarded code work: default `codex-cli`.
+- Domestic customer default: route to `deepseek-chat` or `qwen-plus` when the user's plan allows admin-managed runtime references.
 - Document generation: route to document runtime before code agents.
 - Image generation: route to image runtime before code agents.
 - Validation and Doctor tasks: route to deterministic local scripts or `codex-cli`.

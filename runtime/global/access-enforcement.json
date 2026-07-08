@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-07T13:12:54.896Z",
+  "generated_at": "2026-07-08T03:48:10.138Z",
   "policy_id": "studio-access-policy-mvp",
   "workspace_id": "anksen-agent-studio-local",
   "evaluated_user": {
@@ -30,7 +30,10 @@
   "runtime_allowlist": [
     "codex-cli",
     "claude-code",
+    "gemini-cli",
     "gemini",
+    "deepseek-chat",
+    "qwen-plus",
     "openhands",
     "aider",
     "local-agent",
@@ -53,6 +56,7 @@
   ],
   "allowed_direct_action_ids": [
     "agent-real-plan",
+    "project-connect-apply",
     "autopilot-execute",
     "smart-park-continue",
     "smart-park-blockers",
@@ -205,7 +209,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -259,7 +266,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -312,7 +322,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -365,7 +378,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -418,7 +434,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -471,7 +490,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -524,7 +546,122 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "project-connect-dry-run",
+      "execution_mode": "dry_run_only",
+      "project_scoped": false,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "access.manage"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "MEDIUM",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini-cli",
+          "gemini",
+          "deepseek-chat",
+          "qwen-plus",
+          "openhands",
+          "aider",
+          "local-agent",
+          "auto"
+        ]
+      },
+      "reason": "账号 owner 已通过 Access Center 校验。"
+    },
+    {
+      "action_id": "project-connect-apply",
+      "execution_mode": "direct_execute",
+      "project_scoped": false,
+      "status": "ALLOW",
+      "required_capabilities": [
+        "console.access",
+        "access.manage"
+      ],
+      "missing_capabilities": [],
+      "effective_capabilities": [
+        "console.access",
+        "console.attachments",
+        "context.read",
+        "project.read",
+        "runtime.read",
+        "worker.read",
+        "credential.read",
+        "governance.read",
+        "autopilot.plan",
+        "autopilot.execute.local",
+        "proposal.review",
+        "proposal.create",
+        "proposal.approve",
+        "proposal.reject",
+        "production.request",
+        "agent.runtime.readonly",
+        "agent.runtime.status",
+        "access.manage",
+        "multi_project.visible",
+        "smart_park.workspace",
+        "*"
+      ],
+      "direct_execute_max_risk": "MEDIUM",
+      "project_scope": [
+        "*"
+      ],
+      "plan_limits": {
+        "seat_limit": 25,
+        "project_scope_limit": 999,
+        "worker_parallel_limit": 4,
+        "runtime_allowlist": [
+          "codex-cli",
+          "claude-code",
+          "gemini-cli",
+          "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -577,7 +714,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -630,7 +770,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -683,7 +826,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -736,7 +882,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -789,7 +938,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -843,7 +995,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -897,7 +1052,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -951,7 +1109,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -1004,7 +1165,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -1057,7 +1221,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -1110,7 +1277,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -1163,7 +1333,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -1216,7 +1389,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -1269,7 +1445,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -1322,7 +1501,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -1375,7 +1557,10 @@
         "runtime_allowlist": [
           "codex-cli",
           "claude-code",
+          "gemini-cli",
           "gemini",
+          "deepseek-chat",
+          "qwen-plus",
           "openhands",
           "aider",
           "local-agent",
@@ -1388,7 +1573,7 @@
   "summary": {
     "visible_route_count": 12,
     "blocked_route_count": 0,
-    "allowed_action_count": 23,
+    "allowed_action_count": 25,
     "blocked_action_count": 0
   }
 }

@@ -9208,6 +9208,7 @@ async function consoleAgentStatus(args) {
   console.log(`- codex_sandbox: ${status.safety.codex_sandbox}`);
   console.log(`- claude_tools: ${status.safety.claude_tools}`);
   if (status.safety.openhands) console.log(`- openhands: ${status.safety.openhands}`);
+  if (status.safety.domestic_models) console.log(`- domestic_models: ${status.safety.domestic_models}`);
 }
 
 async function consoleService(args) {
@@ -10043,7 +10044,16 @@ async function consoleActionServerSmoke(args) {
     && attachmentPlan.plan.attachment_count === 1
     && Array.isArray(attachmentPlan.plan.attachments)
     && attachmentPlan.plan.attachments[0]?.stored_path?.includes("autopilot-runs/console-actions/uploads/");
-  const expectedRuntimeIds = ["codex-cli", "claude-code", "gemini-cli", "aider", "local-agent", "openhands"];
+  const expectedRuntimeIds = [
+    "codex-cli",
+    "claude-code",
+    "gemini-cli",
+    "deepseek-chat",
+    "qwen-plus",
+    "aider",
+    "local-agent",
+    "openhands"
+  ];
   const aiRuntimeCheck = expectedRuntimeIds.every((runtimeId) => aiRuntimeStatus.runtimes.some((runtime) => runtime.runtime_id === runtimeId))
     && aiRuntimeStatus.safety.console_reads_secret_values === false
     && aiRuntimeStatus.safety.console_stores_secret_values === false;

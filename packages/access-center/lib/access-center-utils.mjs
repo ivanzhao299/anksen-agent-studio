@@ -34,7 +34,18 @@ const directExecuteActionIds = new Set([
   "release-reviewed-publish",
   "proposal-approve-apply"
 ]);
-const agentRuntimeIds = new Set(["auto", "codex-cli", "claude-code", "gemini", "openhands", "aider", "local-agent"]);
+const agentRuntimeIds = new Set([
+  "auto",
+  "codex-cli",
+  "claude-code",
+  "gemini-cli",
+  "gemini",
+  "deepseek-chat",
+  "qwen-plus",
+  "openhands",
+  "aider",
+  "local-agent"
+]);
 
 const consoleActionCatalog = {
   "workspace-goal": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },

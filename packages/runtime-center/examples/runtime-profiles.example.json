@@ -54,6 +54,40 @@
       "notes": "Reserved for Google runtime compatibility checks and multimodal research workflows."
     },
     {
+      "runtime_id": "deepseek-chat",
+      "adapter_id": "deepseek-chat",
+      "provider": "deepseek",
+      "invoke_mode": "api",
+      "supported_skills": ["code_development", "validation_testing", "data_integration", "planning"],
+      "max_parallel_tasks": 4,
+      "default_budget": {
+        "max_minutes": 90,
+        "max_usd": 8,
+        "max_tokens": 200000
+      },
+      "region": "cn",
+      "health_status": "healthy",
+      "preferred_projects": ["jinhu-smart-park", "phoenix-erp"],
+      "notes": "Domestic managed runtime. Studio checks credential reference presence only and never stores or reads API key values."
+    },
+    {
+      "runtime_id": "qwen-plus",
+      "adapter_id": "qwen-plus",
+      "provider": "qwen",
+      "invoke_mode": "api",
+      "supported_skills": ["code_development", "validation_testing", "document_generation", "planning"],
+      "max_parallel_tasks": 4,
+      "default_budget": {
+        "max_minutes": 90,
+        "max_usd": 8,
+        "max_tokens": 200000
+      },
+      "region": "cn",
+      "health_status": "healthy",
+      "preferred_projects": ["jinhu-smart-park", "phoenix-erp"],
+      "notes": "Domestic managed runtime backed by a platform credential reference. Users can select it without seeing secret material."
+    },
+    {
       "runtime_id": "openhands",
       "adapter_id": "openhands",
       "provider": "openhands",
