@@ -1,0 +1,85 @@
+name: Deploy Studio to Office 204
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: anksen-agent-studio-office-204
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint:check
+
+      - name: Console smoke
+        run: node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run
+
+      - name: Build Console
+        run: pnpm --filter @anksen/console build
+
+      - name: Check patch whitespace
+        run: git diff --check
+
+  deploy:
+    name: Deploy through Aliyun jump host
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Configure jump-host SSH identity
+        env:
+          JUMP_SSH_KEY: ${{ secrets.STUDIO_DEPLOY_JUMP_SSH_KEY }}
+          JUMP_KNOWN_HOSTS: ${{ secrets.STUDIO_DEPLOY_JUMP_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$JUMP_SSH_KEY" > "$HOME/.ssh/studio-deploy-jump"
+          printf '%s\n' "$JUMP_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/studio-deploy-jump" "$HOME/.ssh/known_hosts"
+
+      - name: Deploy requested commit to office server
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          ssh \
+            -i "$HOME/.ssh/studio-deploy-jump" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=4 \
+            root@123.57.220.65 \
+            "deploy ${COMMIT_SHA}"
+
+      - name: Verify public Studio endpoint
+        run: curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 20 https://studio.cnjinhu.com/login >/dev/null
