@@ -1449,7 +1449,7 @@ function interactiveScript() {
         password: authPassword ? authPassword.value : ""
       });
       setAuthStatus("登录成功，正在进入工作台...", "success");
-      window.setTimeout(() => window.location.reload(), 180);
+      window.setTimeout(() => window.location.assign("/"), 180);
     } catch (error) {
       setAuthStatus(String(error && error.message ? error.message : error), "error");
     }

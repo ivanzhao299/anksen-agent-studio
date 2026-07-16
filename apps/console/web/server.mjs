@@ -96,6 +96,18 @@ const server = createServer(async (request, response) => {
       session_token: sessionToken,
       allow_default_user: false
     });
+    if (
+      (request.method === "GET" || request.method === "HEAD")
+      && (pathname === "/login" || pathname === "/register")
+      && accessContext.authenticated
+    ) {
+      response.writeHead(303, {
+        location: "/",
+        "cache-control": "no-store"
+      });
+      response.end();
+      return;
+    }
     const isAuthRoute = pathname === "/api/access/login" || pathname === "/api/access/register" || pathname === "/api/access/logout" || pathname === "/api/access/session";
     const actionRunMatch = pathname.match(/^\/api\/actions\/([^/]+)$/);
     const actionCancelMatch = pathname.match(/^\/api\/actions\/([^/]+)\/cancel$/);
