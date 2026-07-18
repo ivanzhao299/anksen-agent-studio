@@ -24,15 +24,17 @@ export class PostgresAutonomousKernelStore {
   }
 
   async submitPlan(goalId, input) {
-    validateGraph(input.tasks, input.dependencies);
+    const graph = { tasks: input.tasks.map((task) => ({ ...task, key: task.taskKey ?? task.key })), dependencies: input.dependencies };
+    const validation = validateGraph(graph);
+    if (!validation.valid) throw new Error(`INVALID_TASK_GRAPH:${validation.errors.map((error) => error.code).join(",")}`);
     return this.transaction(async (client) => {
       const fingerprint = stableHash({ tasks: input.tasks, dependencies: input.dependencies });
       const prior = (await client.query("SELECT * FROM ad_planner_submission WHERE goal_id=$1 AND planner_version=$2 FOR UPDATE", [goalId, input.plannerVersion])).rows[0];
       if (prior) { if (prior.graph_fingerprint !== fingerprint) throw new Error("PLANNER_IDEMPOTENCY_CONFLICT"); return prior; }
       const goal = (await client.query("SELECT * FROM ad_goal WHERE id=$1 FOR UPDATE", [goalId])).rows[0];
       if (!goal) throw new Error("GOAL_NOT_FOUND");
-      const ids = new Map(input.tasks.map((task) => [task.taskKey, randomUUID()]));
-      for (const task of input.tasks) await client.query("INSERT INTO ad_task(id,organization_id,workspace_id,goal_id,project_id,task_key,title,description,priority,risk_level,status,max_attempts,required_capabilities,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PENDING',$11,$12,$13)", [ids.get(task.taskKey), goal.organization_id, goal.workspace_id, goalId, goal.project_id, task.taskKey, task.title, task.description ?? "", task.priority ?? "P2", task.riskLevel ?? "MEDIUM", task.maxAttempts ?? 3, task.requiredCapabilities ?? [], task.metadata ?? {}]);
+      const ids = new Map(input.tasks.map((task) => [task.taskKey ?? task.key, randomUUID()]));
+      for (const task of input.tasks) { const taskKey = task.taskKey ?? task.key; await client.query("INSERT INTO ad_task(id,organization_id,workspace_id,goal_id,project_id,task_key,title,description,priority,risk_level,status,max_attempts,required_capabilities,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PENDING',$11,$12,$13)", [ids.get(taskKey), goal.organization_id, goal.workspace_id, goalId, goal.project_id, taskKey, task.title, task.description ?? "", task.priority ?? "P2", task.riskLevel ?? "MEDIUM", task.maxAttempts ?? 3, task.requiredCapabilities ?? [], task.metadata ?? {}]); }
       for (const dependency of input.dependencies) await client.query("INSERT INTO ad_task_dependency(id,goal_id,task_id,depends_on_task_id,dependency_type,required_status) VALUES($1,$2,$3,$4,$5,$6)", [randomUUID(), goalId, ids.get(dependency.taskKey), ids.get(dependency.dependsOnTaskKey), dependency.dependencyType ?? "HARD", dependency.requiredStatus ?? "SUCCEEDED"]);
       const submission = (await client.query("INSERT INTO ad_planner_submission(id,goal_id,planner_version,graph_fingerprint,source_artifact_ref,graph_snapshot) VALUES($1,$2,$3,$4,$5,$6) RETURNING *", [randomUUID(), goalId, input.plannerVersion, fingerprint, input.sourceArtifactRef ?? null, { tasks: input.tasks, dependencies: input.dependencies }])).rows[0];
       await client.query("UPDATE ad_goal SET status='PLANNED',version=version+1 WHERE id=$1", [goalId]);
@@ -75,7 +77,7 @@ export class PostgresAutonomousKernelStore {
       if (dryRun) return { dryRun: true, candidates, changed: [] };
       const changed = [];
       for (const task of candidates) {
-        const deps = (await client.query("SELECT d.*,p.status AS predecessor_status FROM ad_task_dependency d JOIN ad_task p ON p.id=d.predecessor_task_id WHERE d.task_id=$1", [task.id])).rows;
+        const deps = (await client.query("SELECT d.*,p.status AS predecessor_status FROM ad_task_dependency d JOIN ad_task p ON p.id=d.depends_on_task_id WHERE d.task_id=$1", [task.id])).rows;
         const failed = deps.some((d) => d.dependency_type !== "OPTIONAL" && ["FAILED", "CANCELLED", "BLOCKED"].includes(d.predecessor_status));
         const ready = deps.every((d) => d.dependency_type === "OPTIONAL" || d.predecessor_status === "SUCCEEDED");
         const next = failed ? "BLOCKED" : ready ? (task.status === "READY" ? "QUEUED" : "READY") : "BLOCKED";

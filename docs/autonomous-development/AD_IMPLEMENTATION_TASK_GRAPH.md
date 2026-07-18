@@ -17,3 +17,5 @@ AD-001 readiness audit
 ```
 
 AD-005 is implemented as a disabled-by-default internal execution boundary. Shortest safe path is AD-006 validation pipeline -> AD-007 authenticated/shadow activation -> AD-008 outbox projection -> AD-009 controlled runtime execution. No task may bypass fencing, database contention evidence or shadow reconciliation.
+
+Studio Planner MVP is now the deterministic Goal-to-Task-Graph entry point before Kernel scheduling. Its rule/template output replaces manually authored long prompts; future LLM planning may be added only behind the same standard graph contract and validation boundary.

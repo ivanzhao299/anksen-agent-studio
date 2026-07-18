@@ -3,7 +3,8 @@
 ```text
 access-center / model-gateway / console
               | authorized Studio scope
-planning-center -> adapters -> orchestrator-core autonomous kernel
+Goal -> planning-center RulePlannerEngine/PlannerService
+              -> standard Task Graph -> orchestrator-core autonomous kernel
 worker-pool     -> adapters -> worker registry / claim / lease
                               | transactional SQL
                               +-> audit + outbox
