@@ -5,6 +5,7 @@
   "description": "Standalone ANKSEN Agent Studio platform workspace.",
   "type": "module",
   "scripts": {
+    "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint:check": "node packages/orchestrator-core/bin/studio.mjs lint-check",
     "console:dev": "pnpm --filter @anksen/console dev",

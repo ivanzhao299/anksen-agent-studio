@@ -1,8 +1,8 @@
 # @anksen-agent-studio/orchestrator-core
 
-`orchestrator-core` is the future home for reusable Agent Studio orchestration contracts and engine logic.
+`orchestrator-core` is the home for reusable Agent Studio orchestration contracts and engine logic.
 
-This package is intentionally conservative during the extraction phase. It now contains reusable schemas, examples, and a dry-run CLI shell, but it does not copy project-specific state from `jinhu-smart-park/ops/agent-orchestrator`.
+The autonomous kernel contains platform-neutral Goal/task graph, scheduler, worker protocol and PostgreSQL persistence primitives. It does not copy project-specific state from `jinhu-smart-park/ops/agent-orchestrator`, expose a new API, run a migration, or start a runtime.
 
 ## Future Scope
 

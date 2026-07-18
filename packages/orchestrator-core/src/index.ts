@@ -17,3 +17,4 @@ export const orchestratorCoreCapabilities: OrchestratorCapability[] = [
   "finalize"
 ];
 
+export * from "./autonomous-kernel/index.js";

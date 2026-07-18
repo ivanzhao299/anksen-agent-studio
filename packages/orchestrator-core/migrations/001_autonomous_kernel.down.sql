@@ -1,0 +1,12 @@
+BEGIN;
+DROP TABLE IF EXISTS ad_state_transition;
+DROP TABLE IF EXISTS ad_outbox_event;
+DROP TABLE IF EXISTS ad_task_lease;
+DROP TABLE IF EXISTS ad_worker_session;
+DROP TABLE IF EXISTS ad_worker;
+DROP TABLE IF EXISTS ad_planner_submission;
+DROP TABLE IF EXISTS ad_task_attempt;
+DROP TABLE IF EXISTS ad_task_dependency;
+DROP TABLE IF EXISTS ad_task;
+DROP TABLE IF EXISTS ad_goal;
+COMMIT;
