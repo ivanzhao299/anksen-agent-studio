@@ -8,9 +8,10 @@ worker-pool     -> adapters -> worker registry / claim / lease
                               | transactional SQL
                               +-> audit + outbox
                               | injected execution port
-                        runtime-adapters (NoRuntime by default)
+                 RuntimeService -> runtime-adapters
+                    (Codex disabled; controlled stub by default)
                               |
                     managed project via project-connector
 ```
 
-The kernel owns durable orchestration facts. Control-plane packages authorize and propose; they do not duplicate those facts. Runtime adapters execute only after explicit wiring. Smart Park is below the project-connector boundary.
+The kernel owns durable orchestration facts. Control-plane packages authorize and propose; they do not duplicate those facts. Workers must use RuntimeService rather than construct commands. Runtime adapters execute only after policy and fencing validation; Codex additionally requires its feature flag. Smart Park is below the project-connector boundary.

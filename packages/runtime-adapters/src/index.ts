@@ -1,46 +1,25 @@
-export type RuntimeAdapterInvokeMode = "cli" | "api" | "browser" | "remote-worker" | "webhook";
+export type RuntimeType = "CODEX"|"GENERIC_PROCESS"|"CONTROLLED_STUB"|"CLAUDE_CODE"|"GEMINI"|"OPENHANDS"|"AIDER"|"DOCKER"|"MEDIA";
+export type RuntimeExecutionStatus = "CREATED"|"STARTING"|"RUNNING"|"CANCELLING"|"SUCCEEDED"|"FAILED"|"TIMED_OUT"|"CANCELLED"|"LOST";
+export type RuntimeErrorCode = "INVALID_REQUEST"|"POLICY_DENIED"|"NOT_CONFIGURED"|"UNSUPPORTED"|"FENCING_REJECTED"|"SPAWN_FAILED"|"NON_ZERO_EXIT"|"TIMEOUT"|"CANCELLED"|"OUTPUT_LIMIT"|"LOST";
+export interface RuntimeRequest { executionId:string; goalId:string; taskId:string; attemptId:string; workerId:string; sessionId:string; leaseId:string; fencingToken:number; runtimeType:RuntimeType; instruction:string; workingDirectory:string; allowedPaths:string[]; blockedPaths:string[]; timeoutSeconds:number; environment:Record<string,string>; metadata:Record<string,unknown>; dryRun?:boolean; }
+export interface RuntimeContext { projectRoot:string; environmentAllowlist:string[]; secrets:string[]; maxLogBytes:number; maxOutputBytes:number; maxRuntimeSeconds:number; }
+export interface RuntimeExecution { executionId:string; attemptId:string; leaseId:string; fencingToken:number; status:RuntimeExecutionStatus; pid:number|null; startedAt:string|null; finishedAt:string|null; }
+export interface RuntimeLogEvent { executionId:string; taskId:string; attemptId:string; leaseId:string; sequence:number; stream:"stdout"|"stderr"|"system"; level:"INFO"|"WARN"|"ERROR"; message:string; timestamp:string; fencingToken:number; }
+export interface RuntimeArtifact { ref:string; path:string; mediaType?:string; trusted:boolean; fencingToken:number; }
+export interface RuntimeResult { executionId:string; status:RuntimeExecutionStatus; exitCode:number|null; signal:string|null; startedAt:string; finishedAt:string; durationMs:number; stdoutRef:string|null; stderrRef:string|null; logRef:string|null; artifactRefs:RuntimeArtifact[]; commitHash:string|null; errorCode:RuntimeErrorCode|null; errorMessage:string|null; metadata:Record<string,unknown>; taskId:string; attemptId:string; leaseId:string; fencingToken:number; }
+export interface RuntimeError { code:RuntimeErrorCode; message:string; retryable:boolean; details?:Record<string,unknown>; }
+export interface RuntimeCancellation { source:"USER"|"WORKER"|"LEASE_REVOKED"|"GOAL_CANCELLED"|"TIMEOUT"|"SHUTDOWN"; requestedAt:string; reason?:string; }
+export interface RuntimeHealth { status:"HEALTHY"|"DEGRADED"|"DISABLED"|"NOT_CONFIGURED"|"UNSUPPORTED"; version?:string; message?:string; }
+export interface RuntimeCapabilities { runtimeType:RuntimeType; configured:boolean; supportsStreaming:boolean; supportsCancel:boolean; supportsForceKill:boolean; supportsArtifacts:boolean; maxRuntimeSeconds:number; }
+export interface RuntimeAdapterContract { runtimeType:RuntimeType; validateRequest(request:RuntimeRequest,context:RuntimeContext):void; getCapabilities():RuntimeCapabilities; healthCheck():Promise<RuntimeHealth>; prepare(request:RuntimeRequest,context:RuntimeContext):Promise<void>; start(request:RuntimeRequest,context:RuntimeContext):Promise<RuntimeExecution>; streamLogs(executionId:string):AsyncIterable<RuntimeLogEvent>; cancel(executionId:string,cancellation:RuntimeCancellation):Promise<void>; forceTerminate(executionId:string):Promise<void>; collectResult(executionId:string):Promise<RuntimeResult>; cleanup(executionId:string):Promise<void>; }
+export interface RuntimeFencingPort { assertCurrent(input:{taskId:string;attemptId:string;leaseId:string;fencingToken:number}):Promise<void>; }
+export interface RuntimeLogStore { appendBatch(events:RuntimeLogEvent[]):Promise<void>; list(executionId:string):Promise<RuntimeLogEvent[]>; }
+export const runtimeAdapterMarketplaceVersion = "0.2.0";
 
-export type RuntimeAdapterRisk = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-
-export type RuntimeAdapterHealthStatus = "unknown" | "healthy" | "degraded" | "unavailable" | "disabled";
-
-export interface RuntimeAdapter {
-  readonly adapter_id: string;
-  readonly runtime_id: string;
-  readonly provider: string;
-  readonly invoke_mode: RuntimeAdapterInvokeMode;
-  readonly supported_skills: readonly string[];
-  readonly credential_reference_required: boolean;
-  readonly credential_reference_id?: string;
-  readonly network_required: boolean;
-  readonly workspace_required: boolean;
-  readonly max_parallel_tasks: number;
-  readonly health_status: RuntimeAdapterHealthStatus;
-  readonly risk_baseline: RuntimeAdapterRisk;
-  readonly guardrails: readonly string[];
-}
-
-export interface AdapterInvocationPlan {
-  readonly invocation_id: string;
-  readonly adapter_id: string;
-  readonly runtime_id: string;
-  readonly skill_type: string;
-  readonly dry_run: true;
-  readonly execution_status: "planned" | "blocked";
-  readonly model_invocation: "disabled";
-  readonly credential_values_read: false;
-  readonly external_calls: "disabled";
-  readonly steps: readonly string[];
-}
-
-export interface AdapterResult {
-  readonly result_id: string;
-  readonly invocation_id: string;
-  readonly adapter_id: string;
-  readonly status: "planned" | "blocked" | "not_executed";
-  readonly dry_run: true;
-  readonly model_invocation: "disabled";
-  readonly credential_values_read: false;
-}
-
-export const runtimeAdapterMarketplaceVersion = "0.1.0";
+// Existing marketplace planning contracts remain source-compatible.
+export type RuntimeAdapterInvokeMode = "cli"|"api"|"browser"|"remote-worker"|"webhook";
+export type RuntimeAdapterRisk = "LOW"|"MEDIUM"|"HIGH"|"CRITICAL";
+export type RuntimeAdapterHealthStatus = "unknown"|"healthy"|"degraded"|"unavailable"|"disabled";
+export interface RuntimeAdapter { readonly adapter_id:string; readonly runtime_id:string; readonly provider:string; readonly invoke_mode:RuntimeAdapterInvokeMode; readonly supported_skills:readonly string[]; readonly credential_reference_required:boolean; readonly credential_reference_id?:string; readonly network_required:boolean; readonly workspace_required:boolean; readonly max_parallel_tasks:number; readonly health_status:RuntimeAdapterHealthStatus; readonly risk_baseline:RuntimeAdapterRisk; readonly guardrails:readonly string[]; }
+export interface AdapterInvocationPlan { readonly invocation_id:string; readonly adapter_id:string; readonly runtime_id:string; readonly skill_type:string; readonly dry_run:true; readonly execution_status:"planned"|"blocked"; readonly model_invocation:"disabled"; readonly credential_values_read:false; readonly external_calls:"disabled"; readonly steps:readonly string[]; }
+export interface AdapterResult { readonly result_id:string; readonly invocation_id:string; readonly adapter_id:string; readonly status:"planned"|"blocked"|"not_executed"; readonly dry_run:true; readonly model_invocation:"disabled"; readonly credential_values_read:false; }
