@@ -12,5 +12,8 @@
     "test": "node --test \"test/**/*.test.mjs\"",
     "lint:check": "node ./bin/studio.mjs lint-check",
     "studio:doctor": "node ./bin/studio.mjs doctor --project ../../examples/jinhu-smart-park/project.config.example.json --dry-run"
+  },
+  "dependencies": {
+    "pg": "^8.22.0"
   }
 }

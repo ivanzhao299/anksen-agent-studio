@@ -1,0 +1,8 @@
+BEGIN;
+CREATE TABLE ad_night_shift_session(id uuid PRIMARY KEY,session_key text NOT NULL UNIQUE,mode text NOT NULL,status text NOT NULL,goal_id uuid REFERENCES ad_goal(id),limits jsonb NOT NULL DEFAULT '{}',scheduler_tick_count integer NOT NULL DEFAULT 0,worker_claim_count integer NOT NULL DEFAULT 0,runtime_execution_count integer NOT NULL DEFAULT 0,error_summary jsonb NOT NULL DEFAULT '[]',report jsonb,started_at timestamptz,finished_at timestamptz,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE ad_scheduler_tick(id bigserial PRIMARY KEY,session_id uuid NOT NULL REFERENCES ad_night_shift_session(id),scheduler_id text NOT NULL,changed_count integer NOT NULL,dry_run boolean NOT NULL DEFAULT false,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE ad_worker_claim(id uuid PRIMARY KEY,session_id uuid NOT NULL REFERENCES ad_night_shift_session(id),worker_id uuid NOT NULL REFERENCES ad_worker(id),task_id uuid NOT NULL REFERENCES ad_task(id),attempt_id uuid NOT NULL REFERENCES ad_task_attempt(id),lease_id uuid NOT NULL REFERENCES ad_task_lease(id) UNIQUE,fencing_token bigint NOT NULL,status text NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),completed_at timestamptz);
+CREATE TABLE ad_session_error(id bigserial PRIMARY KEY,session_id uuid NOT NULL REFERENCES ad_night_shift_session(id),code text NOT NULL,message text NOT NULL,metadata jsonb NOT NULL DEFAULT '{}',created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX ad_session_resume ON ad_night_shift_session(status,updated_at);
+CREATE INDEX ad_tick_session ON ad_scheduler_tick(session_id,id);
+COMMIT;

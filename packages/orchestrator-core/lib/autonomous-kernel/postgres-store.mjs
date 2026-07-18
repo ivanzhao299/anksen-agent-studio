@@ -34,7 +34,7 @@ export class PostgresAutonomousKernelStore {
       const goal = (await client.query("SELECT * FROM ad_goal WHERE id=$1 FOR UPDATE", [goalId])).rows[0];
       if (!goal) throw new Error("GOAL_NOT_FOUND");
       const ids = new Map(input.tasks.map((task) => [task.taskKey ?? task.key, randomUUID()]));
-      for (const task of input.tasks) { const taskKey = task.taskKey ?? task.key; await client.query("INSERT INTO ad_task(id,organization_id,workspace_id,goal_id,project_id,task_key,title,description,priority,risk_level,status,max_attempts,required_capabilities,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PENDING',$11,$12,$13)", [ids.get(taskKey), goal.organization_id, goal.workspace_id, goalId, goal.project_id, taskKey, task.title, task.description ?? "", task.priority ?? "P2", task.riskLevel ?? "MEDIUM", task.maxAttempts ?? 3, task.requiredCapabilities ?? [], task.metadata ?? {}]); }
+      for (const task of input.tasks) { const taskKey = task.taskKey ?? task.key; await client.query("INSERT INTO ad_task(id,organization_id,workspace_id,goal_id,project_id,task_key,title,description,priority,risk_level,status,max_attempts,required_capabilities,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PENDING',$11,$12,$13)", [ids.get(taskKey), goal.organization_id, goal.workspace_id, goalId, goal.project_id, taskKey, task.title, task.description ?? "", task.priority ?? "P2", task.riskLevel ?? "MEDIUM", task.maxAttempts ?? 3, JSON.stringify(task.requiredCapabilities ?? []), task.metadata ?? {}]); }
       for (const dependency of input.dependencies) await client.query("INSERT INTO ad_task_dependency(id,goal_id,task_id,depends_on_task_id,dependency_type,required_status) VALUES($1,$2,$3,$4,$5,$6)", [randomUUID(), goalId, ids.get(dependency.taskKey), ids.get(dependency.dependsOnTaskKey), dependency.dependencyType ?? "HARD", dependency.requiredStatus ?? "SUCCEEDED"]);
       const submission = (await client.query("INSERT INTO ad_planner_submission(id,goal_id,planner_version,graph_fingerprint,source_artifact_ref,graph_snapshot) VALUES($1,$2,$3,$4,$5,$6) RETURNING *", [randomUUID(), goalId, input.plannerVersion, fingerprint, input.sourceArtifactRef ?? null, { tasks: input.tasks, dependencies: input.dependencies }])).rows[0];
       await client.query("UPDATE ad_goal SET status='PLANNED',version=version+1 WHERE id=$1", [goalId]);
@@ -47,7 +47,7 @@ export class PostgresAutonomousKernelStore {
     return this.transaction(async (client) => (await client.query(`INSERT INTO ad_worker(id,organization_id,workspace_id,worker_key,name,runtime_type,status,max_concurrency,capabilities,metadata)
       VALUES($1,$2,$3,$4,$5,$6,'IDLE',$7,$8,$9)
       ON CONFLICT(organization_id,workspace_id,worker_key) DO UPDATE SET name=excluded.name,runtime_type=excluded.runtime_type,max_concurrency=excluded.max_concurrency,capabilities=excluded.capabilities,metadata=excluded.metadata,last_heartbeat_at=now(),version=ad_worker.version+1 RETURNING *`,
-    [input.id ?? randomUUID(), scope.organizationId, scope.workspaceId, input.workerKey, input.displayName, input.runtimeType ?? "none", input.maxConcurrency, input.capabilities ?? [], input.metadata ?? {}])).rows[0]);
+    [input.id ?? randomUUID(), scope.organizationId, scope.workspaceId, input.workerKey, input.displayName, input.runtimeType ?? "none", input.maxConcurrency, JSON.stringify(input.capabilities ?? []), input.metadata ?? {}])).rows[0]);
   }
 
   async openSession(workerId, ttlSeconds = 120) {
