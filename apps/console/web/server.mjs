@@ -17,6 +17,7 @@ import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayE
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
 import { createStudioMcpRequestHandler } from "../../../packages/orchestrator-core/lib/studio-mcp-server.mjs";
 import { loadIdentityRuntimeConfig, proxyIdentityRequest } from "./identity-service.mjs";
+import { IdentityOwnerBootstrap, renderIdentityOwnerBootstrapPage } from "./identity-owner-bootstrap.mjs";
 import { renderConsolePage } from "./render.mjs";
 import { consoleWebRoutes } from "./routes.mjs";
 import {
@@ -29,7 +30,7 @@ import {
 } from "./action-server.mjs";
 
 const port = Number(process.env.PORT ?? 4317);
-const allowedPaths = new Set([...consoleWebRoutes.map((route) => route.path), "/login", "/register"]);
+const allowedPaths = new Set([...consoleWebRoutes.map((route) => route.path), "/login", "/register", "/identity-bootstrap"]);
 const webDir = dirname(fileURLToPath(import.meta.url));
 const assetsDir = join(webDir, "assets");
 const staticAssets = new Map([
@@ -37,6 +38,7 @@ const staticAssets = new Map([
 ]);
 const autonomousExecutionCenter = new AutonomousExecutionCenter();
 const identityRuntime = await loadIdentityRuntimeConfig();
+const identityOwnerBootstrap = identityRuntime ? new IdentityOwnerBootstrap({ upstreamOrigin: identityRuntime.upstreamOrigin }) : null;
 const mcpOauthEnabled = identityRuntime?.authMode === "oauth";
 let studioMcpHandler = null;
 if (mcpOauthEnabled) {
@@ -240,6 +242,38 @@ const server = createServer(async (request, response) => {
         status: "AUTH_REQUIRED",
         reason: "Console Action Server requires a local Studio login before invoking actions."
       });
+      return;
+    }
+    if (pathname === "/identity-bootstrap" || pathname === "/api/identity/owner-bootstrap") {
+      if (!accessContext.authenticated) {
+        if (pathname === "/identity-bootstrap") {
+          response.writeHead(303, { location: "/login", "cache-control": "no-store" });
+          response.end();
+        } else sendJson(response, 401, { status: "AUTH_REQUIRED", reason: "Studio 平台所有者登录后才能初始化身份密码。" });
+        return;
+      }
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "identity-owner-bootstrap", risk: "MEDIUM" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      if (!identityOwnerBootstrap) { sendJson(response, 503, { status: "NOT_READY", reason: "Studio identity runtime is not configured." }); return; }
+      if (request.method === "GET" && pathname === "/identity-bootstrap") {
+        const status = await identityOwnerBootstrap.status();
+        response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+        response.end(renderIdentityOwnerBootstrapPage(status));
+        return;
+      }
+      if (request.method === "GET") { sendJson(response, 200, await identityOwnerBootstrap.status()); return; }
+      if (request.method === "POST") {
+        const expectedOrigin = new URL(identityRuntime.publicUrl).origin;
+        if (String(request.headers.origin ?? "") !== expectedOrigin) { sendJson(response, 403, { status: "BLOCKED", reason: "Same-origin confirmation is required." }); return; }
+        const body = await readJsonBody(request);
+        try {
+          sendJson(response, 200, await identityOwnerBootstrap.initialize({ password: body.password, actor: accessContext.user }));
+        } catch (error) {
+          sendJson(response, Number(error?.status ?? 400), { status: "FAILED", code: error?.code ?? "IDENTITY_INITIALIZATION_FAILED", reason: error instanceof Error ? error.message : String(error) });
+        }
+        return;
+      }
+      sendJson(response, 405, { status: "METHOD_NOT_ALLOWED" }, { allow: "GET, POST" });
       return;
     }
     if (request.method === "GET" && pathname === "/api/aec/dashboard") {
