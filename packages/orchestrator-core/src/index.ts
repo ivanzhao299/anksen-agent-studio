@@ -17,3 +17,19 @@ export const orchestratorCoreCapabilities: OrchestratorCapability[] = [
   "finalize"
 ];
 
+export * from "./autonomous-kernel/index.js";
+
+export interface StudioGatewayGoalRequest {
+  readonly title: string;
+  readonly description?: string;
+  readonly organizationId?: string;
+  readonly workspaceId?: string;
+  readonly projectId: string;
+  readonly idempotencyKey: string;
+  readonly constraints?: readonly string[];
+  readonly acceptanceCriteria?: readonly string[];
+}
+
+export interface StudioGatewayError {
+  readonly error: { readonly code: string; readonly message: string; readonly requestId: string; readonly details?: unknown };
+}

@@ -2516,6 +2516,22 @@ function pagePilotStatus(data) {
   <section><h2>${messages.pages.pilotStatus.safetyBoundary}</h2><div class="panel"><span class="safe">${escapeHtml(messages.common.noExternalCalls)}</span></div></section>`;
 }
 
+function pageExecution() {
+  return `<section><div class="section-head"><div><h2>Autonomous Execution Center</h2><p class="help">董事长视角 · Planner → Kernel → Scheduler → Worker → CONTROLLED_STUB → Morning Report</p></div><span class="pill">Beta-001</span></div>
+  <div class="panel"><label for="aec-goal">New Goal</label><div class="button-row"><input id="aec-goal" value="完善 Runtime 文档" style="flex:1;min-width:280px;padding:12px;border-radius:10px;border:1px solid #d7dce5"><button id="aec-submit" type="button">启动自主执行</button><button id="aec-refresh" type="button" class="secondary">刷新</button></div><p id="aec-status" class="help">仅使用 CONTROLLED_STUB，不调用真实 Codex。</p></div></section>
+  <section><div id="aec-metrics" class="grid"></div></section>
+  <section class="kanban-grid"><div class="panel"><h3>Session / Goal</h3><pre id="aec-session">加载中…</pre></div><div class="panel"><h3>系统 Readiness</h3><pre id="aec-readiness">加载中…</pre></div></section>
+  <section><div class="section-head"><h2>Task / Queue / Blocked</h2><span class="pill">Kernel事实源</span></div><div id="aec-tasks" class="panel">加载中…</div></section>
+  <section class="kanban-grid"><div class="panel"><h3>Worker / Runtime</h3><pre id="aec-workers">加载中…</pre></div><div class="panel"><h3>Approval</h3><pre id="aec-approvals">加载中…</pre></div></section>
+  <section><div class="section-head"><h2>昨夜完成统计 / Morning Report</h2><span class="pill">Projection</span></div><pre id="aec-report" class="panel">加载中…</pre></section>
+  <script>
+  (() => { const q=id=>document.getElementById(id), esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    async function load(){const r=await fetch('/api/aec/dashboard',{cache:'no-store'});if(!r.ok)throw new Error(await r.text());render(await r.json());}
+    function render(d){const m=[['当前 Session',d.session?.status??'无'],['Goal',d.goal?.status??'无'],['Task',d.tasks.length],['Worker',d.workers.length],['Queue',d.queue.length],['Blocked',d.blocked.length],['Runtime',d.runtime.type],['昨夜完成',d.overnight.succeeded]];q('aec-metrics').innerHTML=m.map(x=>'<div class="metric"><span>'+esc(x[0])+'</span><strong>'+esc(x[1])+'</strong></div>').join('');q('aec-session').textContent=JSON.stringify({session:d.session,goal:d.goal},null,2);q('aec-readiness').textContent=JSON.stringify(d.readiness,null,2);q('aec-tasks').innerHTML='<table><thead><tr><th>Task</th><th>状态</th><th>优先级</th><th>风险</th></tr></thead><tbody>'+d.tasks.map(t=>'<tr><td>'+esc(t.title)+'</td><td>'+esc(t.status)+'</td><td>'+esc(t.priority)+'</td><td>'+esc(t.risk_level)+'</td></tr>').join('')+'</tbody></table>';q('aec-workers').textContent=JSON.stringify({workers:d.workers,runtime:d.runtime},null,2);q('aec-approvals').textContent=JSON.stringify(d.approvals,null,2);q('aec-report').textContent=JSON.stringify({overnight:d.overnight,morningReport:d.morningReport},null,2);}
+    q('aec-refresh').onclick=()=>load().catch(e=>q('aec-status').textContent=e.message);q('aec-submit').onclick=async()=>{q('aec-submit').disabled=true;q('aec-status').textContent='正在执行自主闭环…';try{const r=await fetch('/api/aec/goals',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:q('aec-goal').value})});const body=await r.json();if(!r.ok)throw new Error(body.reason||JSON.stringify(body));q('aec-status').textContent='完成：'+body.report.sessionStatus;render(body.dashboard);}catch(e){q('aec-status').textContent='失败：'+e.message;}finally{q('aec-submit').disabled=false;}};load().catch(e=>q('aec-status').textContent=e.message);
+  })();</script>`;
+}
+
 function normalizeRenderAuth(auth, data) {
   if (auth && typeof auth.authenticated === "boolean" && auth.user) {
     return {
@@ -2608,6 +2624,7 @@ export async function renderConsolePage(pathname = "/", auth = null, options = {
   const route = consoleWebRoutes.find((item) => item.path === pathname) ?? consoleWebRoutes[0];
   const contentById = {
     dashboard: () => pageDashboard(model, data),
+    execution: () => pageExecution(),
     projects: () => pageProjects(data),
     runtime: () => pageRuntime(data),
     workers: () => pageWorkers(data),

@@ -1,0 +1,34 @@
+[mcp_servers.anksen_studio]
+url = "http://127.0.0.1:4330/mcp"
+bearer_token_env_var = "STUDIO_MCP_BEARER_TOKEN"
+enabled = true
+required = false
+startup_timeout_sec = 10
+tool_timeout_sec = 900
+default_tools_approval_mode = "prompt"
+enabled_tools = [
+  "create_goal",
+  "get_goal",
+  "get_task_graph",
+  "get_night_shift_session",
+  "get_activation_readiness",
+  "get_morning_report",
+]
+
+[mcp_servers.anksen_studio.tools.create_goal]
+approval_mode = "prompt"
+
+[mcp_servers.anksen_studio.tools.get_goal]
+approval_mode = "auto"
+
+[mcp_servers.anksen_studio.tools.get_task_graph]
+approval_mode = "auto"
+
+[mcp_servers.anksen_studio.tools.get_night_shift_session]
+approval_mode = "auto"
+
+[mcp_servers.anksen_studio.tools.get_activation_readiness]
+approval_mode = "auto"
+
+[mcp_servers.anksen_studio.tools.get_morning_report]
+approval_mode = "auto"

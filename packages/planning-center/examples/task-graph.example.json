@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "plannerVersion": "rule-planner-v1-example",
+  "goalId": "goal-planner-mvp",
+  "templateId": "SOFTWARE_DELIVERY",
+  "generatedAt": "2026-07-19T00:00:00.000Z",
+  "tasks": [
+    { "taskKey": "GOAL_PLANNER_MVP_ANALYZE", "title": "Analyze goal and repository", "description": "Analyze goal and repository: Implement Studio Planner MVP", "priority": "P2", "riskLevel": "LOW", "requiredCapabilities": ["planning"], "maxAttempts": 3, "metadata": { "templateId": "SOFTWARE_DELIVERY", "goalTitle": "Implement Studio Planner MVP", "approvalStatus": "APPROVED", "ruleEngine": true } },
+    { "taskKey": "GOAL_PLANNER_MVP_IMPLEMENT", "title": "Implement requested change", "description": "Implement requested change: Implement Studio Planner MVP", "priority": "P1", "riskLevel": "MEDIUM", "requiredCapabilities": ["code_development"], "maxAttempts": 3, "metadata": { "templateId": "SOFTWARE_DELIVERY", "goalTitle": "Implement Studio Planner MVP", "approvalStatus": "APPROVED", "ruleEngine": true } },
+    { "taskKey": "GOAL_PLANNER_MVP_VALIDATE", "title": "Validate implementation", "description": "Validate implementation: Implement Studio Planner MVP", "priority": "P2", "riskLevel": "LOW", "requiredCapabilities": ["validation_testing"], "maxAttempts": 3, "metadata": { "templateId": "SOFTWARE_DELIVERY", "goalTitle": "Implement Studio Planner MVP", "approvalStatus": "APPROVED", "ruleEngine": true } }
+  ],
+  "dependencies": [
+    { "taskKey": "GOAL_PLANNER_MVP_IMPLEMENT", "dependsOnTaskKey": "GOAL_PLANNER_MVP_ANALYZE", "dependencyType": "SUCCESS_REQUIRED", "requiredStatus": "SUCCEEDED" },
+    { "taskKey": "GOAL_PLANNER_MVP_VALIDATE", "dependsOnTaskKey": "GOAL_PLANNER_MVP_IMPLEMENT", "dependencyType": "SUCCESS_REQUIRED", "requiredStatus": "SUCCEEDED" }
+  ],
+  "metadata": { "engine": "RULE_TEMPLATE", "llmUsed": false }
+}

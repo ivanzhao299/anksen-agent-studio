@@ -1,0 +1,81 @@
+openapi: 3.1.0
+info:
+  title: ANKSEN Studio Gateway
+  version: 0.1.0
+  description: Authenticated control-plane facade over the existing Autonomous Kernel and Night Shift.
+servers:
+  - url: http://127.0.0.1:4317
+security:
+  - serviceToken: []
+  - signedRequest: []
+paths:
+  /api/v1/goals:
+    post:
+      operationId: createGoal
+      summary: Create, plan, submit, and run an idempotent controlled goal
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: './studio-gateway-goal.schema.json' }
+      responses:
+        '201': { description: Goal accepted and controlled run completed }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /api/v1/goals/{goalId}:
+    get:
+      operationId: getGoal
+      parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+      responses: { '200': { description: Goal }, '404': { $ref: '#/components/responses/Error' } }
+  /api/v1/goals/{goalId}/task-graph:
+    get:
+      operationId: getTaskGraph
+      parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+      responses: { '200': { description: Goal task graph }, '404': { $ref: '#/components/responses/Error' } }
+  /api/v1/night-shift/sessions/{sessionKey}:
+    get:
+      operationId: getNightShiftSession
+      parameters: [ { $ref: '#/components/parameters/SessionKey' } ]
+      responses: { '200': { description: Session }, '404': { $ref: '#/components/responses/Error' } }
+  /api/v1/night-shift/sessions/{sessionKey}/morning-report:
+    get:
+      operationId: getMorningReport
+      parameters: [ { $ref: '#/components/parameters/SessionKey' } ]
+      responses: { '200': { description: Morning report }, '404': { $ref: '#/components/responses/Error' } }
+  /api/v1/readiness:
+    get:
+      operationId: getActivationReadiness
+      responses: { '200': { description: Runtime readiness } }
+components:
+  securitySchemes:
+    serviceToken: { type: http, scheme: bearer }
+    signedRequest:
+      type: apiKey
+      in: header
+      name: X-Anksen-Signature
+      description: HMAC-SHA256 with X-Anksen-Key-Id, X-Anksen-Timestamp, and X-Anksen-Nonce.
+  parameters:
+    GoalId: { in: path, name: goalId, required: true, schema: { type: string, format: uuid } }
+    SessionKey: { in: path, name: sessionKey, required: true, schema: { type: string } }
+  responses:
+    Error:
+      description: Stable Gateway error envelope
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code, message, requestId]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+                  requestId: { type: string }

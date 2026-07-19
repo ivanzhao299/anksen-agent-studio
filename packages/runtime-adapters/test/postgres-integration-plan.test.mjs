@@ -1,0 +1,2 @@
+import test from"node:test";import assert from"node:assert/strict";import{readFile}from"node:fs/promises";
+test("isolated PostgreSQL plan covers claim and runtime fencing",async()=>{const text=await readFile(new URL("../../../docs/autonomous-development/AD_005_READINESS_REVIEW.md",import.meta.url),"utf8");for(const term of ["SKIP LOCKED","active lease","fencing CAS","Runtime result fencing","TEST_DATABASE_URL"])assert.match(text,new RegExp(term,"i"));});

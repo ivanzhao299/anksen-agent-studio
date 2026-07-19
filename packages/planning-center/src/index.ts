@@ -69,3 +69,10 @@ export interface PlanningOutput {
 }
 
 export const planningCenterVersion = "0.1.0";
+
+export type PlannerTaskPriority = "P0" | "P1" | "P2" | "P3";
+export interface PlannerGoal { id:string; title:string; description?:string; metadata?:Record<string,unknown>; }
+export interface PlannerTask { taskKey:string; title:string; description:string; priority:PlannerTaskPriority; riskLevel:PlanningRisk; requiredCapabilities:string[]; maxAttempts:number; metadata:Record<string,unknown>; }
+export interface PlannerDependency { taskKey:string; dependsOnTaskKey:string; dependencyType:"SUCCESS_REQUIRED"|"FINISH_TO_START"|"ARTIFACT_REQUIRED"|"OPTIONAL"; requiredStatus:"SUCCEEDED"; }
+export interface StandardTaskGraph { schemaVersion:1; plannerVersion:string; goalId:string; templateId:string; generatedAt:string; tasks:PlannerTask[]; dependencies:PlannerDependency[]; metadata:Record<string,unknown>; }
+export interface AutonomousKernelPlanPort { submitPlan(goalId:string,input:{plannerVersion:string;sourceArtifactRef:null;tasks:PlannerTask[];dependencies:PlannerDependency[]}):Promise<unknown>; }

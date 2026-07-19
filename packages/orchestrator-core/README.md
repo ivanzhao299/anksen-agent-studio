@@ -1,8 +1,8 @@
 # @anksen-agent-studio/orchestrator-core
 
-`orchestrator-core` is the future home for reusable Agent Studio orchestration contracts and engine logic.
+`orchestrator-core` is the home for reusable Agent Studio orchestration contracts and engine logic.
 
-This package is intentionally conservative during the extraction phase. It now contains reusable schemas, examples, and a dry-run CLI shell, but it does not copy project-specific state from `jinhu-smart-park/ops/agent-orchestrator`.
+The autonomous kernel contains platform-neutral Goal/task graph, scheduler, worker protocol and PostgreSQL persistence primitives. It does not copy project-specific state from `jinhu-smart-park/ops/agent-orchestrator`, expose a new API, run a migration, or start a runtime.
 
 ## Future Scope
 
@@ -13,6 +13,8 @@ Extraction candidates from the Jinhu Smart Park project-local orchestrator:
 - Event Store contracts for task lifecycle events.
 - Queue read-model projection contracts.
 - Task dispatch, claim, complete, audit, integrate, reconcile, and finalize orchestration.
+- Beta-003 Studio Gateway exposes the existing Goal/Planner/Night Shift path through authenticated REST and MCP-compatible contracts; it does not create a second orchestration implementation.
+- Beta-004 provides a bearer-authenticated local Streamable HTTP MCP server for the six Studio Gateway tools.
 - Doctor, self-repair, daemon, and autonomous-loop core decision rules.
 - Project-agnostic validation and risk classification.
 

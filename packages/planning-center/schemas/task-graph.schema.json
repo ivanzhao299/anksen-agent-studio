@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/agent-studio/task-graph.schema.json",
+  "title": "Studio Planner Standard Task Graph",
+  "type": "object",
+  "required": ["schemaVersion", "plannerVersion", "goalId", "templateId", "generatedAt", "tasks", "dependencies", "metadata"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "plannerVersion": { "type": "string", "minLength": 1 },
+    "goalId": { "type": "string", "minLength": 1 },
+    "templateId": { "enum": ["SOFTWARE_DELIVERY", "DOCUMENTATION", "GENERIC"] },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "tasks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/task" } },
+    "dependencies": { "type": "array", "items": { "$ref": "#/$defs/dependency" } },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "task": { "type": "object", "required": ["taskKey", "title", "description", "priority", "riskLevel", "requiredCapabilities", "maxAttempts", "metadata"], "properties": { "taskKey": { "type": "string", "minLength": 1 }, "title": { "type": "string" }, "description": { "type": "string" }, "priority": { "enum": ["P0", "P1", "P2", "P3"] }, "riskLevel": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] }, "requiredCapabilities": { "type": "array", "items": { "type": "string" } }, "maxAttempts": { "type": "integer", "minimum": 1 }, "metadata": { "type": "object" } }, "additionalProperties": false },
+    "dependency": { "type": "object", "required": ["taskKey", "dependsOnTaskKey", "dependencyType", "requiredStatus"], "properties": { "taskKey": { "type": "string" }, "dependsOnTaskKey": { "type": "string" }, "dependencyType": { "enum": ["SUCCESS_REQUIRED", "FINISH_TO_START", "ARTIFACT_REQUIRED", "OPTIONAL"] }, "requiredStatus": { "const": "SUCCEEDED" } }, "additionalProperties": false }
+  }
+}

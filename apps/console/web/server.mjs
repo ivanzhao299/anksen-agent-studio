@@ -1,15 +1,19 @@
 import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createAccessInvite,
   currentSessionSummary,
+  evaluateConsoleActionAccess,
   loadAccessCenter,
   loginToAccessCenter,
   logoutFromAccessCenter,
   resolveSessionContext
 } from "../../../packages/access-center/lib/access-center-utils.mjs";
+import { AutonomousExecutionCenter } from "../../../packages/orchestrator-core/lib/autonomous-execution-center.mjs";
+import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { renderConsolePage } from "./render.mjs";
 import { consoleWebRoutes } from "./routes.mjs";
 import {
@@ -28,6 +32,13 @@ const assetsDir = join(webDir, "assets");
 const staticAssets = new Map([
   ["/assets/anksen-logo.svg", { path: join(assetsDir, "anksen-logo.svg"), type: "image/svg+xml; charset=utf-8" }]
 ]);
+const autonomousExecutionCenter = new AutonomousExecutionCenter();
+const entries = (value) => Object.fromEntries(String(value ?? "").split(",").map((item) => item.trim()).filter(Boolean).map((item) => { const separator = item.indexOf(":"); return separator < 1 ? [item, ""] : [item.slice(0, separator), item.slice(separator + 1)]; }));
+const studioGateway = new StudioGateway({
+  executionCenter: autonomousExecutionCenter,
+  authenticator: new GatewayAuthenticator({ serviceTokens: entries(process.env.STUDIO_GATEWAY_SERVICE_TOKENS), signingSecrets: entries(process.env.STUDIO_GATEWAY_SIGNING_SECRETS) }),
+  rateLimiter: new SlidingWindowRateLimiter({ limit: Number(process.env.STUDIO_GATEWAY_RATE_LIMIT ?? 30) })
+});
 
 function localOnly(request) {
   return ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.socket.remoteAddress ?? "");
@@ -84,7 +95,7 @@ function clearSessionCookie() {
 
 const server = createServer(async (request, response) => {
   try {
-    if (!localOnly(request)) {
+    if (!localOnly(request) && !String(request.url ?? "").startsWith("/api/v1/")) {
       sendJson(response, 403, { status: "BLOCKED", reason: "Console Action Server only accepts local 127.0.0.1 requests." });
       return;
     }
@@ -111,6 +122,34 @@ const server = createServer(async (request, response) => {
     const isAuthRoute = pathname === "/api/access/login" || pathname === "/api/access/register" || pathname === "/api/access/logout" || pathname === "/api/access/session";
     const actionRunMatch = pathname.match(/^\/api\/actions\/([^/]+)$/);
     const actionCancelMatch = pathname.match(/^\/api\/actions\/([^/]+)\/cancel$/);
+    const gatewayGoalMatch = pathname.match(/^\/api\/v1\/goals\/([^/]+)$/);
+    const gatewayGraphMatch = pathname.match(/^\/api\/v1\/goals\/([^/]+)\/task-graph$/);
+    const gatewaySessionMatch = pathname.match(/^\/api\/v1\/night-shift\/sessions\/([^/]+)$/);
+    const gatewayReportMatch = pathname.match(/^\/api\/v1\/night-shift\/sessions\/([^/]+)\/morning-report$/);
+    const gatewayContext = (body = {}) => ({ method: request.method ?? "GET", pathname, headers: request.headers, body, sessionContext: accessContext });
+    if (pathname.startsWith("/api/v1/")) {
+      const requestId = String(request.headers["x-request-id"] ?? randomUUID());
+      try {
+        let result;
+        if (request.method === "POST" && pathname === "/api/v1/goals") {
+          const body = await readJsonBody(request);
+          result = await studioGateway.createGoal({ ...body, idempotencyKey: body.idempotencyKey ?? request.headers["idempotency-key"] }, gatewayContext(body));
+          sendJson(response, 201, { ...result, requestId });
+          return;
+        }
+        if (request.method === "GET" && gatewayGraphMatch) result = await studioGateway.getTaskGraph(decodeURIComponent(gatewayGraphMatch[1]), gatewayContext());
+        else if (request.method === "GET" && gatewayGoalMatch) result = await studioGateway.getGoal(decodeURIComponent(gatewayGoalMatch[1]), gatewayContext());
+        else if (request.method === "GET" && gatewayReportMatch) result = await studioGateway.getMorningReport(decodeURIComponent(gatewayReportMatch[1]), gatewayContext());
+        else if (request.method === "GET" && gatewaySessionMatch) result = await studioGateway.getSession(decodeURIComponent(gatewaySessionMatch[1]), gatewayContext());
+        else if (request.method === "GET" && pathname === "/api/v1/readiness") result = await studioGateway.getReadiness(gatewayContext());
+        else { sendJson(response, 404, { error: { code: "NOT_FOUND", message: "Gateway route not found.", requestId } }); return; }
+        sendJson(response, 200, { ...result, requestId });
+      } catch (error) {
+        const failure = gatewayErrorResponse(error, requestId);
+        sendJson(response, failure.status, failure.body, failure.status === 401 ? { "www-authenticate": "Bearer" } : {});
+      }
+      return;
+    }
     if (request.method === "POST" && pathname === "/api/access/login") {
       const body = await readJsonBody(request);
       const result = await loginToAccessCenter(body.username, body.password, {
@@ -177,6 +216,18 @@ const server = createServer(async (request, response) => {
         status: "AUTH_REQUIRED",
         reason: "Console Action Server requires a local Studio login before invoking actions."
       });
+      return;
+    }
+    if (request.method === "GET" && pathname === "/api/aec/dashboard") {
+      sendJson(response, 200, await autonomousExecutionCenter.getDashboard());
+      return;
+    }
+    if (request.method === "POST" && pathname === "/api/aec/goals") {
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "aec-goal", risk: "LOW" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      const body = await readJsonBody(request), title = String(body.title ?? "").trim();
+      if (!title) { sendJson(response, 400, { status: "INVALID_GOAL", reason: "Goal title is required." }); return; }
+      sendJson(response, 201, await autonomousExecutionCenter.createGoal({ title, userContext: accessContext }));
       return;
     }
     if (request.method === "POST" && pathname === "/api/actions/start") {
@@ -254,8 +305,9 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(port, "127.0.0.1", () => {
-  console.log(`ANKSEN Agent Studio Console running at http://127.0.0.1:${port}`);
+const bindHost = process.env.STUDIO_BIND_HOST ?? "127.0.0.1";
+server.listen(port, bindHost, () => {
+  console.log(`ANKSEN Agent Studio Console running at http://${bindHost}:${port}`);
   console.log("Mode: Pilot Production. LOW/MEDIUM local allowlist actions execute; HIGH stays proposal-only; CRITICAL requires human approval.");
   console.log("No deploy, production operations, model calls, managed project writes, or secret reads.");
 });
