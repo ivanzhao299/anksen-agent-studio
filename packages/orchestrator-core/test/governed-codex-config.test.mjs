@@ -37,4 +37,5 @@ test("governed runner preserves one-shot activation and fail-closed cleanup", as
   assert.match(source, /approval\.status === "CONSUMED"/);
   assert.match(source, /attempt_number === 1/);
   assert.match(source, /CHANGED_PATH_DENIED/);
+  assert.match(source, /result\.stdout\.split\("\\n"\)\.filter\(line => line\.trim\(\)\)/);
 });

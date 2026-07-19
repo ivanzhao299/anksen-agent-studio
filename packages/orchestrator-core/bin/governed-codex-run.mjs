@@ -46,7 +46,7 @@ function git(root, args) {
 function changedPaths(root) {
   const result = git(root, ["status", "--short", "--untracked-files=all"]);
   assert(result.status === 0, "GIT_STATUS_FAILED");
-  return result.stdout.trim().split("\n").filter(Boolean).map(line => line.slice(3).split(" -> ").at(-1));
+  return result.stdout.split("\n").filter(line => line.trim()).map(line => line.slice(3).split(" -> ").at(-1));
 }
 
 function pathAllowed(path, allowedPaths) {
