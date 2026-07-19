@@ -5,7 +5,7 @@ import { once } from "node:events";
 
 export class RuntimePolicyError extends Error { constructor(code,message){super(message);this.name="RuntimePolicyError";this.code=code;} }
 const forbiddenEnv=/^(HOME|USERPROFILE|SSH_|AWS_|AZURE_|GOOGLE_|.*TOKEN.*|.*SECRET.*|.*PASSWORD.*|.*KEY.*)$/i;
-const dangerous=/[;&|`\n]|\$\(|\bgit\s+(push|merge)\b|\b(kubectl|helm|terraform)\s+(apply|destroy)\b|\b(?:rm|find)\b[^\n]*(?:-rf|-delete)|\b(?:deploy|release)\b/i;
+const dangerous=/[;&|`]|\$\(|\bgit\s+(push|merge)\b|\b(kubectl|helm|terraform)\s+(apply|destroy)\b|\b(?:rm|find)\b[^\n]*(?:-rf|-delete)|\b(?:deploy|release)\s+(?:now|to|--|production|staging)\b/i;
 const within=(child,parent)=>{const r=relative(parent,child);return r===""||(!r.startsWith("..")&&!isAbsolute(r));};
 export function redact(value,secrets=[]){let text=String(value);for(const secret of secrets.filter(Boolean))text=text.split(secret).join("[REDACTED]");return text.replace(/\b(?:sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{12,})\b/g,"[REDACTED]");}
 export function validateRuntimeRequest(request,context){

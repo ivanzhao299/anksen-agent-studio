@@ -23,7 +23,7 @@ const fixtureRoot = "/Users/mac/Documents/Codex/anksen-codex-first-run-fixture";
 const targetPath = "docs/codex-first-run.md";
 const policyVersion = "beta-002-v1";
 const credentialReferenceId = "codex-local-session-ref";
-const codexPath = "/Users/mac/.local/bin/codex";
+const codexPath = "/Applications/ChatGPT.app/Contents/Resources/codex";
 const executionStartedAt = new Date().toISOString();
 const resumeExisting = process.argv.includes("--resume");
 const expectedContent = `# First Controlled Codex Execution
@@ -36,8 +36,7 @@ const expectedContent = `# First Controlled Codex Execution
 `;
 const safeInstruction = [
   "Create exactly one new UTF-8 file at docs/codex-first-run.md in the current repository.",
-  `The exact file content is this base64 payload: ${Buffer.from(expectedContent).toString("base64")}`,
-  "Decode the payload and write it exactly, including the final newline.",
+  `Write this exact content, preserving line breaks and the final newline:\n\n${expectedContent}`,
   "Do not modify any other file. Do not create a commit.",
   "Do not run commands other than git status, git diff, git diff --check, git rev-parse --show-toplevel, mkdir, or the single controlled file-write operation.",
   "After writing the file, verify only that file changed and return a concise result.",
@@ -102,7 +101,7 @@ function assert(condition, code) {
   if (!condition) throw Object.assign(new Error(code), { code });
 }
 
-async function completeClaim(pool, kernel, session, worker, claim, result) {
+async function completeClaim(pool, kernel, session, worker, claim, result, logs = []) {
   const proof = {
     leaseId: claim.leaseId,
     leaseToken: claim.leaseToken,
@@ -122,7 +121,11 @@ async function completeClaim(pool, kernel, session, worker, claim, result) {
       finishedAt: result.finishedAt,
       durationMs: result.durationMs,
       pid: result.metadata?.pid ?? null,
+      signal: result.signal ?? null,
+      errorCode: result.errorCode ?? null,
+      errorMessage: result.errorMessage ?? null,
       fencingToken: result.fencingToken,
+      logEvents: logs.slice(-20).map(event => ({ sequence: event.sequence, stream: event.stream, level: event.level, message: event.message.slice(0, 2000), timestamp: event.timestamp })),
     };
     await client.query("UPDATE ad_task_lease SET status='RELEASED',released_at=now(),version=version+1 WHERE id=$1", [lease.id]);
     await client.query("UPDATE ad_task_attempt SET status=$2,started_at=COALESCE(started_at,$3),finished_at=$4,validation_result=$5,metadata=metadata||$6::jsonb WHERE id=$1", [lease.attempt_id, result.status, result.startedAt, result.finishedAt, safeResult, JSON.stringify({ runtimeResult: safeResult, sideEffectsPossible: true })]);
@@ -165,14 +168,16 @@ async function main() {
   assert(realpathSync(fixtureRoot) === fixtureRoot, "FIXTURE_ROOT_MISMATCH");
   assert(git(["remote"]).stdout.trim() === "", "FIXTURE_REMOTE_FORBIDDEN");
   assert(!join(fixtureRoot, targetPath).includes(".."), "TARGET_PATH_INVALID");
-  const baselineStatus = git(["status", "--short"]).stdout.trim().split("\n").filter(Boolean);
-  assert(baselineStatus.every(line => line === "?? README.md"), "FIXTURE_BASELINE_DIRTY");
+  const baselineStatus = git(["status", "--short", "--untracked-files=all"]).stdout.trim().split("\n").filter(Boolean);
+  const allowedBaseline = resumeExisting ? ["?? README.md", `?? ${targetPath}`] : ["?? README.md"];
+  assert(baselineStatus.length === allowedBaseline.length && baselineStatus.every(line => allowedBaseline.includes(line)), "FIXTURE_BASELINE_DIRTY");
 
   await ensurePostgresFixture();
   const pool = createTestPool();
   process.env.AUTONOMOUS_RUNTIME_CODEX_ENABLED = "false";
   let approvalId = null;
   let codexVersionText = "";
+  let failureSession = null;
   try {
     const existing = (await pool.query("SELECT to_regclass('ad_runtime_approval') activation")).rows[0];
     if (!existing.activation) await migrate(pool, "up");
@@ -229,8 +234,17 @@ async function main() {
       workerSession = await kernel.openSession(worker.id, 700);
       tasks = (await pool.query("SELECT * FROM ad_task WHERE goal_id=$1 ORDER BY created_at,task_key", [goal.id])).rows;
     }
+    failureSession = nightSession;
     const codexTask = tasks.find(task => task.required_capabilities.includes("document_generation"));
     assert(codexTask && tasks.length === 3, "PLANNER_GRAPH_UNEXPECTED");
+    if (resumeExisting) {
+      const existingApproval = (await pool.query("SELECT id FROM ad_runtime_approval WHERE goal_id=$1 AND task_id=$2 AND runtime_type='CODEX' ORDER BY created_at DESC LIMIT 1", [goal.id, codexTask.id])).rows[0];
+      assert(existingApproval, "CODEX_APPROVAL_NOT_FOUND");
+      approvalId = existingApproval.id;
+      codexVersionText = run(codexPath, ["--version"]).stdout.trim();
+      const persistedResult = codexTask.output?.runtimeResult ?? null;
+      nightSession.codexEvidence = persistedResult ? { executionId: persistedResult.executionId, pid: persistedResult.pid, durationMs: persistedResult.durationMs, exitCode: persistedResult.exitCode, logEvents: persistedResult.logEvents?.length ?? 0, credentialReferenceId, approvalId } : null;
+    }
 
     const fencingPort = { assertCurrent: async proof => {
       const row = (await pool.query("SELECT 1 FROM ad_task_lease WHERE id=$1 AND task_id=$2 AND attempt_id=$3 AND fencing_token=$4 AND status='ACTIVE' AND expires_at>now()", [proof.leaseId, proof.taskId, proof.attemptId, proof.fencingToken])).rowCount;
@@ -277,8 +291,8 @@ async function main() {
       const logStore = new MemoryRuntimeLogStore();
       const supervisor = new ProcessSupervisor({ fencingPort, logStore, maxLogBytes: 200000 });
       const registry = new RuntimeRegistry();
-      const safeEnvironment = Object.fromEntries(["HOME", "PATH", "CODEX_HOME", "LANG", "LC_ALL", "TMPDIR"].filter(key => process.env[key]).map(key => [key, process.env[key]]));
-      const adapter = new CodexCliAdapter({ supervisor, context: runtimeContext, fencingPort, cliPath: codexPath, enabled: true, execArgs: ["--ephemeral", "--sandbox", "workspace-write", "--cd", fixtureRoot], baseEnvironment: safeEnvironment });
+      const safeEnvironment = Object.fromEntries(["HOME", "PATH", "CODEX_HOME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "USER", "LOGNAME", "SHELL", "TERM", "COLORTERM", "CODEX_SHELL", "__CF_USER_TEXT_ENCODING"].filter(key => process.env[key]).map(key => [key, process.env[key]]));
+      const adapter = new CodexCliAdapter({ supervisor, context: runtimeContext, fencingPort, cliPath: codexPath, enabled: true, execArgs: ["--ephemeral", "--json", "--sandbox", "workspace-write", "--cd", fixtureRoot], baseEnvironment: safeEnvironment });
       registry.registerAdapter(adapter);
       const service = new RuntimeService({ registry, fencingPort });
       const request = { executionId: randomUUID(), goalId: goal.id, taskId: task.id, attemptId: claim.attemptId, workerId: worker.id, sessionId: workerSession.session_id, leaseId: claim.leaseId, fencingToken: claim.fencingToken, runtimeType: "CODEX", instruction: safeInstruction, workingDirectory: fixtureRoot, targetPaths: [targetPath], allowedPaths: policy.allowed_paths, blockedPaths: policy.blocked_paths, timeoutSeconds: policy.max_runtime_seconds, environment: {}, metadata: { beta: "002", credentialReferenceId } };
@@ -286,19 +300,19 @@ async function main() {
       assert(execution.pid, "CODEX_PROCESS_NOT_STARTED");
       const result = await service.collectExecutionResult(request.executionId);
       process.env.AUTONOMOUS_RUNTIME_CODEX_ENABLED = "false";
-      await completeClaim(pool, kernel, workerSession, worker, claim, result);
+      const logs = await logStore.list(request.executionId);
+      await completeClaim(pool, kernel, workerSession, worker, claim, result, logs);
       await pool.query("UPDATE ad_night_shift_session SET runtime_execution_count=runtime_execution_count+1 WHERE id=$1", [nightSession.id]);
       assert(result.status === "SUCCEEDED" && result.exitCode === 0, `CODEX_RUNTIME_${result.status}`);
 
       const actualContent = await readFile(join(fixtureRoot, targetPath), "utf8");
       assert(actualContent === expectedContent, "GENERATED_CONTENT_MISMATCH");
-      const afterStatus = git(["status", "--short"]).stdout.trim().split("\n").filter(Boolean);
+      const afterStatus = git(["status", "--short", "--untracked-files=all"]).stdout.trim().split("\n").filter(Boolean);
       assert(afterStatus.length === 2 && afterStatus.includes("?? README.md") && afterStatus.includes(`?? ${targetPath}`), "UNEXPECTED_FIXTURE_CHANGES");
       assert(git(["diff", "--check"]).status === 0, "GIT_DIFF_CHECK_FAILED");
       let replayRejected = false;
       try { await gate.consumeApproval(activationInput); } catch (error) { replayRejected = error.code === "APPROVAL_NOT_USABLE"; }
       assert(replayRejected, "APPROVAL_REPLAY_ACCEPTED");
-      const logs = await logStore.list(request.executionId);
       nightSession.codexEvidence = { executionId: result.executionId, pid: result.metadata.pid, durationMs: result.durationMs, exitCode: result.exitCode, logEvents: logs.length, credentialReferenceId, approvalId: approval.id, preActivation: beforeFlag };
     }
 
@@ -309,7 +323,8 @@ async function main() {
     assert(facts.every(row => row.attempt_number === 1 && row.attempt_status === "SUCCEEDED" && row.lease_status === "RELEASED" && row.task_status === "SUCCEEDED"), "PERSISTED_FACT_MISMATCH");
     const approval = (await pool.query("SELECT status,used_count,max_uses,expires_at,consumed_at FROM ad_runtime_approval WHERE id=$1", [approvalId])).rows[0];
     assert(approval.status === "CONSUMED" && approval.used_count === 1, "APPROVAL_NOT_CONSUMED");
-    const report = { sessionId: nightSession.id, sessionKey, sessionStatus: "SUCCEEDED", goalId: goal.id, goalStatus: "SUCCEEDED", totalTasks: taskCounts.total, succeededTasks: taskCounts.succeeded, failedTasks: taskCounts.failed, blockedTasks: taskCounts.blocked, attemptCount: facts.length, runtimeType: "CODEX", codexExecutionCount: 1, startedAt: executionStartedAt, finishedAt: new Date().toISOString(), errorSummary: [] };
+    const persistedSession = (await pool.query("SELECT * FROM ad_night_shift_session WHERE id=$1", [nightSession.id])).rows[0];
+    const report = { sessionId: nightSession.id, sessionKey, sessionStatus: "SUCCEEDED", goalId: goal.id, goalStatus: "SUCCEEDED", totalTasks: taskCounts.total, succeededTasks: taskCounts.succeeded, failedTasks: taskCounts.failed, blockedTasks: taskCounts.blocked, attemptCount: facts.length, runtimeType: "CODEX", runtimeExecutionCount: persistedSession.runtime_execution_count, codexExecutionCount: 1, startedAt: new Date(persistedSession.started_at).toISOString(), finishedAt: new Date().toISOString(), errorSummary: [] };
     await pool.query("UPDATE ad_night_shift_session SET status='SUCCEEDED',finished_at=$2,report=$3,updated_at=now() WHERE id=$1", [nightSession.id, report.finishedAt, report]);
     await new SessionProjectionConsumer(pool, `beta-002-projection-${nightSession.id}`).replay();
     const finalReadinessGate = new ActivationGateService(pool, { credentialResolver: async reference => reference === credentialReferenceId, codexHealth: async () => ({ status: "HEALTHY", version: codexVersionText }) });
@@ -317,6 +332,16 @@ async function main() {
     const commitExists = git(["rev-parse", "--verify", "HEAD"]).status === 0;
     const files = (await readdir(join(fixtureRoot, "docs"))).sort();
     return { conclusion: "SUCCEEDED", beta001Commit: "c984ad1", fixtureRoot, goal: { id: goal.id, status: "SUCCEEDED" }, policy: { version: policyVersion, allowedPaths: [targetPath], blockedPaths, allowedCommands, blockedCommands, maxRuntimeSeconds: 600, maxAttempts: 1, allowCommit: false, allowPush: false, allowMerge: false, allowDeploy: false }, approval, featureFlag: process.env.AUTONOMOUS_RUNTIME_CODEX_ENABLED, codexEvidence: nightSession.codexEvidence, facts, files, commitExists, morningReport: report, finalReadiness };
+  } catch (error) {
+    if (failureSession) {
+      const counts = (await pool.query("SELECT count(*)::int total,count(*) FILTER(WHERE status='SUCCEEDED')::int succeeded,count(*) FILTER(WHERE status='FAILED')::int failed,count(*) FILTER(WHERE status='BLOCKED')::int blocked FROM ad_task WHERE goal_id=$1", [failureSession.goal_id])).rows[0];
+      await pool.query("UPDATE ad_task SET status='BLOCKED',version=version+1 WHERE goal_id=$1 AND status IN ('PENDING','READY','QUEUED')", [failureSession.goal_id]);
+      await pool.query("UPDATE ad_goal SET status='FAILED',version=version+1 WHERE id=$1", [failureSession.goal_id]);
+      const report = { sessionId: failureSession.id, sessionKey: failureSession.session_key, sessionStatus: "FAILED", goalId: failureSession.goal_id, goalStatus: "FAILED", totalTasks: counts.total, succeededTasks: counts.succeeded, failedTasks: Math.max(counts.failed, 1), blockedTasks: counts.blocked, errorSummary: [error.code ?? error.message], finishedAt: new Date().toISOString() };
+      await pool.query("INSERT INTO ad_session_error(session_id,code,message,metadata) VALUES($1,$2,$3,$4)", [failureSession.id, error.code ?? error.message, "Beta-002 controlled execution stopped", { featureFlagRestored: true }]);
+      await pool.query("UPDATE ad_night_shift_session SET status='FAILED',error_summary=jsonb_build_array($2::text),report=$3,finished_at=$4,updated_at=now() WHERE id=$1", [failureSession.id, error.code ?? error.message, report, report.finishedAt]);
+    }
+    throw error;
   } finally {
     process.env.AUTONOMOUS_RUNTIME_CODEX_ENABLED = "false";
     await pool.end();

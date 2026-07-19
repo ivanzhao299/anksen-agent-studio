@@ -2,35 +2,37 @@
 
 ## Outcome
 
-The first controlled CODEX process was started exactly once on 2026-07-19 and returned a failed RuntimeResult. It was not retried. The feature flag was restored to false immediately, the one-use Approval remained `CONSUMED`, and the active lease was closed with a fencing-aware failure writeback.
+Beta-002 completed the first successful controlled CODEX development loop on 2026-07-19. The real Codex process created exactly `docs/codex-first-run.md` in the isolated fixture, returned exit code 0, and produced a successful RuntimeResult. The feature flag was restored to false, the one-use Approval is `CONSUMED`, all Attempt rows are terminal, all leases are `RELEASED`, and the successful Morning Report is persisted.
 
-The exercise therefore does **not** claim a successful first autonomous code change. No `docs/codex-first-run.md` file was produced and the fixture retained only its pre-existing uncommitted `README.md` baseline.
+Two earlier controlled sessions failed safely before the successful run. Their immutable audit records were retained and their Approvals cannot be replayed. Persisted logs identified the root cause as standalone `codex-cli 0.141.0` being too old for the configured `gpt-5.6-sol` model. The successful run used the already-installed ChatGPT application CLI `0.145.0-alpha.18`; no desktop-managed binary was overwritten.
 
 ## Isolated fixture
 
 - Root: `/Users/mac/Documents/Codex/anksen-codex-first-run-fixture`
 - Remote: none
-- Runtime: one real `CODEX` process
+- Generated file: `docs/codex-first-run.md`
+- Fixture commits: none
 - Production database, migration, credential values, push, merge and deployment: not used
 
-## Persisted result
+## Successful execution facts
 
-- Session: `FAILED`
-- Goal: `FAILED`
-- Planner tasks: 3
-- Analyze task: `SUCCEEDED` through `CONTROLLED_STUB`
-- Create documentation task: Attempt 1 `FAILED`, Lease `RELEASED`, fencing token 1
-- Review task: `BLOCKED`
+- Session and Goal: `SUCCEEDED`
+- Planner tasks: 3 of 3 `SUCCEEDED`
+- Each task: Attempt 1 only
+- Every lease: `RELEASED`
+- CODEX Runtime PID: 38650
+- CODEX Runtime exit code: 0
+- CODEX fencing token: 1
 - Approval: `CONSUMED`, used count 1 of 1
-- Runtime executions: 2 total, 1 controlled stub and 1 CODEX
-- Morning Report: persisted with `CODEX_RUNTIME_FAILED`
+- Runtime executions: 3 total, 2 controlled stub and 1 CODEX
+- Morning Report: persisted with no error summary
 
 ## Control-plane hardening
 
-Beta-002 adds wildcard capability handling for the existing Access Center platform-owner identity, explicit target-path checks for single-file policies, and readiness checks for project root, allowed paths, blocked paths, timeout and CODEX worker authorization. `CodexCliAdapter` accepts controlled CLI arguments so the exercise can force ephemeral `workspace-write` sandboxing.
+Beta-002 adds wildcard capability handling for the existing Access Center platform-owner identity, explicit target-path checks for single-file policies, and readiness checks for project root, allowed paths, blocked paths, timeout and CODEX worker authorization. `CodexCliAdapter` accepts controlled CLI arguments so the exercise forces ephemeral `workspace-write` sandboxing.
 
-The drill is intentionally one shot. A failed real RuntimeResult is persisted before the command aborts, the flag is reset in `finally`, and no retry path is invoked automatically.
+Runtime PID, exit code, error code and redacted bounded logs are persisted before success/failure decisions. Failed sessions close automatically, the feature flag resets in `finally`, and no retry path runs automatically. Resume skips terminal CODEX tasks and can finish aggregation or controlled-stub validation without launching another Codex process.
 
-## Remaining gate
+## Residual caution
 
-The CODEX process failure needs diagnosis in a later explicitly approved task. Because the one-use Approval has been consumed and Attempt 1 is terminal, diagnosing it must not reuse or replay this execution. A later run requires a new Goal, Task, Approval and explicit authorization.
+The Project Runtime Policy authorizes the outer `codex exec` call and the prompt constrains agent commands. A future hardening task should add OS-level or hook-level enforcement for every child command if command-by-command prevention, rather than audit and sandbox containment, is required.
