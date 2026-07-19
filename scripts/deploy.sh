@@ -27,7 +27,7 @@ if [[ -z "$expected_commit" || ! "$expected_commit" =~ ^[0-9a-f]{40}$ ]]; then
   exit 2
 fi
 
-for command_name in git pnpm node curl flock pgrep; do
+for command_name in git pnpm node curl flock pgrep bash; do
   command -v "$command_name" >/dev/null || {
     printf 'Required command is missing: %s\n' "$command_name" >&2
     exit 1
@@ -64,6 +64,7 @@ pnpm typecheck
 pnpm lint:check
 node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run
 pnpm --filter @anksen/console build
+bash scripts/deploy-identity.sh
 
 mapfile -t server_pids < <(pgrep -u "$(id -u)" -f "$repo_dir/apps/console/web/server.mjs" || true)
 if [[ ${#server_pids[@]} -eq 0 ]]; then

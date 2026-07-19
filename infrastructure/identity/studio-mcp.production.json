@@ -1,0 +1,11 @@
+{
+  "authMode": "oauth",
+  "publicUrl": "https://studio.cnjinhu.com/mcp",
+  "issuer": "https://studio.cnjinhu.com/auth/realms/anksen",
+  "jwksUri": "https://studio.cnjinhu.com/auth/realms/anksen/protocol/openid-connect/certs",
+  "jwksFetchUri": "http://127.0.0.1:4320/auth/realms/anksen/protocol/openid-connect/certs",
+  "metadataUri": "https://studio.cnjinhu.com/auth/realms/anksen/.well-known/openid-configuration",
+  "metadataProbeUri": "http://127.0.0.1:4320/auth/realms/anksen/.well-known/openid-configuration",
+  "upstreamOrigin": "http://127.0.0.1:4320",
+  "rateLimit": 60
+}

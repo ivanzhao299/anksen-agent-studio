@@ -1,0 +1,20 @@
+{
+  "profiles": [
+    {
+      "name": "studio-secure-cimd",
+      "description": "Resolve HTTPS Client ID Metadata Documents only from OpenAI and ChatGPT domains.",
+      "executors": [
+        {
+          "executor": "client-id-metadata-document",
+          "configuration": {
+            "cimd-allow-http-scheme": false,
+            "cimd-allow-permitted-domains": ["*.chatgpt.com", "*.openai.com"],
+            "cimd-restrict-same-domain": false,
+            "cimd-required-properties": ["redirect_uris"],
+            "only-allow-confidential-client": false
+          }
+        }
+      ]
+    }
+  ]
+}
