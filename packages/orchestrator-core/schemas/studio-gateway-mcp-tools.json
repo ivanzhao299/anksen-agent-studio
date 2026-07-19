@@ -1,0 +1,57 @@
+{
+  "server": {
+    "name": "anksen-studio-gateway",
+    "version": "0.1.0",
+    "instructions": "Use create_goal only for an explicit user-requested write. Reuse idempotencyKey on retries. Read goal, graph, session, readiness, and report with the matching read tools. CODEX is never enabled by these tools."
+  },
+  "tools": [
+    {
+      "name": "create_goal",
+      "title": "Create and run a Studio goal",
+      "description": "Create an idempotent Goal, call the existing PlannerService, submit the Task Graph, and run the controlled Night Shift.",
+      "inputSchema": { "$ref": "./studio-gateway-goal.schema.json" },
+      "outputSchema": { "type": "object", "required": ["sessionKey", "report"], "properties": { "sessionKey": { "type": "string" }, "report": { "type": "object" }, "dashboard": { "type": "object" } } },
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
+    },
+    {
+      "name": "get_goal",
+      "title": "Get a Studio goal",
+      "description": "Read authoritative Goal state.",
+      "inputSchema": { "type": "object", "required": ["goalId"], "properties": { "goalId": { "type": "string", "format": "uuid" } }, "additionalProperties": false },
+      "outputSchema": { "type": "object" },
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
+    },
+    {
+      "name": "get_task_graph",
+      "title": "Get a Goal task graph",
+      "description": "Read authoritative tasks and dependencies.",
+      "inputSchema": { "type": "object", "required": ["goalId"], "properties": { "goalId": { "type": "string", "format": "uuid" } }, "additionalProperties": false },
+      "outputSchema": { "type": "object", "required": ["goal", "tasks", "dependencies"], "properties": { "goal": { "type": "object" }, "tasks": { "type": "array" }, "dependencies": { "type": "array" } } },
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
+    },
+    {
+      "name": "get_night_shift_session",
+      "title": "Get a Night Shift session",
+      "description": "Read persisted Night Shift state.",
+      "inputSchema": { "type": "object", "required": ["sessionKey"], "properties": { "sessionKey": { "type": "string" } }, "additionalProperties": false },
+      "outputSchema": { "type": "object" },
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
+    },
+    {
+      "name": "get_activation_readiness",
+      "title": "Get activation readiness",
+      "description": "Read controlled-runtime readiness without enabling CODEX.",
+      "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
+      "outputSchema": { "type": "object" },
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
+    },
+    {
+      "name": "get_morning_report",
+      "title": "Get a Morning Report",
+      "description": "Read a persisted report for one Night Shift session.",
+      "inputSchema": { "type": "object", "required": ["sessionKey"], "properties": { "sessionKey": { "type": "string" } }, "additionalProperties": false },
+      "outputSchema": { "type": "object", "required": ["sessionKey", "status"], "properties": { "sessionKey": { "type": "string" }, "status": { "type": "string" }, "report": { "type": ["object", "null"] } } },
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
+    }
+  ]
+}

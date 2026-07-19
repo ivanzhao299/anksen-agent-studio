@@ -14,6 +14,7 @@
     "night-shift:contention:test": "node packages/orchestrator-core/bin/night-shift-postgres.mjs contention",
     "activation-gate:smoke": "node packages/orchestrator-core/bin/activation-gate-smoke.mjs",
     "aec:smoke": "node packages/orchestrator-core/bin/aec-smoke.mjs",
+    "studio-gateway:smoke": "node packages/orchestrator-core/bin/studio-gateway-smoke.mjs",
     "console:dev": "pnpm --filter @anksen/console dev",
     "console:service:status": "node packages/orchestrator-core/bin/studio.mjs console service status",
     "console:service:install": "node packages/orchestrator-core/bin/studio.mjs console service install --apply",

@@ -6,7 +6,7 @@ import { AutonomousExecutionCenter } from "../lib/autonomous-execution-center.mj
 test("AEC exposes one orchestration facade over the existing persistent kernel", async () => {
   assert.deepEqual(
     Object.getOwnPropertyNames(AutonomousExecutionCenter.prototype),
-    ["constructor", "createGoal", "getDashboard", "dashboard"],
+    ["constructor", "createGoal", "getDashboard", "getGoal", "getTaskGraph", "getSession", "getMorningReport", "getReadiness", "withPool", "dashboard"],
   );
   const source = await readFile(
     new URL("../lib/autonomous-execution-center.mjs", import.meta.url),
@@ -30,6 +30,7 @@ test("console exposes the authenticated AEC API and chairman view", async () => 
     ),
   ]);
   assert.match(server, /\/api\/aec\/goals/);
+  assert.match(server, /\/api\/v1\/goals/);
   assert.match(server, /evaluateConsoleActionAccess\([^)]*"aec-goal"/s);
   assert.match(render, /New Goal/);
   assert.match(render, /完善 Runtime 文档/);

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import {
   createTestPool,
@@ -44,25 +44,43 @@ function requireExecutionAccess(userContext) {
   }
 }
 
+function deterministicUuid(value) {
+  const hex = createHash("sha256").update(value).digest("hex").slice(0, 32).split("");
+  hex[12] = "5";
+  hex[16] = ((Number.parseInt(hex[16], 16) & 3) | 8).toString(16);
+  const joined = hex.join("");
+  return `${joined.slice(0, 8)}-${joined.slice(8, 12)}-${joined.slice(12, 16)}-${joined.slice(16, 20)}-${joined.slice(20)}`;
+}
+
 export class AutonomousExecutionCenter {
-  async createGoal({ title, userContext }) {
+  async createGoal({ title, description = "", constraints = [], acceptanceCriteria = [], idempotencyKey, scope, userContext }) {
     requireExecutionAccess(userContext);
     const pool = await readyPool();
     try {
       // PersistentNightShiftService is the existing Planner + Kernel + Scheduler +
       // Resident Worker composition root. AEC deliberately adds no second engine.
       const kernel = new PersistentNightShiftService(pool);
-      const sessionKey = `aec-${randomUUID()}`;
+      const key = idempotencyKey || randomUUID();
+      const sessionKey = `aec-${createHash("sha256").update(`${scope?.organizationId ?? "test-org"}:${scope?.workspaceId ?? "test-workspace"}:${scope?.projectId ?? "test-project"}:${key}`).digest("hex").slice(0, 32)}`;
       const session = await kernel.acceptGoal(sessionKey, {
-        id: sessionKey,
+        id: key,
         title,
-        description: title,
+        description: description || title,
+        constraints,
+        acceptanceCriteria,
+        scope,
+        source: "studio-gateway",
         metadata: {
           riskLevel: "LOW",
           createdBy: userContext.user?.user_id ?? "studio-user",
         },
       });
       const report = await kernel.run(session.session_key);
+      const goal = (await pool.query("SELECT version,project_id FROM ad_goal WHERE id=$1", [report.goalId])).rows[0];
+      await pool.query(
+        "INSERT INTO ad_outbox_event(event_id,event_type,aggregate_type,aggregate_id,aggregate_version,goal_id,project_id,payload) VALUES($1,'studio.gateway.goal_completed','goal',$2,$3,$2,$4,$5) ON CONFLICT(event_id) DO NOTHING",
+        [deterministicUuid(`studio.gateway.goal_completed:${sessionKey}`), report.goalId, goal.version, goal.project_id, { sessionKey, actorId: userContext.principalId ?? userContext.user?.user_id ?? "studio-user", authType: userContext.authType ?? "access_center", runtime: "CONTROLLED_STUB", constraintCount: constraints.length, acceptanceCriteriaCount: acceptanceCriteria.length }],
+      );
       await new SessionProjectionConsumer(
         pool,
         "aec-session-projection-v1",
@@ -80,6 +98,47 @@ export class AutonomousExecutionCenter {
     } finally {
       await pool.end();
     }
+  }
+
+  async getGoal(goalId) {
+    return this.withPool(async (pool) => {
+      const goal = (await pool.query("SELECT * FROM ad_goal WHERE id=$1", [goalId])).rows[0];
+      if (!goal) throw Object.assign(new Error("GOAL_NOT_FOUND"), { code: "GOAL_NOT_FOUND" });
+      return goal;
+    });
+  }
+
+  async getTaskGraph(goalId) {
+    return this.withPool(async (pool) => {
+      const goal = (await pool.query("SELECT * FROM ad_goal WHERE id=$1", [goalId])).rows[0];
+      if (!goal) throw Object.assign(new Error("GOAL_NOT_FOUND"), { code: "GOAL_NOT_FOUND" });
+      const tasks = (await pool.query("SELECT * FROM ad_task WHERE goal_id=$1 ORDER BY created_at,task_key", [goalId])).rows;
+      const dependencies = (await pool.query("SELECT * FROM ad_task_dependency WHERE goal_id=$1 ORDER BY created_at,id", [goalId])).rows;
+      return { goal, tasks, dependencies };
+    });
+  }
+
+  async getSession(sessionKey) {
+    return this.withPool(async (pool) => {
+      const session = (await pool.query("SELECT * FROM ad_night_shift_session WHERE session_key=$1", [sessionKey])).rows[0];
+      if (!session) throw Object.assign(new Error("SESSION_NOT_FOUND"), { code: "SESSION_NOT_FOUND" });
+      return session;
+    });
+  }
+
+  async getMorningReport(sessionKey) {
+    const session = await this.getSession(sessionKey);
+    return { sessionKey, report: session.report ?? null, status: session.status };
+  }
+
+  async getReadiness() {
+    const dashboard = await this.getDashboard();
+    return dashboard.readiness;
+  }
+
+  async withPool(work) {
+    const pool = await readyPool();
+    try { return await work(pool); } finally { await pool.end(); }
   }
 
   async dashboard(pool) {
