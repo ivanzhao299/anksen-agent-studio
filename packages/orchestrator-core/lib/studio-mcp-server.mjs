@@ -59,41 +59,44 @@ function unauthorized(response, challenge = "Bearer") {
   response.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32001, message: "Authentication required." }, id: null }));
 }
 
-export function createStudioMcpHttpServer({ token, oauthVerifier = null, host = "127.0.0.1", port = 4330, executionCenter = new AutonomousExecutionCenter(), rateLimit = 60, readiness = { status: "READY" } } = {}) {
+export function createStudioMcpRequestHandler({ token, oauthVerifier = null, executionCenter = new AutonomousExecutionCenter(), rateLimit = 60, readiness = { status: "READY" }, probePrefix = "" } = {}) {
   if (!oauthVerifier && (!token || token.length < 16)) throw new Error("STUDIO_MCP_BEARER_TOKEN must contain at least 16 characters.");
-  const loopback = new Set(["127.0.0.1", "::1", "localhost"]);
-  if (!loopback.has(host) && process.env.STUDIO_MCP_ALLOW_REMOTE !== "true") throw new Error("Remote MCP binding requires STUDIO_MCP_ALLOW_REMOTE=true and an external TLS boundary.");
   const authenticator = new GatewayAuthenticator({ serviceTokens: oauthVerifier ? {} : { "studio-mcp": token } });
   const gateway = new StudioGateway({ executionCenter, authenticator, rateLimiter: new SlidingWindowRateLimiter({ limit: rateLimit }) });
-  const httpServer = createHttpServer(async (request, response) => {
-    const url = new URL(request.url ?? "/", `http://${request.headers.host ?? host}`);
-    if (request.method === "GET" && url.pathname === "/health") {
+  return async (request, response) => {
+    const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+    if (request.method === "GET" && url.pathname === `${probePrefix}/health`) {
       response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
       response.end(JSON.stringify({ status: "PASS", transport: "streamable-http", runtime: "CONTROLLED_STUB", codexFeatureFlag: false }));
-      return;
+      return true;
     }
-    if (request.method === "GET" && url.pathname === "/ready") {
+    if (request.method === "GET" && url.pathname === `${probePrefix}/ready`) {
       const ready = readiness.status === "READY";
       response.writeHead(ready ? 200 : 503, { "content-type": "application/json", "cache-control": "no-store" });
       response.end(JSON.stringify({ ...readiness, transport: "streamable-http", runtime: "CONTROLLED_STUB", codexFeatureFlag: false }));
-      return;
+      return true;
     }
     if (oauthVerifier && request.method === "GET" && (url.pathname === "/.well-known/oauth-protected-resource" || url.pathname === "/.well-known/oauth-protected-resource/mcp")) {
       response.writeHead(200, { "content-type": "application/json", "cache-control": "public, max-age=300" });
       response.end(JSON.stringify(oauthVerifier.protectedResourceMetadata()));
-      return;
+      return true;
     }
-    if (url.pathname !== "/mcp") { response.writeHead(404).end(); return; }
+    if (url.pathname !== "/mcp") return false;
+    if (readiness.status !== "READY") {
+      response.writeHead(503, { "content-type": "application/json", "cache-control": "no-store", "retry-after": "60" });
+      response.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32002, message: "Studio MCP OAuth boundary is not ready." }, id: null }));
+      return true;
+    }
     const authorizationHeader = String(request.headers.authorization ?? "");
     let oauthContext = null;
     try {
       if (oauthVerifier) oauthContext = await oauthVerifier.authenticate(request.headers);
       else authenticator.authenticate({ method: request.method ?? "GET", pathname: "/mcp", headers: request.headers, body: {} });
-    } catch { unauthorized(response, oauthVerifier?.challenge()); return; }
+    } catch { unauthorized(response, oauthVerifier?.challenge()); return true; }
     if (request.method !== "POST") {
       response.writeHead(405, { "content-type": "application/json", allow: "POST" });
       response.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null }));
-      return;
+      return true;
     }
     const protocol = createStudioMcpProtocolServer({
       gateway,
@@ -111,6 +114,16 @@ export function createStudioMcpHttpServer({ token, oauthVerifier = null, host = 
         response.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32603, message: "Internal MCP server error." }, id: null }));
       }
     }
+    return true;
+  };
+}
+
+export function createStudioMcpHttpServer({ token, oauthVerifier = null, host = "127.0.0.1", port = 4330, executionCenter = new AutonomousExecutionCenter(), rateLimit = 60, readiness = { status: "READY" } } = {}) {
+  const loopback = new Set(["127.0.0.1", "::1", "localhost"]);
+  if (!loopback.has(host) && process.env.STUDIO_MCP_ALLOW_REMOTE !== "true") throw new Error("Remote MCP binding requires STUDIO_MCP_ALLOW_REMOTE=true and an external TLS boundary.");
+  const handler = createStudioMcpRequestHandler({ token, oauthVerifier, executionCenter, rateLimit, readiness });
+  const httpServer = createHttpServer(async (request, response) => {
+    if (!await handler(request, response)) response.writeHead(404).end();
   });
   return {
     server: httpServer,

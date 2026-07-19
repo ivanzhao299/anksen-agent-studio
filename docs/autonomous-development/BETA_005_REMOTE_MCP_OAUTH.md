@@ -63,6 +63,8 @@ OAuth mode also performs this check during startup and fails closed when issuer 
 
 The application should remain bound to loopback behind a TLS reverse proxy or private ingress. Binding directly to a public interface still requires the explicit remote-binding guard, and does not replace TLS.
 
+The production Console process can host the same MCP handler on its existing port. When `STUDIO_MCP_AUTH_MODE=oauth` is present in the managed Console environment, it mounts `/mcp`, the root protected-resource metadata endpoints, and prefixed `/mcp/health` and `/mcp/ready` probes. When OAuth configuration is absent, these routes remain unavailable; there is no anonymous fallback. Invalid authorization-server readiness returns HTTP 503 from `/mcp` while leaving the Console available.
+
 ## ChatGPT connection
 
 After deployment, connect the HTTPS `/mcp` URL from ChatGPT developer mode. The client discovers protected-resource metadata, completes the external provider's OAuth flow, and sends a short-lived access token whose audience is the Studio public resource URL.
