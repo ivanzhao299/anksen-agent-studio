@@ -8,6 +8,7 @@
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
     "product:readiness": "node packages/orchestrator-core/bin/product-readiness.mjs",
+    "software-domain:smoke": "node packages/software-engineering-domain/bin/software-domain-smoke.mjs",
     "lint:check": "node packages/orchestrator-core/bin/studio.mjs lint-check",
     "night-shift:smoke": "node packages/orchestrator-core/bin/night-shift-smoke.mjs",
     "night-shift:postgres:smoke": "node packages/orchestrator-core/bin/night-shift-postgres.mjs smoke",

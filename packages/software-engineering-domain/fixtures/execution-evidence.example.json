@@ -1,0 +1,8 @@
+{
+  "changedPaths": ["docs/readiness.md"],
+  "attemptCount": 1,
+  "validationResults": [{ "command": "git diff --check", "status": 0 }],
+  "artifacts": ["docs/readiness.md", "domain-acceptance-report.json"],
+  "acceptanceCriteria": ["The target document exists", "No other path changes"],
+  "sideEffects": ["workspace_write"]
+}

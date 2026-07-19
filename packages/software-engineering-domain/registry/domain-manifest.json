@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "domainId": "software-engineering",
+  "displayName": "Software Engineering",
+  "contractSchema": "../schemas/software-engineering-contract.schema.json",
+  "plannerAdapter": "../lib/software-engineering-domain.mjs#SoftwareEngineeringPlanner",
+  "acceptanceGate": "../lib/software-engineering-domain.mjs#evaluateSoftwareEngineeringAcceptance",
+  "existingSkillType": "code_development",
+  "existingRuntimeTypes": ["CONTROLLED_STUB", "CODEX"],
+  "defaultRuntime": "CONTROLLED_STUB",
+  "realRuntimeEnabled": false,
+  "safety": {
+    "approvalRequiredForRealRuntime": true,
+    "allowPush": false,
+    "allowMerge": false,
+    "allowDeploy": false
+  }
+}

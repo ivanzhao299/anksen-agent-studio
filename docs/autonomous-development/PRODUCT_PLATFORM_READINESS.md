@@ -4,7 +4,7 @@ This vertical slice answers one bounded question: does the current checkout cont
 
 ## Evidence model
 
-The checker reads named files and verifies small, stable implementation assertions for ten areas: identity, gateway, autonomous kernel, scheduler, worker, runtime activation gate, persistent recovery, console product surface, verification, and release safety. A file alone is not sufficient when an expected safety or behavior marker is absent.
+The checker reads named files and verifies small, stable implementation assertions for eleven areas: identity, gateway, autonomous kernel, scheduler, worker, runtime activation gate, persistent recovery, console product surface, verification, release safety, and professional domain automation. A file alone is not sufficient when an expected safety or behavior marker is absent.
 
 Each area is classified as:
 

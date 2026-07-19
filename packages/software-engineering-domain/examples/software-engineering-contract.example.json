@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "domain": "SOFTWARE_ENGINEERING",
+  "contractId": "fixture-readme-001",
+  "objective": "Add a bounded readiness note to the isolated fixture",
+  "projectRootReference": "software-engineering-fixture",
+  "allowedPaths": ["docs/readiness.md"],
+  "blockedPaths": [".git", ".env", "node_modules", "deploy", "infra"],
+  "constraints": ["Use the existing task graph", "Do not create a commit", "Do not access external services"],
+  "acceptanceCriteria": ["The target document exists", "No other path changes"],
+  "validationCommands": ["git diff --check"],
+  "expectedArtifacts": ["docs/readiness.md", "domain-acceptance-report.json"],
+  "riskLevel": "LOW",
+  "maxAttempts": 1
+}

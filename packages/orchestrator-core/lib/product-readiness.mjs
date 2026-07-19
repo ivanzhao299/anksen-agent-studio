@@ -53,6 +53,11 @@ export const productReadinessEvidenceModel = Object.freeze([
     evidence("packages/orchestrator-core/lib/activation-gate.mjs", "Push, merge, and deploy denied by runtime policy", ["DANGEROUS_POLICY", "allowPush||policy.allowMerge||policy.allowDeploy"]),
     evidence("packages/production-ops/lib/production-ops-utils.mjs", "Production operations governance", ["approval"]),
     evidence("packages/governance-center/examples/release-gates.example.json", "Versioned release gate evidence", ["release"])
+  ] },
+  { id: "professional-domain-automation", label: "Professional domain automation", evidence: [
+    evidence("packages/software-engineering-domain/schemas/software-engineering-contract.schema.json", "Versioned software engineering domain contract", ["SOFTWARE_ENGINEERING", "allowedPaths", "validationCommands"]),
+    evidence("packages/software-engineering-domain/lib/software-engineering-domain.mjs", "Existing-Planner adapter and deterministic acceptance gate", ["RulePlannerEngine", "SoftwareEngineeringPlanner", "evaluateSoftwareEngineeringAcceptance"]),
+    evidence("packages/software-engineering-domain/test/software-engineering-domain.test.mjs", "Kernel, Scheduler, Lease, Fencing, and acceptance verification", ["SmokeKernelFixture", "fencing", "BLOCKED"])
   ] }
 ]);
 
