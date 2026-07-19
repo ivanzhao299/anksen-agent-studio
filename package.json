@@ -12,6 +12,7 @@
     "night-shift:postgres:smoke": "node packages/orchestrator-core/bin/night-shift-postgres.mjs smoke",
     "night-shift:resume:smoke": "node packages/orchestrator-core/bin/night-shift-postgres.mjs resume",
     "night-shift:contention:test": "node packages/orchestrator-core/bin/night-shift-postgres.mjs contention",
+    "activation-gate:smoke": "node packages/orchestrator-core/bin/activation-gate-smoke.mjs",
     "console:dev": "pnpm --filter @anksen/console dev",
     "console:service:status": "node packages/orchestrator-core/bin/studio.mjs console service status",
     "console:service:install": "node packages/orchestrator-core/bin/studio.mjs console service install --apply",
