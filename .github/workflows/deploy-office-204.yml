@@ -82,4 +82,8 @@ jobs:
             "deploy ${COMMIT_SHA}"
 
       - name: Verify public Studio endpoint
-        run: curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 20 https://studio.cnjinhu.com/login >/dev/null
+        run: |
+          curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 20 https://studio.cnjinhu.com/login >/dev/null
+          curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 20 https://studio.cnjinhu.com/auth/realms/anksen/.well-known/openid-configuration >/dev/null
+          curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 20 https://studio.cnjinhu.com/.well-known/oauth-protected-resource >/dev/null
+          curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 20 https://studio.cnjinhu.com/mcp/ready >/dev/null
