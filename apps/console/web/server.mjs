@@ -5,11 +5,13 @@ import { fileURLToPath } from "node:url";
 import {
   createAccessInvite,
   currentSessionSummary,
+  evaluateConsoleActionAccess,
   loadAccessCenter,
   loginToAccessCenter,
   logoutFromAccessCenter,
   resolveSessionContext
 } from "../../../packages/access-center/lib/access-center-utils.mjs";
+import { AutonomousExecutionCenter } from "../../../packages/orchestrator-core/lib/autonomous-execution-center.mjs";
 import { renderConsolePage } from "./render.mjs";
 import { consoleWebRoutes } from "./routes.mjs";
 import {
@@ -28,6 +30,7 @@ const assetsDir = join(webDir, "assets");
 const staticAssets = new Map([
   ["/assets/anksen-logo.svg", { path: join(assetsDir, "anksen-logo.svg"), type: "image/svg+xml; charset=utf-8" }]
 ]);
+const autonomousExecutionCenter = new AutonomousExecutionCenter();
 
 function localOnly(request) {
   return ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.socket.remoteAddress ?? "");
@@ -177,6 +180,18 @@ const server = createServer(async (request, response) => {
         status: "AUTH_REQUIRED",
         reason: "Console Action Server requires a local Studio login before invoking actions."
       });
+      return;
+    }
+    if (request.method === "GET" && pathname === "/api/aec/dashboard") {
+      sendJson(response, 200, await autonomousExecutionCenter.getDashboard());
+      return;
+    }
+    if (request.method === "POST" && pathname === "/api/aec/goals") {
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "aec-goal", risk: "LOW" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      const body = await readJsonBody(request), title = String(body.title ?? "").trim();
+      if (!title) { sendJson(response, 400, { status: "INVALID_GOAL", reason: "Goal title is required." }); return; }
+      sendJson(response, 201, await autonomousExecutionCenter.createGoal({ title, userContext: accessContext }));
       return;
     }
     if (request.method === "POST" && pathname === "/api/actions/start") {

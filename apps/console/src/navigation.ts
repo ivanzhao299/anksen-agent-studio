@@ -1,5 +1,6 @@
 export type ConsolePageId =
   | "dashboard"
+  | "execution"
   | "projects"
   | "projectConnector"
   | "runtimeCenter"
@@ -24,6 +25,7 @@ export interface ConsoleNavigationItem {
 
 export const consoleNavigation: readonly ConsoleNavigationItem[] = [
   { id: "dashboard", label: "总览", route: "/agent-studio", source: "runtime/global/platform-state.json", readOnly: true },
+  { id: "execution", label: "自主执行", route: "/execution", source: "orchestrator-core autonomous execution center", readOnly: true },
   { id: "projects", label: "项目", route: "/agent-studio/projects", source: "runtime/projects", readOnly: true },
   { id: "projectConnector", label: "项目接入", route: "/agent-studio/project-connector", source: "packages/project-connector/examples", readOnly: true },
   { id: "runtimeCenter", label: "运行时", route: "/agent-studio/runtime", source: "packages/runtime-center/examples", readOnly: true },
