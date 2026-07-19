@@ -34,7 +34,8 @@ const directExecuteActionIds = new Set([
   "release-reviewed-publish",
   "proposal-approve-apply",
   "worker-claim-preflight",
-  "aec-goal"
+  "aec-goal",
+  "identity-owner-bootstrap"
 ]);
 const agentRuntimeIds = new Set([
   "auto",
@@ -50,6 +51,7 @@ const agentRuntimeIds = new Set([
 ]);
 
 const consoleActionCatalog = {
+  "identity-owner-bootstrap": { capabilities: ["console.access", "access.manage"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "aec-goal": { capabilities: ["console.access", "autopilot.execute.local"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "workspace-goal": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "project-dispatch": { capabilities: ["console.access", "project.read", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
