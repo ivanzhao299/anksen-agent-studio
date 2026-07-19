@@ -14,6 +14,8 @@
     "night-shift:contention:test": "node packages/orchestrator-core/bin/night-shift-postgres.mjs contention",
     "activation-gate:smoke": "node packages/orchestrator-core/bin/activation-gate-smoke.mjs",
     "aec:smoke": "node packages/orchestrator-core/bin/aec-smoke.mjs",
+    "beta-002:execute": "node packages/orchestrator-core/bin/beta-002-controlled-codex.mjs",
+    "beta-002:resume": "node packages/orchestrator-core/bin/beta-002-controlled-codex.mjs --resume",
     "studio-gateway:smoke": "node packages/orchestrator-core/bin/studio-gateway-smoke.mjs",
     "studio-mcp:start": "node packages/orchestrator-core/bin/studio-mcp-server.mjs",
     "studio-mcp:smoke": "node packages/orchestrator-core/bin/studio-mcp-smoke.mjs",
