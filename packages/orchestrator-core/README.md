@@ -14,6 +14,7 @@ Extraction candidates from the Jinhu Smart Park project-local orchestrator:
 - Queue read-model projection contracts.
 - Task dispatch, claim, complete, audit, integrate, reconcile, and finalize orchestration.
 - Beta-003 Studio Gateway exposes the existing Goal/Planner/Night Shift path through authenticated REST and MCP-compatible contracts; it does not create a second orchestration implementation.
+- Beta-004 provides a bearer-authenticated local Streamable HTTP MCP server for the six Studio Gateway tools.
 - Doctor, self-repair, daemon, and autonomous-loop core decision rules.
 - Project-agnostic validation and risk classification.
 
