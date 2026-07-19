@@ -59,7 +59,7 @@ function unauthorized(response, challenge = "Bearer") {
   response.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32001, message: "Authentication required." }, id: null }));
 }
 
-export function createStudioMcpHttpServer({ token, oauthVerifier = null, host = "127.0.0.1", port = 4330, executionCenter = new AutonomousExecutionCenter(), rateLimit = 60 } = {}) {
+export function createStudioMcpHttpServer({ token, oauthVerifier = null, host = "127.0.0.1", port = 4330, executionCenter = new AutonomousExecutionCenter(), rateLimit = 60, readiness = { status: "READY" } } = {}) {
   if (!oauthVerifier && (!token || token.length < 16)) throw new Error("STUDIO_MCP_BEARER_TOKEN must contain at least 16 characters.");
   const loopback = new Set(["127.0.0.1", "::1", "localhost"]);
   if (!loopback.has(host) && process.env.STUDIO_MCP_ALLOW_REMOTE !== "true") throw new Error("Remote MCP binding requires STUDIO_MCP_ALLOW_REMOTE=true and an external TLS boundary.");
@@ -70,6 +70,12 @@ export function createStudioMcpHttpServer({ token, oauthVerifier = null, host = 
     if (request.method === "GET" && url.pathname === "/health") {
       response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
       response.end(JSON.stringify({ status: "PASS", transport: "streamable-http", runtime: "CONTROLLED_STUB", codexFeatureFlag: false }));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/ready") {
+      const ready = readiness.status === "READY";
+      response.writeHead(ready ? 200 : 503, { "content-type": "application/json", "cache-control": "no-store" });
+      response.end(JSON.stringify({ ...readiness, transport: "streamable-http", runtime: "CONTROLLED_STUB", codexFeatureFlag: false }));
       return;
     }
     if (oauthVerifier && request.method === "GET" && (url.pathname === "/.well-known/oauth-protected-resource" || url.pathname === "/.well-known/oauth-protected-resource/mcp")) {

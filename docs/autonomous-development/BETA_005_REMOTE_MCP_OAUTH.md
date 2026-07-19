@@ -56,6 +56,11 @@ pnpm studio-mcp:oauth:check
 pnpm studio-mcp:start
 ```
 
+OAuth mode also performs this check during startup and fails closed when issuer metadata, JWKS identity, HTTPS endpoints, or PKCE S256 are invalid. Operational probes are:
+
+- `GET /health`: process liveness only.
+- `GET /ready`: OAuth/startup readiness plus the immutable `CONTROLLED_STUB` and disabled-Codex safety state; returns HTTP 503 when not ready.
+
 The application should remain bound to loopback behind a TLS reverse proxy or private ingress. Binding directly to a public interface still requires the explicit remote-binding guard, and does not replace TLS.
 
 ## ChatGPT connection

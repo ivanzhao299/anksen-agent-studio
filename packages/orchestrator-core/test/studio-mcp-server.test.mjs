@@ -45,3 +45,18 @@ test("MCP endpoint rejects missing credentials and unsafe remote binding", async
   } finally { await service.close(); }
   assert.throws(() => createStudioMcpHttpServer({ token: "unit-test-mcp-token-value", host: "0.0.0.0", executionCenter: fakeExecutionCenter }), /STUDIO_MCP_ALLOW_REMOTE/);
 });
+
+test("MCP readiness probe reports safe runtime state and can fail closed", async () => {
+  const ready = createStudioMcpHttpServer({ token: "unit-test-mcp-token-value", port: 0, executionCenter: fakeExecutionCenter, readiness: { status: "READY", authentication: "local_bearer" } });
+  const readyAddress = await ready.start();
+  try {
+    const response = await fetch(`http://127.0.0.1:${readyAddress.port}/ready`);
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.runtime, "CONTROLLED_STUB");
+    assert.equal(payload.codexFeatureFlag, false);
+  } finally { await ready.close(); }
+  const blocked = createStudioMcpHttpServer({ token: "unit-test-mcp-token-value", port: 0, executionCenter: fakeExecutionCenter, readiness: { status: "NOT_READY", authentication: "oauth2" } });
+  const blockedAddress = await blocked.start();
+  try { assert.equal((await fetch(`http://127.0.0.1:${blockedAddress.port}/ready`)).status, 503); } finally { await blocked.close(); }
+});
