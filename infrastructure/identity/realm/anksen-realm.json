@@ -1,0 +1,109 @@
+{
+  "realm": "anksen",
+  "displayName": "ANKSEN Agent Studio",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "accessTokenLifespan": 600,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 28800,
+  "defaultSignatureAlgorithm": "RS256",
+  "clientScopes": [
+    {
+      "name": "studio-identity",
+      "description": "Required Studio identity, project, capability, and MCP audience claims.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "false", "display.on.consent.screen": "false" },
+      "protocolMappers": [
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": { "access.token.claim": "true", "introspection.token.claim": "true" }
+        },
+        {
+          "name": "studio-mcp-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": { "included.custom.audience": "https://studio.cnjinhu.com/mcp", "id.token.claim": "false", "access.token.claim": "true", "introspection.token.claim": "true" }
+        },
+        {
+          "name": "organization-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": { "user.attribute": "organization_id", "claim.name": "organization_id", "jsonType.label": "String", "multivalued": "false", "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true", "introspection.token.claim": "true" }
+        },
+        {
+          "name": "workspace-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": { "user.attribute": "workspace_id", "claim.name": "workspace_id", "jsonType.label": "String", "multivalued": "false", "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true", "introspection.token.claim": "true" }
+        },
+        {
+          "name": "project-ids",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": { "user.attribute": "project_ids", "claim.name": "project_ids", "jsonType.label": "String", "multivalued": "true", "aggregate.attrs": "true", "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true", "introspection.token.claim": "true" }
+        },
+        {
+          "name": "capabilities",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": { "user.attribute": "capabilities", "claim.name": "capabilities", "jsonType.label": "String", "multivalued": "true", "aggregate.attrs": "true", "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true", "introspection.token.claim": "true" }
+        }
+      ]
+    },
+    {
+      "name": "studio.goals.read",
+      "description": "Read Studio goals, task graphs, Night Shift state, readiness, and reports.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "true", "consent.screen.text": "Read ANKSEN Agent Studio goal and Night Shift status" }
+    },
+    {
+      "name": "studio.goals.write",
+      "description": "Create idempotent CONTROLLED_STUB Studio goals.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "true", "consent.screen.text": "Create controlled ANKSEN Agent Studio goals" }
+    }
+  ],
+  "defaultDefaultClientScopes": ["studio-identity"],
+  "defaultOptionalClientScopes": ["studio.goals.read", "studio.goals.write"],
+  "users": [
+    {
+      "username": "${STUDIO_IDENTITY_BOOTSTRAP_USERNAME}",
+      "enabled": true,
+      "email": "studio-admin@cnjinhu.com",
+      "emailVerified": true,
+      "firstName": "Studio",
+      "lastName": "Administrator",
+      "attributes": {
+        "organization_id": ["studio-org"],
+        "workspace_id": ["studio-workspace"],
+        "project_ids": ["anksen-agent-studio"],
+        "capabilities": ["console.access", "autopilot.plan", "autopilot.execute.local"]
+      },
+      "credentials": [
+        { "type": "password", "value": "${STUDIO_IDENTITY_BOOTSTRAP_PASSWORD}", "temporary": true }
+      ]
+    }
+  ]
+}

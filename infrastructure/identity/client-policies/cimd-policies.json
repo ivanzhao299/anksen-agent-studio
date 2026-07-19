@@ -1,0 +1,19 @@
+{
+  "policies": [
+    {
+      "name": "studio-chatgpt-cimd",
+      "description": "Allow CIMD only for HTTPS Client IDs hosted by OpenAI or ChatGPT.",
+      "enabled": true,
+      "conditions": [
+        {
+          "condition": "client-id-uri",
+          "configuration": {
+            "client-id-uri-scheme": ["https"],
+            "client-id-uri-allow-permitted-domains": ["*.chatgpt.com", "*.openai.com"]
+          }
+        }
+      ],
+      "profiles": ["studio-secure-cimd"]
+    }
+  ]
+}
