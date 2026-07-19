@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { createStudioMcpHttpServer } from "../lib/studio-mcp-server.mjs";
+import { createStudioMcpHttpServer, createStudioMcpRequestHandler } from "../lib/studio-mcp-server.mjs";
 
 const fakeExecutionCenter = {
   async createGoal(input) { return { sessionKey: "session-1", report: { goalId: "11111111-1111-4111-8111-111111111111", sessionStatus: "SUCCEEDED" }, received: input }; },
@@ -59,4 +59,17 @@ test("MCP readiness probe reports safe runtime state and can fail closed", async
   const blocked = createStudioMcpHttpServer({ token: "unit-test-mcp-token-value", port: 0, executionCenter: fakeExecutionCenter, readiness: { status: "NOT_READY", authentication: "oauth2" } });
   const blockedAddress = await blocked.start();
   try { assert.equal((await fetch(`http://127.0.0.1:${blockedAddress.port}/ready`)).status, 503); } finally { await blocked.close(); }
+});
+
+test("embeddable MCP handler uses prefixed probes and fails closed before authentication", async () => {
+  const handler = createStudioMcpRequestHandler({ token: "unit-test-mcp-token-value", executionCenter: fakeExecutionCenter, readiness: { status: "NOT_READY" }, probePrefix: "/mcp" });
+  const embedded = (await import("node:http")).createServer(async (request, response) => { if (!await handler(request, response)) response.writeHead(418).end(); });
+  await new Promise((resolve) => embedded.listen(0, "127.0.0.1", resolve));
+  const address = embedded.address();
+  try {
+    assert.equal((await fetch(`http://127.0.0.1:${address.port}/mcp/health`)).status, 200);
+    assert.equal((await fetch(`http://127.0.0.1:${address.port}/mcp/ready`)).status, 503);
+    assert.equal((await fetch(`http://127.0.0.1:${address.port}/mcp`, { method: "POST" })).status, 503);
+    assert.equal((await fetch(`http://127.0.0.1:${address.port}/not-mcp`)).status, 418);
+  } finally { await new Promise((resolve) => embedded.close(resolve)); }
 });
