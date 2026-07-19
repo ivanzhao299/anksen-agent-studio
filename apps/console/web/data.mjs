@@ -781,7 +781,7 @@ export async function loadConsoleLocalData(options = {}) {
 export async function buildConsoleDashboardModel(options = {}) {
   const data = await loadConsoleLocalData(options);
   return {
-    title: "ANKSEN Agent Studio",
+    title: "ANKSEN Studio",
     mode: "local_read_only_pilot",
     platform_status: firstValue(data.platformState, ["status", "platform_status"], "READY_FOR_PILOT"),
     v5_status: "READY_FOR_PILOT",

@@ -4,9 +4,9 @@ const messages = getConsoleMessages();
 
 export const consoleWebRoutes = [
   { id: "dashboard", label: messages.nav.dashboard, path: "/", navPath: "/" },
-  { id: "execution", label: "自主执行", path: "/execution", navPath: "/execution" },
+  { id: "execution", label: "运行", path: "/execution", navPath: "/execution" },
   { id: "projects", label: messages.nav.projects, path: "/projects", navPath: "/projects" },
-  { id: "workers", label: messages.nav.workers, path: "/workers", navPath: "/workers" },
+  { id: "workers", label: messages.nav.workers, path: "/workers", navPath: "/workers", showInNav: false },
   { id: "actions", label: messages.nav.actions, path: "/actions", navPath: "/actions" },
   { id: "autopilot", label: messages.nav.autopilot, path: "/autopilot", navPath: "/autopilot" },
   { id: "config", label: messages.nav.config, path: "/config", navPath: "/config" },

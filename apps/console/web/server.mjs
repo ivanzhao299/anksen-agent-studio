@@ -365,7 +365,7 @@ const server = createServer(async (request, response) => {
 
 const bindHost = process.env.STUDIO_BIND_HOST ?? "127.0.0.1";
 server.listen(port, bindHost, () => {
-  console.log(`ANKSEN Agent Studio Console running at http://${bindHost}:${port}`);
+  console.log(`ANKSEN Studio running at http://${bindHost}:${port}`);
   console.log("Mode: Pilot Production. LOW/MEDIUM local allowlist actions execute; HIGH stays proposal-only; CRITICAL requires human approval.");
   console.log("No deploy, production operations, model calls, managed project writes, or secret reads.");
 });

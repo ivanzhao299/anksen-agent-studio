@@ -1,5 +1,5 @@
 export const consoleApp = {
-  name: "ANKSEN Agent Studio",
+  name: "ANKSEN Studio",
   status: "read-only-v4-expanded",
   mode: "read-only",
   framework_target: "Next.js App Router",

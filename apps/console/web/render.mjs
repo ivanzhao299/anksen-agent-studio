@@ -20,12 +20,26 @@ function routeHref(path, activeProjectId = "") {
   return `${path}${separator}project=${encodeURIComponent(activeProjectId)}`;
 }
 
+function navIcon(id) {
+  const paths = {
+    dashboard: '<path d="M3 10.5 10 4l7 6.5v6a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5z"/><path d="M8 18v-5h4v5"/>',
+    execution: '<circle cx="10" cy="10" r="7.5"/><path d="m8.5 7 4.5 3-4.5 3z"/>',
+    projects: '<path d="M2.5 6.5h6l1.5 2h7.5v7a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2z"/><path d="M2.5 8.5v-3a2 2 0 0 1 2-2h3l1.5 2h4"/>',
+    autopilot: '<path d="M3 17V9m5 8V5m5 12v-6m5 6V3"/>',
+    actions: '<rect x="3" y="3" width="5" height="5" rx="1"/><rect x="12" y="3" width="5" height="5" rx="1"/><rect x="3" y="12" width="5" height="5" rx="1"/><path d="M12 14.5h5m-2.5-2.5v5"/>',
+    config: '<circle cx="10" cy="10" r="2.5"/><path d="M16.4 12.5a1.4 1.4 0 0 0 .3 1.5l.1.1-2.7 2.7-.1-.1a1.4 1.4 0 0 0-1.5-.3 1.4 1.4 0 0 0-.9 1.3V18H8.4v-.3a1.4 1.4 0 0 0-.9-1.3 1.4 1.4 0 0 0-1.5.3l-.1.1-2.7-2.7.1-.1a1.4 1.4 0 0 0 .3-1.5 1.4 1.4 0 0 0-1.3-.9H2V8.4h.3a1.4 1.4 0 0 0 1.3-.9A1.4 1.4 0 0 0 3.3 6l-.1-.1 2.7-2.7.1.1a1.4 1.4 0 0 0 1.5.3 1.4 1.4 0 0 0 .9-1.3V2h3.2v.3a1.4 1.4 0 0 0 .9 1.3A1.4 1.4 0 0 0 14 3.3l.1-.1 2.7 2.7-.1.1a1.4 1.4 0 0 0-.3 1.5 1.4 1.4 0 0 0 1.3.9h.3v3.2h-.3a1.4 1.4 0 0 0-1.3.9Z"/>'
+  };
+  return `<svg viewBox="0 0 20 20" aria-hidden="true">${paths[id] ?? '<circle cx="10" cy="10" r="2"/>'}</svg>`;
+}
+
 function nav(activeId, auth = {}, activeProjectId = "") {
   const visibleRoutes = new Set(visibleConsoleRouteIds(auth));
-  return `<nav class="top-nav">${consoleWebRoutes.filter((route) => route.showInNav !== false && visibleRoutes.has(route.id)).map((route) => {
+  const primaryIds = ["dashboard", "execution", "projects", "autopilot"];
+  const renderLinks = (ids) => ids.map((id) => consoleWebRoutes.find((route) => route.id === id)).filter((route) => route && visibleRoutes.has(route.id)).map((route) => {
     const active = route.id === activeId ? "active" : "";
-    return `<a class="${active}" href="${routeHref(route.navPath, activeProjectId)}"><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
-  }).join("")}</nav>`;
+    return `<a class="${active}" href="${routeHref(route.navPath, activeProjectId)}" title="${escapeHtml(route.label)}"><span class="nav-icon">${navIcon(route.id)}</span><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
+  }).join("");
+  return `<nav class="top-nav"><span class="nav-group-label">Workspace</span>${renderLinks(primaryIds)}<span class="nav-spacer"></span><span class="nav-group-label">System</span>${renderLinks(["actions", "config"])}</nav>`;
 }
 
 function metric(label, value) {
@@ -151,21 +165,10 @@ function aiAgentOptions() {
 }
 
 function topStatusBar(model, data, auth = {}) {
-  const activeUser = auth.authenticated
-    ? (auth.user?.display_name || auth.user?.username || "已登录")
-    : "需登录";
-  const activePlan = auth.authenticated
-    ? (auth.plan?.display_name || auth.plan?.plan_id || "未分配套餐")
-    : "本地登录";
   const chips = [
-    { value: model.platform_status, tone: "primary" },
-    { value: activeUser, tone: auth.authenticated ? "default" : "warning" },
-    { value: activePlan, tone: "default" },
-    { value: "Pilot", tone: "default" },
-    { value: model.active_project, tone: "default" },
-    { value: `Worker ${model.modules.workers}`, tone: "default" },
-    { value: "LOW/MEDIUM", tone: "default" },
-    { value: data.autopilot.latest_summary?.validation ?? "unknown", tone: "success" }
+    { value: `项目 · ${model.active_project}`, tone: "primary" },
+    { value: `${model.modules.workers} 个 Worker 在线`, tone: "default" },
+    { value: (data.autopilot.latest_summary?.validation ?? "unknown") === "PASS" ? "系统运行正常" : "系统需要关注", tone: (data.autopilot.latest_summary?.validation ?? "unknown") === "PASS" ? "success" : "warning" }
   ];
   return `<div class="top-status compact">
     ${chips.map((chip) => `<span class="top-status-pill ${chip.tone}">${escapeHtml(chip.value)}</span>`).join("")}
@@ -180,10 +183,9 @@ function authHeaderBar(auth = {}) {
     return `<div class="auth-strip">
       <div class="auth-identity">
         <strong>${escapeHtml(auth.user?.display_name || auth.user?.username || "已登录")}</strong>
-        <span>${escapeHtml(primaryRole)} / ${escapeHtml(auth.plan?.display_name || auth.plan?.plan_id || "未分配套餐")}</span>
+        <span>${escapeHtml(primaryRole)}</span>
       </div>
       <div class="auth-actions">
-        <span class="pill">直执 ${escapeHtml(auth.direct_execute_max_risk || "LOW")}</span>
         <button type="button" id="auth-logout" class="secondary auth-logout">退出</button>
       </div>
     </div>`;
@@ -1546,16 +1548,20 @@ function shell(content, activeId, model, data, auth = {}) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(pageTitle)}</title>
   <style>
-    :root { color-scheme: dark; --bg: #0f1825; --nav: #122032; --panel: #142131; --panel-2: #1a2a3f; --text: #f3f7fc; --muted: #99abc1; --line: #30445e; --blue: #a8d6ff; --green: #4ade80; --yellow: #fbbf24; --red: #fb7185; --shadow: rgba(7, 18, 34, 0.18); }
+    :root { color-scheme: dark; --canvas: #070a10; --surface-1:#0d121c; --surface-2:#121925; --surface-3:#182131; --elevated:#202b3d; --bg:var(--canvas); --nav:var(--surface-1); --panel:var(--surface-2); --panel-2:var(--surface-3); --text:#f7f8fa; --muted:#98a2b3; --line:rgba(255,255,255,.08); --primary:#4f7cff; --primary-hover:#6b91ff; --blue:#53b1fd; --cyan:#28c7e8; --purple:#8b72ff; --green:#32d583; --yellow:#fdb022; --red:#f97066; --shadow:rgba(0,0,0,.24); --sidebar-width:248px; }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top, rgba(170, 212, 255, 0.18), transparent 30%), var(--bg); color: var(--text); }
+    body { margin: 0; font-family: Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:radial-gradient(circle at 72% -10%,rgba(79,124,255,.10),transparent 30%),var(--canvas); color: var(--text); }
     body.login-gated { color-scheme: dark; background:
       radial-gradient(circle at 18% 12%, rgba(77, 147, 255, 0.22), transparent 28%),
       radial-gradient(circle at 72% 18%, rgba(55, 210, 255, 0.12), transparent 30%),
       linear-gradient(180deg, #0f1724 0%, #101a28 48%, #0b111a 100%); color: #f5f8fc; }
-    header { padding: 10px 16px 8px; border-bottom: 1px solid var(--line); background: rgba(6, 8, 12, 0.92); backdrop-filter: blur(16px); position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 28px var(--shadow); }
+    header { padding: 12px 24px 10px; border-bottom: 1px solid rgba(148,163,184,.14); background: rgba(7, 12, 20, 0.94); backdrop-filter: blur(18px); position: sticky; top: 0; z-index: 3; box-shadow: 0 8px 24px var(--shadow); }
     header.login-header { padding: 14px 22px; background: rgba(9, 15, 24, 0.72); border-bottom-color: rgba(140, 177, 220, 0.12); box-shadow: none; position: relative; backdrop-filter: blur(18px); color: #f5f8fc; }
     header.login-header .subhead { color: #8ea1b8; }
+    header:not(.login-header) .auth-strip { position: absolute; top: 12px; right: 24px; width: auto; margin: 0; padding: 0; border: 0; }
+    header:not(.login-header) .auth-identity { text-align: right; }
+    header:not(.login-header) .auth-identity span { display: none; }
+    header:not(.login-header) .top-status { position: absolute; right: 24px; bottom: 12px; margin: 0; }
     .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .brand-lockup { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .logo-frame { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 40px; flex: 0 0 auto; border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; }
@@ -1583,17 +1589,119 @@ function shell(content, activeId, model, data, auth = {}) {
     .status-chip strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
     .status-chip.good strong { color: var(--green); }
     .status-chip.warn strong { color: var(--yellow); }
-    .top-nav { display: flex; align-items: center; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 2px; scrollbar-width: thin; }
-    .top-nav a { display: inline-flex; align-items: center; color: var(--muted); text-decoration: none; padding: 8px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; border: 1px solid transparent; background: #0b1118; }
-    .top-nav a:hover { color: var(--text); background: #10151d; border-color: #1f2b38; }
-    .top-nav a.active { background: #121924; color: #dbeafe; border-color: #243041; font-weight: 700; }
-    main { padding: 12px 14px 24px; max-width: 1480px; width: 100%; margin: 0 auto; }
-    section { margin-bottom: 14px; }
+    .top-nav { display: flex; align-items: center; gap: 4px; overflow-x: auto; margin-top: 10px; padding: 2px 440px 2px 0; scrollbar-width: thin; }
+    .top-nav a { display: inline-flex; align-items: center; color: var(--muted); text-decoration: none; padding: 8px 12px; border-radius: 9px; font-size: 13px; white-space: nowrap; border: 1px solid transparent; background: transparent; }
+    .top-nav a:hover { color: var(--text); background: rgba(148,163,184,.08); }
+    .top-nav a.active { background: rgba(59,130,246,.13); color: #dbeafe; border-color: rgba(96,165,250,.2); font-weight: 700; }
+    main { padding: 28px 24px 48px; max-width: 1240px; width: 100%; margin: 0 auto; }
+    section { margin-bottom: 24px; }
     h2 { font-size: 18px; margin: 0 0 10px; }
     h3 { font-size: 14px; margin: 0 0 8px; }
     p { color: var(--muted); line-height: 1.55; margin: 0; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
-    .metric, .panel, .workbench, .smart-entry, .output-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; box-shadow: 0 8px 22px var(--shadow); }
+    .metric, .panel, .workbench, .smart-entry, .output-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; box-shadow: 0 10px 30px var(--shadow); }
+    .product-hero { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:26px 28px; border:1px solid rgba(96,165,250,.24); border-radius:18px; background:linear-gradient(135deg, rgba(37,99,235,.2), rgba(14,165,233,.05) 58%, rgba(17,28,43,.95)); box-shadow:0 18px 48px rgba(2,8,23,.3); }
+    .product-hero h2 { font-size:28px; margin:6px 0 8px; letter-spacing:-.02em; }
+    .product-hero p { max-width:680px; font-size:14px; }
+    .hero-actions { display:flex; gap:10px; flex-wrap:wrap; flex:0 0 auto; }
+    .primary-link { display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:10px 16px; border-radius:10px; color:#fff; background:#2563eb; text-decoration:none; font-weight:800; border:1px solid rgba(147,197,253,.3); }
+    .primary-link:hover { background:#3474e8; }
+    .summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .command-center-hero { position:relative; isolation:isolate; overflow:hidden; max-width:1060px; margin:0 auto 22px; padding:28px 34px 24px; }
+    .command-center-copy { position:relative; z-index:1; max-width:720px; margin:0 auto 20px; text-align:center; }
+    .command-center-copy h2 { margin:7px 0 8px; font-size:32px; line-height:1.1; letter-spacing:-.04em; }
+    .command-center-copy p { color:var(--muted); font-size:14px; }
+    .command-orb { position:absolute; z-index:-1; border-radius:50%; filter:blur(10px); pointer-events:none; }
+    .command-orb-a { width:320px; height:240px; top:-175px; left:18%; background:radial-gradient(circle,rgba(79,124,255,.2),transparent 67%); }
+    .command-orb-b { width:260px; height:220px; right:10%; bottom:-180px; background:radial-gradient(circle,rgba(126,87,194,.15),transparent 68%); }
+    .command-box { position:relative; z-index:1; max-width:760px; margin:0 auto; padding:8px; border:1px solid rgba(122,145,194,.22); border-radius:15px; background:rgba(8,12,20,.9); box-shadow:0 18px 50px rgba(0,0,0,.25),0 0 0 1px rgba(255,255,255,.02) inset; }
+    .command-box > textarea { min-height:126px; padding:16px 17px; border:0; background:transparent; font-size:15px; line-height:1.65; resize:none; }
+    .command-box > textarea:focus { outline:0; }
+    .command-compose-footer { display:flex; align-items:center; gap:12px; padding:9px 7px 1px 10px; border-top:1px solid rgba(148,163,184,.1); }
+    .command-compose-footer > .primary-action { flex:0 0 auto; min-height:42px; padding:9px 15px; }
+    .suggestion-row { display:flex; align-items:center; gap:7px; flex:1 1 auto; flex-wrap:wrap; padding:0; border:0; }
+    .suggestion-row > span { margin-right:2px; color:#667085; font-size:11px; }
+    .suggestion-row button { min-height:28px; padding:4px 9px; border-color:transparent; border-radius:999px; background:rgba(255,255,255,.035); color:#8f9bb0; font-size:11px; font-weight:600; }
+    .suggestion-row button:hover { color:#dbe5ff; border-color:rgba(124,145,191,.18); }
+    .recent-outcomes { border:0; border-radius:0; background:transparent; }
+    .run-pulse { width:9px; height:9px; border-radius:50%; background:#7c6cff; box-shadow:0 0 0 6px rgba(124,108,255,.1); }
+    .compact-progress { height:3px; margin:14px 0 0 25px; overflow:hidden; border-radius:999px; background:#232c3c; }
+    .compact-progress i { display:block; width:57%; height:100%; border-radius:inherit; background:linear-gradient(90deg,#4f7cff,#8b6cff); }
+    .current-run-strip { display:grid; grid-template-columns:12px minmax(0,1fr) auto; gap:14px; align-items:center; max-width:1120px; margin:0 auto 22px; padding:16px 18px; border:1px solid var(--line); border-radius:14px; background:rgba(13,19,31,.68); }
+    .current-run-copy h2 { margin:3px 0; font-size:17px; }
+    .current-run-copy p { color:var(--muted); font-size:11px; }
+    .current-run-copy .compact-progress { height:2px; margin:10px 0 0; }
+    .current-run-actions { display:flex; align-items:center; gap:8px; }
+    .attention-chip,.clear-chip { display:inline-flex; align-items:center; min-height:29px; padding:4px 9px; border-radius:999px; font-size:11px; font-weight:700; text-decoration:none; }
+    .attention-chip { color:#fbbf24; background:rgba(251,191,36,.09); border:1px solid rgba(251,191,36,.2); }
+    .clear-chip { color:#66d9aa; background:rgba(52,211,153,.07); }
+    .recent-outcomes { max-width:1120px; margin:0 auto 18px; padding:18px 2px 4px; }
+    .recent-outcomes h2 { margin:5px 0 0; }
+    .quiet-link { color:#9eb5e9; font-size:12px; text-decoration:none; }
+    .activity-feed { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    .activity-item { display:grid; grid-template-columns:34px minmax(0,1fr); gap:10px; align-items:start; padding:14px; border:1px solid rgba(148,163,184,.11); border-radius:12px; background:rgba(13,19,31,.46); }
+    .activity-icon { display:grid; place-items:center; width:30px; height:30px; border-radius:9px; background:rgba(79,124,255,.1); color:#8eabff; font-size:11px; }
+    .activity-icon.success { background:rgba(52,211,153,.09); color:#34d399; }
+    .activity-item p { margin-top:3px; color:var(--muted); font-size:12px; }
+    .activity-item time { grid-column:2; color:#596579; font-size:11px; }
+    .operations-hero { max-width:900px; padding:22px 0 8px; }
+    .operations-hero h2 { margin:7px 0 8px; font-size:32px; letter-spacing:-.035em; }
+    .operations-hero p { max-width:680px; color:var(--muted); }
+    .operation-card-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:20px 0; }
+    .operation-card { display:grid; grid-template-columns:42px minmax(0,1fr) auto; gap:14px; align-items:start; min-height:142px; padding:20px; border:1px solid var(--line); border-radius:16px; background:rgba(13,19,31,.76); color:var(--text); text-decoration:none; transition:border-color .16s ease,transform .16s ease,background .16s ease; }
+    .operation-card:hover { transform:translateY(-2px); border-color:rgba(104,139,226,.34); background:rgba(17,25,41,.9); }
+    .operation-card-icon { display:grid; place-items:center; width:40px; height:40px; border-radius:11px; background:rgba(79,124,255,.11); color:#8eabff; }
+    .operation-card-icon svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+    .operation-card h3 { margin:1px 0 7px; }
+    .operation-card p { color:var(--muted); font-size:12px; line-height:1.55; }
+    .operation-card small { display:block; margin-top:13px; color:#77849a; }
+    .operation-arrow { color:#64748b; }
+    .system-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; margin-bottom:20px; overflow:hidden; border:1px solid var(--line); border-radius:14px; background:var(--line); }
+    .system-strip > div { display:grid; gap:5px; padding:15px; background:#0d131e; }
+    .system-strip span { color:var(--muted); font-size:11px; }
+    .system-strip strong { font-size:12px; }
+    .summary-card { padding:18px; border-radius:14px; border:1px solid var(--line); background:linear-gradient(180deg, rgba(20,33,50,.96), rgba(15,25,39,.96)); transition:transform .16s ease,border-color .16s ease; }
+    .summary-card:hover { transform:translateY(-2px); border-color:rgba(96,165,250,.3); }
+    .summary-card span { display:block; color:var(--muted); font-size:12px; margin-bottom:9px; }
+    .summary-card strong { display:block; font-size:24px; letter-spacing:-.02em; overflow-wrap:anywhere; }
+    .summary-card small { display:block; color:var(--muted); margin-top:7px; line-height:1.45; }
+    .product-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(280px,.8fr); gap:16px; }
+    .goal-layout { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(280px,.7fr); gap:18px; align-items:start; }
+    .goal-sidebar { position:sticky; top:96px; }
+    .stage-rail { display:grid; grid-template-columns:repeat(5,1fr); gap:0; margin-top:18px; }
+    .stage-item { position:relative; padding:24px 8px 0; color:#667085; font-size:11px; text-align:center; }
+    .stage-item::before { content:""; position:absolute; top:7px; left:0; right:0; height:2px; background:var(--surface-3); }
+    .stage-item::after { content:""; position:absolute; top:2px; left:50%; width:12px; height:12px; margin-left:-6px; border-radius:50%; background:#344054; border:2px solid var(--surface-2); }
+    .stage-item.active { color:#dbe5ff; font-weight:700; }
+    .stage-item.active::before { background:rgba(79,124,255,.52); }
+    .stage-item.active::after { background:var(--primary); box-shadow:0 0 0 4px rgba(79,124,255,.12); }
+    .attention-card { border-left:3px solid var(--yellow); }
+    .empty-state { padding:34px 20px; text-align:center; color:var(--muted); }
+    .empty-state strong { display:block; color:var(--text); margin-bottom:6px; }
+    .simple-list { display:grid; gap:10px; margin-top:12px; }
+    .simple-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 0; border-bottom:1px solid rgba(148,163,184,.12); }
+    .simple-row:last-child { border-bottom:0; }
+    .simple-row strong { font-size:13px; }
+    .simple-row span { color:var(--muted); font-size:12px; text-align:right; line-height:1.45; }
+    .advanced-section { border:1px solid var(--line); border-radius:14px; background:rgba(10,18,30,.68); overflow:hidden; }
+    .advanced-section > summary { cursor:pointer; padding:15px 17px; font-weight:800; color:#cbd5e1; }
+    .advanced-section > .advanced-body { padding:0 16px 16px; }
+    .home-diagnostics { max-width:1120px; margin:18px auto 0; background:transparent; }
+    .home-diagnostics > summary { display:flex; align-items:center; gap:10px; padding:13px 16px; }
+    .home-diagnostics > summary small { color:#667085; font-size:11px; font-weight:500; }
+    .home-diagnostics[open] > summary { border-bottom:1px solid rgba(148,163,184,.1); }
+    .home-diagnostics > .advanced-body { padding:16px; }
+    .diagnostic-snapshot { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; overflow:hidden; border:1px solid var(--line); border-radius:12px; background:var(--line); }
+    .diagnostic-snapshot > div { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 14px; background:#0d131e; }
+    .diagnostic-snapshot span { color:var(--muted); font-size:11px; }
+    .diagnostic-snapshot strong { font-size:14px; }
+    .diagnostic-links { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; }
+    .diagnostic-links > a { display:grid; grid-template-columns:34px minmax(0,1fr) auto; gap:10px; align-items:center; padding:13px; border:1px solid rgba(148,163,184,.12); border-radius:12px; background:rgba(13,19,31,.5); color:var(--text); text-decoration:none; }
+    .diagnostic-links > a:hover { border-color:rgba(104,139,226,.32); background:rgba(17,25,41,.72); }
+    .diagnostic-links p { margin-top:3px; color:var(--muted); font-size:11px; line-height:1.4; }
+    .diagnostic-links > a > span:last-child { color:#69768c; }
+    .diagnostic-link-icon { display:grid; place-items:center; width:32px; height:32px; border-radius:9px; background:rgba(79,124,255,.1); color:#8eabff; }
+    .diagnostic-link-icon svg { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
     .access-entitlement-panel { margin-bottom: 8px; padding: 10px 12px; }
     .entitlement-alerts { display: grid; gap: 8px; margin-top: 10px; }
     .entitlement-alert { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #0c1219; }
@@ -1804,8 +1912,48 @@ function shell(content, activeId, model, data, auth = {}) {
     .details-drawer pre { margin: 0; border: 0; border-radius: 0; box-shadow: none; }
     ul { margin: 0; padding-left: 18px; color: var(--muted); }
     li { margin: 5px 0; }
-    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width: 96px; height: 46px; } .top-nav { margin-top: 8px; } main { padding: 12px; } .timeline, .action-feedback-grid, .flow-rail, .conversation-result, .chat-message, .chat-message.user, .attachment-bubble, .attachment-list { grid-template-columns: 1fr; } .chat-message.user .message-avatar, .chat-message.user .message-body { grid-column: auto; grid-row: auto; } .workspace-hero { display: block; } .workspace-meta { margin-top: 8px; } .auth-strip, .auth-actions, .auth-help-row { align-items: flex-start; flex-direction: column; } .auth-card-head h3, .auth-side h2 { font-size: 28px; } .auth-product-panel { min-height: 180px; } .auth-product-panel::before { inset: 18px; } .auth-side { padding: 24px; } .auth-path-actions { grid-template-columns: 1fr; } }
-    @media (max-width: 900px) { .form-grid, .workspace-controls, .workspace-shell, .auth-shell, .auth-entry-shell { grid-template-columns: 1fr; } .advanced-config, .project-rail { position: static; } .auth-side { order: -1; justify-self: stretch; } }
+    body:not(.login-gated) header:not(.login-header) { position:fixed; inset:0 auto 0 0; width:var(--sidebar-width); height:100vh; padding:22px 16px 16px; border:0; border-right:1px solid var(--line); background:rgba(13,18,28,.96); box-shadow:none; display:flex; flex-direction:column; backdrop-filter:blur(20px); }
+    body:not(.login-gated) header:not(.login-header) .brand-row { flex:0 0 auto; padding:0 6px 20px; border-bottom:1px solid var(--line); }
+    .sidebar-toggle,.mobile-sidebar-toggle { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; min-height:32px; padding:0; border-radius:8px; color:#98a2b3; background:transparent; }
+    .mobile-sidebar-toggle { display:none; }
+    body:not(.login-gated) header:not(.login-header) .logo-frame { width:38px; height:34px; }
+    body:not(.login-gated) header:not(.login-header) .subhead { color:#667085; }
+    body:not(.login-gated) header:not(.login-header) .top-nav { order:2; flex:1 1 auto; display:flex; flex-direction:column; align-items:stretch; gap:3px; margin:14px 0 0; padding:0; overflow-y:auto; }
+    body:not(.login-gated) header:not(.login-header) .top-nav a { min-height:40px; padding:9px 11px; border-radius:9px; gap:10px; }
+    body:not(.login-gated) header:not(.login-header) .top-nav a.active { background:rgba(79,124,255,.14); border-color:rgba(107,145,255,.22); color:#fff; }
+    .nav-icon { display:grid; place-items:center; width:20px; color:#7f8ea3; }
+    .nav-icon svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+    .top-nav a.active .nav-icon { color:#8eabff; }
+    .nav-group-label { padding:13px 11px 6px; color:#596579; font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+    .nav-spacer { flex:1 1 auto; min-height:20px; }
+    body:not(.login-gated) header:not(.login-header) .top-status { order:3; position:static; display:grid; gap:5px; margin:12px 0 0; padding:12px 4px 0; border-top:1px solid var(--line); }
+    body:not(.login-gated) header:not(.login-header) .top-status-pill { min-height:22px; padding:0; border:0; background:transparent; font-weight:600; }
+    body:not(.login-gated) header:not(.login-header) .auth-strip { order:4; position:static; width:auto; margin:10px 0 0; padding:12px 4px 0; border-top:1px solid var(--line); }
+    body:not(.login-gated) header:not(.login-header) .auth-identity { text-align:left; }
+    body:not(.login-gated) header:not(.login-header) .auth-identity span { display:block; }
+    body:not(.login-gated) main { width:auto; max-width:none; margin-left:var(--sidebar-width); padding:0 32px 56px; overflow-x:hidden; }
+    body.sidebar-collapsed { --sidebar-width:72px; }
+    body.sidebar-collapsed header:not(.login-header) { padding-left:10px; padding-right:10px; }
+    body.sidebar-collapsed header:not(.login-header) .brand-row { flex-direction:column; justify-content:center; gap:8px; padding-left:0; padding-right:0; }
+    body.sidebar-collapsed header:not(.login-header) .brand-copy,body.sidebar-collapsed header:not(.login-header) .nav-label,body.sidebar-collapsed header:not(.login-header) .nav-group-label,body.sidebar-collapsed header:not(.login-header) .top-status,body.sidebar-collapsed header:not(.login-header) .auth-identity { display:none; }
+    body.sidebar-collapsed header:not(.login-header) .brand-lockup { display:flex; }
+    body.sidebar-collapsed header:not(.login-header) .logo-frame { width:32px; height:29px; }
+    body.sidebar-collapsed header:not(.login-header) .top-nav a { justify-content:center; padding:9px; }
+    body.sidebar-collapsed header:not(.login-header) .nav-icon { width:20px; }
+    body.sidebar-collapsed header:not(.login-header) .auth-strip { justify-content:center; padding-left:0; padding-right:0; }
+    body.sidebar-collapsed header:not(.login-header) .auth-logout { width:32px; overflow:hidden; color:transparent; position:relative; }
+    body.sidebar-collapsed header:not(.login-header) .auth-logout::after { content:"↪"; color:#98a2b3; position:absolute; inset:0; display:grid; place-items:center; }
+    .app-toolbar { height:72px; margin:0 -32px 28px; padding:0 32px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:16px; background:rgba(7,10,16,.78); backdrop-filter:blur(16px); position:sticky; top:0; z-index:2; }
+    .app-toolbar h2 { margin:0; font-size:18px; }
+    .app-toolbar-actions { display:flex; align-items:center; gap:8px; }
+    .language-switch { min-height:34px; width:auto; padding:6px 30px 6px 10px; background:var(--surface-1); font-size:12px; }
+    .metric,.panel,.workbench,.smart-entry,.output-card { box-shadow:none; }
+    button.primary-action,.primary-link { background:var(--primary); border-color:rgba(255,255,255,.12); box-shadow:0 8px 24px rgba(79,124,255,.18); }
+    button.primary-action:hover,.primary-link:hover { background:var(--primary-hover); }
+    table { box-shadow:none; }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width:72px; height:40px; } main { padding:18px 14px 36px; } .product-hero { align-items:flex-start; flex-direction:column; padding:22px; } .product-hero h2 { font-size:24px; } .command-center-hero { padding:22px 0 20px; } .command-center-copy h2 { font-size:28px; } .command-compose-footer { align-items:stretch; flex-direction:column; } .current-run-strip { grid-template-columns:12px minmax(0,1fr); } .current-run-actions { grid-column:2; align-items:flex-start; flex-wrap:wrap; } .diagnostic-snapshot { grid-template-columns:repeat(2,1fr); } .diagnostic-links,.activity-feed,.operation-card-grid,.system-strip,.summary-grid,.product-grid,.goal-layout,.timeline,.action-feedback-grid,.flow-rail,.conversation-result,.chat-message,.chat-message.user,.attachment-bubble,.attachment-list { grid-template-columns:1fr; } .activity-item { grid-template-columns:34px minmax(0,1fr); } .activity-item time { grid-column:2; } .goal-sidebar { position:static; } .stage-rail { overflow-x:auto; min-width:520px; } .chat-message.user .message-avatar,.chat-message.user .message-body { grid-column:auto; grid-row:auto; } .workspace-hero { display:block; } .workspace-meta { margin-top:8px; } .auth-strip,.auth-actions,.auth-help-row { align-items:flex-start; flex-direction:column; } .auth-card-head h3,.auth-side h2 { font-size:28px; } .auth-product-panel { min-height:180px; } .auth-product-panel::before { inset:18px; } .auth-side { padding:24px; } .auth-path-actions { grid-template-columns:1fr; } }
+    .sidebar-scrim { display:none; }
+    @media (max-width: 900px) { body:not(.login-gated) header:not(.login-header) { position:fixed; inset:0 auto 0 0; width:260px; height:100vh; padding:18px 14px; transform:translateX(-105%); transition:transform .2s ease; z-index:20; } body.sidebar-open header:not(.login-header) { transform:translateX(0); } body.sidebar-open .sidebar-scrim { display:block; position:fixed; inset:0; z-index:19; border:0; border-radius:0; background:rgba(0,0,0,.56); backdrop-filter:blur(2px); } body:not(.login-gated) header:not(.login-header) .brand-row { padding:0 4px 16px; } body:not(.login-gated) header:not(.login-header) .top-nav { flex-direction:column; overflow-y:auto; margin-top:12px; } body:not(.login-gated) header:not(.login-header) .nav-group-label,body:not(.login-gated) header:not(.login-header) .nav-spacer,body:not(.login-gated) header:not(.login-header) .top-status,body:not(.login-gated) header:not(.login-header) .auth-strip { display:flex; } body:not(.login-gated) main,body.sidebar-collapsed main { margin-left:0; padding:0 16px 40px; } .app-toolbar { height:60px; margin:0 -16px 20px; padding:0 16px; } .mobile-sidebar-toggle { display:inline-flex; } .sidebar-toggle { display:none; } .form-grid,.workspace-controls,.workspace-shell,.auth-shell,.auth-entry-shell { grid-template-columns:1fr; } .advanced-config,.project-rail { position:static; } .auth-side { order:-1; justify-self:stretch; } }
   </style>
 </head>
 <body class="${useAuthLayout ? "login-gated" : ""}">
@@ -1814,39 +1962,165 @@ function shell(content, activeId, model, data, auth = {}) {
       <div class="brand-lockup">
         <span class="logo-frame"><img class="brand-logo" src="/assets/anksen-logo.svg" alt="ANKSEN Logo"></span>
         <div class="brand-copy">
-          <h1>${escapeHtml(messages.app.title)}</h1>
+          <h1 data-i18n-raw>${escapeHtml(messages.app.title)}</h1>
           <div class="subhead">${escapeHtml(messages.app.subtitle)}</div>
         </div>
       </div>
+      ${useAuthLayout ? "" : `<button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="折叠侧栏" title="折叠侧栏">‹</button>`}
     </div>
     ${headerMeta}
   </header>
-  <main>${mainContent}</main>
+  ${useAuthLayout ? "" : `<button id="sidebar-scrim" class="sidebar-scrim" type="button" aria-label="关闭导航"></button>`}
+  <main>${useAuthLayout ? "" : `<div class="app-toolbar"><div style="display:flex;align-items:center;gap:10px"><button id="mobile-sidebar-toggle" class="mobile-sidebar-toggle" type="button" aria-label="打开导航">☰</button><div><span class="eyebrow">ANKSEN STUDIO</span><h2>${escapeHtml(route.label)}</h2></div></div><div class="app-toolbar-actions"><span class="status-label pass">● ${escapeHtml(data.active_project_id ?? "Workspace")}</span><select id="language-switch" class="language-switch" aria-label="Language"><option value="zh-CN">简体中文</option><option value="en">English</option></select></div></div>`}${mainContent}</main>
   ${interactiveScript()}
+  <script>
+  (() => {
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
+    const sidebarScrim = document.getElementById('sidebar-scrim');
+    const collapsed = localStorage.getItem('anksen-sidebar-collapsed') === 'true';
+    if (collapsed && window.innerWidth > 900) document.body.classList.add('sidebar-collapsed');
+    function syncSidebarLabel() {
+      if (!sidebarToggle) return;
+      const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+      sidebarToggle.textContent = isCollapsed ? '›' : '‹';
+      sidebarToggle.title = isCollapsed ? '展开侧栏' : '折叠侧栏';
+      sidebarToggle.setAttribute('aria-label', sidebarToggle.title);
+      for (const link of document.querySelectorAll('.top-nav a')) link.title = isCollapsed ? (link.querySelector('.nav-label')?.textContent || '') : '';
+    }
+    sidebarToggle?.addEventListener('click', () => {
+      document.body.classList.toggle('sidebar-collapsed');
+      localStorage.setItem('anksen-sidebar-collapsed', String(document.body.classList.contains('sidebar-collapsed')));
+      syncSidebarLabel();
+    });
+    mobileSidebarToggle?.addEventListener('click', () => document.body.classList.add('sidebar-open'));
+    sidebarScrim?.addEventListener('click', () => document.body.classList.remove('sidebar-open'));
+    document.querySelectorAll('.top-nav a').forEach((link) => link.addEventListener('click', () => document.body.classList.remove('sidebar-open')));
+    syncSidebarLabel();
+    const select = document.getElementById('language-switch');
+    if (!select) return;
+    const dictionary = {
+      '首页':'Home','运行':'Runs','项目':'Projects','报告':'Reports','运行管理':'Operations','设置':'Settings','任务':'Tasks','Agent':'Workers','运行时':'Runtime','治理':'Governance',
+      '新建目标':'New goal','查看运行报告':'View reports','今日概览':'Today overview','当前进展':'Current progress','快捷入口':'Quick links','查看全部':'View all','打开':'Open',
+      '你想让 Studio 完成什么？':'What should Studio accomplish?','开始执行':'Start execution','刷新状态':'Refresh','执行进度':'Execution progress','任务列表':'Tasks','执行结果':'Results','系统准备度':'Readiness',
+      '执行摘要':'Execution summary','等待批准':'Awaiting approval','等待调度':'Awaiting scheduling','发布检查':'Release check','任务进展':'Task progress','批准状态':'Approval','当前进展':'Progress','技术详情与审计证据':'Technical details and audit evidence'
+      ,'从一个目标开始，让 Studio 完成剩下的工作':'Start with a goal. Let Studio handle the rest.','你想让 Studio 完成什么？':'What should Studio accomplish?','目标':'Goal','系统状态':'System status','当前项目':'Current project','执行中的任务':'Running tasks','需要批准':'Needs approval','计划已生成':'Plan created','任务已进入队列':'Tasks queued','最新检查':'Latest check','项目管理':'Project management','运行资源':'Runtime resources','高级任务中心':'Advanced task center','查看技术运行详情':'View technical runtime details'
+      ,'执行边界':'Execution boundaries','自动提交':'Auto commit','推送与部署':'Push and deploy','关闭':'Off','禁止':'Blocked','需要关注':'Needs attention','系统已就绪':'System ready','安全模式':'Safe mode','已完成':'Completed','执行中':'Running','等待执行':'Queued','需要处理':'Needs attention','失败':'Failed','状态':'Status','优先级':'Priority','风险':'Risk','成功任务':'Successful tasks','失败任务':'Failed tasks','阻塞任务':'Blocked tasks','系统准备度':'Readiness'
+      ,'本轮结论':'Run summary','需要决策':'Decisions needed','计划与调度':'Planning and scheduling','安全检查':'Safety checks','发布动作':'Release actions','一切正常':'All clear','任务进展':'Task progress','已批准':'Approved','无需批准':'No approval required','等待人工确认':'Awaiting confirmation','等待进入队列':'Awaiting queue','已进入执行队列':'Queued for execution','查看 Session、Worker、Approval 与原始报告':'View session, workers, approvals and raw report'
+      ,'项目管理':'Project management','当前项目上下文':'Current project context','项目组合':'Project portfolio','连接状态':'Connection status','执行路由':'Execution route','分支':'Branch','仓库状态':'Repository status','写入策略':'Write policy','已连接':'Connected','未连接':'Not connected','规划中':'Planned','项目上下文':'Project context','派发计划':'Dispatch plans','生命周期':'Lifecycle','阻塞原因':'Block reason'
+      ,'操作中心':'Operations center','操作数量':'Actions','默认模式':'Default mode','写入':'Writes','操作':'Action','意图':'Intent','执行模式':'Execution mode','治理闸门':'Governance gate','生成计划':'Generate plan','执行任务':'Execute task','取消':'Cancel','等待操作':'Ready','生成中':'Planning','需审批':'Approval required','已取消':'Cancelled'
+      ,'Worker 节点':'Workers','服务器访问':'Server access','模型调用':'Model calls','能力标签':'Capabilities','类型':'Type','系统':'System','在线':'Online','离线':'Offline','健康状态':'Health','运行状态':'Runtime status','配置数量':'Profiles','供应方':'Providers','外部调用':'External calls'
+      ,'配置中心':'Settings','当前账号':'Current account','当前套餐':'Current plan','直执上限':'Direct-execution limit','项目范围':'Project scope','可见路由':'Visible routes','可执行动作':'Allowed actions','账号、角色与套餐':'Accounts, roles and plans','角色数':'Roles','用户数':'Users','并发上限':'Concurrency limit','账号':'Account','主角色':'Primary role','套餐':'Plan','角色矩阵':'Role matrix','范围策略':'Scope policy','能力':'Capabilities','关键能力':'Key capabilities','套餐矩阵':'Plan matrix','层级':'Tier','席位':'Seats','并发':'Concurrency','路由与动作授权':'Route and action access','路由':'Route','可见性':'Visibility','所需能力':'Required capabilities','缺失能力':'Missing capabilities','授权结果':'Access result','原因':'Reason','团队邀请与审批草稿':'Team invitations and approval drafts','邀请总数':'Invitations','待审批':'Pending approval','已落成':'Provisioned','保存草稿':'Save draft','重置草稿':'Reset draft'
+      ,'凭证':'Credentials','引用数量':'References','后端数量':'Backends','密钥明文':'Plaintext secrets','凭证文件':'Credential files','治理策略':'Governance policy','发布闸门':'Release gates','生产操作':'Production operations','治理来源':'Governance sources','规划':'Planning','路线记忆':'Roadmap memory','里程碑完成度':'Milestone progress','里程碑':'Milestone','记忆中心':'Memory center','全局上下文':'Global context','必读文件':'Required reading','安全边界':'Safety boundaries','项目上下文清单':'Project context inventory','最近决策':'Recent decisions','日期':'Date','决策':'Decision','来源':'Source','数据源':'Data sources','原始上下文详情':'Raw context details'
+      ,'登录':'Sign in','申请加入':'Request access','用户名':'Username','密码':'Password','姓名':'Name','申请类型':'Request type','申请说明':'Request details','提交申请':'Submit request','返回登录':'Back to sign in','退出':'Sign out','折叠侧栏':'Collapse sidebar','展开侧栏':'Expand sidebar','打开导航':'Open navigation','关闭导航':'Close navigation','简体中文':'Simplified Chinese'
+      ,'正常':'Healthy','关注':'Attention','全部通过':'All checks passed','存在待处理项':'Items need attention','尚无发布检查':'No release check yet','低':'Low','中':'Medium','高':'High','严重':'Critical','全部在线':'All online','安全演练':'Safe simulation','受控执行':'Controlled execution','未开始':'Not started','待处理':'Pending','全部完成':'Completed','未生成':'Not generated','未知':'Unknown','未配置':'Not configured','不限':'Unlimited','全部项目':'All projects','无':'None','是':'Yes','否':'No'
+      ,'Studio 平台所有者':'Studio Owner','平台所有者':'Platform Owner','内部预览':'Internal Preview','Studio 内测管理员':'Studio Beta Admin','工作台管理员':'Workspace Admin','Studio 运营执行者':'Studio Operator','运营执行者':'Operator','Studio 只读观察者':'Studio Viewer','只读观察者':'Viewer','UAT 审阅者':'UAT Reviewer','审批审阅者':'Approval Reviewer','安全管理员':'Security Admin','全部能力':'All capabilities','全部 Runtime':'All runtimes'
+      ,'仅保存浏览器草稿，不写真实凭证。':'Drafts are stored in this browser only. No credentials are written.','草稿仅保存在浏览器 localStorage，不写仓库、不写真实凭证。':'Drafts stay in browser storage and never write to the repository or credentials.','允许路由':'Allowed routes','允许动作':'Allowed actions','拒绝动作':'Denied actions','当前 Runtime 白名单':'Current runtime allowlist','阶段':'Stage','依赖':'Dependency','检查项':'Checks','本地预览':'Local preview','服务器预览':'Server preview','当前阶段已完成':'Stage completed','已确认':'Confirmed','下一闸门':'Next gate','已通过':'Passed','一致性状态':'Consistency status','查看草稿模式配置':'View draft configuration','项目配置':'Project configuration','Runtime 配置':'Runtime configuration','Worker 配置':'Worker configuration','Credential Reference 配置':'Credential reference configuration','Governance 策略查看':'Governance policy'
+      ,'当前没有待处理邀请，可直接创建新 invite。':'There are no pending invitations. You can create a new invite.','当前没有 invite 草稿。可通过 CLI 先创建：':'There is no invitation draft. Create one with the CLI:','账号 owner 已通过 Access Center 校验。':'Account owner passed Access Center validation.','当前没有 release promotion 告警，可以继续按闸门推进。':'There are no release-promotion warnings. Gate progression may continue.'
+      ,'想让 Studio 完成什么？':'What should Studio accomplish?','描述结果，Studio 会负责规划、调度、执行和报告。':'Describe the outcome. Studio will plan, schedule, execute, and report.','输入目标，例如：完善 Runtime 文档并生成检查报告':'Enter a goal, for example: improve Runtime docs and generate a report','开始运行':'Run','试试':'Try','完善 Runtime 文档':'Improve Runtime documentation','生成项目风险报告':'Generate a project risk report','整理最近运行结果':'Summarize recent runs','运行正常':'Healthy','任务已调度':'Tasks scheduled','等待队列':'Awaiting queue','查看运行':'View run','无需处理':'All clear','当前没有等待批准或阻塞的操作。':'No approvals or blocked operations need attention.','最近结果':'Recent outcomes','查看全部报告 →':'View all reports →','任务图已提交':'Task graph submitted','运行边界已生效':'Runtime boundaries enforced','真实 Codex、推送和部署仍保持关闭':'Real Codex, push, and deploy remain disabled','运行管理':'Operations','日常工作无需进入这里。需要诊断任务、Worker、Runtime 或审批时，再打开对应模块。':'You only need this area to diagnose tasks, workers, runtime, or approvals.','任务与队列':'Tasks and queue','查看任务生命周期、调度队列和执行证据。':'Inspect task lifecycle, scheduling queues, and execution evidence.','检查在线 Worker、领取状态与租约健康度。':'Inspect worker health, claims, and leases.','查看 Runtime Adapter、限制与执行模式。':'Review runtime adapters, limits, and execution modes.','处理审批、策略和 Activation Readiness。':'Manage approvals, policy, and activation readiness.','外部写入':'External writes','可用操作':'Available actions','审计日志':'Audit log','持续记录':'Continuously recorded','打开高级操作台':'Open advanced operations','高级操作台':'Advanced operations'
+      ,'已规划':'Planned','已调度':'Scheduled','验证':'Validating','最近':'Recently','自动':'Automatic','持续':'Continuous','最新检查全部通过':'Latest check passed','项能力':' capabilities','运行证据已保存':'Runtime evidence saved','高风险步骤不会自动执行。':'High-risk steps never run automatically.','查看审批':'Review approvals','默认模式':'Default mode'
+      ,'自主工作区':'Autonomous workspace','当前运行':'Current run','项已调度':' scheduled','项等待队列':' awaiting queue','项待批准':' awaiting approval','描述你想完成的目标、背景和预期结果……':'Describe the goal, context, constraints, and expected outcome…'
+      ,'高级运行信息':'Advanced runtime information','仅在诊断问题时查看':'Open only when diagnosing an issue','已进入队列':'Queued','系统检查':'System checks','需关注':'Needs attention','查看完整生命周期、调度与审计证据':'View the full lifecycle, scheduling, and audit evidence','查看执行模式、Adapter 和安全边界':'Review execution modes, adapters, and safety boundaries','查看结果、决策事项和验证记录':'Review outcomes, decisions, and validation records','执行报告':'Execution reports'
+    };
+    const originals = new WeakMap();
+    const attributeOriginals = new WeakMap();
+    let applying = false;
+    let currentLanguage = 'zh-CN';
+    function translated(value, language) {
+      if (language !== 'en') return value;
+      if (dictionary[value]) return dictionary[value];
+      let phrase = value;
+      for (const [source, target] of Object.entries(dictionary).sort((a,b) => b[0].length - a[0].length)) {
+        if (source.length > 1 && phrase.includes(source)) phrase = phrase.replaceAll(source, target);
+      }
+      if (phrase !== value) return phrase;
+      const patterns = [
+        [/^(\d+) 项$/, '$1 items'], [/^(\d+) 角色$/, '$1 roles'], [/^(\d+) 套餐$/, '$1 plans'], [/^(\d+) 个执行计划$/, '$1 execution plans'], [/^(\d+) 个 Worker 在线$/, '$1 workers online'],
+        [/^(\d+) 项等待进入队列$/, '$1 awaiting queue'], [/^(\d+) 项等待调度$/, '$1 awaiting scheduling'], [/^风险 (LOW|MEDIUM|HIGH|CRITICAL)$/, 'Risk $1'],
+        [/^下一阶段：已完成$/, 'Next stage: completed'], [/^项目 · (.+)$/, 'Project · $1']
+      ];
+      for (const [pattern, replacement] of patterns) if (pattern.test(value)) return value.replace(pattern, replacement);
+      return value;
+    }
+    function localizeTextNode(node, language) {
+      if (!node.parentElement || node.parentElement.closest('pre,code,script,style,[data-i18n-raw]')) return;
+      const raw = node.nodeValue || '';
+      const trimmed = raw.trim();
+      if (!trimmed) return;
+      if (!originals.has(node)) originals.set(node, trimmed);
+      const original = originals.get(node);
+      const next = translated(original, language);
+      node.nodeValue = raw.replace(trimmed, next);
+    }
+    function localizeTree(root, language) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach((node) => localizeTextNode(node, language));
+      const elements = root.querySelectorAll ? [root, ...root.querySelectorAll('[placeholder],[aria-label],[title]')] : [];
+      for (const element of elements) {
+        if (!(element instanceof Element)) continue;
+        let saved = attributeOriginals.get(element);
+        if (!saved) { saved = {}; attributeOriginals.set(element, saved); }
+        for (const attr of ['placeholder','aria-label','title']) {
+          if (!element.hasAttribute(attr)) continue;
+          if (saved[attr] == null) saved[attr] = element.getAttribute(attr) || '';
+          element.setAttribute(attr, translated(saved[attr], language));
+        }
+      }
+    }
+    function applyLanguage(language) {
+      applying = true;
+      currentLanguage = language;
+      document.documentElement.lang = language;
+      const titleParts = document.title.split(' - ');
+      if (!document.documentElement.dataset.originalTitle) document.documentElement.dataset.originalTitle = titleParts[0];
+      document.title = (language === 'en' ? translated(document.documentElement.dataset.originalTitle, language) : document.documentElement.dataset.originalTitle) + ' - ANKSEN Studio';
+      localizeTree(document.body, language);
+      localStorage.setItem('anksen-language', language);
+      select.value = language;
+      applying = false;
+    }
+    select.addEventListener('change', () => applyLanguage(select.value));
+    applyLanguage(localStorage.getItem('anksen-language') || 'zh-CN');
+    new MutationObserver((records) => {
+      if (applying) return;
+      applying = true;
+      for (const record of records) for (const node of record.addedNodes) {
+        if (node.nodeType === Node.TEXT_NODE) localizeTextNode(node, currentLanguage);
+        else if (node.nodeType === Node.ELEMENT_NODE) localizeTree(node, currentLanguage);
+      }
+      applying = false;
+    }).observe(document.body, {childList:true,subtree:true});
+  })();
+  </script>
 </body>
 </html>`;
 }
 
 function pageDashboard(_model, data) {
   const release = data.release_consistency ?? {};
-  const releaseStages = Array.isArray(release.promotion_stages) ? release.promotion_stages : [];
-  const reviewedPublish = releaseStages.find((stage) => stage.stage_id === "reviewed_publish");
   const lifecycle = lifecycleSummary(data);
-  return `${actionWorkbench(data, "统一 AI 开发工作台")}
-  <section><h2>控制面快照</h2><div class="grid">
-    ${metric("挂接项目", data.project_router.binding_count)}
-    ${metric("派发计划", data.project_router.dispatch_plan_count ?? 0)}
-    ${metric("待审批 Proposal", lifecycle.pending_approval)}
-    ${metric("待注入", lifecycle.ready_inject)}
-    ${metric("已入队", lifecycle.injected)}
-    ${metric("Worker 控制面", release.status ?? "未生成")}
-    ${metric("下一闸门", release.promotion_next_stage ?? "未生成")}
-    ${metric("Reviewed Publish", reviewedPublish?.status ?? "未生成")}
-    ${metric("Access Enforcement", data.access.enforcement?.policy_id ?? "未生成")}
-    ${metric("最新 Autopilot", data.autopilot.latest_summary?.id ?? "not_found")}
+  const projectName = data.active_project?.project_name ?? data.active_project?.label ?? data.active_project_id ?? "当前项目";
+  const healthy = (data.autopilot.latest_summary?.validation ?? "unknown") === "PASS";
+  const goalTitle = data.autopilot.latest_summary?.goal ?? data.autopilot.latest_summary?.title ?? "完善 Runtime 文档";
+  const executionHref = routeHref("/execution", data.active_project_id);
+  return `<section class="command-center-hero">
+    <div class="command-orb command-orb-a"></div><div class="command-orb command-orb-b"></div>
+    <div class="command-center-copy"><span class="eyebrow">自主工作区</span><h2>想让 Studio 完成什么？</h2><p>描述结果，Studio 会负责规划、调度、执行和报告。</p></div>
+    <div class="command-box"><textarea id="command-goal" rows="4" placeholder="描述你想完成的目标、背景和预期结果……"></textarea><div class="command-compose-footer"><div class="suggestion-row"><span>试试</span><button type="button" data-command-suggestion="完善 Runtime 文档">完善 Runtime 文档</button><button type="button" data-command-suggestion="检查项目并生成风险报告">生成项目风险报告</button><button type="button" data-command-suggestion="整理最近运行结果">整理最近运行结果</button></div><button id="command-run" class="primary-action" type="button">开始运行 <span aria-hidden="true">→</span></button></div></div>
+  </section>
+  <section class="current-run-strip"><span class="run-pulse"></span><div class="current-run-copy"><span class="eyebrow">当前运行 · 执行中</span><h2>${escapeHtml(goalTitle)}</h2><p>${escapeHtml(projectName)} · ${escapeHtml(lifecycle.injected)} 项已调度 · ${escapeHtml(lifecycle.ready_inject)} 项等待队列</p><div class="compact-progress"><i></i></div></div><div class="current-run-actions"><span class="status-label ${healthy ? "pass" : "local"}">${healthy ? "运行正常" : "安全演练"}</span>${lifecycle.pending_approval > 0 ? `<a class="attention-chip" href="${routeHref("/governance", data.active_project_id)}">${escapeHtml(lifecycle.pending_approval)} 项待批准</a>` : `<span class="clear-chip">✓ 无需处理</span>`}<a class="link-button" href="${executionHref}">查看运行</a></div></section>
+  <section class="recent-outcomes"><div class="section-head"><h2>最近结果</h2><a class="quiet-link" href="${routeHref("/autopilot", data.active_project_id)}">查看全部报告 →</a></div><div class="activity-feed">
+    <div class="activity-item"><span class="activity-icon success">✓</span><div><strong>最新检查${healthy ? "全部通过" : "已完成"}</strong><p>${escapeHtml(release.status ?? "运行证据已保存")}</p></div><time>最近</time></div>
+    <div class="activity-item"><span class="activity-icon">↗</span><div><strong>任务图已提交</strong><p>${escapeHtml(data.project_router.dispatch_plan_count ?? 0)} 个执行计划可供 Scheduler 消费</p></div><time>自动</time></div>
+    <div class="activity-item"><span class="activity-icon">●</span><div><strong>运行边界已生效</strong><p>真实 Codex、推送和部署仍保持关闭</p></div><time>持续</time></div>
   </div></section>
-  ${dispatchLifecyclePanel(data)}
-  ${recommendationPanel(data)}`;
+  <details class="advanced-section home-diagnostics"><summary><span>高级运行信息</span><small>仅在诊断问题时查看</small></summary><div class="advanced-body">
+    <div class="diagnostic-snapshot"><div><span>已进入队列</span><strong>${escapeHtml(lifecycle.injected)}</strong></div><div><span>等待队列</span><strong>${escapeHtml(lifecycle.ready_inject)}</strong></div><div><span>等待批准</span><strong>${escapeHtml(lifecycle.pending_approval)}</strong></div><div><span>系统检查</span><strong class="${healthy ? "safe" : "warn"}">${healthy ? "正常" : "需关注"}</strong></div></div>
+    <div class="diagnostic-links"><a href="${routeHref("/actions", data.active_project_id)}"><span class="diagnostic-link-icon">${navIcon("actions")}</span><div><strong>任务与队列</strong><p>查看完整生命周期、调度与审计证据</p></div><span>→</span></a><a href="${routeHref("/runtime", data.active_project_id)}"><span class="diagnostic-link-icon">${navIcon("projects")}</span><div><strong>Runtime</strong><p>查看执行模式、Adapter 和安全边界</p></div><span>→</span></a><a href="${routeHref("/autopilot", data.active_project_id)}"><span class="diagnostic-link-icon">${navIcon("autopilot")}</span><div><strong>执行报告</strong><p>查看结果、决策事项和验证记录</p></div><span>→</span></a></div>
+  </div></details>
+  <script>(()=>{const input=document.getElementById('command-goal'),run=document.getElementById('command-run');const openRun=()=>{const goal=input.value.trim();if(!goal){input.focus();return;}const url=new URL('${executionHref}',location.origin);url.searchParams.set('goal',goal);location.href=url.pathname+url.search;};run.addEventListener('click',openRun);input.addEventListener('keydown',event=>{if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();openRun();}});document.querySelectorAll('[data-command-suggestion]').forEach(button=>button.addEventListener('click',()=>{input.value=button.dataset.commandSuggestion;input.focus();}));})();</script>`;
 }
 
 function pageProjects(data) {
@@ -2165,63 +2439,80 @@ function pagePlanning(data) {
 }
 
 function pageAutopilot(data) {
+  // Morning Report is the legacy Kernel contract name; the product UI presents it as Execution Report.
   const lifecycle = lifecycleSummary(data);
   const release = data.release_consistency ?? {};
-  const queueRows = lifecycleRecords(data).slice(0, 8).map((item) => ({
-    task: item.task_id,
-    approval: toneLabel(item.approval_status ?? "missing", (item.approval_status ?? "") === "APPROVED" ? "pass" : "proposal-only"),
+  const queueRows = lifecycleRecords(data).slice(0, 8).map((item, index) => {
+    const approvalText = item.approval_status === "APPROVED"
+      ? "已批准"
+      : item.approval_status === "APPROVAL_NOT_REQUIRED"
+        ? "无需批准"
+        : item.approval_status === "REJECTED"
+          ? "已拒绝"
+          : "待确认";
+    const progressText = item.lifecycle === "proposal_only"
+      ? "等待人工确认"
+      : item.lifecycle === "ready_inject"
+        ? "等待进入队列"
+        : item.lifecycle === "injected"
+          ? "已进入执行队列"
+          : item.lifecycle_label ?? "待处理";
+    return {
+    task: `<strong>任务 ${index + 1}</strong>`,
+    approval: toneLabel(approvalText, (item.approval_status ?? "") === "APPROVED" ? "pass" : "proposal-only"),
     queue: `<div class="proposal-evidence">
       ${toneLabel(item.queue_audit_status ?? "missing", (item.queue_audit_status ?? "") === "PASS" ? "pass" : (item.queue_audit_status ?? "") === "missing" ? "local" : "blocked")}
       <span class="help">queue: ${escapeHtml(item.queue_task_status ?? "pending")} / preflight: ${escapeHtml(item.controlled_queue_status ?? "missing")} / claim: ${escapeHtml(item.worker_claim_status ?? "missing")}</span>
     </div>`,
-    next: `<div class="proposal-evidence">
-      ${toneLabel(item.lifecycle_label ?? "待处理", item.lifecycle ?? "idle")}
-      <span class="help">${escapeHtml(item.blockers?.[0] ?? item.next_stage ?? "无")}</span>
-    </div>`,
+    next: `<div class="proposal-evidence">${toneLabel(progressText, item.lifecycle ?? "idle")}</div>`,
     evidence: `<div class="proposal-evidence">
       ${item.dispatch_path ? inlineDetails("dispatch", item.dispatch) : ""}
       ${item.proposal_path ? inlineDetails("proposal", item.proposal) : ""}
       ${item.audit_path ? inlineDetails("audit", item.audit) : ""}
       ${item.worker_claim_path ? inlineDetails("claim", item.worker_claim) : ""}
     </div>`
-  }));
-  return `<section><h2>${messages.pages.autopilot.title}</h2><div class="grid">
-    ${metric(messages.pages.autopilot.latestRun, data.autopilot.latest?.path ?? messages.common.notFound)}
-    ${metric(messages.pages.autopilot.executionMode, data.autopilot.latest_summary?.execution_mode ?? messages.common.unknown)}
-    ${metric(messages.pages.autopilot.writesFromConsole, data.safety.managed_project_writes)}
-    ${metric("待审批", lifecycle.pending_approval)}
-    ${metric("待注入", lifecycle.ready_inject)}
-    ${metric("已入队", lifecycle.injected)}
-    ${metric("Promotion 状态", release.status ?? "未生成")}
-    ${metric("下一闸门", release.promotion_next_stage ?? "completed")}
+  }});
+  const healthy = (release.status ?? "") === "PASS";
+  return `<section class="product-hero"><div><span class="eyebrow">Execution Reports</span><h2>执行报告</h2><p>查看每轮运行完成的工作、需要批准的事项和系统健康状态。审计证据保留在下方技术详情中。</p></div><div class="hero-actions"><a class="primary-link" href="${routeHref("/execution", data.active_project_id)}">新建目标</a></div></section>
+  <section><div class="section-head"><h2>执行摘要</h2><span class="status-label ${healthy ? "pass" : "proposal-only"}">${healthy ? "检查通过" : "需要关注"}</span></div><div class="summary-grid">
+    <div class="summary-card"><span>已进入执行</span><strong>${escapeHtml(lifecycle.injected)}</strong><small>Scheduler 已接收</small></div>
+    <div class="summary-card"><span>等待批准</span><strong>${escapeHtml(lifecycle.pending_approval)}</strong><small>需要你的决策</small></div>
+    <div class="summary-card"><span>等待调度</span><strong>${escapeHtml(lifecycle.ready_inject)}</strong><small>尚未进入队列</small></div>
+    <div class="summary-card"><span>发布检查</span><strong>${healthy ? "通过" : "待确认"}</strong><small>下一阶段：${(release.promotion_next_stage ?? "completed") === "completed" ? "已完成" : escapeHtml(release.promotion_next_stage)}</small></div>
   </div></section>
-  <section><h2>Proposal / 入队轨迹</h2>${queueRows.length > 0 ? table(queueRows, [
-    { key: "task", label: "task" },
-    { key: "approval", label: "approval", html: true },
-    { key: "queue", label: "queue audit", html: true },
-    { key: "next", label: "next", html: true },
-    { key: "evidence", label: "evidence", html: true }
-  ]) : `<div class="panel"><p class="help">当前没有 Proposal / queue injection trace。先生成 dispatch plan。</p></div>`}</section>
-  ${releasePromotionPanel(data)}
-  <section><h2>${messages.pages.autopilot.latestRunSummary}</h2>${detailsJson("查看原始 Autopilot Run JSON", data.autopilot.latest_summary ?? {})}</section>`;
+  <section class="product-grid"><div class="panel"><div class="section-head small"><h2>本轮结论</h2><span class="status-label ${healthy ? "pass" : "proposal-only"}">● ${healthy ? "运行完成" : "需要复核"}</span></div><p style="font-size:16px;color:var(--text)">Studio 已完成本轮调度与发布检查，${lifecycle.injected} 项任务已进入执行，${lifecycle.pending_approval > 0 ? `${lifecycle.pending_approval} 项等待你的批准。` : "没有需要你立即处理的审批。"}</p><div class="simple-list"><div class="simple-row"><strong>计划与调度</strong><span>${lifecycle.ready_inject > 0 ? `${lifecycle.ready_inject} 项等待调度` : "全部处理完成"}</span></div><div class="simple-row"><strong>安全检查</strong><span>${healthy ? "全部通过" : "存在待确认项"}</span></div><div class="simple-row"><strong>发布动作</strong><span>未执行推送、合并或部署</span></div></div></div><div class="panel ${lifecycle.pending_approval > 0 ? "attention-card" : ""}"><h2>需要决策</h2>${lifecycle.pending_approval > 0 ? `<div class="simple-list"><div class="simple-row"><strong>待批准任务</strong><span>${lifecycle.pending_approval} 项</span></div></div>` : `<div class="empty-state"><strong>一切正常</strong>当前没有需要你处理的事项。</div>`}</div></section>
+  <section><div class="section-head"><div><h2>任务进展</h2><p class="help">最近 8 项任务</p></div></div>${queueRows.length > 0 ? table(queueRows, [
+    { key: "task", label: "任务", html: true },
+    { key: "approval", label: "批准状态", html: true },
+    { key: "next", label: "当前进展", html: true }
+  ]) : `<div class="panel"><p class="help">还没有运行记录。新建一个目标后，进展会显示在这里。</p></div>`}</section>
+  <details class="advanced-section"><summary>技术详情与审计证据</summary><div class="advanced-body">
+    <section><h2>队列与证据</h2>${queueRows.length > 0 ? table(queueRows, [
+      { key: "task", label: "Task", html: true }, { key: "queue", label: "Queue Audit", html: true }, { key: "evidence", label: "Evidence", html: true }
+    ]) : ""}</section>${releasePromotionPanel(data)}${detailsJson("原始运行数据", data.autopilot.latest_summary ?? {})}
+  </div></details>`;
 }
 
 function pageActions(data) {
   const actions = data.actionServer.actions ?? [];
-  return `<section><h2>${messages.pages.actions.title}</h2><div class="grid">${metric(messages.pages.actions.actions, actions.length)}${metric(messages.pages.actions.defaultMode, "pilot_production")}${metric(messages.pages.actions.writes, messages.common.falseValue)}${metric("Action Log", data.actionServer.action_log_dir)}</div></section>
-  ${actionWorkbench(data, "操作中心")}
-  ${smartParkEntryPanel(data)}
-  ${recommendationPanel(data)}
-  ${dispatchLifecyclePanel(data)}
-  ${proposalPanel(data)}
-  ${releasePromotionPanel(data)}
+  const operationCards = [
+    ["任务与队列", "查看任务生命周期、调度队列和执行证据。", "#advanced-operations", `${actions.length} 项能力`],
+    ["Workers", "检查在线 Worker、领取状态与租约健康度。", "/workers", "运行资源"],
+    ["Runtime", "查看 Runtime Adapter、限制与执行模式。", "/runtime", "安全边界"],
+    ["Approvals", "处理审批、策略和 Activation Readiness。", "/governance", "治理"],
+  ];
+  return `<section class="operations-hero"><span class="eyebrow">Operations</span><h2>运行管理</h2><p>日常工作无需进入这里。需要诊断任务、Worker、Runtime 或审批时，再打开对应模块。</p></section>
+  <section class="operation-card-grid">${operationCards.map(([title, description, href, meta]) => `<a class="operation-card" href="${href.startsWith("#") ? href : routeHref(href, data.active_project_id)}"><span class="operation-card-icon">${navIcon(title === "Workers" ? "execution" : title === "Runtime" ? "projects" : title === "Approvals" ? "config" : "actions")}</span><div><h3>${title}</h3><p>${description}</p><small>${meta}</small></div><span class="operation-arrow">→</span></a>`).join("")}</section>
+  <section class="system-strip"><div><span>默认模式</span><strong>Controlled execution</strong></div><div><span>外部写入</span><strong>关闭</strong></div><div><span>可用操作</span><strong>${actions.length}</strong></div><div><span>审计日志</span><strong>持续记录</strong></div></section>
+  <details id="advanced-operations" class="advanced-section"><summary>打开高级操作台</summary><div class="advanced-body">
+  ${actionWorkbench(data, "高级操作台")}${smartParkEntryPanel(data)}${recommendationPanel(data)}${dispatchLifecyclePanel(data)}${proposalPanel(data)}${releasePromotionPanel(data)}
   <section>${table(actions.map((action) => ({
     id: action.id,
     intent: action.label,
     risk: riskBadge(action.risk),
     mode: executionModeLabel(action.executionMode),
     gate: governanceGateForMode(action.executionMode)
-  })), [{ key: "id", label: messages.pages.actions.action }, { key: "intent", label: messages.pages.actions.intent }, { key: "risk", label: messages.common.risk, html: true }, { key: "mode", label: messages.common.mode }, { key: "gate", label: messages.common.gate }])}</section>`;
+  })), [{ key: "id", label: messages.pages.actions.action }, { key: "intent", label: messages.pages.actions.intent }, { key: "risk", label: messages.common.risk, html: true }, { key: "mode", label: messages.common.mode }, { key: "gate", label: messages.common.gate }])}</section></div></details>`;
 }
 
 function pageConfig(data) {
@@ -2517,17 +2808,19 @@ function pagePilotStatus(data) {
 }
 
 function pageExecution() {
-  return `<section><div class="section-head"><div><h2>Autonomous Execution Center</h2><p class="help">董事长视角 · Planner → Kernel → Scheduler → Worker → CONTROLLED_STUB → Morning Report</p></div><span class="pill">Beta-001</span></div>
-  <div class="panel"><label for="aec-goal">New Goal</label><div class="button-row"><input id="aec-goal" value="完善 Runtime 文档" style="flex:1;min-width:280px;padding:12px;border-radius:10px;border:1px solid #d7dce5"><button id="aec-submit" type="button">启动自主执行</button><button id="aec-refresh" type="button" class="secondary">刷新</button></div><p id="aec-status" class="help">仅使用 CONTROLLED_STUB，不调用真实 Codex。</p></div></section>
-  <section><div id="aec-metrics" class="grid"></div></section>
-  <section class="kanban-grid"><div class="panel"><h3>Session / Goal</h3><pre id="aec-session">加载中…</pre></div><div class="panel"><h3>系统 Readiness</h3><pre id="aec-readiness">加载中…</pre></div></section>
-  <section><div class="section-head"><h2>Task / Queue / Blocked</h2><span class="pill">Kernel事实源</span></div><div id="aec-tasks" class="panel">加载中…</div></section>
-  <section class="kanban-grid"><div class="panel"><h3>Worker / Runtime</h3><pre id="aec-workers">加载中…</pre></div><div class="panel"><h3>Approval</h3><pre id="aec-approvals">加载中…</pre></div></section>
-  <section><div class="section-head"><h2>昨夜完成统计 / Morning Report</h2><span class="pill">Projection</span></div><pre id="aec-report" class="panel">加载中…</pre></section>
+  return `<section class="product-hero"><div><span class="eyebrow">New Goal</span><h2>你想让 Studio 完成什么？</h2><p>用一句话描述结果。Studio 会自动拆解任务、安排 Worker，并在结束后生成可审计的报告。</p></div></section>
+  <div class="goal-layout"><div>
+    <section class="panel"><label for="aec-goal">目标</label><div class="button-row"><input id="aec-goal" value="完善 Runtime 文档" placeholder="例如：完善 Runtime 文档并生成检查报告" style="flex:1;min-width:280px;padding:13px"><button id="aec-submit" type="button" class="primary-action">开始执行</button></div><div class="stage-rail" aria-label="Execution stages"><span class="stage-item active">Planning</span><span class="stage-item active">Scheduled</span><span class="stage-item active">Running</span><span class="stage-item active">Validating</span><span class="stage-item active">Completed</span></div><div class="section-head small" style="margin:14px 0 0"><p id="aec-status" class="help">当前为安全演练模式，不会调用真实 Codex。</p><button id="aec-refresh" type="button" class="secondary">刷新状态</button></div></section>
+    <section><div class="section-head"><div><h2>执行进度</h2><p class="help">从目标到报告的完整闭环</p></div><span id="aec-health" class="status-label local">正在加载</span></div><div id="aec-metrics" class="summary-grid"></div></section>
+    <section><div class="section-head"><div><h2>任务列表</h2><p class="help">自动规划生成的工作项</p></div></div><div id="aec-tasks" class="panel"><div class="empty-state"><strong>正在读取任务</strong>请稍候…</div></div></section>
+    <section><div class="panel"><h2>执行结果</h2><div id="aec-report-summary" class="simple-list">加载中…</div></div></section>
+  </div><aside class="goal-sidebar"><section class="panel"><div class="section-head small"><h2>执行边界</h2><span class="status-label pass">● Safe</span></div><div class="simple-list"><div class="simple-row"><strong>项目</strong><span>jinhu-smart-park</span></div><div class="simple-row"><strong>Runtime</strong><span>Controlled Stub</span></div><div class="simple-row"><strong>自动提交</strong><span>关闭</span></div><div class="simple-row"><strong>推送与部署</strong><span>禁止</span></div></div></section><section class="panel attention-card"><h2>需要关注</h2><div id="aec-readiness-summary" class="simple-list">加载中…</div></section></aside></div>
+  <details class="advanced-section"><summary>查看 Session、Worker、Approval 与原始报告</summary><div class="advanced-body"><section class="kanban-grid"><div class="panel"><h3>Session / Goal</h3><pre id="aec-session">加载中…</pre></div><div class="panel"><h3>Readiness</h3><pre id="aec-readiness">加载中…</pre></div><div class="panel"><h3>Worker / Runtime</h3><pre id="aec-workers">加载中…</pre></div><div class="panel"><h3>Approval</h3><pre id="aec-approvals">加载中…</pre></div></section><pre id="aec-report" class="panel">加载中…</pre></div></details>
   <script>
   (() => { const q=id=>document.getElementById(id), esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    const requestedGoal=new URLSearchParams(location.search).get('goal');if(requestedGoal)q('aec-goal').value=requestedGoal;
     async function load(){const r=await fetch('/api/aec/dashboard',{cache:'no-store'});if(!r.ok)throw new Error(await r.text());render(await r.json());}
-    function render(d){const m=[['当前 Session',d.session?.status??'无'],['Goal',d.goal?.status??'无'],['Task',d.tasks.length],['Worker',d.workers.length],['Queue',d.queue.length],['Blocked',d.blocked.length],['Runtime',d.runtime.type],['昨夜完成',d.overnight.succeeded]];q('aec-metrics').innerHTML=m.map(x=>'<div class="metric"><span>'+esc(x[0])+'</span><strong>'+esc(x[1])+'</strong></div>').join('');q('aec-session').textContent=JSON.stringify({session:d.session,goal:d.goal},null,2);q('aec-readiness').textContent=JSON.stringify(d.readiness,null,2);q('aec-tasks').innerHTML='<table><thead><tr><th>Task</th><th>状态</th><th>优先级</th><th>风险</th></tr></thead><tbody>'+d.tasks.map(t=>'<tr><td>'+esc(t.title)+'</td><td>'+esc(t.status)+'</td><td>'+esc(t.priority)+'</td><td>'+esc(t.risk_level)+'</td></tr>').join('')+'</tbody></table>';q('aec-workers').textContent=JSON.stringify({workers:d.workers,runtime:d.runtime},null,2);q('aec-approvals').textContent=JSON.stringify(d.approvals,null,2);q('aec-report').textContent=JSON.stringify({overnight:d.overnight,morningReport:d.morningReport},null,2);}
+    function render(d){const done=d.overnight?.succeeded??0, health=(d.readiness?.status??d.readiness?.ready??'UNKNOWN'),statusText=s=>({SUCCEEDED:'已完成',RUNNING:'执行中',QUEUED:'等待执行',BLOCKED:'需要处理',FAILED:'失败'}[s]||s),riskText=s=>({LOW:'低',MEDIUM:'中',HIGH:'高',CRITICAL:'严重'}[s]||s);const m=[['Session',statusText(d.session?.status??'未开始'),'本次自主执行'],['Goal',statusText(d.goal?.status??'未开始'),'目标状态'],['任务',d.tasks.length,'自动规划生成'],['已完成',done,'本次运行结果']];q('aec-metrics').innerHTML=m.map(x=>'<div class="summary-card"><span>'+esc(x[0])+'</span><strong>'+esc(x[1])+'</strong><small>'+esc(x[2])+'</small></div>').join('');q('aec-health').textContent=String(health)==='READY'||health===true?'系统已就绪':'安全模式';q('aec-health').className='status-label '+((String(health)==='READY'||health===true)?'pass':'local');q('aec-session').textContent=JSON.stringify({session:d.session,goal:d.goal},null,2);q('aec-readiness').textContent=JSON.stringify(d.readiness,null,2);q('aec-tasks').innerHTML=d.tasks.length?'<table><thead><tr><th>任务</th><th>状态</th><th>优先级</th><th>风险</th></tr></thead><tbody>'+d.tasks.map(t=>'<tr><td>'+esc(t.title)+'</td><td><span class="status-label '+(t.status==='SUCCEEDED'?'pass':'local')+'">● '+esc(statusText(t.status))+'</span></td><td>'+esc(t.priority)+'</td><td>'+esc(riskText(t.risk_level))+'</td></tr>').join('')+'</tbody></table>':'<div class="empty-state"><strong>还没有任务</strong>输入目标并开始执行后，任务会自动出现在这里。</div>';q('aec-report-summary').innerHTML=[['成功任务',done],['失败任务',d.overnight?.failed??0],['阻塞任务',d.blocked.length],['运行时',d.runtime.type==='CONTROLLED_STUB'?'安全演练':d.runtime.type]].map(x=>'<div class="simple-row"><strong>'+esc(x[0])+'</strong><span>'+esc(x[1])+'</span></div>').join('');q('aec-readiness-summary').innerHTML=[['Worker',d.workers.length?'全部在线':'离线'],['待处理队列',d.queue.length+' 项'],['需要批准',d.approvals.length+' 项'],['执行模式',d.runtime.type==='CONTROLLED_STUB'?'安全演练':'受控执行']].map(x=>'<div class="simple-row"><strong>'+esc(x[0])+'</strong><span>'+esc(x[1])+'</span></div>').join('');q('aec-workers').textContent=JSON.stringify({workers:d.workers,runtime:d.runtime},null,2);q('aec-approvals').textContent=JSON.stringify(d.approvals,null,2);q('aec-report').textContent=JSON.stringify({executionSummary:d.overnight,executionReport:d.morningReport},null,2);}
     q('aec-refresh').onclick=()=>load().catch(e=>q('aec-status').textContent=e.message);q('aec-submit').onclick=async()=>{q('aec-submit').disabled=true;q('aec-status').textContent='正在执行自主闭环…';try{const r=await fetch('/api/aec/goals',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:q('aec-goal').value})});const body=await r.json();if(!r.ok)throw new Error(body.reason||JSON.stringify(body));q('aec-status').textContent='完成：'+body.report.sessionStatus;render(body.dashboard);}catch(e){q('aec-status').textContent='失败：'+e.message;}finally{q('aec-submit').disabled=false;}};load().catch(e=>q('aec-status').textContent=e.message);
   })();</script>`;
 }

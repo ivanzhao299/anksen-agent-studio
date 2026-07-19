@@ -1,4 +1,4 @@
-# ANKSEN Agent Studio Console
+# ANKSEN Studio Console
 
 This package is the local Pilot Console for Agent Studio. It includes typed view-model exports and a dependency-free local Web Console under `web/`.
 

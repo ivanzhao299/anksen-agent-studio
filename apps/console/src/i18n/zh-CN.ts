@@ -4,7 +4,7 @@ export const zhCN = {
   locale: "zh-CN",
   localeName: "简体中文",
   app: {
-    title: "ANKSEN Agent Studio",
+    title: "ANKSEN Studio",
     subtitle: "统一 AI 工作台"
   },
   nav: {

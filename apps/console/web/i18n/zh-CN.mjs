@@ -2,11 +2,11 @@ export const zhCN = {
   locale: "zh-CN",
   localeName: "简体中文",
   app: {
-    title: "ANKSEN Agent Studio",
+    title: "ANKSEN Studio",
     subtitle: "统一 AI 工作台"
   },
   nav: {
-    dashboard: "AI 工作台",
+    dashboard: "首页",
     projects: "项目",
     runtime: "运行时",
     workers: "Agent",
@@ -14,8 +14,8 @@ export const zhCN = {
     governance: "治理",
     planning: "规划",
     autopilot: "报告",
-    actions: "任务",
-    config: "配置",
+    actions: "运行管理",
+    config: "设置",
     memory: "记忆中心",
     pilotStatus: "试运行状态"
   },

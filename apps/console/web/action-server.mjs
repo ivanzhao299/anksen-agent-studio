@@ -982,7 +982,7 @@ function realAgentPromptFor(input, attachments = []) {
   const goal = safeGoal(input.goal);
   const projectId = normalizeProject(input.project_id);
   return [
-    "你正在通过 ANKSEN Agent Studio Console 运行。",
+    "你正在通过 ANKSEN Studio 运行。",
     "这是本地 Pilot Production 模式。",
     "安全边界：只读分析和计划；不要修改文件；不要执行 deploy；不要进行 production operation；不要读取或输出真实凭证；不要写入任何挂接业务项目代码。",
     `项目：${projectId}`,
