@@ -93,7 +93,7 @@ The smoke uses the official MCP Client and Streamable HTTP client transport. It 
 
 ## Remaining work
 
-- Beta-005: deploy behind HTTPS and implement OAuth 2.1 protected-resource metadata, PKCE, audience/scope verification, and Access Center identity mapping.
+- Beta-005 now provides the OAuth protected-resource boundary, metadata, audience/scope verification, and Studio project identity mapping; public HTTPS deployment and IdP configuration remain operator-controlled.
 - Replace local bearer tokens with short-lived OAuth access tokens for ChatGPT web.
 - Move rate-limit and replay state to a shared store before multiple Gateway replicas.
 - Add service supervision/monitoring if the local MCP server must remain resident overnight.

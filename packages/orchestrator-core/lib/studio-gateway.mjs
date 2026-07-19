@@ -110,6 +110,11 @@ export class StudioGateway {
     return { actor, rate };
   }
 
+  assertProjectAccess(actor, projectId) {
+    if (!Array.isArray(actor.projectIds) || actor.projectIds.length === 0) return;
+    if (!projectId || !actor.projectIds.includes(String(projectId))) throw new GatewayError("PROJECT_ACCESS_DENIED", "The authenticated principal is not authorized for this project.", 403);
+  }
+
   async createGoal(input, context) {
     const { actor, rate } = this.authorize(context);
     const goal = validateGoal(input);
@@ -118,15 +123,16 @@ export class StudioGateway {
       workspaceId: String(input.workspaceId ?? actor.workspaceId ?? "studio-workspace"),
       projectId: String(input.projectId ?? "studio-project"),
     };
+    this.assertProjectAccess(actor, scope.projectId);
     const result = await this.executionCenter.createGoal({ ...goal, scope, userContext: actor });
     return { data: result, meta: { idempotencyKey: goal.idempotencyKey, runtime: "CONTROLLED_STUB", rate } };
   }
 
-  async getGoal(goalId, context) { const { rate } = this.authorize(context); return { data: await this.executionCenter.getGoal(goalId), meta: { rate } }; }
-  async getTaskGraph(goalId, context) { const { rate } = this.authorize(context); return { data: await this.executionCenter.getTaskGraph(goalId), meta: { rate } }; }
-  async getSession(sessionKey, context) { const { rate } = this.authorize(context); return { data: await this.executionCenter.getSession(sessionKey), meta: { rate } }; }
+  async getGoal(goalId, context) { const { actor, rate } = this.authorize(context); const data = await this.executionCenter.getGoal(goalId); this.assertProjectAccess(actor, data.project_id ?? data.projectId); return { data, meta: { rate } }; }
+  async getTaskGraph(goalId, context) { const { actor, rate } = this.authorize(context); const data = await this.executionCenter.getTaskGraph(goalId); this.assertProjectAccess(actor, data.goal?.project_id ?? data.goal?.projectId); return { data, meta: { rate } }; }
+  async getSession(sessionKey, context) { const { actor, rate } = this.authorize(context); const data = await this.executionCenter.getSession(sessionKey); if (Array.isArray(actor.projectIds) && actor.projectIds.length) { const goal = await this.executionCenter.getGoal(data.goal_id ?? data.goalId); this.assertProjectAccess(actor, goal.project_id ?? goal.projectId); } return { data, meta: { rate } }; }
   async getReadiness(context) { const { rate } = this.authorize(context); return { data: await this.executionCenter.getReadiness(), meta: { rate } }; }
-  async getMorningReport(sessionKey, context) { const { rate } = this.authorize(context); return { data: await this.executionCenter.getMorningReport(sessionKey), meta: { rate } }; }
+  async getMorningReport(sessionKey, context) { const { actor, rate } = this.authorize(context); if (Array.isArray(actor.projectIds) && actor.projectIds.length) { const session = await this.executionCenter.getSession(sessionKey); const goal = await this.executionCenter.getGoal(session.goal_id ?? session.goalId); this.assertProjectAccess(actor, goal.project_id ?? goal.projectId); } return { data: await this.executionCenter.getMorningReport(sessionKey), meta: { rate } }; }
 }
 
 export function gatewayErrorResponse(error, requestId) {

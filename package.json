@@ -17,6 +17,8 @@
     "studio-gateway:smoke": "node packages/orchestrator-core/bin/studio-gateway-smoke.mjs",
     "studio-mcp:start": "node packages/orchestrator-core/bin/studio-mcp-server.mjs",
     "studio-mcp:smoke": "node packages/orchestrator-core/bin/studio-mcp-smoke.mjs",
+    "studio-mcp:oauth:check": "node packages/orchestrator-core/bin/studio-mcp-oauth-check.mjs",
+    "studio-mcp:oauth:smoke": "node packages/orchestrator-core/bin/studio-mcp-oauth-smoke.mjs",
     "console:dev": "pnpm --filter @anksen/console dev",
     "console:service:status": "node packages/orchestrator-core/bin/studio.mjs console service status",
     "console:service:install": "node packages/orchestrator-core/bin/studio.mjs console service install --apply",

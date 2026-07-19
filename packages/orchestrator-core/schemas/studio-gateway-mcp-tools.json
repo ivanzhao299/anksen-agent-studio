@@ -11,6 +11,7 @@
       "description": "Create an idempotent Goal, call the existing PlannerService, submit the Task Graph, and run the controlled Night Shift.",
       "inputSchema": { "$ref": "./studio-gateway-goal.schema.json" },
       "outputSchema": { "type": "object", "required": ["sessionKey", "report"], "properties": { "sessionKey": { "type": "string" }, "report": { "type": "object" }, "dashboard": { "type": "object" } } },
+      "_meta": { "securitySchemes": [{ "type": "oauth2", "scopes": ["studio.goals.write"] }] },
       "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
     },
     {
@@ -19,6 +20,7 @@
       "description": "Read authoritative Goal state.",
       "inputSchema": { "type": "object", "required": ["goalId"], "properties": { "goalId": { "type": "string", "format": "uuid" } }, "additionalProperties": false },
       "outputSchema": { "type": "object" },
+      "_meta": { "securitySchemes": [{ "type": "oauth2", "scopes": ["studio.goals.read"] }] },
       "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
     },
     {
@@ -27,6 +29,7 @@
       "description": "Read authoritative tasks and dependencies.",
       "inputSchema": { "type": "object", "required": ["goalId"], "properties": { "goalId": { "type": "string", "format": "uuid" } }, "additionalProperties": false },
       "outputSchema": { "type": "object", "required": ["goal", "tasks", "dependencies"], "properties": { "goal": { "type": "object" }, "tasks": { "type": "array" }, "dependencies": { "type": "array" } } },
+      "_meta": { "securitySchemes": [{ "type": "oauth2", "scopes": ["studio.goals.read"] }] },
       "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
     },
     {
@@ -35,6 +38,7 @@
       "description": "Read persisted Night Shift state.",
       "inputSchema": { "type": "object", "required": ["sessionKey"], "properties": { "sessionKey": { "type": "string" } }, "additionalProperties": false },
       "outputSchema": { "type": "object" },
+      "_meta": { "securitySchemes": [{ "type": "oauth2", "scopes": ["studio.goals.read"] }] },
       "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
     },
     {
@@ -43,6 +47,7 @@
       "description": "Read controlled-runtime readiness without enabling CODEX.",
       "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
       "outputSchema": { "type": "object" },
+      "_meta": { "securitySchemes": [{ "type": "oauth2", "scopes": ["studio.goals.read"] }] },
       "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
     },
     {
@@ -51,6 +56,7 @@
       "description": "Read a persisted report for one Night Shift session.",
       "inputSchema": { "type": "object", "required": ["sessionKey"], "properties": { "sessionKey": { "type": "string" } }, "additionalProperties": false },
       "outputSchema": { "type": "object", "required": ["sessionKey", "status"], "properties": { "sessionKey": { "type": "string" }, "status": { "type": "string" }, "report": { "type": ["object", "null"] } } },
+      "_meta": { "securitySchemes": [{ "type": "oauth2", "scopes": ["studio.goals.read"] }] },
       "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
     }
   ]

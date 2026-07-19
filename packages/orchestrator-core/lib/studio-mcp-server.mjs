@@ -4,18 +4,27 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import * as z from "zod/v4";
 import { AutonomousExecutionCenter } from "./autonomous-execution-center.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "./studio-gateway.mjs";
+import { STUDIO_MCP_SCOPES } from "./studio-mcp-oauth.mjs";
 
 const instructions = "Create goals only when the user explicitly requests a write. Reuse idempotencyKey on retries. Use read tools to inspect Goal, Task Graph, Night Shift Session, Readiness, and Morning Report. This server runs CONTROLLED_STUB only and cannot enable CODEX.";
 const asToolResult = (result) => ({ structuredContent: result, content: [{ type: "text", text: JSON.stringify(result) }] });
-const toolFailure = (error) => {
+const toolFailure = (error, challenge) => {
   const failure = gatewayErrorResponse(error, "mcp-tool-call").body;
-  return { isError: true, structuredContent: failure, content: [{ type: "text", text: JSON.stringify(failure) }] };
+  const result = { isError: true, content: [{ type: "text", text: JSON.stringify(failure) }] };
+  if (error?.status === 401 || error?.status === 403) result._meta = { "mcp/www_authenticate": challenge };
+  return result;
 };
 
-export function createStudioMcpProtocolServer({ gateway, requestContext }) {
+export function createStudioMcpProtocolServer({ gateway, requestContext, authorization = null }) {
   const server = new McpServer({ name: "anksen-studio-gateway", version: "0.1.0" }, { instructions });
-  const register = (name, config, handler) => server.registerTool(name, config, async (input) => {
-    try { return asToolResult(await handler(input)); } catch (error) { return toolFailure(error); }
+  const register = (name, config, requiredScopes, handler) => server.registerTool(name, {
+    ...config,
+    _meta: { ...(config._meta ?? {}), securitySchemes: [{ type: "oauth2", scopes: requiredScopes }] },
+  }, async (input) => {
+    try {
+      authorization?.verifier.requireScopes(authorization.context, requiredScopes);
+      return asToolResult(await handler(input));
+    } catch (error) { return toolFailure(error, authorization?.verifier.challenge(requiredScopes)); }
   });
 
   register("create_goal", {
@@ -33,28 +42,28 @@ export function createStudioMcpProtocolServer({ gateway, requestContext }) {
     },
     outputSchema: { data: z.record(z.string(), z.any()), meta: z.record(z.string(), z.any()) },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, (input) => gateway.createGoal(input, requestContext("POST", "/api/v1/goals", input)));
+  }, [STUDIO_MCP_SCOPES.write], (input) => gateway.createGoal(input, requestContext("POST", "/api/v1/goals", input)));
 
   const goalIdSchema = { goalId: z.string().uuid() };
   const sessionKeySchema = { sessionKey: z.string().min(1) };
-  register("get_goal", { title: "Get a Studio goal", description: "Read the authoritative Goal state.", inputSchema: goalIdSchema, outputSchema: { data: z.any(), meta: z.any() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, ({ goalId }) => gateway.getGoal(goalId, requestContext("GET", `/api/v1/goals/${goalId}`)));
-  register("get_task_graph", { title: "Get a Goal task graph", description: "Read authoritative tasks and dependencies for a Goal.", inputSchema: goalIdSchema, outputSchema: { data: z.any(), meta: z.any() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, ({ goalId }) => gateway.getTaskGraph(goalId, requestContext("GET", `/api/v1/goals/${goalId}/task-graph`)));
-  register("get_night_shift_session", { title: "Get a Night Shift session", description: "Read persisted Night Shift session state.", inputSchema: sessionKeySchema, outputSchema: { data: z.any(), meta: z.any() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, ({ sessionKey }) => gateway.getSession(sessionKey, requestContext("GET", `/api/v1/night-shift/sessions/${sessionKey}`)));
-  register("get_activation_readiness", { title: "Get activation readiness", description: "Read controlled-runtime readiness without enabling CODEX.", inputSchema: {}, outputSchema: { data: z.any(), meta: z.any() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, () => gateway.getReadiness(requestContext("GET", "/api/v1/readiness")));
-  register("get_morning_report", { title: "Get a Morning Report", description: "Read the persisted report for a Night Shift session.", inputSchema: sessionKeySchema, outputSchema: { data: z.any(), meta: z.any() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, ({ sessionKey }) => gateway.getMorningReport(sessionKey, requestContext("GET", `/api/v1/night-shift/sessions/${sessionKey}/morning-report`)));
+  register("get_goal", { title: "Get a Studio goal", description: "Read the authoritative Goal state.", inputSchema: goalIdSchema, outputSchema: { data: z.any(), meta: z.any() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, [STUDIO_MCP_SCOPES.read], ({ goalId }) => gateway.getGoal(goalId, requestContext("GET", `/api/v1/goals/${goalId}`)));
+  register("get_task_graph", { title: "Get a Goal task graph", description: "Read authoritative tasks and dependencies for a Goal.", inputSchema: goalIdSchema, outputSchema: { data: z.any(), meta: z.any() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, [STUDIO_MCP_SCOPES.read], ({ goalId }) => gateway.getTaskGraph(goalId, requestContext("GET", `/api/v1/goals/${goalId}/task-graph`)));
+  register("get_night_shift_session", { title: "Get a Night Shift session", description: "Read persisted Night Shift session state.", inputSchema: sessionKeySchema, outputSchema: { data: z.any(), meta: z.any() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, [STUDIO_MCP_SCOPES.read], ({ sessionKey }) => gateway.getSession(sessionKey, requestContext("GET", `/api/v1/night-shift/sessions/${sessionKey}`)));
+  register("get_activation_readiness", { title: "Get activation readiness", description: "Read controlled-runtime readiness without enabling CODEX.", inputSchema: {}, outputSchema: { data: z.any(), meta: z.any() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, [STUDIO_MCP_SCOPES.read], () => gateway.getReadiness(requestContext("GET", "/api/v1/readiness")));
+  register("get_morning_report", { title: "Get a Morning Report", description: "Read the persisted report for a Night Shift session.", inputSchema: sessionKeySchema, outputSchema: { data: z.any(), meta: z.any() }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, [STUDIO_MCP_SCOPES.read], ({ sessionKey }) => gateway.getMorningReport(sessionKey, requestContext("GET", `/api/v1/night-shift/sessions/${sessionKey}/morning-report`)));
   return server;
 }
 
-function unauthorized(response) {
-  response.writeHead(401, { "content-type": "application/json", "www-authenticate": "Bearer", "cache-control": "no-store" });
+function unauthorized(response, challenge = "Bearer") {
+  response.writeHead(401, { "content-type": "application/json", "www-authenticate": challenge, "cache-control": "no-store" });
   response.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32001, message: "Authentication required." }, id: null }));
 }
 
-export function createStudioMcpHttpServer({ token, host = "127.0.0.1", port = 4330, executionCenter = new AutonomousExecutionCenter(), rateLimit = 60 } = {}) {
-  if (!token || token.length < 16) throw new Error("STUDIO_MCP_BEARER_TOKEN must contain at least 16 characters.");
+export function createStudioMcpHttpServer({ token, oauthVerifier = null, host = "127.0.0.1", port = 4330, executionCenter = new AutonomousExecutionCenter(), rateLimit = 60 } = {}) {
+  if (!oauthVerifier && (!token || token.length < 16)) throw new Error("STUDIO_MCP_BEARER_TOKEN must contain at least 16 characters.");
   const loopback = new Set(["127.0.0.1", "::1", "localhost"]);
   if (!loopback.has(host) && process.env.STUDIO_MCP_ALLOW_REMOTE !== "true") throw new Error("Remote MCP binding requires STUDIO_MCP_ALLOW_REMOTE=true and an external TLS boundary.");
-  const authenticator = new GatewayAuthenticator({ serviceTokens: { "studio-mcp": token } });
+  const authenticator = new GatewayAuthenticator({ serviceTokens: oauthVerifier ? {} : { "studio-mcp": token } });
   const gateway = new StudioGateway({ executionCenter, authenticator, rateLimiter: new SlidingWindowRateLimiter({ limit: rateLimit }) });
   const httpServer = createHttpServer(async (request, response) => {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? host}`);
@@ -63,9 +72,18 @@ export function createStudioMcpHttpServer({ token, host = "127.0.0.1", port = 43
       response.end(JSON.stringify({ status: "PASS", transport: "streamable-http", runtime: "CONTROLLED_STUB", codexFeatureFlag: false }));
       return;
     }
+    if (oauthVerifier && request.method === "GET" && (url.pathname === "/.well-known/oauth-protected-resource" || url.pathname === "/.well-known/oauth-protected-resource/mcp")) {
+      response.writeHead(200, { "content-type": "application/json", "cache-control": "public, max-age=300" });
+      response.end(JSON.stringify(oauthVerifier.protectedResourceMetadata()));
+      return;
+    }
     if (url.pathname !== "/mcp") { response.writeHead(404).end(); return; }
-    const authorization = String(request.headers.authorization ?? "");
-    try { authenticator.authenticate({ method: request.method ?? "GET", pathname: "/mcp", headers: request.headers, body: {} }); } catch { unauthorized(response); return; }
+    const authorizationHeader = String(request.headers.authorization ?? "");
+    let oauthContext = null;
+    try {
+      if (oauthVerifier) oauthContext = await oauthVerifier.authenticate(request.headers);
+      else authenticator.authenticate({ method: request.method ?? "GET", pathname: "/mcp", headers: request.headers, body: {} });
+    } catch { unauthorized(response, oauthVerifier?.challenge()); return; }
     if (request.method !== "POST") {
       response.writeHead(405, { "content-type": "application/json", allow: "POST" });
       response.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null }));
@@ -73,7 +91,8 @@ export function createStudioMcpHttpServer({ token, host = "127.0.0.1", port = 43
     }
     const protocol = createStudioMcpProtocolServer({
       gateway,
-      requestContext: (method, pathname, body = {}) => ({ method, pathname, headers: { authorization }, body }),
+      authorization: oauthVerifier ? { verifier: oauthVerifier, context: oauthContext } : null,
+      requestContext: (method, pathname, body = {}) => ({ method, pathname, headers: oauthVerifier ? {} : { authorization: authorizationHeader }, body, sessionContext: oauthContext }),
     });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     response.on("close", () => { transport.close().catch(() => {}); protocol.close().catch(() => {}); });
