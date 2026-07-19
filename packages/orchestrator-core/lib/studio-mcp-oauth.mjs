@@ -9,28 +9,33 @@ const bearerToken = (headers = {}) => {
   return authorization.slice(7).trim();
 };
 
-export function validateRemoteMcpConfig({ resource, issuer, jwksUri, allowInsecureLocalhost = false }) {
+export function validateRemoteMcpConfig({ resource, issuer, jwksUri, jwksFetchUri = jwksUri, allowInsecureLocalhost = false }) {
   for (const [name, value] of Object.entries({ resource, issuer, jwksUri })) {
     if (!value) throw new Error(`${name} is required for remote MCP OAuth mode.`);
     const url = new URL(value);
     const local = ["127.0.0.1", "localhost", "::1"].includes(url.hostname);
     if (url.protocol !== "https:" && !(allowInsecureLocalhost && local)) throw new Error(`${name} must use HTTPS outside an explicit localhost test fixture.`);
   }
-  return { resource: resource.replace(/\/$/, ""), issuer: issuer.replace(/\/$/, ""), jwksUri };
+  const fetchUrl = new URL(jwksFetchUri);
+  const fetchLocal = ["127.0.0.1", "localhost", "::1"].includes(fetchUrl.hostname);
+  if (fetchUrl.protocol !== "https:" && !(fetchUrl.protocol === "http:" && fetchLocal)) throw new Error("jwksFetchUri must use HTTPS or explicit loopback HTTP.");
+  return { resource: resource.replace(/\/$/, ""), issuer: issuer.replace(/\/$/, ""), jwksUri, jwksFetchUri };
 }
 
 export class StudioOAuthVerifier {
-  constructor({ resource, issuer, jwksUri, allowInsecureLocalhost = false, jwks, clockTolerance = 5 } = {}) {
-    const config = validateRemoteMcpConfig({ resource, issuer, jwksUri, allowInsecureLocalhost });
+  constructor({ resource, issuer, jwksUri, jwksFetchUri = jwksUri, allowInsecureLocalhost = false, jwks, clockTolerance = 5 } = {}) {
+    const config = validateRemoteMcpConfig({ resource, issuer, jwksUri, jwksFetchUri, allowInsecureLocalhost });
     this.resource = config.resource;
     this.issuer = config.issuer;
     this.jwksUri = config.jwksUri;
-    this.jwks = jwks ?? createRemoteJWKSet(new URL(this.jwksUri));
+    this.jwksFetchUri = config.jwksFetchUri;
+    this.jwks = jwks ?? createRemoteJWKSet(new URL(this.jwksFetchUri));
     this.clockTolerance = clockTolerance;
   }
 
   challenge(scopes = [STUDIO_MCP_SCOPES.read]) {
-    return `Bearer resource_metadata="${this.resource}/.well-known/oauth-protected-resource", scope="${scopes.join(" ")}"`;
+    const metadataUrl = new URL("/.well-known/oauth-protected-resource", this.resource).href;
+    return `Bearer resource_metadata="${metadataUrl}", scope="${scopes.join(" ")}"`;
   }
 
   protectedResourceMetadata() {
@@ -57,6 +62,9 @@ export class StudioOAuthVerifier {
     const payload = verified.payload;
     const scopes = new Set(String(payload.scope ?? "").split(/\s+/).filter(Boolean));
     if (!payload.sub) throw new GatewayError("OAUTH_SUBJECT_REQUIRED", "OAuth token subject is required.", 401);
+    if (!payload.organization_id || !payload.workspace_id) throw new GatewayError("OAUTH_SCOPE_CONTEXT_REQUIRED", "OAuth organization and workspace claims are required.", 403);
+    if (!Array.isArray(payload.project_ids) || payload.project_ids.length === 0) throw new GatewayError("OAUTH_PROJECTS_REQUIRED", "OAuth project_ids must contain at least one project.", 403);
+    if (!Array.isArray(payload.capabilities) || payload.capabilities.length === 0) throw new GatewayError("OAUTH_CAPABILITIES_REQUIRED", "OAuth capabilities must contain at least one capability.", 403);
     return {
       authenticated: true,
       principalId: String(payload.sub),

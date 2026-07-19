@@ -16,6 +16,7 @@ import { AutonomousExecutionCenter } from "../../../packages/orchestrator-core/l
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
 import { createStudioMcpRequestHandler } from "../../../packages/orchestrator-core/lib/studio-mcp-server.mjs";
+import { loadIdentityRuntimeConfig, proxyIdentityRequest } from "./identity-service.mjs";
 import { renderConsolePage } from "./render.mjs";
 import { consoleWebRoutes } from "./routes.mjs";
 import {
@@ -35,22 +36,24 @@ const staticAssets = new Map([
   ["/assets/anksen-logo.svg", { path: join(assetsDir, "anksen-logo.svg"), type: "image/svg+xml; charset=utf-8" }]
 ]);
 const autonomousExecutionCenter = new AutonomousExecutionCenter();
-const mcpOauthEnabled = process.env.STUDIO_MCP_AUTH_MODE === "oauth";
+const identityRuntime = await loadIdentityRuntimeConfig();
+const mcpOauthEnabled = identityRuntime?.authMode === "oauth";
 let studioMcpHandler = null;
 if (mcpOauthEnabled) {
   const verifier = new StudioOAuthVerifier({
-    resource: process.env.STUDIO_MCP_PUBLIC_URL,
-    issuer: process.env.STUDIO_OAUTH_ISSUER,
-    jwksUri: process.env.STUDIO_OAUTH_JWKS_URI
+    resource: identityRuntime.publicUrl,
+    issuer: identityRuntime.issuer,
+    jwksUri: identityRuntime.jwksUri,
+    jwksFetchUri: identityRuntime.jwksFetchUri
   });
   let readiness;
   try {
-    const authorizationServer = await checkAuthorizationServerMetadata({ issuer: verifier.issuer, expectedJwksUri: verifier.jwksUri, metadataUri: process.env.STUDIO_OAUTH_METADATA_URI });
+    const authorizationServer = await checkAuthorizationServerMetadata({ issuer: verifier.issuer, expectedJwksUri: verifier.jwksUri, metadataUri: identityRuntime.metadataProbeUri });
     readiness = { status: authorizationServer.status, authentication: "oauth2", authorizationServer: verifier.issuer, failures: authorizationServer.failures };
   } catch (error) {
     readiness = { status: "NOT_READY", authentication: "oauth2", authorizationServer: verifier.issuer, failures: [error instanceof Error ? error.message : String(error)] };
   }
-  studioMcpHandler = createStudioMcpRequestHandler({ oauthVerifier: verifier, executionCenter: autonomousExecutionCenter, rateLimit: Number(process.env.STUDIO_MCP_RATE_LIMIT ?? 60), readiness, probePrefix: "/mcp" });
+  studioMcpHandler = createStudioMcpRequestHandler({ oauthVerifier: verifier, executionCenter: autonomousExecutionCenter, rateLimit: identityRuntime.rateLimit, readiness, probePrefix: "/mcp" });
 }
 const entries = (value) => Object.fromEntries(String(value ?? "").split(",").map((item) => item.trim()).filter(Boolean).map((item) => { const separator = item.indexOf(":"); return separator < 1 ? [item, ""] : [item.slice(0, separator), item.slice(separator + 1)]; }));
 const studioGateway = new StudioGateway({
@@ -114,6 +117,7 @@ function clearSessionCookie() {
 
 const server = createServer(async (request, response) => {
   try {
+    if (identityRuntime && proxyIdentityRequest(request, response, { upstreamOrigin: identityRuntime.upstreamOrigin, publicOrigin: new URL(identityRuntime.publicUrl).origin })) return;
     if (studioMcpHandler && await studioMcpHandler(request, response)) return;
     if (!localOnly(request) && !String(request.url ?? "").startsWith("/api/v1/")) {
       sendJson(response, 403, { status: "BLOCKED", reason: "Console Action Server only accepts local 127.0.0.1 requests." });

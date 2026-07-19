@@ -36,9 +36,9 @@ async function fixture() {
   await new Promise((resolve) => issuerServer.listen(0, "127.0.0.1", resolve));
   const issuerAddress = issuerServer.address();
   const issuer = `http://127.0.0.1:${issuerAddress.port}`;
-  const resource = "http://127.0.0.1:45555";
+  const resource = "http://127.0.0.1:45555/mcp";
   const verifier = new StudioOAuthVerifier({ resource, issuer, jwksUri: `${issuer}/jwks`, allowInsecureLocalhost: true });
-  const sign = (scope, { audience = resource, expirationTime = "5m", ...claims } = {}) => new SignJWT({ scope, organization_id: "org-1", workspace_id: "workspace-1", project_ids: ["project-1"], ...claims })
+  const sign = (scope, { audience = resource, expirationTime = "5m", ...claims } = {}) => new SignJWT({ scope, organization_id: "org-1", workspace_id: "workspace-1", project_ids: ["project-1"], capabilities: ["console.access", "autopilot.plan", "autopilot.execute.local"], ...claims })
     .setProtectedHeader({ alg: "RS256", kid: "fixture-key" }).setIssuer(issuer).setAudience(audience).setSubject("oauth-user").setIssuedAt().setExpirationTime(expirationTime).sign(privateKey);
   return { issuerServer, verifier, sign, resource };
 }
@@ -60,6 +60,7 @@ test("remote MCP publishes protected-resource metadata and enforces OAuth scopes
     const unauthorized = await fetch(`${base}/mcp`, { method: "POST" });
     assert.equal(unauthorized.status, 401);
     assert.match(unauthorized.headers.get("www-authenticate"), /resource_metadata=/);
+    assert.match(unauthorized.headers.get("www-authenticate"), new RegExp(`resource_metadata="http://127\\.0\\.0\\.1:45555/\\.well-known/oauth-protected-resource"`));
 
     const readToken = await oauth.sign("studio.goals.read");
     const transport = new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers: { Authorization: `Bearer ${readToken}` } } });
@@ -107,4 +108,16 @@ test("remote MCP rejects wrong audience and insecure non-local resource configur
     await new Promise((resolve) => oauth.issuerServer.close(resolve));
   }
   assert.throws(() => new StudioOAuthVerifier({ resource: "http://studio.example.com", issuer: "https://id.example.com", jwksUri: "https://id.example.com/jwks" }), /HTTPS/);
+});
+
+test("OAuth identity claims fail closed when project or capability context is absent", async () => {
+  const oauth = await fixture();
+  try {
+    const missingProjects = await oauth.sign("studio.goals.read", { project_ids: undefined, capabilities: ["console.access"] });
+    await assert.rejects(oauth.verifier.authenticate({ authorization: `Bearer ${missingProjects}` }), (error) => error.code === "OAUTH_PROJECTS_REQUIRED");
+    const missingCapabilities = await oauth.sign("studio.goals.read", { capabilities: undefined });
+    await assert.rejects(oauth.verifier.authenticate({ authorization: `Bearer ${missingCapabilities}` }), (error) => error.code === "OAUTH_CAPABILITIES_REQUIRED");
+  } finally {
+    await new Promise((resolve) => oauth.issuerServer.close(resolve));
+  }
 });

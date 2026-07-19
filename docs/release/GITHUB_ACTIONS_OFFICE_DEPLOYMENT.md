@@ -2,6 +2,8 @@
 
 Every push to `main` is validated on GitHub and then deployed to the office Ubuntu server through the Aliyun WireGuard jump host.
 
+The same guarded deployment now starts the self-hosted Keycloak/PostgreSQL identity boundary before restarting Console. Identity secrets are generated once under `/opt/anksen/identity/.env` and are never passed through GitHub Actions. The release is accepted only when public OIDC discovery, OAuth protected-resource metadata, and MCP readiness all pass.
+
 ## Route
 
 `GitHub Actions -> 123.57.220.65 -> WireGuard -> 192.168.2.204 -> /opt/anksen/agent-studio`

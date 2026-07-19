@@ -75,7 +75,9 @@ fi
 kill -TERM "${server_pids[@]}"
 
 for attempt in $(seq 1 45); do
-  if curl --fail --silent --show-error --max-time 3 "$health_url" >/dev/null; then
+  if curl --fail --silent --show-error --max-time 3 "$health_url" >/dev/null \
+    && curl --fail --silent --show-error --max-time 5 http://127.0.0.1:4317/mcp/ready >/dev/null \
+    && curl --fail --silent --show-error --max-time 5 http://127.0.0.1:4317/.well-known/oauth-protected-resource >/dev/null; then
     current_commit="$(git rev-parse HEAD)"
     printf 'Deployment complete: commit=%s health=%s attempt=%s\n' "$current_commit" "$health_url" "$attempt"
     exit 0
