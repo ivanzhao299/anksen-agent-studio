@@ -87,6 +87,6 @@ test("growth, manufacturing and Smart Park records keep operational data and rou
 test("file fallback preserves typed business record relations",async()=>{
   const root=await mkdtemp(resolve(tmpdir(),"business-relations-")),store=new BusinessApplicationStore({repoRoot:root}),scope={organizationId:"relation-org",workspaceId:"relation-workspace",userId:"planner"};
   const budget=await store.createRecord("finance-platform",{objectType:"budget",title:"运营预算",fields:{fiscalYear:2027,department:"运营",budgetCode:"OPS",amount:1000,currency:"CNY"}},scope),expense=await store.createRecord("finance-platform",{objectType:"expense",title:"运营费用",fields:expenseFields},scope),relation=await store.createRelation("finance-platform",budget.id,{targetRecordId:expense.id,relationType:"CONTROLS"},scope),detail=await store.recordDetail("finance-platform",budget.id,scope);
-  assert.equal(detail.relations[0].id,relation.id);assert.equal(detail.relations[0].record.id,expense.id);
+  assert.equal(detail.relations[0].id,relation.id);assert.equal(detail.relations[0].record.id,expense.id);assert.deepEqual((await store.applicationReport("finance-platform",scope)).businessChains,{total:1,byType:{CONTROLS:1}});
   await assert.rejects(()=>store.createRelation("finance-platform",expense.id,{targetRecordId:budget.id,relationType:"CONTROLS"},scope),error=>error.code==="BUSINESS_RELATION_DENIED");
 });

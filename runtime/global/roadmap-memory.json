@@ -29,7 +29,8 @@
     { "id": "ea-013-runner-human-control", "title": "Versioned human takeover, pause, resume, reassignment and recovery controls for Agent work", "completed": true },
     { "id": "ea-014-enterprise-acceptance", "title": "Role-by-role business acceptance and production evidence pack", "completed": true },
     { "id": "ea-015-business-chains", "title": "Typed, scoped and auditable record chains for each independent business application", "completed": true },
-    { "id": "ea-016-role-uat", "title": "Authenticated browser UAT with named business roles", "completed": false }
+    { "id": "ea-016-chain-observability", "title": "Source-backed business-chain health in application reports and group cockpit", "completed": true },
+    { "id": "ea-017-role-uat", "title": "Authenticated browser UAT with named business roles", "completed": false }
   ],
   "next_recommended_action": {
     "title": "Run authenticated browser UAT and continue domain transaction depth",
