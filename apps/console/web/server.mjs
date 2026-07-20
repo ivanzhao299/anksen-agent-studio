@@ -31,6 +31,7 @@ import { businessWorkflowGoal } from "../../../packages/domain-center/lib/busine
 import { projectBusinessNotifications } from "../../../packages/domain-center/lib/business-notifications.mjs";
 import { buildBusinessDelegationPreview } from "../../../packages/domain-center/lib/business-delegation-preview.mjs";
 import { buildBusinessCapabilityProtocol } from "../../../packages/domain-center/lib/business-capability-protocol.mjs";
+import { EnterpriseProgramPlanner } from "../../../packages/domain-center/lib/enterprise-program-planner.mjs";
 import { projectBusinessWorkExecution } from "../../../packages/domain-center/lib/business-work-execution.mjs";
 import { createBusinessTaskBinding } from "../../../packages/orchestrator-core/lib/business-task-binding.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
@@ -102,6 +103,7 @@ const dispatchPortfolioInitiative = async ({ campaign, initiative }) => {
   } finally { if (ownsPool) await pool.end(); }
 };
 const autonomousPortfolio = new AutonomousPortfolioService({ repoRoot, registry: portfolioRegistry, dispatcher: dispatchPortfolioInitiative });
+const enterpriseProgramPlanner=new EnterpriseProgramPlanner({registry:portfolioRegistry});
 const businessOutcomeCenter = new BusinessOutcomeCenter({ repoRoot });
 const autonomousDevelopmentJobs = new AutonomousDevelopmentJobs({ repoRoot });
 setInterval(() => autonomousPortfolio.tick().catch((error) => console.error("portfolio tick failed", error?.code ?? error?.message ?? error)), 30000).unref();
@@ -522,11 +524,14 @@ const server = createServer(async (request, response) => {
       const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"};sendJson(response, 200, { campaigns: await autonomousPortfolio.list(scope), catalog: domainCenterSummary() });
       return;
     }
+    if(request.method==="POST"&&pathname==="/api/portfolio/plan"){
+      const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"portfolio-create",project_id:"anksen-agent-studio",risk:"LOW"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}const body=await readJsonBody(request),allowedApplicationIds=domainCenterSummary().applications.filter(item=>{const app=getEnterpriseApplication(item.id);return app&&evaluateConsoleRouteAccess(app.routeId,accessContext).allowed;}).map(item=>item.id);try{sendJson(response,200,enterpriseProgramPlanner.plan(body.goal,{allowedApplicationIds}));}catch(error){sendJson(response,400,{status:error?.code??"ENTERPRISE_PROGRAM_PLAN_INVALID",reason:error instanceof Error?error.message:String(error)});}return;
+    }
     if (request.method === "POST" && pathname === "/api/portfolio/campaigns") {
       const body = await readJsonBody(request);
       const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "portfolio-create", project_id: String(body.projectId ?? "anksen-agent-studio"), risk: "LOW" }, { user_context: accessContext });
       if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
-      try { sendJson(response, 201, await autonomousPortfolio.create(body, { userId: accessContext.user?.user_id,organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace" })); }
+      try {const allowedApplicationIds=new Set(domainCenterSummary().applications.filter(item=>{const app=getEnterpriseApplication(item.id);return app&&evaluateConsoleRouteAccess(app.routeId,accessContext).allowed;}).map(item=>item.id)),requestedApplicationIds=(body.workstreams?.length?body.workstreams.map(item=>item.applicationId):[body.applicationId]).map(String);if(requestedApplicationIds.some(id=>!allowedApplicationIds.has(id)))throw Object.assign(new Error("PORTFOLIO_APPLICATION_FORBIDDEN"),{code:"PORTFOLIO_APPLICATION_FORBIDDEN"});if(body.plannerPlan){enterpriseProgramPlanner.validate(body.plannerPlan);if(JSON.stringify(body.plannerPlan.workstreams.map(item=>({applicationId:item.applicationId,domainIds:item.domainIds,dependsOn:item.dependsOn})))!==JSON.stringify((body.workstreams??[]).map(item=>({applicationId:item.applicationId,domainIds:item.domainIds,dependsOn:item.dependsOn}))))throw Object.assign(new Error("PORTFOLIO_PLANNER_PLAN_MISMATCH"),{code:"PORTFOLIO_PLANNER_PLAN_MISMATCH"});}sendJson(response, 201, await autonomousPortfolio.create(body, { userId: accessContext.user?.user_id,organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace" })); }
       catch (error) { sendJson(response, 400, { status: error?.code ?? "PORTFOLIO_INVALID", reason: error instanceof Error ? error.message : String(error) }); }
       return;
     }

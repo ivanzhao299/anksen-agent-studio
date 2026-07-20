@@ -89,9 +89,15 @@ test("Studio exposes the portfolio product route and authenticated lifecycle API
   const server = await readFile(new URL("../../../apps/console/web/server.mjs", import.meta.url), "utf8");
   const access = await readFile(new URL("../../access-center/lib/access-center-utils.mjs", import.meta.url), "utf8");
   assert.match(html, /集团长期任务编排/);
+  assert.match(html, /智能拆解目标/);
+  assert.match(html, /portfolio-plan-preview/);
+  assert.match(html, /\/api\/portfolio\/plan/);
   assert.match(html, /Skill \/ Agent/);
   assert.match(html, /\/api\/portfolio\/campaigns/);
   assert.match(server, /AutonomousPortfolioService/);
+  assert.match(server, /EnterpriseProgramPlanner/);
+  assert.match(server, /PORTFOLIO_APPLICATION_FORBIDDEN/);
+  assert.match(server, /PORTFOLIO_PLANNER_PLAN_MISMATCH/);
   assert.match(server, /`portfolio-\$\{portfolioAction\[2\]\}`/);
   assert.match(access, /"portfolio-activate"/);
   assert.match(server, /runDaemon/);

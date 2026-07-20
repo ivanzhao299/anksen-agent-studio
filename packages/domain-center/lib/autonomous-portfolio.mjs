@@ -93,6 +93,7 @@ export class AutonomousPortfolioService {
       applicationName: application?.name??`${workstreams.length} 个业务平台`,
       applicationIds:workstreams.map(item=>item.applicationId),
       workstreams,
+      plannerEvidence:input.plannerPlan?{plannerVersion:String(input.plannerPlan.plannerVersion),planHash:String(input.plannerPlan.planHash),dependencyMode:String(input.plannerPlan.dependencyMode),llmUsed:input.plannerPlan.llmUsed===true,confirmedBy:actor.userId??"unknown"}:null,
       projectId: safeId(input.projectId || "anksen-agent-studio"),
       organizationId:actor.organizationId??"studio-org",workspaceId:actor.workspaceId??"studio-workspace",
       goal,
