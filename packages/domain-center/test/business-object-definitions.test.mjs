@@ -21,6 +21,8 @@ test("business field validation normalizes numbers and rejects invalid values", 
   assert.throws(() => validateBusinessObjectFields("finance-platform", "expense", { expenseDate: "2026-07-20" }), (error) => error.code === "BUSINESS_FIELD_REQUIRED");
 });
 
+test("channel accounts accept Credential Reference IDs and reject secret-like values before persistence",()=>{const base={platform:"视频号",accountRef:"ACCOUNT-001",ownerOrganization:"金湖集团",authorizationExpiresAt:"2026-12-31",publishingScope:"已审批产品内容"};assert.equal(validateBusinessObjectFields("ai-growth-sales-platform","channel_account",{...base,credentialReferenceId:"video-channel-ref"}).credentialReferenceId,"video-channel-ref");for(const credentialReferenceId of ["sk-secret-value","Bearer abcdef","token=abcdef","eyJabc.def.ghi"]){assert.throws(()=>validateBusinessObjectFields("ai-growth-sales-platform","channel_account",{...base,credentialReferenceId}),error=>error.code==="BUSINESS_CREDENTIAL_REFERENCE_INVALID");}});
+
 test("every registered business object routes to a domain owned by its application", () => {
   for (const application of enterpriseApplications.filter((item) => !["software-factory", "video-factory"].includes(item.id))) {
     for (const objectType of application.objectTypes) {

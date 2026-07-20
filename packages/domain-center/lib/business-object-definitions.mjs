@@ -133,6 +133,24 @@ const definitions = Object.freeze({
       transitions: { DRAFT: ["PLANNING"], PLANNING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["SCHEDULED", "PLANNING"], SCHEDULED: ["RUNNING", "CANCELLED"], RUNNING: ["COMPLETED", "PAUSED"], PAUSED: ["RUNNING", "CANCELLED"] },
       workflowGoal: (record) => `为营销活动“${record.title}”生成内容策略、渠道素材计划、合规检查和转化衡量方案。`
     }),
+    content_asset: definition({
+      label: "内容资产", workflowDomainId: "content-generation",
+      fields: [field("productCode", "产品编码", "text", { required: true }), field("assetType", "资产类型", "select", { required: true, options: ["产品文案", "图片", "短视频", "长视频", "落地页"] }), field("channel", "适用渠道", "select", { required: true, options: ["官网", "微信", "抖音", "视频号", "小红书", "线下活动"] }), field("language", "语言", "select", { required: true, options: ["zh-CN", "en-US"] }), field("claimEvidenceRef", "产品主张证据编号", "text", { required: true }), field("rightsClearanceRef", "版权与肖像授权编号", "text", { required: true }), field("contentHash", "定稿内容哈希", "text", { required: true })],
+      transitions: { DRAFT: ["GENERATING"], GENERATING: ["REVIEWING", "BLOCKED"], REVIEWING: ["WAITING_APPROVAL", "GENERATING"], WAITING_APPROVAL: ["APPROVED", "REVIEWING"], APPROVED: ["ARCHIVED"] },
+      workflowGoal: (record) => `检查内容资产“${record.title}”的产品事实、渠道规格、版权授权和定稿版本，不自动发布。`
+    }),
+    channel_account: definition({
+      label: "渠道账号", workflowDomainId: "channel-account-governance",
+      fields: [field("platform", "渠道平台", "select", { required: true, options: ["官网", "微信", "抖音", "视频号", "小红书"] }), field("accountRef", "账号引用编号", "text", { required: true }), field("ownerOrganization", "账号所属主体", "text", { required: true }), field("credentialReferenceId", "凭据引用编号", "text", { required: true, referenceOnly: true }), field("authorizationExpiresAt", "授权到期日", "date", { required: true }), field("publishingScope", "允许发布范围", "textarea", { required: true })],
+      transitions: { DRAFT: ["VERIFYING"], VERIFYING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["ACTIVE", "VERIFYING"], ACTIVE: ["SUSPENDED", "EXPIRED"], SUSPENDED: ["VERIFYING"] },
+      workflowGoal: (record) => `校验渠道账号“${record.title}”的主体、Credential Reference、授权期限和发布范围，不读取凭据值。`
+    }),
+    publish_plan: definition({
+      label: "发布计划", workflowDomainId: "publishing-distribution",
+      fields: [field("campaignRef", "Campaign 编号", "text", { required: true }), field("productCode", "产品编码", "text", { required: true }), field("channel", "发布渠道", "select", { required: true, options: ["官网", "微信", "抖音", "视频号", "小红书", "线下活动"] }), field("accountRef", "渠道账号引用", "text", { required: true }), field("scheduledAt", "计划发布时间", "date", { required: true }), field("expectedAssetCount", "计划资产数", "number", { required: true, min: 1 }), field("publishMode", "发布模式", "select", { required: true, options: ["仅人工发布", "人工确认后自动发布"] })],
+      transitions: { DRAFT: ["PLANNING"], PLANNING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "PLANNING"], APPROVED: ["SCHEDULED", "CANCELLED"], SCHEDULED: ["COMPLETED", "CANCELLED"] },
+      workflowGoal: (record) => `检查发布计划“${record.title}”的 Campaign、产品事实、内容资产、渠道账号与审批边界，不执行发布。`
+    }),
     customer: definition({
       label: "客户", workflowDomainId: "customer-engagement",
       fields: [field("customerType", "客户类型", "select", { required: true, options: ["企业", "个人"] }), field("industry", "行业", "text"), field("owner", "客户经理", "text", { required: true }), field("contactPreference", "联系偏好", "select", { required: true, options: ["电话", "微信", "邮件", "仅人工联系"] }), field("consentStatus", "联系授权", "select", { required: true, options: ["已授权", "待确认", "已拒绝"] })],
@@ -242,6 +260,7 @@ export function validateBusinessObjectFields(applicationId, objectType, input = 
       if (!Number.isFinite(value) || (item.min !== undefined && value < item.min) || (item.max !== undefined && value > item.max)) throw Object.assign(new Error(`BUSINESS_FIELD_INVALID:${item.key}`), { code: "BUSINESS_FIELD_INVALID", field: item.key });
     }
     if (item.options && !item.options.includes(value)) throw Object.assign(new Error(`BUSINESS_FIELD_INVALID:${item.key}`), { code: "BUSINESS_FIELD_INVALID", field: item.key });
+    if (item.referenceOnly && (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:/-]{2,127}$/.test(value) || /(?:^sk-|bearer|password\s*=|token\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(value))) throw Object.assign(new Error(`BUSINESS_CREDENTIAL_REFERENCE_INVALID:${item.key}`), { code: "BUSINESS_CREDENTIAL_REFERENCE_INVALID", field: item.key });
     fields[item.key] = value;
   }
   return fields;

@@ -32,3 +32,11 @@ test("HR reviewer can approve exact-version HR work without Agent execution or c
   for(const actionId of ["business-work-control","development-job-approve","identity-owner-bootstrap"]){assert.equal((await evaluateConsoleActionAccess({policy},{action_id:actionId,risk:"MEDIUM"},{user_context:context})).status,"DENY");}
   assert.equal(role.capabilities.includes("autopilot.plan"),false);assert.equal(role.capabilities.includes("autopilot.execute.local"),false);assert.equal(role.capabilities.includes("access.manage"),false);
 });
+
+test("sales reviewer can approve content and publish plans without publication or Runtime authority",async()=>{
+  const role=policy.roles.find(item=>item.role_id==="sales_reviewer"),context=contextFor(role);
+  assert.equal(evaluateConsoleRouteAccess("growthSales",context).allowed,true);assert.equal(evaluateConsoleRouteAccess("finance",context).allowed,false);
+  assert.equal((await evaluateConsoleActionAccess({policy},{action_id:"business-approval-decision",risk:"MEDIUM"},{user_context:context})).status,"ALLOW");
+  for(const actionId of ["business-work-control","development-job-approve","production-operation-request","identity-owner-bootstrap"]){assert.equal((await evaluateConsoleActionAccess({policy},{action_id:actionId,risk:"MEDIUM"},{user_context:context})).status,"DENY");}
+  assert.equal(role.capabilities.includes("autopilot.plan"),false);assert.equal(role.capabilities.includes("autopilot.execute.local"),false);assert.equal(role.capabilities.includes("access.manage"),false);
+});

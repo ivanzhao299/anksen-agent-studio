@@ -204,6 +204,14 @@
       "can_manage_access": false
     },
     {
+      "role_id": "sales_reviewer",
+      "display_name": "增长销售审批用户",
+      "description": "复核产品内容、渠道账号和发布计划，不具备自动注册账号、自动发布、客户联系或 Runtime 权限。",
+      "capabilities": ["console.access", "work.read", "sales.read", "media.read", "business.operate", "proposal.approve"],
+      "direct_execute_max_risk": "MEDIUM",
+      "can_manage_access": false
+    },
+    {
       "role_id": "manufacturing_operator",
       "display_name": "制造业务用户",
       "description": "使用物料、BOM、工单、库存和质量业务功能。",
