@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-07-21T01:30:00+08:00",
+  "generated_at": "2026-07-21T16:30:00+08:00",
   "goal": "Build independent conventional business applications driven by one shared intelligent runtime, while keeping the group cockpit as the command and observation layer.",
   "current_stage": "Enterprise Application Foundation and Intelligent Workflow Integration",
   "next_stage": "Deepen Growth & Sales, Manufacturing ERP and Smart Park with domain-specific records, state machines and object-write-back workflows.",
@@ -35,11 +35,12 @@
     { "id": "ea-019-atomic-downstream-transactions", "title": "Atomic source-to-downstream business transactions across six independent applications", "completed": true },
     { "id": "ea-020-state-gated-business-chains", "title": "Nineteen state-gated multi-stage business chain contracts across six applications", "completed": true },
     { "id": "ea-021-business-execution-evidence", "title": "Read-only Skill, Agent, Runner, Attempt and sanitized Runtime result projection on business records", "completed": true },
-    { "id": "ea-022-role-browser-uat", "title": "Authenticated browser UAT with named business roles", "completed": false }
+    { "id": "ea-022-business-exception-center", "title": "Role-scoped cross-application exception center backed by formal business and work states", "completed": true },
+    { "id": "ea-023-role-browser-uat", "title": "Authenticated browser UAT with named business roles", "completed": false }
   ],
   "next_recommended_action": {
-    "title": "Run authenticated browser UAT and continue domain transaction depth",
-    "reason": "EA-015 now persists and renders six typed upstream/downstream business chains with scope isolation, idempotency, audit and PostgreSQL restart evidence. The next release gate is actual browser completion by named roles, followed by deeper application-specific transactions.",
+    "title": "Run authenticated browser UAT and continue exception-to-resolution workflows",
+    "reason": "EA-022 provides an authoritative, role-scoped exception list with business-record drill-down and explicit Agent blockage. The next release gate is actual browser completion by named roles, followed by domain-specific resolution transactions and notifications.",
     "target_project": "anksen-agent-studio",
     "target_packages": ["packages/domain-center", "packages/orchestrator-core", "apps/console"],
     "expected_files": [
@@ -55,14 +56,20 @@
     "execution_mode": "test-gated-continuous-implementation"
   },
   "six_hour_task_graph": [
-    { "id": "EA-001", "depends_on": [], "title": "Architecture memory" },
-    { "id": "EA-002", "depends_on": ["EA-001"], "title": "Application registry and endpoints" },
-    { "id": "EA-003", "depends_on": ["EA-001"], "title": "Business work contract" },
-    { "id": "EA-004", "depends_on": ["EA-002", "EA-003"], "title": "My Work projection" },
-    { "id": "EA-005", "depends_on": ["EA-002", "EA-003"], "title": "Six conventional workbenches" },
-    { "id": "EA-006", "depends_on": ["EA-004", "EA-005"], "title": "Intelligent workflow write-back" },
-    { "id": "EA-007", "depends_on": ["EA-006"], "title": "Verification and production deployment" }
+    { "id": "EA-022", "depends_on": ["EA-021"], "title": "Authoritative cross-application exception center", "status": "COMPLETED", "checkpoint": "tests and PostgreSQL scope evidence" },
+    { "id": "EA-023", "depends_on": ["EA-022"], "title": "Named-role authenticated browser UAT", "status": "READY", "checkpoint": "role-by-role UI evidence" },
+    { "id": "EA-024", "depends_on": ["EA-022"], "title": "Exception-to-resolution domain transactions", "status": "READY", "checkpoint": "audited resolution write-back" },
+    { "id": "EA-025", "depends_on": ["EA-024"], "title": "Notification and escalation projection", "status": "PENDING", "checkpoint": "idempotent notification evidence" },
+    { "id": "EA-026", "depends_on": ["EA-023", "EA-024", "EA-025"], "title": "Enterprise regression, commit and Office 204 production deployment", "status": "PENDING", "checkpoint": "exact production commit and HTTP verification" }
   ],
+  "long_task_runtime": {
+    "duration_budget_hours": 6,
+    "resume_source": "runtime/global/roadmap-memory.json",
+    "execution_policy": "dependency-ordered, checkpointed, test-gated and idempotent",
+    "runtime_policy": "CONTROLLED_STUB until a separately approved CODEX activation is ready",
+    "human_breakpoints": ["authenticated named-role browser session when unavailable", "high-risk production or credential changes"],
+    "completion_evidence": ["source commit", "directed and full tests", "typecheck", "build", "enterprise acceptance", "deployment commit match", "public HTTP check"]
+  },
   "validation_commands": [
     "node --test packages/domain-center/test/*.test.mjs packages/orchestrator-core/test/*.test.mjs apps/console/web/*.test.mjs",
     "pnpm typecheck",

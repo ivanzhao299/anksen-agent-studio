@@ -369,6 +369,11 @@ const server = createServer(async (request, response) => {
       const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"},applications=enterpriseApplicationSummary().applications.filter(app=>evaluateConsoleRouteAccess(app.routeId,accessContext).allowed),reports=await Promise.all(applications.map(app=>businessApplicationStore.applicationReport(app.id,scope)));
       sendJson(response,200,{generatedAt:new Date().toISOString(),backend:businessRuntime.backend,reports});return;
     }
+    if (request.method === "GET" && pathname === "/api/business/exceptions") {
+      const access=evaluateConsoleRouteAccess("work",accessContext);if(!access.allowed){sendJson(response,403,access);return;}
+      const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"},applicationIds=enterpriseApplicationSummary().applications.filter(app=>evaluateConsoleRouteAccess(app.routeId,accessContext).allowed).map(app=>app.id),result=await businessApplicationStore.businessExceptions({...scope,applicationIds,limit:url.searchParams.get("limit")});
+      sendJson(response,200,{...result,backend:businessRuntime.backend});return;
+    }
     const businessApplicationReport=pathname.match(/^\/api\/business\/applications\/([^/]+)\/report$/);
     if(request.method==="GET"&&businessApplicationReport){const applicationId=decodeURIComponent(businessApplicationReport[1]),app=getEnterpriseApplication(applicationId);if(!app){sendJson(response,404,{status:"APPLICATION_NOT_FOUND"});return;}const routeAccess=evaluateConsoleRouteAccess(app.routeId,accessContext);if(!routeAccess.allowed){sendJson(response,403,routeAccess);return;}sendJson(response,200,{backend:businessRuntime.backend,report:await businessApplicationStore.applicationReport(app.id,{organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"})});return;}
     if (request.method === "GET" && pathname === "/api/work") {

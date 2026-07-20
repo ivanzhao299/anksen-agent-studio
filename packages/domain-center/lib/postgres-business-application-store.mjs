@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { assertEnterpriseApplication } from "./enterprise-applications.mjs";
 import { availableBusinessTransitions, getBusinessObjectDefinition, validateBusinessObjectFields } from "./business-object-definitions.mjs";
 import { assertBusinessRelationContract, relationContractsFor } from "./business-relation-definitions.mjs";
+import { businessExceptionResult, businessRecordExceptionStatuses, businessWorkExceptionStatuses, presentBusinessRecordException, presentBusinessWorkException } from "./business-exceptions.mjs";
 
 const terminal = new Set(["COMPLETED", "CANCELLED", "PAID", "ARCHIVED", "TERMINATED", "WRITTEN_OFF"]);
 const scopeOf = (value = {}) => {
@@ -264,6 +265,17 @@ export class PostgresBusinessApplicationStore {
   async approvalInbox(options = {}) {
     const scope = scopeOf(options), rows = (await this.pool.query("SELECT a.*,r.display_key,r.title record_title,r.object_type FROM business_approval a JOIN business_application_record r ON r.id=a.business_record_id WHERE a.organization_id=$1 AND a.workspace_id=$2 AND a.status='PENDING' ORDER BY a.created_at", [scope.organizationId, scope.workspaceId])).rows;
     return rows.map((row) => ({ ...this.presentApproval(row), businessObject: { objectType: row.object_type, objectId: row.business_record_id, displayKey: row.display_key, title: row.record_title, href: `${assertEnterpriseApplication(row.application_id).path}?record=${row.business_record_id}` } }));
+  }
+
+  async businessExceptions(options = {}) {
+    const scope = scopeOf(options), applicationIds = [...new Set(options.applicationIds ?? [])], limit = Math.max(1, Math.min(Number(options.limit) || 100, 200));
+    if (!applicationIds.length) return businessExceptionResult([], this.clock().toISOString(), "POSTGRESQL_BUSINESS_APPLICATION_STORE");
+    const [records, work] = await Promise.all([
+      this.pool.query("SELECT * FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id=ANY($3::text[]) AND status=ANY($4::text[]) ORDER BY updated_at DESC LIMIT $5", [scope.organizationId, scope.workspaceId, applicationIds, businessRecordExceptionStatuses, limit]),
+      this.pool.query("SELECT * FROM business_work_item WHERE organization_id=$1 AND workspace_id=$2 AND application_id=ANY($3::text[]) AND status=ANY($4::text[]) ORDER BY updated_at DESC LIMIT $5", [scope.organizationId, scope.workspaceId, applicationIds, businessWorkExceptionStatuses, limit])
+    ]);
+    const items = [...records.rows.map((row) => presentBusinessRecordException(this.presentRecord(row))), ...work.rows.map((row) => presentBusinessWorkException(this.presentWork(row)))].sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt))).slice(0,limit);
+    return businessExceptionResult(items, this.clock().toISOString(), "POSTGRESQL_BUSINESS_APPLICATION_STORE");
   }
 
   async controlWorkItem(workItemId, input, actor = {}) {

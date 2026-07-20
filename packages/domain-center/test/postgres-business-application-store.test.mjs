@@ -88,6 +88,12 @@ test("PostgreSQL business store is scoped, transactional, idempotent and restart
     const events = await restarted.events(scope);
     assert.deepEqual(events.map((event) => event.event_type), ["business.object.created", "business.object.changed", "business.work.assigned", "business.object.workflow-transitioned", "business.work.runtime.completed", "business.object.changed", "business.approval.requested", "business.approval.decided", "business.work.controlled", "business.work.controlled", "business.work.controlled"]);
     assert.equal(events.filter((event) => event.event_type === "business.work.assigned").length, 1);
+    await pool.query("UPDATE business_application_record SET status='REJECTED' WHERE id=$1",[record.id]);
+    await pool.query("UPDATE business_work_item SET status='BLOCKED',assignment_type='AGENT' WHERE id=$1",[first.id]);
+    const exceptions=await restarted.businessExceptions({...scope,applicationIds:["finance-platform"]});
+    assert.equal(exceptions.summary.total,2);assert.equal(exceptions.summary.records,1);assert.equal(exceptions.summary.workItems,1);assert.equal(exceptions.summary.agentBlocked,1);assert.ok(exceptions.items.every(item=>item.href===`/finance?record=${record.id}`));
+    assert.equal((await restarted.businessExceptions({...scope,applicationIds:["smart-park"]})).summary.total,0);
+    assert.equal((await restarted.businessExceptions({organizationId:"other-org",workspaceId:scope.workspaceId,applicationIds:["finance-platform"]})).summary.total,0);
   } finally {
     await pool.end();
   }

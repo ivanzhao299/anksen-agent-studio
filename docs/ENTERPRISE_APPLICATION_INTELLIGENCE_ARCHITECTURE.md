@@ -89,6 +89,12 @@ These links remain business facts rather than Runtime Memory. Agent workflows ma
 
 Application operational reports aggregate persisted relationship counts and relation types from the same scoped business database. The group cockpit displays these source-backed chain counts alongside formal records, approvals, and Agent work, so an executive can distinguish a collection of isolated records from an operating end-to-end process. Relationship counts are operational structure, not fabricated revenue, conversion, delivery, or financial outcomes.
 
+## Cross-application business exception center
+
+`/work` includes a role-scoped exception center sourced from authoritative business records and work items. A record appears only when its formal status is `AT_RISK`, `BLOCKED`, `OVERDUE`, `REJECTED`, `SHORTAGE`, `FAULT`, or `ESCALATED`; a work item appears only when its persisted status is `BLOCKED`. Each exception identifies its application, business object, accountable owner or assignee, update time, and conventional record link. Agent blockage is labelled separately from business-record exceptions.
+
+The API derives its application allowlist from server-side RBAC route access and then applies organization and workspace scope in the store. Clients cannot request visibility into another application or tenant. This projection does not infer severity from task counts, expose Kernel leases or fencing values, or invent commercial and financial outcomes.
+
 ## Named business roles
 
 Strategy, HR, finance, sales, manufacturing, and Smart Park operators have separate least-privilege roles. Each role can open only its own application and My Work, create and transition its formal records, establish allowed business chains, request approvals, and delegate LOW-risk work to the shared Planner. These conventional MEDIUM-risk lifecycle actions are allowed, but approval decisions, Runtime execution control, development commit, release, deployment, credentials, and access administration remain denied unless separately granted.
