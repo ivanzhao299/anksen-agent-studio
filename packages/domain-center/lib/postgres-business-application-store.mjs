@@ -224,6 +224,7 @@ export class PostgresBusinessApplicationStore {
     return this.transaction(async (client) => {
       const row = (await client.query("SELECT * FROM business_work_item WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 FOR UPDATE", [workItemId, scope.organizationId, scope.workspaceId])).rows[0];
       if (!row) throw Object.assign(new Error("WORK_ITEM_NOT_FOUND"), { code: "WORK_ITEM_NOT_FOUND" });
+      if (!actor.canManageBusiness && actorId !== row.assignee_id && actorId !== row.delegated_by) throw Object.assign(new Error("BUSINESS_WORK_CONTROL_FORBIDDEN"), { code: "BUSINESS_WORK_CONTROL_FORBIDDEN" });
       if (row.version !== expectedVersion) throw Object.assign(new Error("BUSINESS_WORK_VERSION_CONFLICT"), { code: "BUSINESS_WORK_VERSION_CONFLICT" });
       if (["COMPLETED", "CANCELLED"].includes(row.status)) throw Object.assign(new Error("BUSINESS_WORK_TERMINAL"), { code: "BUSINESS_WORK_TERMINAL" });
       if (row.kernel_goal_id) {

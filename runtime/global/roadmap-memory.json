@@ -31,7 +31,8 @@
     { "id": "ea-015-business-chains", "title": "Typed, scoped and auditable record chains for each independent business application", "completed": true },
     { "id": "ea-016-chain-observability", "title": "Source-backed business-chain health in application reports and group cockpit", "completed": true },
     { "id": "ea-017-role-contracts", "title": "Named least-privilege business operator and finance reviewer contracts", "completed": true },
-    { "id": "ea-018-role-browser-uat", "title": "Authenticated browser UAT with named business roles", "completed": false }
+    { "id": "ea-018-scoped-work-control", "title": "Owner-scoped Agent work control with explicit workspace manager override", "completed": true },
+    { "id": "ea-019-role-browser-uat", "title": "Authenticated browser UAT with named business roles", "completed": false }
   ],
   "next_recommended_action": {
     "title": "Run authenticated browser UAT and continue domain transaction depth",

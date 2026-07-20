@@ -12,7 +12,7 @@ test("named business operators can use their own conventional lifecycle but not 
     const role=policy.roles.find(item=>item.role_id===roleId),context=contextFor(role);
     assert.equal(evaluateConsoleRouteAccess(route,context).allowed,true,roleId);
     assert.equal(evaluateConsoleRouteAccess(route==="finance"?"hr":"finance",context).allowed,false,roleId);
-    for(const actionId of ["business-record-create","business-record-transition","business-record-relate","business-approval-request","business-work-assign"]){assert.equal((await evaluateConsoleActionAccess({policy},{action_id:actionId,risk:actionId==="business-record-create"||actionId==="business-work-assign"?"LOW":"MEDIUM"},{user_context:context})).status,"ALLOW",`${roleId}:${actionId}`);}
+    for(const actionId of ["business-record-create","business-record-transition","business-record-relate","business-approval-request","business-work-assign","business-work-control"]){assert.equal((await evaluateConsoleActionAccess({policy},{action_id:actionId,risk:actionId==="business-record-create"||actionId==="business-work-assign"?"LOW":"MEDIUM"},{user_context:context})).status,"ALLOW",`${roleId}:${actionId}`);}
     for(const actionId of ["business-approval-decision","development-commit","release-reviewed-publish"]){assert.equal((await evaluateConsoleActionAccess({policy},{action_id:actionId,risk:"MEDIUM"},{user_context:context})).status,"DENY",`${roleId}:${actionId}`);}
   }
 });

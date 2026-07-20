@@ -73,12 +73,13 @@ test("PostgreSQL business store is scoped, transactional, idempotent and restart
     assert.equal(report.work.human, 1);
     assert.equal(report.approvals.APPROVED, 1);
     assert.equal(report.recentRecords[0].href, `/finance?record=${record.id}`);
+    await assert.rejects(() => restarted.controlWorkItem(first.id, { action: "REASSIGN", expectedVersion: 2, assignmentType: "AGENT", assigneeId: "agent-finance" }, { ...scope, userId: "unrelated-operator" }), (error) => error.code === "BUSINESS_WORK_CONTROL_FORBIDDEN");
     const reassigned = await restarted.controlWorkItem(first.id, { action: "REASSIGN", expectedVersion: 2, assignmentType: "AGENT", assigneeId: "agent-finance" }, scope);
     assert.equal(reassigned.assignmentType, "AGENT");
     const paused = await restarted.controlWorkItem(first.id, { action: "PAUSE", expectedVersion: 3 }, scope);
     assert.equal(paused.status, "PAUSED");
     await assert.rejects(() => restarted.controlWorkItem(first.id, { action: "RESUME", expectedVersion: 3 }, scope), (error) => error.code === "BUSINESS_WORK_VERSION_CONFLICT");
-    const takeover = await restarted.controlWorkItem(first.id, { action: "TAKE_OVER", expectedVersion: 4, assigneeId: "finance-user" }, { ...scope, userId: "finance-manager" });
+    const takeover = await restarted.controlWorkItem(first.id, { action: "TAKE_OVER", expectedVersion: 4, assigneeId: "finance-user" }, { ...scope, userId: "finance-manager", canManageBusiness: true });
     assert.equal(takeover.assignmentType, "HUMAN");
     assert.equal(takeover.status, "OPEN");
     assert.equal(takeover.version, 5);
