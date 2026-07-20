@@ -41,6 +41,10 @@ const directExecuteActionIds = new Set([
   "portfolio-pause",
   "outcome-connector-register",
   "outcome-snapshot-ingest",
+  "development-job-create",
+  "development-job-approve",
+  "development-job-control",
+  "development-commit",
   "identity-owner-bootstrap"
 ]);
 const agentRuntimeIds = new Set([
@@ -65,6 +69,10 @@ const consoleActionCatalog = {
   "portfolio-pause": { capabilities: ["console.access", "autopilot.execute.local"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
   "outcome-connector-register": { capabilities: ["console.access", "governance.read", "credential.read"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "outcome-snapshot-ingest": { capabilities: ["console.access", "autopilot.execute.local", "governance.read"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
+  "development-job-create": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
+  "development-job-approve": { capabilities: ["console.access", "autopilot.execute.local", "proposal.approve"], execution_mode: "direct_execute", projectScoped: true, risk: "MEDIUM" },
+  "development-job-control": { capabilities: ["console.access", "autopilot.execute.local"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
+  "development-commit": { capabilities: ["console.access", "autopilot.execute.local", "proposal.approve"], execution_mode: "direct_execute", projectScoped: true, risk: "MEDIUM" },
   "workspace-goal": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "project-dispatch": { capabilities: ["console.access", "project.read", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "agent-real-plan": { capabilities: ["console.access", "agent.runtime.readonly"], execution_mode: "direct_execute", projectScoped: true },
@@ -98,6 +106,7 @@ const consoleRouteCatalog = {
   domains: ["console.access"],
   portfolio: ["console.access", "autopilot.plan"],
   outcomes: ["console.access", "governance.read"],
+  development: ["console.access", "autopilot.plan"],
   dashboard: ["console.access"],
   projects: ["project.read"],
   workers: ["worker.read"],

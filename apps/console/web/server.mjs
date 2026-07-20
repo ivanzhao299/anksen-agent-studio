@@ -19,6 +19,7 @@ import { domainCenterSummary, loadDomainRuntimeRegistry } from "../../../package
 import { PersistentDomainWorkflowService } from "../../../packages/domain-center/lib/persistent-domain-workflow.mjs";
 import { AutonomousPortfolioService } from "../../../packages/domain-center/lib/autonomous-portfolio.mjs";
 import { BusinessOutcomeCenter } from "../../../packages/domain-center/lib/business-outcome-center.mjs";
+import { AutonomousDevelopmentJobs } from "../../../packages/orchestrator-core/lib/autonomous-development-jobs.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
 import { createStudioMcpRequestHandler } from "../../../packages/orchestrator-core/lib/studio-mcp-server.mjs";
@@ -64,6 +65,7 @@ const dispatchPortfolioInitiative = async ({ campaign, initiative }) => {
 };
 const autonomousPortfolio = new AutonomousPortfolioService({ repoRoot, registry: portfolioRegistry, dispatcher: dispatchPortfolioInitiative });
 const businessOutcomeCenter = new BusinessOutcomeCenter({ repoRoot });
+const autonomousDevelopmentJobs = new AutonomousDevelopmentJobs({ repoRoot });
 setInterval(() => autonomousPortfolio.tick().catch((error) => console.error("portfolio tick failed", error?.code ?? error?.message ?? error)), 30000).unref();
 const identityRuntime = await loadIdentityRuntimeConfig();
 const identityOwnerBootstrap = identityRuntime ? new IdentityOwnerBootstrap({ upstreamOrigin: identityRuntime.upstreamOrigin }) : null;
@@ -335,6 +337,45 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === "GET" && pathname === "/api/outcomes/dashboard") {
       sendJson(response, 200, await businessOutcomeCenter.dashboard());
+      return;
+    }
+    if (request.method === "GET" && pathname === "/api/development/jobs") {
+      sendJson(response, 200, { jobs: await autonomousDevelopmentJobs.list(), worker: await autonomousDevelopmentJobs.workerStatus() });
+      return;
+    }
+    const developmentJob = pathname.match(/^\/api\/development\/jobs\/([^/]+)$/);
+    if (request.method === "GET" && developmentJob) {
+      const job = await autonomousDevelopmentJobs.get(decodeURIComponent(developmentJob[1]));
+      sendJson(response, job ? 200 : 404, job ?? { status: "JOB_NOT_FOUND" });
+      return;
+    }
+    const developmentArtifact = pathname.match(/^\/api\/development\/jobs\/([^/]+)\/artifacts\/([^/]+)$/);
+    if (request.method === "GET" && developmentArtifact) {
+      const artifact = await autonomousDevelopmentJobs.readArtifact(decodeURIComponent(developmentArtifact[1]), decodeURIComponent(developmentArtifact[2]));
+      sendJson(response, artifact ? 200 : 404, artifact ?? { status: "ARTIFACT_NOT_FOUND" });
+      return;
+    }
+    if (request.method === "POST" && pathname === "/api/development/jobs") {
+      const body = await readJsonBody(request);
+      const project = loadProjectRegistrySync().find(item => item.project_id === body.projectId && item.connection_status === "CONNECTED");
+      if (!project || !project.repo_path_display || project.repo_path_display === "not_connected") { sendJson(response, 400, { status: "PROJECT_NOT_CONNECTED" }); return; }
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "development-job-create", project_id: project.project_id, risk: "LOW" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      try { sendJson(response, 201, await autonomousDevelopmentJobs.create({ ...body, projectRoot: project.repo_path_display }, { userId: accessContext.user?.user_id })); }
+      catch (error) { sendJson(response, 400, { status: error?.code ?? "DEVELOPMENT_JOB_INVALID", reason: error instanceof Error ? error.message : String(error) }); }
+      return;
+    }
+    const developmentAction = pathname.match(/^\/api\/development\/jobs\/([^/]+)\/(clarify|approve|pause|cancel|commit)$/);
+    if (request.method === "POST" && developmentAction) {
+      const body = await readJsonBody(request), job = await autonomousDevelopmentJobs.get(decodeURIComponent(developmentAction[1]));
+      if (!job) { sendJson(response, 404, { status: "JOB_NOT_FOUND" }); return; }
+      const action = developmentAction[2], access = await evaluateConsoleActionAccess(accessBundle, { action_id: action === "commit" ? "development-commit" : action === "approve" ? "development-job-approve" : "development-job-control", project_id: job.projectId, risk: action === "commit" || action === "approve" ? "MEDIUM" : "LOW" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      try {
+        const actor = { userId: accessContext.user?.user_id };
+        const result = action === "clarify" ? await autonomousDevelopmentJobs.clarify(job.id, body.answer, actor) : action === "approve" ? await autonomousDevelopmentJobs.approve(job.id, actor) : action === "pause" ? await autonomousDevelopmentJobs.pause(job.id, actor) : action === "cancel" ? await autonomousDevelopmentJobs.cancel(job.id, actor) : await autonomousDevelopmentJobs.approveCommit(job.id, actor);
+        sendJson(response, 200, result);
+      } catch (error) { sendJson(response, 409, { status: error?.code ?? error?.message, reason: error instanceof Error ? error.message : String(error) }); }
       return;
     }
     if (request.method === "POST" && pathname === "/api/outcomes/connectors") {

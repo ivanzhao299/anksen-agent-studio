@@ -5,6 +5,7 @@ const messages = getConsoleMessages();
 export const consoleWebRoutes = [
   { id: "dashboard", label: messages.nav.dashboard, path: "/", navPath: "/" },
   { id: "execution", label: "运行", path: "/execution", navPath: "/execution" },
+  { id: "development", label: "自主开发", path: "/development", navPath: "/development" },
   { id: "domains", label: "领域中心", path: "/domains", navPath: "/domains" },
   { id: "portfolio", label: "长期任务", path: "/portfolio", navPath: "/portfolio" },
   { id: "outcomes", label: "经营结果", path: "/outcomes", navPath: "/outcomes" },

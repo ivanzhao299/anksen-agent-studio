@@ -58,6 +58,19 @@ function safeEnvironment() {
   return Object.fromEntries(keys.filter(key => process.env[key]).map(key => [key, process.env[key]]));
 }
 
+function codexUsageFromLogs(logs) {
+  const usage = { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0 };
+  const text = logs.slice().sort((a, b) => a.sequence - b.sequence).map(event => event.message).join("");
+  for (const line of text.split("\n")) {
+    try {
+      const event = JSON.parse(line);
+      if (event.type !== "turn.completed" || !event.usage) continue;
+      for (const key of Object.keys(usage)) usage[key] += Number(event.usage[key] ?? 0);
+    } catch {}
+  }
+  return usage;
+}
+
 async function completeClaim(pool, kernel, workerSession, worker, claim, result, logs = []) {
   const proof = { leaseId: claim.leaseId, leaseToken: claim.leaseToken, fencingToken: claim.fencingToken, workerId: worker.id, sessionId: workerSession.session_id, expectedVersion: 1 };
   await kernel.fencedUpdate(proof, async (client, lease) => {
@@ -189,7 +202,7 @@ async function main() {
         const logs = await logStore.list(request.executionId);
         await completeClaim(pool, kernel, workerSession, worker, claim, result, logs);
         assert(result.status === "SUCCEEDED" && result.exitCode === 0, `CODEX_RUNTIME_${result.status}`);
-        codexEvidence = { executionId: result.executionId, pid: result.metadata.pid, durationMs: result.durationMs, exitCode: result.exitCode, logEventCount: logs.length, approvalId, preActivation: before };
+        codexEvidence = { executionId: result.executionId, pid: result.metadata.pid, durationMs: result.durationMs, exitCode: result.exitCode, logEventCount: logs.length, tokenUsage: codexUsageFromLogs(logs), approvalId, preActivation: before };
       }
       await pool.query("UPDATE ad_night_shift_session SET runtime_execution_count=runtime_execution_count+1 WHERE id=$1", [session.id]);
     }

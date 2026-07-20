@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const evidence = (path, description, patterns = []) => ({ path, description, patterns });
@@ -82,5 +82,12 @@ export async function assessProductReadiness({ root = process.cwd(), model = pro
   }
   const ready = checks.filter((check) => check.status === "READY").length;
   const status = ready === checks.length ? "READY" : checks.every((check) => check.status === "MISSING") ? "MISSING" : "DEGRADED";
-  return { schemaVersion: 1, status, summary: { ready, total: checks.length }, checks };
+  if (model !== productReadinessEvidenceModel) return { schemaVersion: 1, status, summary: { ready, total: checks.length }, checks };
+  let worker = { status: "OFFLINE", reason: "NO_HEARTBEAT" }, autonomousJobs = [];
+  try { worker = JSON.parse(await readFile(resolve(root, "runtime/autonomous-development/worker-heartbeat.json"), "utf8")); worker.heartbeatAgeMs = Math.max(0, Date.now() - new Date(worker.lastHeartbeatAt).getTime()); if (worker.heartbeatAgeMs > 15000) worker.status = "OFFLINE"; } catch {}
+  try { const dir=resolve(root,"runtime/autonomous-development/jobs"); autonomousJobs=await Promise.all((await readdir(dir)).filter(name=>name.endsWith(".json")).map(name=>readFile(resolve(dir,name),"utf8").then(JSON.parse))); } catch {}
+  const provenJob=autonomousJobs.find(job=>["AWAITING_DIFF_APPROVAL","COMMITTED"].includes(job.status)&&["PLANNER","IMPLEMENTER","VALIDATOR","REVIEWER"].every(role=>job.agentInstances?.some(agent=>agent.role===role&&agent.status==="SUCCEEDED"&&agent.runtimeType==="CODEX")));
+  const maturity={ controlPlane:status==="READY"?"READY":"NOT_READY", stubRuntime:status==="READY"?"READY":"NOT_READY", codexRuntime:worker.status==="IDLE"||worker.status==="BUSY"?"READY":"NOT_READY", autonomousDevelopment:provenJob?"READY":"NOT_READY", worker, provenJobId:provenJob?.id??null };
+  const truthfulStatus=maturity.autonomousDevelopment==="READY"?"AUTONOMOUS_DEVELOPMENT_READY":maturity.codexRuntime==="READY"?"CODEX_RUNTIME_READY":maturity.stubRuntime==="READY"?"STUB_RUNTIME_READY":maturity.controlPlane==="READY"?"CONTROL_PLANE_READY":status;
+  return { schemaVersion: 2, status: truthfulStatus, evidenceStatus: status, summary: { ready, total: checks.length }, maturity, checks };
 }
