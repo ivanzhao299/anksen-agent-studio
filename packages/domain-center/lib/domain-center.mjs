@@ -2,38 +2,333 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const packageRoot=resolve(dirname(fileURLToPath(import.meta.url)),"..");
-const repoRoot=resolve(packageRoot,"../..");
-const paths={
-  skills:resolve(repoRoot,"packages/skill-router/registry/skill-registry.json"),
-  skillRules:resolve(repoRoot,"packages/skill-router/registry/skill-router-rules.json"),
-  agents:resolve(repoRoot,"packages/orchestrator-core/schemas/agent-registry/agent-registry.example.json"),
-  workers:resolve(repoRoot,"packages/worker-pool/examples/worker-registry.example.json")
+const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolve(packageRoot, "../..");
+const paths = {
+  skills: resolve(repoRoot, "packages/skill-router/registry/skill-registry.json"),
+  skillRules: resolve(repoRoot, "packages/skill-router/registry/skill-router-rules.json"),
+  agents: resolve(repoRoot, "packages/orchestrator-core/schemas/agent-registry/agent-registry.example.json"),
+  workers: resolve(repoRoot, "packages/worker-pool/examples/worker-registry.example.json")
 };
 
-export const studioDomains=Object.freeze([
-  {id:"asset-docs-portal",name:"资产、门户与文档",nameEn:"Assets, Portal & Documentation",agentId:"agent-1",icon:"DOC",summary:"资产空间、租户门户、Runtime 文档、产品说明和内容索引。",skillTypes:["document_generation","code_development"],keywords:["资产","空间","租户","门户","文档","手册","索引","docs","portal"],maturity:"RUNTIME_BOUND",nextMilestone:"通过文档 Worker 生成可验证产物。"},
-  {id:"validation-finance",name:"验证、兼容与财务",nameEn:"Validation, Compatibility & Finance",agentId:"agent-2",icon:"QA",summary:"验证矩阵、兼容性、财务合同、收款发票和审计 Runbook。",skillTypes:["validation_testing","spreadsheet_analysis","code_development"],keywords:["验证","测试","审计","兼容","财务","合同","收款","发票","validation","finance"],maturity:"PARTIAL",nextMilestone:"补齐 spreadsheet 在线 Worker 后形成完整闭环。"},
-  {id:"iot-operations",name:"IoT、安全、工单与能耗",nameEn:"IoT, Safety, Work Orders & Energy",agentId:"agent-3",icon:"IoT",summary:"设备、传感器、安全隐患、告警、工单、巡检、能耗和运行数据。",skillTypes:["data_integration","code_development","validation_testing"],keywords:["设备","传感器","安全","隐患","告警","工单","能耗","巡检","iot","work order"],maturity:"RUNTIME_BOUND",nextMilestone:"接入授权数据 Fixture 和领域验收合同。"},
-  {id:"experience-access",name:"前端、体验、移动与权限",nameEn:"Frontend, UX, Mobile & RBAC",agentId:"agent-4",icon:"UI",summary:"页面、样式、Dashboard、移动端、菜单、RBAC 和智能选择器。",skillTypes:["code_development","image_generation","slide_generation"],keywords:["前端","页面","样式","仪表盘","移动端","菜单","权限","ui","ux","rbac"],maturity:"PARTIAL",nextMilestone:"将视觉和移动专用 Runtime 纳入统一 Worker 协议。"},
-  {id:"planning-platform",name:"规划、发布与平台",nameEn:"Planning, Release & Platform",agentId:"agent-5",icon:"PLAN",summary:"Goal Engine、架构、发布门、生产准备、恢复和跨领域兜底。",skillTypes:["code_development","evolution_observer","web_research","validation_testing"],keywords:["规划","目标","发布","平台","架构","部署","恢复","goal","release","platform"],maturity:"PARTIAL",nextMilestone:"补齐 research 和 observer 常驻 Runner。"}
+const stage = (key, title, skillType, preferredAgentId, dependsOn = null, businessSkillId = null) =>
+  Object.freeze({ key, title, businessSkillId: businessSkillId ?? key.toLowerCase(), skillType, preferredAgentId, dependsOn });
+
+/**
+ * Product applications are navigation and ownership boundaries. They are not
+ * Agent lanes and do not own a second scheduler, worker pool, or data model.
+ */
+export const studioApplications = Object.freeze([
+  {
+    id: "software-factory",
+    name: "软件工厂",
+    nameEn: "Software Factory",
+    icon: "DEV",
+    summary: "面向软件规划、开发、验证和交付的自主研发应用。",
+    evidence: "USER_RECORDED",
+    domainIds: ["software-engineering"]
+  },
+  {
+    id: "video-factory",
+    name: "视频工厂",
+    nameEn: "Video Factory",
+    icon: "VID",
+    summary: "面向素材分析、脚本、视觉制作、渲染和发布的媒体生产应用。",
+    evidence: "USER_RECORDED",
+    domainIds: ["video-production"]
+  },
+  {
+    id: "smart-park-erp",
+    name: "智慧园区 ERP",
+    nameEn: "Smart Park ERP",
+    icon: "ERP",
+    summary: "统一承载园区经营管理；当前恢复战略执行、人力资源和财务管理三个已确认业务域。",
+    evidence: "USER_CONFIRMED",
+    domainIds: ["strategy-execution", "human-resources", "finance-management"]
+  }
 ]);
 
-const normalize=value=>String(value??"").toLowerCase();
-const matches=(text,keywords)=>(keywords??[]).filter(keyword=>normalize(text).includes(normalize(keyword)));
-const readJson=async path=>JSON.parse(await readFile(path,"utf8"));
-export function getStudioDomain(id){return studioDomains.find(domain=>domain.id===id)??null;}
-export function routeStudioDomain(goal,{explicitDomainId=null}={}){if(explicitDomainId){const explicit=getStudioDomain(explicitDomainId);if(!explicit)throw Object.assign(new Error("DOMAIN_NOT_FOUND"),{code:"DOMAIN_NOT_FOUND"});return{domainId:explicit.id,confidence:1,source:"EXPLICIT",alternatives:[]};}const scored=studioDomains.map(domain=>({domainId:domain.id,score:matches(goal,domain.keywords).length})).sort((a,b)=>b.score-a.score||a.domainId.localeCompare(b.domainId));if(scored[0].score===0)return{domainId:"planning-platform",confidence:.35,source:"FALLBACK",alternatives:[]};const best=scored[0],total=scored.reduce((sum,item)=>sum+item.score,0);return{domainId:best.domainId,confidence:Number(Math.min(.98,.55+best.score/Math.max(total,1)*.4).toFixed(2)),source:"KEYWORD",alternatives:scored.slice(1,4).filter(item=>item.score>0)};}
+/**
+ * Business domains define professional workflows and skill requirements only.
+ * Agent and Worker assignments are resolved later from the runtime registries.
+ */
+export const studioDomains = Object.freeze([
+  {
+    id: "software-engineering",
+    applicationId: "software-factory",
+    name: "软件研发",
+    nameEn: "Software Engineering",
+    icon: "CODE",
+    summary: "将产品目标转化为设计、代码、测试和可审计交付结果。",
+    skillPack: ["solution_planning", "software_delivery", "quality_validation", "delivery_reporting"],
+    keywords: ["软件", "开发", "代码", "页面", "接口", "修复", "测试", "software", "code", "api"],
+    workflow: Object.freeze([
+      stage("PLAN", "分析需求与技术边界", "code_development", "agent-5", null, "solution_planning"),
+      stage("BUILD", "实现软件变更", "code_development", "agent-4", "PLAN", "software_delivery"),
+      stage("VALIDATE", "运行测试与安全校验", "validation_testing", "agent-2", "BUILD", "quality_validation"),
+      stage("REPORT", "生成交付报告", "document_generation", "agent-1", "VALIDATE", "delivery_reporting")
+    ])
+  },
+  {
+    id: "video-production",
+    applicationId: "video-factory",
+    name: "视频生产",
+    nameEn: "Video Production",
+    icon: "MEDIA",
+    summary: "编排脚本、视觉素材、剪辑渲染和多渠道交付；媒体专用 Runner 尚未接入。",
+    skillPack: ["media_briefing", "script_storyboard", "visual_asset_generation", "media_delivery_reporting"],
+    keywords: ["视频", "素材", "剪辑", "配音", "字幕", "封面", "video", "media", "subtitle"],
+    workflow: Object.freeze([
+      stage("PLAN", "分析素材与成片目标", "document_generation", "agent-1", null, "media_briefing"),
+      stage("SCRIPT", "生成脚本与镜头表", "document_generation", "agent-1", "PLAN", "script_storyboard"),
+      stage("VISUAL", "生成视觉与封面资产", "image_generation", "agent-4", "SCRIPT", "visual_asset_generation"),
+      stage("REPORT", "生成媒体交付报告", "document_generation", "agent-1", "VISUAL", "media_delivery_reporting")
+    ])
+  },
+  {
+    id: "strategy-execution",
+    applicationId: "smart-park-erp",
+    name: "战略执行",
+    nameEn: "Strategy Execution",
+    icon: "STR",
+    summary: "从战略目标到年度重点、指标、责任与执行复盘的管理闭环。",
+    skillPack: ["strategic_goal_design", "strategy_kpi_modeling", "initiative_cascade", "strategy_review"],
+    keywords: ["战略", "年度目标", "经营目标", "okr", "kpi", "执行复盘", "strategy"],
+    workflow: Object.freeze([
+      stage("PLAN", "澄清战略目标与约束", "document_generation", "agent-1", null, "strategic_goal_design"),
+      stage("METRICS", "建立指标与目标值", "spreadsheet_analysis", "agent-2", "PLAN", "strategy_kpi_modeling"),
+      stage("CASCADE", "拆解责任与行动计划", "document_generation", "agent-1", "METRICS", "initiative_cascade"),
+      stage("REPORT", "生成战略执行报告", "document_generation", "agent-1", "CASCADE", "strategy_review")
+    ])
+  },
+  {
+    id: "human-resources",
+    applicationId: "smart-park-erp",
+    name: "人力资源",
+    nameEn: "Human Resources",
+    icon: "HR",
+    summary: "围绕组织、岗位、人才、绩效与员工服务形成可持续工作流。",
+    skillPack: ["workforce_goal_analysis", "organization_design", "hr_policy_validation", "people_operations_reporting"],
+    keywords: ["人力", "组织", "岗位", "招聘", "员工", "绩效", "薪酬", "人才", "hr"],
+    workflow: Object.freeze([
+      stage("PLAN", "识别人力资源目标与合规边界", "document_generation", "agent-1", null, "workforce_goal_analysis"),
+      stage("DESIGN", "设计组织与人才流程", "document_generation", "agent-1", "PLAN", "organization_design"),
+      stage("VALIDATE", "校验规则、权限与结果", "validation_testing", "agent-2", "DESIGN", "hr_policy_validation"),
+      stage("REPORT", "生成人力资源执行报告", "document_generation", "agent-1", "VALIDATE", "people_operations_reporting")
+    ])
+  },
+  {
+    id: "finance-management",
+    applicationId: "smart-park-erp",
+    name: "财务管理",
+    nameEn: "Finance Management",
+    icon: "FIN",
+    summary: "覆盖预算、核算、资金、应收应付、经营分析与财务风控。",
+    skillPack: ["finance_scope_control", "budget_accounting_model", "financial_control_validation", "management_reporting"],
+    keywords: ["财务", "预算", "核算", "资金", "应收", "应付", "发票", "报销", "经营分析", "finance"],
+    workflow: Object.freeze([
+      stage("PLAN", "确认财务目标与数据边界", "document_generation", "agent-1", null, "finance_scope_control"),
+      stage("MODEL", "建立财务分析与核算模型", "spreadsheet_analysis", "agent-2", "PLAN", "budget_accounting_model"),
+      stage("VALIDATE", "执行财务校验与风控检查", "validation_testing", "agent-2", "MODEL", "financial_control_validation"),
+      stage("REPORT", "生成财务管理报告", "document_generation", "agent-1", "VALIDATE", "management_reporting")
+    ])
+  }
+]);
 
-export async function loadDomainRuntimeRegistry(){const[skillRegistry,skillRules,agentRegistry,workerRegistry]=await Promise.all([readJson(paths.skills),readJson(paths.skillRules),readJson(paths.agents),readJson(paths.workers)]);return{skillRegistry,skillRules,agentRegistry,workerRegistry,paths};}
+const normalize = (value) => String(value ?? "").toLowerCase();
+const matches = (text, keywords) => (keywords ?? []).filter((keyword) => normalize(text).includes(normalize(keyword)));
+const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 
-export function routeSkill(text,registry){const skills=new Map((registry.skillRegistry.skills??[]).map(skill=>[skill.skill_type,skill]));const scored=(registry.skillRules.rules??[]).map(rule=>({rule,skill:skills.get(rule.skill_type),keywords:matches(text,rule.keywords),score:matches(text,rule.keywords).length*10+(matches(text,rule.keywords).length?Number(rule.confidence_boost??0):0)})).filter(item=>item.skill).sort((a,b)=>b.score-a.score||String(a.rule.rule_id).localeCompare(String(b.rule.rule_id)));const selected=scored.find(item=>item.score>0);const fallbackType=registry.skillRules.routing_policy?.fallback_skill_type??"code_development",fallback=skills.get(fallbackType);const final=selected??{rule:{skill_type:fallbackType,selected_agent:"agent-5",runtime:"codex-cli",reason:"No skill keyword matched."},skill:fallback,keywords:[],score:0};return{skillType:final.rule.skill_type,skillId:final.skill?.skill_id??final.rule.skill_type,agentId:final.rule.selected_agent??final.skill?.default_agent??"agent-5",runtimeId:final.rule.runtime??final.skill?.default_runtime??"codex-cli",riskLevel:final.skill?.risk_level??"MEDIUM",validationCommands:final.skill?.validation_commands??[],confidence:selected?Math.min(.95,.55+final.score/100):.35,matchedKeywords:final.keywords};}
+export function getStudioApplication(id) {
+  return studioApplications.find((application) => application.id === id) ?? null;
+}
 
-function agentForSkill(registry,preferredAgentId,skillType){const agents=registry.agentRegistry.agents??[];const preferred=agents.find(agent=>agent.agent_id===preferredAgentId&&agent.status==="ACTIVE"&&(agent.supported_skills??[]).includes(skillType));return preferred??agents.filter(agent=>agent.status==="ACTIVE"&&(agent.supported_skills??[]).includes(skillType)).sort((a,b)=>Number(a.priority??99)-Number(b.priority??99))[0]??null;}
-function workerForSkill(registry,skillType,runtimeId=null){return(registry.workerRegistry.workers??[]).filter(worker=>worker.status==="available"&&(worker.supported_skills??[]).includes(skillType)&&(!runtimeId||worker.runtime_id===runtimeId)).sort((a,b)=>Number(a.risk==="LOW"?0:1)-Number(b.risk==="LOW"?0:1)||String(a.worker_id).localeCompare(String(b.worker_id)))[0]??(registry.workerRegistry.workers??[]).find(worker=>worker.status==="available"&&(worker.supported_skills??[]).includes(skillType))??null;}
+export function getStudioDomain(id) {
+  return studioDomains.find((domain) => domain.id === id) ?? null;
+}
 
-export function compileDomainWorkflow(goal,registry,{explicitDomainId=null,goalId="domain-goal"}={}){const domainRoute=routeStudioDomain(goal,{explicitDomainId}),domain=getStudioDomain(domainRoute.domainId),primary=routeSkill(goal,registry);const stages=[{key:"PLAN",title:"Plan goal and constraints",skillType:"code_development",preferredAgentId:"agent-5",dependsOn:null},{key:"EXECUTE",title:"Execute professional work",skillType:primary.skillType,preferredAgentId:domain.agentId,dependsOn:"PLAN"},{key:"VALIDATE",title:"Validate outputs and safety",skillType:"validation_testing",preferredAgentId:"agent-2",dependsOn:"EXECUTE"},{key:"REPORT",title:"Produce durable result report",skillType:"document_generation",preferredAgentId:"agent-1",dependsOn:"VALIDATE"}];const assignments=stages.map(stage=>{const agent=agentForSkill(registry,stage.preferredAgentId,stage.skillType),skill=(registry.skillRegistry.skills??[]).find(item=>item.skill_type===stage.skillType),preferredRuntimeId=stage.key==="EXECUTE"?primary.runtimeId:(skill?.default_runtime??null),worker=workerForSkill(registry,stage.skillType,preferredRuntimeId);return{...stage,agentId:agent?.agent_id??null,preferredRuntimeId,runtimeId:worker?.runtime_id??preferredRuntimeId,workerKey:worker?.worker_id??null,workerMode:worker?.process_probe?.on_demand_ok?"ON_DEMAND":worker?"REGISTERED":"MISSING",status:agent&&worker?"READY":"BLOCKED",blockedReasons:[...(!agent?[`NO_AGENT_FOR_SKILL:${stage.skillType}`]:[]),...(!worker?[`NO_WORKER_FOR_SKILL:${stage.skillType}`]:[])]};});const tasks=assignments.map(stage=>({taskKey:`${goalId.toUpperCase().replace(/[^A-Z0-9]+/g,"_")}_${stage.key}`,title:stage.title,description:`${stage.title}: ${goal}`,priority:stage.key==="EXECUTE"?"P1":"P2",riskLevel:stage.key==="EXECUTE"?primary.riskLevel:"LOW",requiredCapabilities:[stage.skillType],maxAttempts:1,metadata:{domainId:domain.id,skillType:stage.skillType,agentId:stage.agentId,preferredRuntimeId:stage.preferredRuntimeId,runtimeId:stage.runtimeId,workerKey:stage.workerKey,workerMode:stage.workerMode,assignmentStatus:stage.status,blockedReasons:stage.blockedReasons}}));const dependencies=assignments.filter(stage=>stage.dependsOn).map(stage=>({taskKey:`${goalId.toUpperCase().replace(/[^A-Z0-9]+/g,"_")}_${stage.key}`,dependsOnTaskKey:`${goalId.toUpperCase().replace(/[^A-Z0-9]+/g,"_")}_${stage.dependsOn}`,dependencyType:"SUCCESS_REQUIRED",requiredStatus:"SUCCEEDED"}));return{schemaVersion:1,goalId,goal,domainRoute,domain:{id:domain.id,name:domain.name,agentId:domain.agentId},primarySkill:primary,assignments,tasks,dependencies,status:assignments.every(item=>item.status==="READY")?"READY":"BLOCKED",blockedReasons:assignments.flatMap(item=>item.blockedReasons),longRunning:true,persistentKernelRequired:true,onlineRunnerRequired:true};}
+export function routeStudioDomain(goal, { explicitDomainId = null } = {}) {
+  if (explicitDomainId) {
+    const explicit = getStudioDomain(explicitDomainId);
+    if (!explicit) throw Object.assign(new Error("DOMAIN_NOT_FOUND"), { code: "DOMAIN_NOT_FOUND" });
+    return { applicationId: explicit.applicationId, domainId: explicit.id, confidence: 1, source: "EXPLICIT", alternatives: [] };
+  }
+  const scored = studioDomains
+    .map((domain) => ({ applicationId: domain.applicationId, domainId: domain.id, score: matches(goal, domain.keywords).length }))
+    .sort((a, b) => b.score - a.score || a.domainId.localeCompare(b.domainId));
+  if (scored[0].score === 0) {
+    return { applicationId: "software-factory", domainId: "software-engineering", confidence: 0.35, source: "FALLBACK", alternatives: [] };
+  }
+  const best = scored[0];
+  const total = scored.reduce((sum, item) => sum + item.score, 0);
+  return {
+    applicationId: best.applicationId,
+    domainId: best.domainId,
+    confidence: Number(Math.min(0.98, 0.55 + best.score / Math.max(total, 1) * 0.4).toFixed(2)),
+    source: "KEYWORD",
+    alternatives: scored.slice(1, 4).filter((item) => item.score > 0)
+  };
+}
 
-export class DomainWorkflowService{constructor({kernel,registry}){if(!kernel?.submitPlan)throw Object.assign(new Error("KERNEL_REQUIRED"),{code:"KERNEL_REQUIRED"});this.kernel=kernel;this.registry=registry;}compile(goal,options){return compileDomainWorkflow(goal,this.registry,options);}async compileAndSubmit(goal,options){const workflow=this.compile(goal,options);if(workflow.status!=="READY")throw Object.assign(new Error(`WORKFLOW_BLOCKED:${workflow.blockedReasons.join(",")}`),{code:"WORKFLOW_BLOCKED",workflow});const submission=await this.kernel.submitPlan(workflow.goalId,{plannerVersion:`domain-workflow-v1-${workflow.domain.id}`,sourceArtifactRef:`domain:${workflow.domain.id}`,tasks:workflow.tasks,dependencies:workflow.dependencies});return{workflow,submission};}}
+export async function loadDomainRuntimeRegistry() {
+  const [skillRegistry, skillRules, agentRegistry, workerRegistry] = await Promise.all([
+    readJson(paths.skills), readJson(paths.skillRules), readJson(paths.agents), readJson(paths.workers)
+  ]);
+  return { skillRegistry, skillRules, agentRegistry, workerRegistry, paths };
+}
 
-export function domainCenterSummary(){return{schemaVersion:2,total:studioDomains.length,runtimeBound:studioDomains.filter(item=>item.maturity==="RUNTIME_BOUND").length,partial:studioDomains.filter(item=>item.maturity==="PARTIAL").length,singleControlPlane:true,sourceOfTruth:"agent-registry",domains:studioDomains};}
+export function routeSkill(text, registry) {
+  const skills = new Map((registry.skillRegistry.skills ?? []).map((skill) => [skill.skill_type, skill]));
+  const scored = (registry.skillRules.rules ?? [])
+    .map((rule) => {
+      const keywords = matches(text, rule.keywords);
+      return { rule, skill: skills.get(rule.skill_type), keywords, score: keywords.length * 10 + (keywords.length ? Number(rule.confidence_boost ?? 0) : 0) };
+    })
+    .filter((item) => item.skill)
+    .sort((a, b) => b.score - a.score || String(a.rule.rule_id).localeCompare(String(b.rule.rule_id)));
+  const selected = scored.find((item) => item.score > 0);
+  const fallbackType = registry.skillRules.routing_policy?.fallback_skill_type ?? "code_development";
+  const fallback = skills.get(fallbackType);
+  const final = selected ?? { rule: { skill_type: fallbackType, selected_agent: "agent-5", runtime: "codex-cli" }, skill: fallback, keywords: [], score: 0 };
+  return {
+    skillType: final.rule.skill_type,
+    skillId: final.skill?.skill_id ?? final.rule.skill_type,
+    agentId: final.rule.selected_agent ?? final.skill?.default_agent ?? "agent-5",
+    runtimeId: final.rule.runtime ?? final.skill?.default_runtime ?? "codex-cli",
+    riskLevel: final.skill?.risk_level ?? "MEDIUM",
+    validationCommands: final.skill?.validation_commands ?? [],
+    confidence: selected ? Math.min(0.95, 0.55 + final.score / 100) : 0.35,
+    matchedKeywords: final.keywords
+  };
+}
+
+function agentForSkill(registry, preferredAgentId, skillType) {
+  const agents = registry.agentRegistry.agents ?? [];
+  const preferred = agents.find((agent) => agent.agent_id === preferredAgentId && agent.status === "ACTIVE" && (agent.supported_skills ?? []).includes(skillType));
+  return preferred ?? agents
+    .filter((agent) => agent.status === "ACTIVE" && (agent.supported_skills ?? []).includes(skillType))
+    .sort((a, b) => Number(a.priority ?? 99) - Number(b.priority ?? 99))[0] ?? null;
+}
+
+function workerForSkill(registry, skillType, runtimeId = null) {
+  const available = (registry.workerRegistry.workers ?? []).filter((worker) => worker.status === "available" && (worker.supported_skills ?? []).includes(skillType));
+  return available.find((worker) => !runtimeId || worker.runtime_id === runtimeId) ?? available[0] ?? null;
+}
+
+export function resolveDomainCapability(domain, registry) {
+  const uniqueSkills = [...new Set(domain.workflow.map((item) => item.skillType))];
+  const skills = uniqueSkills.map((skillType) => {
+    const worker = workerForSkill(registry, skillType);
+    const agents = (registry.agentRegistry.agents ?? []).filter((agent) => agent.status === "ACTIVE" && (agent.supported_skills ?? []).includes(skillType));
+    return { skillType, ready: Boolean(worker && agents.length), workerKey: worker?.worker_id ?? null, runtimeId: worker?.runtime_id ?? null, agentIds: agents.map((agent) => agent.agent_id) };
+  });
+  const stages = domain.workflow.map((workflowStage) => {
+    const capability = skills.find((item) => item.skillType === workflowStage.skillType);
+    return { key: workflowStage.key, title: workflowStage.title, businessSkillId: workflowStage.businessSkillId, ...capability };
+  });
+  return { status: skills.every((item) => item.ready) ? "READY" : "BLOCKED", skills, stages, blockedReasons: skills.filter((item) => !item.ready).map((item) => `NO_ONLINE_CAPACITY:${item.skillType}`) };
+}
+
+export function compileDomainWorkflow(goal, registry, { explicitDomainId = null, goalId = "domain-goal" } = {}) {
+  const domainRoute = routeStudioDomain(goal, { explicitDomainId });
+  const domain = getStudioDomain(domainRoute.domainId);
+  const application = getStudioApplication(domain.applicationId);
+  const primarySkill = routeSkill(goal, registry);
+  const assignments = domain.workflow.map((workflowStage) => {
+    const agent = agentForSkill(registry, workflowStage.preferredAgentId, workflowStage.skillType);
+    const skill = (registry.skillRegistry.skills ?? []).find((item) => item.skill_type === workflowStage.skillType);
+    const worker = workerForSkill(registry, workflowStage.skillType, skill?.default_runtime ?? null);
+    return {
+      ...workflowStage,
+      agentId: agent?.agent_id ?? null,
+      preferredRuntimeId: skill?.default_runtime ?? null,
+      runtimeId: worker?.runtime_id ?? skill?.default_runtime ?? null,
+      workerKey: worker?.worker_id ?? null,
+      workerMode: worker?.process_probe?.on_demand_ok ? "ON_DEMAND" : worker ? "REGISTERED" : "MISSING",
+      status: agent && worker ? "READY" : "BLOCKED",
+      blockedReasons: [...(!agent ? [`NO_AGENT_FOR_SKILL:${workflowStage.skillType}`] : []), ...(!worker ? [`NO_WORKER_FOR_SKILL:${workflowStage.skillType}`] : [])]
+    };
+  });
+  const taskPrefix = goalId.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+  const tasks = assignments.map((assignment) => ({
+    taskKey: `${taskPrefix}_${assignment.key}`,
+    title: assignment.title,
+    description: `${assignment.title}: ${goal}`,
+    priority: assignment.key === "BUILD" || assignment.key === "MODEL" ? "P1" : "P2",
+    riskLevel: assignment.skillType === primarySkill.skillType ? primarySkill.riskLevel : "LOW",
+    requiredCapabilities: [assignment.skillType],
+    maxAttempts: 1,
+    metadata: {
+      applicationId: application.id,
+      domainId: domain.id,
+      workflowStage: assignment.key,
+      businessSkillId: assignment.businessSkillId,
+      skillType: assignment.skillType,
+      agentId: assignment.agentId,
+      preferredRuntimeId: assignment.preferredRuntimeId,
+      runtimeId: assignment.runtimeId,
+      workerKey: assignment.workerKey,
+      workerMode: assignment.workerMode,
+      assignmentStatus: assignment.status,
+      blockedReasons: assignment.blockedReasons
+    }
+  }));
+  const dependencies = assignments.filter((assignment) => assignment.dependsOn).map((assignment) => ({
+    taskKey: `${taskPrefix}_${assignment.key}`,
+    dependsOnTaskKey: `${taskPrefix}_${assignment.dependsOn}`,
+    dependencyType: "SUCCESS_REQUIRED",
+    requiredStatus: "SUCCEEDED"
+  }));
+  return {
+    schemaVersion: 2,
+    goalId,
+    goal,
+    domainRoute,
+    application: { id: application.id, name: application.name },
+    domain: { id: domain.id, name: domain.name, applicationId: domain.applicationId },
+    primarySkill,
+    assignments,
+    tasks,
+    dependencies,
+    status: assignments.every((item) => item.status === "READY") ? "READY" : "BLOCKED",
+    blockedReasons: assignments.flatMap((item) => item.blockedReasons),
+    longRunning: true,
+    persistentKernelRequired: true,
+    onlineRunnerRequired: true
+  };
+}
+
+export class DomainWorkflowService {
+  constructor({ kernel, registry }) {
+    if (!kernel?.submitPlan) throw Object.assign(new Error("KERNEL_REQUIRED"), { code: "KERNEL_REQUIRED" });
+    this.kernel = kernel;
+    this.registry = registry;
+  }
+  compile(goal, options) { return compileDomainWorkflow(goal, this.registry, options); }
+  async compileAndSubmit(goal, options) {
+    const workflow = this.compile(goal, options);
+    if (workflow.status !== "READY") throw Object.assign(new Error(`WORKFLOW_BLOCKED:${workflow.blockedReasons.join(",")}`), { code: "WORKFLOW_BLOCKED", workflow });
+    const submission = await this.kernel.submitPlan(workflow.goalId, {
+      plannerVersion: `business-domain-workflow-v2-${workflow.domain.id}`,
+      sourceArtifactRef: `application:${workflow.application.id}/domain:${workflow.domain.id}`,
+      tasks: workflow.tasks,
+      dependencies: workflow.dependencies
+    });
+    return { workflow, submission };
+  }
+}
+
+export function domainCenterSummary() {
+  return {
+    schemaVersion: 3,
+    applicationCount: studioApplications.length,
+    domainCount: studioDomains.length,
+    singleControlPlane: true,
+    sourceOfTruth: "business-application-registry",
+    applications: studioApplications.map((application) => ({
+      ...application,
+      domains: application.domainIds.map((domainId) => getStudioDomain(domainId))
+    })),
+    domains: studioDomains
+  };
+}

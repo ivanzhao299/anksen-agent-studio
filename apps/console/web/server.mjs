@@ -13,6 +13,10 @@ import {
   resolveSessionContext
 } from "../../../packages/access-center/lib/access-center-utils.mjs";
 import { AutonomousExecutionCenter } from "../../../packages/orchestrator-core/lib/autonomous-execution-center.mjs";
+import { createTestPool, ensurePostgresFixture } from "../../../packages/orchestrator-core/lib/postgres-fixture.mjs";
+import { migrate } from "../../../packages/orchestrator-core/lib/persistent-night-shift.mjs";
+import { loadDomainRuntimeRegistry } from "../../../packages/domain-center/lib/domain-center.mjs";
+import { PersistentDomainWorkflowService } from "../../../packages/domain-center/lib/persistent-domain-workflow.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
 import { createStudioMcpRequestHandler } from "../../../packages/orchestrator-core/lib/studio-mcp-server.mjs";
@@ -286,6 +290,36 @@ const server = createServer(async (request, response) => {
       const body = await readJsonBody(request), title = String(body.title ?? "").trim();
       if (!title) { sendJson(response, 400, { status: "INVALID_GOAL", reason: "Goal title is required." }); return; }
       sendJson(response, 201, await autonomousExecutionCenter.createGoal({ title, userContext: accessContext }));
+      return;
+    }
+    if (request.method === "POST" && pathname === "/api/domain/goals") {
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "aec-goal", risk: "LOW" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      const body = await readJsonBody(request), title = String(body.title ?? "").trim(), domainId = String(body.domainId ?? "").trim();
+      if (!title || !domainId) { sendJson(response, 400, { status: "INVALID_DOMAIN_GOAL", reason: "Goal title and domainId are required." }); return; }
+      await ensurePostgresFixture();
+      const pool = createTestPool();
+      try {
+        if (!(await pool.query("SELECT to_regclass('ad_night_shift_session') ok")).rows[0].ok) await migrate(pool, "up");
+        const service = new PersistentDomainWorkflowService(pool, { registry: await loadDomainRuntimeRegistry() });
+        const sessionKey = `domain-console-${randomUUID()}`;
+        const submitted = await service.submit({ sessionKey, goal: title, explicitDomainId: domainId, scope: { organizationId: accessContext.organization_id ?? "studio-org", workspaceId: accessContext.workspace_id ?? "studio-workspace", projectId: body.projectId ?? "jinhu-smart-park" } });
+        const runner = await service.runDaemon({ pollMs: 5, idleTimeoutMs: 50, maxRuntimeMs: 5000 });
+        const report = await service.night.loadReport(submitted.session.id);
+        sendJson(response, 201, { status: report.sessionStatus, application: submitted.workflow.application, domain: submitted.workflow.domain, workflow: submitted.workflow, runner, report, dashboard: await autonomousExecutionCenter.getDashboard() });
+      } catch (error) {
+        if (error?.code === "WORKFLOW_BLOCKED") {
+          sendJson(response, 409, { status: "BLOCKED", reason: "该业务领域所需的专业 Runner 尚未接通。", blockedReasons: error.workflow?.blockedReasons ?? [], workflow: error.workflow ?? null });
+          return;
+        }
+        if (error?.code === "DOMAIN_NOT_FOUND") {
+          sendJson(response, 404, { status: "DOMAIN_NOT_FOUND", reason: "未找到指定业务领域。" });
+          return;
+        }
+        throw error;
+      } finally {
+        await pool.end();
+      }
       return;
     }
     if (request.method === "POST" && pathname === "/api/actions/start") {
