@@ -25,11 +25,12 @@
     { "id": "ea-009-group-application-workflows", "title": "Strategy, HR and Finance business-object workflows on the shared Kernel", "completed": true },
     { "id": "ea-010-operational-application-schemas", "title": "Growth & Sales, Manufacturing ERP and Smart Park domain records and workflows", "completed": true },
     { "id": "ea-011-transactional-business-store", "title": "Move authoritative business records and work items to isolated transactional PostgreSQL", "completed": true },
-    { "id": "ea-012-business-details-and-approvals", "title": "Domain record details and version-bound approvals complete; approval inbox and source-backed reports remain", "completed": false }
+    { "id": "ea-012-business-details-and-approvals", "title": "Domain record details, version-bound approvals, approval inbox and source-backed operational reports", "completed": true },
+    { "id": "ea-013-runner-human-control", "title": "Human takeover, pause, resume and recovery controls for Agent work", "completed": false }
   ],
   "next_recommended_action": {
-    "title": "Implement the shared approval inbox and source-backed application reports",
-    "reason": "Record detail pages now expose typed facts, work and Runner evidence, approval history and audit timelines. Version-bound business approvals are durable and atomic. Normal users next need a cross-application approval inbox and domain KPI reports sourced from business records.",
+    "title": "Implement human takeover and recovery controls for Agent work",
+    "reason": "Business workbenches now expose source-backed operational reports, detail timelines, durable approvals and a cross-application approval inbox. Operators next need governed pause, resume, reassign and human-takeover controls without manipulating Kernel leases directly.",
     "target_project": "anksen-agent-studio",
     "target_packages": ["packages/domain-center", "packages/orchestrator-core", "apps/console"],
     "expected_files": [

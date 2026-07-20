@@ -119,9 +119,11 @@ test("Console renders eight platforms and forty-two business domains, not Agent 
 test("Console home renders the unified portfolio cockpit without fabricated outcomes", async () => {
   const html = await renderConsolePage("/", { authenticated: true, capabilities: ["*"], project_allowlist: ["*"] });
   assert.match(html, /集团业务驾驶舱/);
-  assert.equal((html.match(/class="portfolio-card"/g) ?? []).length, 8);
+  assert.equal((html.match(/<a class="portfolio-card" data-portfolio-app=/g) ?? []).length, 8);
   assert.match(html, /业务结果待接入/);
   assert.match(html, /\/api\/portfolio\/dashboard/);
+  assert.match(html, /\/api\/business\/reports/);
+  assert.match(html, /实时业务运行/);
 });
 
 test("Smart Park completion program is a valid gated long-running DAG", () => {

@@ -65,6 +65,13 @@ test("PostgreSQL business store is scoped, transactional, idempotent and restart
     await assert.rejects(() => restarted.decideApproval("finance-platform", approval.id, { decision: "APPROVED" }, scope), (error) => error.code === "BUSINESS_APPROVAL_NOT_PENDING");
     assert.equal((await restarted.recordDetail("finance-platform", record.id, scope)).approvals[0].status, "APPROVED");
     assert.equal((await restarted.approvalInbox(scope)).length, 0);
+    const report = await restarted.applicationReport("finance-platform", scope);
+    assert.equal(report.totalRecords, 1);
+    assert.equal(report.byObjectType.expense, 1);
+    assert.equal(report.byStatus.APPROVED, 1);
+    assert.equal(report.work.human, 1);
+    assert.equal(report.approvals.APPROVED, 1);
+    assert.equal(report.recentRecords[0].href, `/finance?record=${record.id}`);
     const events = await restarted.events(scope);
     assert.deepEqual(events.map((event) => event.event_type), ["business.object.created", "business.object.changed", "business.work.assigned", "business.object.workflow-transitioned", "business.work.runtime.completed", "business.object.changed", "business.approval.requested", "business.approval.decided"]);
     assert.equal(events.filter((event) => event.event_type === "business.work.assigned").length, 1);

@@ -28,6 +28,8 @@ Authoritative business records, user work items, and business audit events are p
 
 Every business record has a conventional detail surface containing its typed fields, accountable owner, version, work assignments, Agent/Kernel references, approval history, and audit timeline. A record in `WAITING_APPROVAL` cannot be advanced by a normal transition: a scoped, single-pending approval must be requested and an authorized reviewer must approve or reject it. Approval consumes the exact object version and writes the decision, state change, and audit event atomically, so stale approvals cannot change newer business facts.
 
+Application workbenches and the group cockpit expose source-backed operational reports derived from the same scoped records, work items, and approvals. These reports show record volume, object mix, lifecycle distribution, exception states, approval backlog, and human/Agent workload with drill-down links. They remain separate from connector-backed financial and commercial KPIs: the platform never relabels workflow counts as revenue, conversion, cash, production output, or other business outcomes.
+
 ## Application boundaries
 
 | Application | Endpoint | Primary users | Initial conventional objects | First intelligent workflow |

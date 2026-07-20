@@ -351,6 +351,12 @@ const server = createServer(async (request, response) => {
       sendJson(response,200,{...summary,backend:businessRuntime.backend,applications:summary.applications.filter(app=>evaluateConsoleRouteAccess(app.routeId,accessContext).allowed)});
       return;
     }
+    if (request.method === "GET" && pathname === "/api/business/reports") {
+      const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"},applications=enterpriseApplicationSummary().applications.filter(app=>evaluateConsoleRouteAccess(app.routeId,accessContext).allowed),reports=await Promise.all(applications.map(app=>businessApplicationStore.applicationReport(app.id,scope)));
+      sendJson(response,200,{generatedAt:new Date().toISOString(),backend:businessRuntime.backend,reports});return;
+    }
+    const businessApplicationReport=pathname.match(/^\/api\/business\/applications\/([^/]+)\/report$/);
+    if(request.method==="GET"&&businessApplicationReport){const applicationId=decodeURIComponent(businessApplicationReport[1]),app=getEnterpriseApplication(applicationId);if(!app){sendJson(response,404,{status:"APPLICATION_NOT_FOUND"});return;}const routeAccess=evaluateConsoleRouteAccess(app.routeId,accessContext);if(!routeAccess.allowed){sendJson(response,403,routeAccess);return;}sendJson(response,200,{backend:businessRuntime.backend,report:await businessApplicationStore.applicationReport(app.id,{organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"})});return;}
     if (request.method === "GET" && pathname === "/api/work") {
       const access=evaluateConsoleRouteAccess("work",accessContext);if(!access.allowed){sendJson(response,403,access);return;}
       const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"},canApprove=(accessContext.capabilities??[]).some(value=>value==="*"||value==="proposal.approve"),work=await businessApplicationStore.myWork({...scope,userId:accessContext.user?.user_id,applicationId:url.searchParams.get("applicationId")}),approvals=canApprove?await businessApplicationStore.approvalInbox(scope):[];

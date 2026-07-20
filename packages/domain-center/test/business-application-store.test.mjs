@@ -42,6 +42,13 @@ test("conventional finance records enforce domain fields and lifecycle", async (
   assert.equal(decision.record.version, 5);
   assert.equal((await store.recordDetail("finance-platform", record.id)).approvals[0].reviewedBy, "finance-manager");
   assert.equal((await store.approvalInbox({})).length, 0);
+  const report = await store.applicationReport("finance-platform");
+  assert.equal(report.totalRecords, 1);
+  assert.equal(report.byObjectType.expense, 1);
+  assert.equal(report.byStatus.APPROVED, 1);
+  assert.equal(report.work.human, 1);
+  assert.equal(report.approvals.APPROVED, 1);
+  assert.equal(report.recentRecords[0].href, `/finance?record=${record.id}`);
 });
 
 test("strategy and HR records expose different authoritative fields", async () => {
