@@ -101,6 +101,7 @@ test("proposal materialization uses the conventional application's field validat
 
 test("Studio exposes the portfolio product route and authenticated lifecycle API", async () => {
   const html = await renderConsolePage("/portfolio", { authenticated: true, capabilities: ["*"], project_allowlist: ["*"] });
+  const workHtml = await renderConsolePage("/work", { authenticated: true, capabilities: ["*"], project_allowlist: ["*"] });
   const server = await readFile(new URL("../../../apps/console/web/server.mjs", import.meta.url), "utf8");
   const access = await readFile(new URL("../../access-center/lib/access-center-utils.mjs", import.meta.url), "utf8");
   assert.match(html, /集团长期任务编排/);
@@ -127,6 +128,9 @@ test("Studio exposes the portfolio product route and authenticated lifecycle API
   assert.match(html, /复核审批并续跑/);
   assert.match(server, /PORTFOLIO_APPROVAL_STILL_PENDING/);
   assert.match(server, /resolveHumanApproval/);
+  assert.match(workHtml, /跨平台人工断点/);
+  assert.match(workHtml, /\/api\/portfolio\/work-report/);
+  assert.match(server, /projectPortfolioWork/);
   assert.match(server, /`portfolio-\$\{portfolioAction\[2\]\}`/);
   assert.match(access, /"portfolio-activate"/);
   assert.match(access, /"portfolio-reconcile"/);

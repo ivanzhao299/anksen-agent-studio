@@ -33,6 +33,7 @@ import { buildBusinessDelegationPreview } from "../../../packages/domain-center/
 import { buildBusinessCapabilityProtocol } from "../../../packages/domain-center/lib/business-capability-protocol.mjs";
 import { EnterpriseProgramPlanner } from "../../../packages/domain-center/lib/enterprise-program-planner.mjs";
 import { projectBusinessWorkExecution } from "../../../packages/domain-center/lib/business-work-execution.mjs";
+import { projectPortfolioWork } from "../../../packages/domain-center/lib/portfolio-work-projection.mjs";
 import { createBusinessTaskBinding } from "../../../packages/orchestrator-core/lib/business-task-binding.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
@@ -410,6 +411,11 @@ const server = createServer(async (request, response) => {
       const runnerFleet=canManage&&businessRunnerRegistry?await businessRunnerRegistry.dashboard():null;
       sendJson(response,200,{...work,items:work.items.map(item=>({...item,execution:item.execution??projectBusinessWorkExecution({workItem:item})})),approvals,canApprove,canControl,canManage,runner:businessWorkRunner.snapshot(),runnerFleet,summary:{...work.summary,pendingApprovals:approvals.length},backend:businessRuntime.backend});
       return;
+    }
+    if(request.method==="GET"&&pathname==="/api/portfolio/work-report"){
+      const access=evaluateConsoleRouteAccess("work",accessContext);if(!access.allowed){sendJson(response,403,access);return;}
+      const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"},applicationIds=enterpriseApplicationSummary().applications.filter(app=>evaluateConsoleRouteAccess(app.routeId,accessContext).allowed).map(app=>app.id),campaigns=await autonomousPortfolio.list(scope);
+      sendJson(response,200,projectPortfolioWork(campaigns,{applicationIds}));return;
     }
     const businessRecords=pathname.match(/^\/api\/business\/applications\/([^/]+)\/records$/);
     if (businessRecords) {
