@@ -1,0 +1,24 @@
+name: anksen-studio-business-data
+
+services:
+  business-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: anksen_studio_business
+      POSTGRES_USER: anksen_business
+      POSTGRES_PASSWORD: ${BUSINESS_DB_PASSWORD:?BUSINESS_DB_PASSWORD is required}
+    ports:
+      - "127.0.0.1:4330:5432"
+    volumes:
+      - business-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anksen_business -d anksen_studio_business"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  business-db-data:

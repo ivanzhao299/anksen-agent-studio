@@ -2,7 +2,7 @@
 
 Every push to `main` is validated on GitHub and then deployed to the office Ubuntu server through the Aliyun WireGuard jump host.
 
-The same guarded deployment now starts the self-hosted Keycloak/PostgreSQL identity boundary before restarting Console. Identity secrets are generated once under `/opt/anksen/identity/.env` and are never passed through GitHub Actions. The release is accepted only when public OIDC discovery, OAuth protected-resource metadata, and MCP readiness all pass.
+The same guarded deployment starts two isolated state services before restarting Console: the Keycloak/PostgreSQL identity boundary and the transactional business-application PostgreSQL database. Identity secrets remain under `/opt/anksen/identity/.env`; the business database credential and URL remain under `/opt/anksen/business-data/`. They are generated on the office server and are never passed through GitHub Actions or committed to Git.
 
 ## Route
 
@@ -28,6 +28,7 @@ Neither secret is stored in the repository or deployment logs.
 - Modified tracked files on the server stop deployment; the script never uses `git reset --hard`.
 - Git updates are fast-forward only.
 - The Console is typechecked, linted, smoke-tested and built before restart.
+- The loopback-only business database is started, migrations are applied idempotently, and record/work/event tables are verified before Console restarts.
 - The existing systemd service restarts the Console after the deployment script terminates the managed Node process.
 - Local and public `/login` endpoints are checked before the workflow succeeds.
 

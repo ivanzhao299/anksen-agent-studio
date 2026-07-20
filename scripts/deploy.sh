@@ -64,6 +64,7 @@ pnpm typecheck
 pnpm lint:check
 node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run
 pnpm --filter @anksen/console build
+bash scripts/deploy-business-data.sh
 bash scripts/deploy-identity.sh
 
 mapfile -t server_pids < <(pgrep -u "$(id -u)" -f "$repo_dir/apps/console/web/server.mjs" || true)

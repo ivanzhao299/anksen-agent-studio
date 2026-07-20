@@ -24,6 +24,8 @@ Ordinary users work with familiar software concepts: forms, records, ledgers, do
 - Enabling runtimes makes the application continuously observable and actionable, but high-risk transactions remain approval-gated.
 - The cockpit aggregates source-backed business outcomes. Agent completion counts are operational evidence, not business outcomes.
 
+Authoritative business records, user work items, and business audit events are persisted in an isolated transactional PostgreSQL store. Record transitions use optimistic version CAS, while Runtime completion and business-state write-back commit in one transaction. The file store is retained only as an explicit local fallback when no business database is configured.
+
 ## Application boundaries
 
 | Application | Endpoint | Primary users | Initial conventional objects | First intelligent workflow |

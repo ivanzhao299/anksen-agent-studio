@@ -19,6 +19,8 @@ Business records remain authoritative. Agent Tasks advance or analyse those reco
 - verified workflow evidence: Strategy objective, HR recruitment case, and Finance expense each completed four Kernel tasks through the existing Scheduler, Worker and CONTROLLED_STUB runtime with the original business object ID on every stage
 - third slice: every registered Strategy, HR, Finance, Growth & Sales, Manufacturing ERP and Smart Park object now declares required domain fields, lifecycle transitions and an owning workflow Domain; Agent delegation no longer falls back to the application's first Domain
 - operational workflow evidence: Growth lead, manufacturing work order and Smart Park service order each completed four existing-Kernel tasks through CONTROLLED_STUB with stable object IDs and the expected Domain-specific stages
+- fourth slice: authoritative business records, My Work items and audit events use an organization/workspace-scoped PostgreSQL store; transitions use row locks plus version CAS, work allocation is idempotent, and Runtime completion plus business-state write-back commit atomically
+- deployment boundary: Office 204 provisions a separate loopback PostgreSQL volume under `/opt/anksen/business-data`; credentials stay server-local, migrations run before Console restart, and the legacy file store is imported idempotently without changing IDs
 - next stage: deepen each application from the shared conventional shell into its first domain-specific record detail, forms, reports, and write-back workflow
 
 ## Application Endpoints

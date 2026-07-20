@@ -20,7 +20,11 @@ importers:
 
   packages/discovery-engine: {}
 
-  packages/domain-center: {}
+  packages/domain-center:
+    dependencies:
+      pg:
+        specifier: ^8.22.0
+        version: 8.22.0
 
   packages/evolution-center: {}
 

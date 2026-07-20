@@ -1,0 +1,167 @@
+import { randomUUID } from "node:crypto";
+import { assertEnterpriseApplication } from "./enterprise-applications.mjs";
+import { availableBusinessTransitions, getBusinessObjectDefinition, validateBusinessObjectFields } from "./business-object-definitions.mjs";
+
+const terminal = new Set(["COMPLETED", "CANCELLED", "PAID", "ARCHIVED", "TERMINATED", "WRITTEN_OFF"]);
+const scopeOf = (value = {}) => {
+  const organizationId = String(value.organizationId ?? "").trim();
+  const workspaceId = String(value.workspaceId ?? "").trim();
+  if (!organizationId || !workspaceId) throw Object.assign(new Error("BUSINESS_SCOPE_REQUIRED"), { code: "BUSINESS_SCOPE_REQUIRED" });
+  return { organizationId, workspaceId };
+};
+const iso = (value) => value instanceof Date ? value.toISOString() : value;
+
+export class PostgresBusinessApplicationStore {
+  constructor({ pool, clock = () => new Date() } = {}) {
+    if (!pool) throw new Error("BUSINESS_DATABASE_POOL_REQUIRED");
+    this.pool = pool;
+    this.clock = clock;
+  }
+
+  async transaction(work) {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await work(client);
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  presentRecord(row) {
+    return {
+      id: row.id, applicationId: row.application_id, objectType: row.object_type, displayKey: row.display_key,
+      title: row.title, status: row.status, version: row.version, ownerId: row.owner_id, fields: row.fields,
+      source: row.source, createdBy: row.created_by, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at),
+      availableTransitions: availableBusinessTransitions(row.application_id, row.object_type, row.status),
+      schema: getBusinessObjectDefinition(row.application_id, row.object_type)
+    };
+  }
+
+  presentWork(row) {
+    const application = assertEnterpriseApplication(row.application_id);
+    return {
+      id: row.id, applicationId: row.application_id,
+      businessObject: { objectType: row.business_object_type, objectId: row.business_record_id, displayKey: row.business_display_key, version: row.business_object_version, href: `${application.path}?record=${row.business_record_id}` },
+      title: row.title, status: row.status, assignmentType: row.assignment_type, assigneeId: row.assignee_id,
+      delegatedBy: row.delegated_by, priority: row.priority, idempotencyKey: row.idempotency_key,
+      kernelTaskId: row.kernel_task_id, kernelGoalId: row.kernel_goal_id, sessionId: row.session_id,
+      resultRef: row.result_ref, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at)
+    };
+  }
+
+  async listRecords(applicationId, options = {}) {
+    assertEnterpriseApplication(applicationId);
+    const scope = scopeOf(options);
+    const params = [scope.organizationId, scope.workspaceId, applicationId];
+    let sql = "SELECT * FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3";
+    if (options.objectType) { params.push(options.objectType); sql += ` AND object_type=$${params.length}`; }
+    sql += " ORDER BY updated_at DESC";
+    return (await this.pool.query(sql, params)).rows.map((row) => this.presentRecord(row));
+  }
+
+  async getRecord(applicationId, id, actor = {}) {
+    assertEnterpriseApplication(applicationId);
+    const scope = scopeOf(actor);
+    const row = (await this.pool.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND application_id=$4", [id, scope.organizationId, scope.workspaceId, applicationId])).rows[0];
+    return row ? this.presentRecord(row) : null;
+  }
+
+  async createRecord(applicationId, input, actor = {}) {
+    const application = assertEnterpriseApplication(applicationId), scope = scopeOf(actor);
+    const type = application.objectTypes.find((item) => item.id === input.objectType);
+    if (!type) throw Object.assign(new Error("BUSINESS_OBJECT_TYPE_DENIED"), { code: "BUSINESS_OBJECT_TYPE_DENIED" });
+    const title = String(input.title ?? "").trim();
+    if (!title) throw Object.assign(new Error("BUSINESS_RECORD_TITLE_REQUIRED"), { code: "BUSINESS_RECORD_TITLE_REQUIRED" });
+    const schema = getBusinessObjectDefinition(applicationId, type.id), fields = validateBusinessObjectFields(applicationId, type.id, input.fields);
+    const id = randomUUID(), now = this.clock(), displayKey = String(input.displayKey ?? "").trim() || `${type.id.toUpperCase()}-${Date.now()}`, ownerId = String(input.ownerId ?? actor.userId ?? "unassigned"), createdBy = String(actor.userId ?? "unknown");
+    return this.transaction(async (client) => {
+      const row = (await client.query("INSERT INTO business_application_record(id,organization_id,workspace_id,application_id,object_type,display_key,title,status,owner_id,fields,version,created_by,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,$11,$12,$12) RETURNING *", [id, scope.organizationId, scope.workspaceId, applicationId, type.id, displayKey, title, schema.initialStatus, ownerId, fields, createdBy, now])).rows[0];
+      await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,actor_id,payload,created_at) VALUES($1,$2,$3,'business.object.created',$4,$5,$6,1,$7,$8,$9)", [randomUUID(), scope.organizationId, scope.workspaceId, applicationId, type.id, id, createdBy, { displayKey, title, status: schema.initialStatus }, now]);
+      return this.presentRecord(row);
+    });
+  }
+
+  async transitionRecord(applicationId, id, input, actor = {}) {
+    const scope = scopeOf(actor), expectedVersion = Number(input.expectedVersion), actorId = String(actor.userId ?? "unknown");
+    return this.transaction(async (client) => {
+      const row = (await client.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND application_id=$4 FOR UPDATE", [id, scope.organizationId, scope.workspaceId, applicationId])).rows[0];
+      if (!row) throw Object.assign(new Error("BUSINESS_RECORD_NOT_FOUND"), { code: "BUSINESS_RECORD_NOT_FOUND" });
+      if (expectedVersion !== row.version) throw Object.assign(new Error("BUSINESS_RECORD_VERSION_CONFLICT"), { code: "BUSINESS_RECORD_VERSION_CONFLICT" });
+      const fromStatus = row.status, allowed = availableBusinessTransitions(applicationId, row.object_type, fromStatus);
+      if (!allowed.includes(input.status) || terminal.has(fromStatus)) throw Object.assign(new Error("BUSINESS_RECORD_TRANSITION_DENIED"), { code: "BUSINESS_RECORD_TRANSITION_DENIED", allowed });
+      const now = this.clock();
+      const updated = (await client.query("UPDATE business_application_record SET status=$1,version=version+1,updated_at=$2 WHERE id=$3 AND version=$4 RETURNING *", [input.status, now, id, expectedVersion])).rows[0];
+      if (!updated) throw Object.assign(new Error("BUSINESS_RECORD_VERSION_CONFLICT"), { code: "BUSINESS_RECORD_VERSION_CONFLICT" });
+      await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,actor_id,payload,created_at) VALUES($1,$2,$3,'business.object.changed',$4,$5,$6,$7,$8,$9,$10)", [randomUUID(), scope.organizationId, scope.workspaceId, applicationId, row.object_type, id, updated.version, actorId, { fromStatus, toStatus: input.status }, now]);
+      return this.presentRecord(updated);
+    });
+  }
+
+  async createWorkItem(input, actor = {}) {
+    const application = assertEnterpriseApplication(input.applicationId), scope = scopeOf(actor), assignmentType = input.assignmentType === "AGENT" ? "AGENT" : "HUMAN", assigneeId = String(input.assigneeId ?? actor.userId ?? "unassigned"), delegatedBy = String(actor.userId ?? "unknown");
+    return this.transaction(async (client) => {
+      const record = (await client.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND application_id=$4 FOR SHARE", [input.businessObjectId, scope.organizationId, scope.workspaceId, application.id])).rows[0];
+      if (!record) throw Object.assign(new Error("BUSINESS_RECORD_NOT_FOUND"), { code: "BUSINESS_RECORD_NOT_FOUND" });
+      const idempotencyKey = String(input.idempotencyKey ?? `${assignmentType}:${record.id}:${record.version}:${assigneeId}`), id = randomUUID(), now = this.clock();
+      const inserted = (await client.query("INSERT INTO business_work_item(id,organization_id,workspace_id,application_id,business_record_id,business_object_type,business_display_key,business_object_version,title,status,assignment_type,assignee_id,delegated_by,priority,idempotency_key,kernel_task_id,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'OPEN',$10,$11,$12,$13,$14,$15,$16,$16) ON CONFLICT(organization_id,workspace_id,idempotency_key) DO NOTHING RETURNING *", [id, scope.organizationId, scope.workspaceId, application.id, record.id, record.object_type, record.display_key, record.version, String(input.title ?? `处理 ${record.title}`), assignmentType, assigneeId, delegatedBy, input.priority ?? "MEDIUM", idempotencyKey, input.kernelTaskId ?? null, now])).rows[0];
+      const row = inserted ?? (await client.query("SELECT * FROM business_work_item WHERE organization_id=$1 AND workspace_id=$2 AND idempotency_key=$3", [scope.organizationId, scope.workspaceId, idempotencyKey])).rows[0];
+      if (inserted) await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.work.assigned',$4,$5,$6,$7,$8,$9,$10,$11)", [randomUUID(), scope.organizationId, scope.workspaceId, application.id, record.object_type, record.id, record.version, id, delegatedBy, { assignmentType, assigneeId, idempotencyKey }, now]);
+      return this.presentWork(row);
+    });
+  }
+
+  async myWork(options = {}) {
+    const scope = scopeOf(options), params = [scope.organizationId, scope.workspaceId, String(options.userId ?? "")];
+    let sql = "SELECT * FROM business_work_item WHERE organization_id=$1 AND workspace_id=$2 AND (assignee_id=$3 OR delegated_by=$3)";
+    if (options.applicationId) { params.push(options.applicationId); sql += ` AND application_id=$${params.length}`; }
+    sql += " ORDER BY updated_at DESC";
+    const items = (await this.pool.query(sql, params)).rows.map((row) => this.presentWork(row));
+    return { items, summary: { total: items.length, human: items.filter((item) => item.assignmentType === "HUMAN").length, agent: items.filter((item) => item.assignmentType === "AGENT").length, blocked: items.filter((item) => item.status === "BLOCKED").length, waitingApproval: items.filter((item) => ["WAITING_APPROVAL", "WAITING_REVIEW"].includes(item.status)).length } };
+  }
+
+  async attachWorkflow(workItemId, { goalId, sessionId, report, status = "WAITING_APPROVAL" }) {
+    return this.transaction(async (client) => {
+      const now = this.clock(), resultRef = report ? `night-shift-report:${sessionId}` : null;
+      const row = (await client.query("UPDATE business_work_item SET kernel_goal_id=$1,session_id=$2,result_ref=$3,status=$4,updated_at=$5 WHERE id=$6 RETURNING *", [goalId, sessionId, resultRef, status, now, workItemId])).rows[0];
+      if (!row) throw Object.assign(new Error("WORK_ITEM_NOT_FOUND"), { code: "WORK_ITEM_NOT_FOUND" });
+      await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.work.runtime.completed',$4,$5,$6,$7,$8,'runtime',$9,$10)", [randomUUID(), row.organization_id, row.workspace_id, row.application_id, row.business_object_type, row.business_record_id, row.business_object_version, row.id, { goalId, sessionId, status, resultRef }, now]);
+      return this.presentWork(row);
+    });
+  }
+
+  async completeWorkflow(workItemId, { goalId, sessionId, report, workStatus, businessStatus = null, expectedObjectVersion = null, actorId = "runtime" }) {
+    return this.transaction(async (client) => {
+      const now = this.clock(), resultRef = report ? `night-shift-report:${sessionId}` : null;
+      const work = (await client.query("SELECT * FROM business_work_item WHERE id=$1 FOR UPDATE", [workItemId])).rows[0];
+      if (!work) throw Object.assign(new Error("WORK_ITEM_NOT_FOUND"), { code: "WORK_ITEM_NOT_FOUND" });
+      let record = null;
+      if (businessStatus) {
+        record = (await client.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 FOR UPDATE", [work.business_record_id, work.organization_id, work.workspace_id])).rows[0];
+        if (!record) throw Object.assign(new Error("BUSINESS_RECORD_NOT_FOUND"), { code: "BUSINESS_RECORD_NOT_FOUND" });
+        if (record.version !== Number(expectedObjectVersion)) throw Object.assign(new Error("BUSINESS_RECORD_VERSION_CONFLICT"), { code: "BUSINESS_RECORD_VERSION_CONFLICT" });
+        const allowed = availableBusinessTransitions(record.application_id, record.object_type, record.status);
+        if (!allowed.includes(businessStatus)) throw Object.assign(new Error("BUSINESS_RECORD_TRANSITION_DENIED"), { code: "BUSINESS_RECORD_TRANSITION_DENIED", allowed });
+        record = (await client.query("UPDATE business_application_record SET status=$1,version=version+1,updated_at=$2 WHERE id=$3 AND version=$4 RETURNING *", [businessStatus, now, record.id, expectedObjectVersion])).rows[0];
+        if (!record) throw Object.assign(new Error("BUSINESS_RECORD_VERSION_CONFLICT"), { code: "BUSINESS_RECORD_VERSION_CONFLICT" });
+      }
+      const updatedWork = (await client.query("UPDATE business_work_item SET kernel_goal_id=$1,session_id=$2,result_ref=$3,status=$4,updated_at=$5 WHERE id=$6 RETURNING *", [goalId, sessionId, resultRef, workStatus, now, workItemId])).rows[0];
+      if (record) await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.object.workflow-transitioned',$4,$5,$6,$7,$8,$9,$10,$11)", [randomUUID(), work.organization_id, work.workspace_id, work.application_id, work.business_object_type, work.business_record_id, record.version, work.id, actorId, { toStatus: businessStatus, goalId, sessionId }, now]);
+      await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.work.runtime.completed',$4,$5,$6,$7,$8,$9,$10,$11)", [randomUUID(), work.organization_id, work.workspace_id, work.application_id, work.business_object_type, work.business_record_id, record?.version ?? work.business_object_version, work.id, actorId, { goalId, sessionId, status: workStatus, resultRef }, now]);
+      return { workItem: this.presentWork(updatedWork), record: record ? this.presentRecord(record) : null };
+    });
+  }
+
+  async events(options = {}) {
+    const scope = scopeOf(options), params = [scope.organizationId, scope.workspaceId];
+    let sql = "SELECT * FROM business_application_event WHERE organization_id=$1 AND workspace_id=$2";
+    if (options.applicationId) { params.push(options.applicationId); sql += ` AND application_id=$${params.length}`; }
+    sql += " ORDER BY sequence";
+    return (await this.pool.query(sql, params)).rows;
+  }
+}

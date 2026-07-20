@@ -27,7 +27,9 @@
     "business_task_binding_completed": true,
     "my_work_foundation_completed": true,
     "first_business_workflow_writeback_completed": true,
-    "enterprise_application_foundation_deployed": true
+    "enterprise_application_foundation_deployed": true,
+    "transactional_business_store_completed": true,
+    "business_runtime_writeback_atomic": true
   },
   "planning_output_id": "manual-refresh-2026-06-29",
   "next_recommended_action": {
