@@ -8,6 +8,7 @@ import { validateBusinessRecordNote } from "./business-record-notes.mjs";
 import { businessRecordListResult, normalizeBusinessRecordList } from "./business-record-list.mjs";
 import { businessDelegationAuditPayload, presentBusinessDelegationProjection } from "./business-delegation-preview.mjs";
 import { projectBusinessWorkExecution } from "./business-work-execution.mjs";
+import { presentBusinessWorkResultSummary } from "./business-work-result.mjs";
 
 const terminal = new Set(["COMPLETED", "CANCELLED", "PAID", "ARCHIVED", "TERMINATED", "WRITTEN_OFF"]);
 const scopeOf = (value = {}) => {
@@ -60,7 +61,7 @@ export class PostgresBusinessApplicationStore {
       version: row.version,
       delegatedBy: row.delegated_by, priority: row.priority, idempotencyKey: row.idempotency_key,
       kernelTaskId: row.kernel_task_id, kernelGoalId: row.kernel_goal_id, sessionId: row.session_id,
-      resultRef: row.result_ref, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at)
+      resultRef: row.result_ref, resultSummary: presentBusinessWorkResultSummary(row.result_summary), createdAt: iso(row.created_at), updatedAt: iso(row.updated_at)
     };
   }
 
@@ -387,7 +388,7 @@ export class PostgresBusinessApplicationStore {
     });
   }
 
-  async completeWorkflow(workItemId, { goalId, sessionId, report, workStatus, businessStatus = null, expectedObjectVersion = null, expectedWorkVersion = null, actorId = "runtime" }) {
+  async completeWorkflow(workItemId, { goalId, sessionId, report, resultSummary = null, workStatus, businessStatus = null, expectedObjectVersion = null, expectedWorkVersion = null, actorId = "runtime" }) {
     return this.transaction(async (client) => {
       const now = this.clock(), resultRef = report ? `night-shift-report:${sessionId}` : null;
       const work = (await client.query("SELECT * FROM business_work_item WHERE id=$1 FOR UPDATE", [workItemId])).rows[0];
@@ -403,9 +404,9 @@ export class PostgresBusinessApplicationStore {
         record = (await client.query("UPDATE business_application_record SET status=$1,version=version+1,updated_at=$2 WHERE id=$3 AND version=$4 RETURNING *", [businessStatus, now, record.id, expectedObjectVersion])).rows[0];
         if (!record) throw Object.assign(new Error("BUSINESS_RECORD_VERSION_CONFLICT"), { code: "BUSINESS_RECORD_VERSION_CONFLICT" });
       }
-      const updatedWork = (await client.query("UPDATE business_work_item SET kernel_goal_id=$1,session_id=$2,result_ref=$3,status=$4,version=version+1,updated_at=$5 WHERE id=$6 RETURNING *", [goalId, sessionId, resultRef, workStatus, now, workItemId])).rows[0];
+      const updatedWork = (await client.query("UPDATE business_work_item SET kernel_goal_id=$1,session_id=$2,result_ref=$3,result_summary=$4,status=$5,version=version+1,updated_at=$6 WHERE id=$7 RETURNING *", [goalId, sessionId, resultRef, resultSummary, workStatus, now, workItemId])).rows[0];
       if (record) await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.object.workflow-transitioned',$4,$5,$6,$7,$8,$9,$10,$11)", [randomUUID(), work.organization_id, work.workspace_id, work.application_id, work.business_object_type, work.business_record_id, record.version, work.id, actorId, { toStatus: businessStatus, goalId, sessionId }, now]);
-      await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.work.runtime.completed',$4,$5,$6,$7,$8,$9,$10,$11)", [randomUUID(), work.organization_id, work.workspace_id, work.application_id, work.business_object_type, work.business_record_id, record?.version ?? work.business_object_version, work.id, actorId, { goalId, sessionId, status: workStatus, resultRef }, now]);
+      await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.work.runtime.completed',$4,$5,$6,$7,$8,$9,$10,$11)", [randomUUID(), work.organization_id, work.workspace_id, work.application_id, work.business_object_type, work.business_record_id, record?.version ?? work.business_object_version, work.id, actorId, { goalId, sessionId, status: workStatus, resultRef, resultType: resultSummary?.resultType??null, businessOutcomeProduced: resultSummary?.businessOutcomeProduced===true }, now]);
       return { workItem: this.presentWork(updatedWork), record: record ? this.presentRecord(record) : null };
     });
   }
