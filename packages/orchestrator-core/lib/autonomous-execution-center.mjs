@@ -136,6 +136,27 @@ export class AutonomousExecutionCenter {
     return dashboard.readiness;
   }
 
+  async getPortfolioProgress() {
+    return this.withPool(async (pool) => {
+      const rows = (await pool.query(`
+        SELECT DISTINCT ON (g.metadata->>'applicationId')
+          g.metadata->>'applicationId' application_id,
+          g.id goal_id,g.title,g.status goal_status,g.created_at,g.updated_at,
+          count(t.id)::int task_count,
+          count(t.id) FILTER (WHERE t.status='SUCCEEDED')::int succeeded_count,
+          count(t.id) FILTER (WHERE t.status='FAILED')::int failed_count,
+          count(t.id) FILTER (WHERE t.status='BLOCKED')::int blocked_count,
+          count(t.id) FILTER (WHERE t.status IN ('READY','QUEUED','CLAIMED','RUNNING','VALIDATING'))::int active_count,
+          count(t.id) FILTER (WHERE t.status='PENDING')::int pending_count
+        FROM ad_goal g LEFT JOIN ad_task t ON t.goal_id=g.id
+        WHERE coalesce(g.metadata->>'applicationId','')<>''
+        GROUP BY g.id,g.metadata->>'applicationId'
+        ORDER BY g.metadata->>'applicationId',g.created_at DESC
+      `)).rows;
+      return { generatedAt: new Date().toISOString(), source: "AUTONOMOUS_KERNEL", applications: rows };
+    });
+  }
+
   async withPool(work) {
     const pool = await readyPool();
     try { return await work(pool); } finally { await pool.end(); }

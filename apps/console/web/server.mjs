@@ -15,7 +15,7 @@ import {
 import { AutonomousExecutionCenter } from "../../../packages/orchestrator-core/lib/autonomous-execution-center.mjs";
 import { createTestPool, ensurePostgresFixture } from "../../../packages/orchestrator-core/lib/postgres-fixture.mjs";
 import { migrate } from "../../../packages/orchestrator-core/lib/persistent-night-shift.mjs";
-import { loadDomainRuntimeRegistry } from "../../../packages/domain-center/lib/domain-center.mjs";
+import { domainCenterSummary, loadDomainRuntimeRegistry } from "../../../packages/domain-center/lib/domain-center.mjs";
 import { PersistentDomainWorkflowService } from "../../../packages/domain-center/lib/persistent-domain-workflow.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
@@ -282,6 +282,25 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === "GET" && pathname === "/api/aec/dashboard") {
       sendJson(response, 200, await autonomousExecutionCenter.getDashboard());
+      return;
+    }
+    if (request.method === "GET" && pathname === "/api/portfolio/dashboard") {
+      const progress = await autonomousExecutionCenter.getPortfolioProgress();
+      const byApplication = new Map(progress.applications.map((item) => [item.application_id, item]));
+      sendJson(response, 200, {
+        generatedAt: progress.generatedAt,
+        source: progress.source,
+        applications: domainCenterSummary().applications.map((application) => ({
+          id: application.id,
+          name: application.name,
+          nameEn: application.nameEn,
+          icon: application.icon,
+          summary: application.summary,
+          domainCount: application.domains.length,
+          progress: byApplication.get(application.id) ?? null,
+          businessResults: { status: "AWAITING_SOURCE", metrics: [] }
+        }))
+      });
       return;
     }
     if (request.method === "POST" && pathname === "/api/aec/goals") {
