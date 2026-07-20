@@ -73,6 +73,8 @@ test("PostgreSQL business store is scoped, transactional, idempotent and restart
     assert.equal(report.work.human, 1);
     assert.equal(report.approvals.APPROVED, 1);
     assert.equal(report.recentRecords[0].href, `/finance?record=${record.id}`);
+    assert.equal((await restarted.myWork({ ...scope, userId: "unrelated-operator" })).summary.total, 0);
+    assert.equal((await restarted.myWork({ ...scope, userId: "workspace-admin", includeAll: true })).summary.total, 1);
     await assert.rejects(() => restarted.controlWorkItem(first.id, { action: "REASSIGN", expectedVersion: 2, assignmentType: "AGENT", assigneeId: "agent-finance" }, { ...scope, userId: "unrelated-operator" }), (error) => error.code === "BUSINESS_WORK_CONTROL_FORBIDDEN");
     const reassigned = await restarted.controlWorkItem(first.id, { action: "REASSIGN", expectedVersion: 2, assignmentType: "AGENT", assigneeId: "agent-finance" }, scope);
     assert.equal(reassigned.assignmentType, "AGENT");

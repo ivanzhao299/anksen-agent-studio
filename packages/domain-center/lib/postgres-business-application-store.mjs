@@ -204,8 +204,9 @@ export class PostgresBusinessApplicationStore {
   }
 
   async myWork(options = {}) {
-    const scope = scopeOf(options), params = [scope.organizationId, scope.workspaceId, String(options.userId ?? "")];
-    let sql = "SELECT * FROM business_work_item WHERE organization_id=$1 AND workspace_id=$2 AND (assignee_id=$3 OR delegated_by=$3)";
+    const scope = scopeOf(options), params = [scope.organizationId, scope.workspaceId];
+    let sql = "SELECT * FROM business_work_item WHERE organization_id=$1 AND workspace_id=$2";
+    if (!options.includeAll) { params.push(String(options.userId ?? "")); sql += ` AND (assignee_id=$${params.length} OR delegated_by=$${params.length})`; }
     if (options.applicationId) { params.push(options.applicationId); sql += ` AND application_id=$${params.length}`; }
     sql += " ORDER BY updated_at DESC";
     const items = (await this.pool.query(sql, params)).rows.map((row) => this.presentWork(row));

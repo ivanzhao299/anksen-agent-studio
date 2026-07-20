@@ -22,6 +22,8 @@ test("conventional finance records enforce domain fields and lifecycle", async (
   const work = await store.createWorkItem({ applicationId: "finance-platform", businessObjectId: record.id, title: "复核发票", assigneeId: "finance-user", assignmentType: "HUMAN" }, { userId: "manager" });
   assert.equal(work.businessObject.objectId, record.id);
   assert.equal((await store.myWork({ userId: "finance-user" })).summary.human, 1);
+  assert.equal((await store.myWork({ userId: "unrelated-operator" })).summary.total, 0);
+  assert.equal((await store.myWork({ userId: "workspace-admin", includeAll: true })).summary.total, 1);
   await assert.rejects(() => store.transitionRecord("finance-platform", record.id, { expectedVersion: 0, status: "SUBMITTED" }, { userId: "finance-user" }), (error) => error.code === "BUSINESS_RECORD_VERSION_CONFLICT");
   await assert.rejects(() => store.transitionRecord("finance-platform", record.id, { expectedVersion: 1, status: "PAID" }, { userId: "finance-user" }), (error) => error.code === "BUSINESS_RECORD_TRANSITION_DENIED");
   const submitted = await store.transitionRecord("finance-platform", record.id, { expectedVersion: 1, status: "SUBMITTED" }, { userId: "finance-user" });
