@@ -10,6 +10,18 @@ const workspacePath = resolve(repoRoot, "runtime/global/attached-project-workspa
 
 const fallbackProjects = [
   {
+    project_id: "anksen-agent-studio",
+    project_name: "ANKSEN Agent Studio",
+    connection_status: "CONNECTED",
+    doctor_status: "PASS",
+    execution_route: "governed_codex_runtime",
+    repo_branch: "main",
+    repo_clean: "yes",
+    write_policy: "approval_required",
+    config_path: "",
+    repo_path_display: repoRoot
+  },
+  {
     project_id: "jinhu-smart-park",
     project_name: "Jinhu Smart Park",
     connection_status: "CONNECTED",
@@ -135,6 +147,7 @@ function readRuntimeProjectRecordsSyncSafe() {
 function buildRegistry(workspace, states, bindings) {
   const workspaceProjects = Array.isArray(workspace?.projects) ? workspace.projects : [];
   const workspaceMap = new Map(workspaceProjects.map((project) => [project.project_id, project]));
+  const fallbackMap = new Map(fallbackProjects.map((project) => [project.project_id, project]));
   const ids = new Set([
     ...workspaceProjects.map((project) => project.project_id),
     ...states.keys(),
@@ -142,7 +155,7 @@ function buildRegistry(workspace, states, bindings) {
     ...fallbackProjects.map((project) => project.project_id)
   ]);
   const registry = [...ids].sort((left, right) => left.localeCompare(right)).map((projectId) =>
-    normalizeProjectRecord(projectId, workspaceMap.get(projectId), states.get(projectId), bindings.get(projectId))
+    normalizeProjectRecord(projectId, workspaceMap.get(projectId) ?? fallbackMap.get(projectId), states.get(projectId), bindings.get(projectId))
   );
   return registry.length > 0 ? registry : fallbackRegistry();
 }

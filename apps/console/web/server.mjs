@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createAccessInvite,
@@ -24,6 +24,8 @@ import { loadIdentityRuntimeConfig, proxyIdentityRequest } from "./identity-serv
 import { IdentityOwnerBootstrap, renderIdentityOwnerBootstrapPage } from "./identity-owner-bootstrap.mjs";
 import { renderConsolePage } from "./render.mjs";
 import { consoleWebRoutes } from "./routes.mjs";
+import { GovernedRunManager } from "./governed-run-manager.mjs";
+import { loadProjectRegistrySync } from "./project-registry.mjs";
 import {
   cancelConversationAction,
   createActionPlan,
@@ -43,6 +45,7 @@ const staticAssets = new Map([
   ["/assets/anksen-logo.svg", { path: join(assetsDir, "anksen-logo.svg"), type: "image/svg+xml; charset=utf-8" }]
 ]);
 const autonomousExecutionCenter = new AutonomousExecutionCenter();
+const governedRunManager = new GovernedRunManager({ repoRoot: resolve(webDir, "../../..") });
 const identityRuntime = await loadIdentityRuntimeConfig();
 const identityOwnerBootstrap = identityRuntime ? new IdentityOwnerBootstrap({ upstreamOrigin: identityRuntime.upstreamOrigin }) : null;
 const mcpOauthEnabled = identityRuntime?.authMode === "oauth";
@@ -360,6 +363,41 @@ const server = createServer(async (request, response) => {
     if (request.method === "GET" && pathname === "/api/runtime/identity-usage") {
       sendJson(response, 200, await getRuntimeIdentityUsage());
       return;
+    }
+    if (request.method === "GET" && pathname === "/api/governed-runs") {
+      sendJson(response, 200, { runs: await governedRunManager.list() });
+      return;
+    }
+    if (request.method === "POST" && pathname === "/api/governed-runs") {
+      const body = await readJsonBody(request);
+      const project = loadProjectRegistrySync().find((item) => item.project_id === body.projectId && item.connection_status === "CONNECTED");
+      if (!project || !project.repo_path_display || project.repo_path_display === "not_connected") { sendJson(response, 400, { status: "PROJECT_NOT_CONNECTED" }); return; }
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "agent-real-plan", project_id: project.project_id, risk: "MEDIUM" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      const paths = Array.isArray(body.allowedPaths) ? body.allowedPaths : String(body.allowedPaths ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
+      try {
+        const record = await governedRunManager.create({ projectId: project.project_id, projectRoot: project.repo_path_display, goal: body.goal, instruction: body.instruction, allowedPaths: paths, targetPaths: paths, maxRuntimeSeconds: body.maxRuntimeSeconds }, { userId: accessContext.user?.user_id });
+        sendJson(response, 201, record);
+      } catch (error) {
+        sendJson(response, 400, { status: "INVALID_GOVERNED_RUN", reason: error instanceof Error ? error.message : String(error) });
+      }
+      return;
+    }
+    const governedApprove = pathname.match(/^\/api\/governed-runs\/([^/]+)\/approve$/);
+    if (request.method === "POST" && governedApprove) {
+      const record = await governedRunManager.get(decodeURIComponent(governedApprove[1]));
+      if (!record) { sendJson(response, 404, { status: "GOVERNED_RUN_NOT_FOUND" }); return; }
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "proposal-approve-apply", project_id: record.projectId, risk: "LOW" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      sendJson(response, 200, await governedRunManager.approve(decodeURIComponent(governedApprove[1]), { userId: accessContext.user?.user_id })); return;
+    }
+    const governedCancel = pathname.match(/^\/api\/governed-runs\/([^/]+)\/cancel$/);
+    if (request.method === "POST" && governedCancel) {
+      const record = await governedRunManager.get(decodeURIComponent(governedCancel[1]));
+      if (!record) { sendJson(response, 404, { status: "GOVERNED_RUN_NOT_FOUND" }); return; }
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "proposal-approve-apply", project_id: record.projectId, risk: "LOW" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      sendJson(response, 200, await governedRunManager.cancel(record.id, { userId: accessContext.user?.user_id })); return;
     }
     if (request.method === "GET" && actionRunMatch) {
       const run = await getConversationAction(decodeURIComponent(actionRunMatch[1]));

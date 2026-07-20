@@ -2592,6 +2592,8 @@ function pageAutopilot(data) {
 
 function pageActions(data) {
   const actions = data.actionServer.actions ?? [];
+  const governedProjects = (data.project_router.projects ?? []).filter((project) => project.connection_status === "CONNECTED" && project.repo_path_display && project.repo_path_display !== "not_connected");
+  const governedProjectOptions = governedProjects.map((project) => `<option value="${escapeHtml(project.project_id)}">${escapeHtml(project.project_name ?? project.label ?? project.project_id)}</option>`).join("");
   const operationCards = [
     ["任务与队列", "查看任务生命周期、调度队列和执行证据。", "#advanced-operations", `${actions.length} 项能力`],
     ["Workers", "检查在线 Worker、领取状态与租约健康度。", "/workers", "运行资源"],
@@ -2600,6 +2602,17 @@ function pageActions(data) {
     ["Approvals", "处理审批、策略和 Activation Readiness。", "/governance", "治理"],
   ];
   return `<section class="operations-hero"><span class="eyebrow">Operations</span><h2>运行管理</h2><p>日常工作无需进入这里。需要诊断任务、Worker、Runtime 或审批时，再打开对应模块。</p></section>
+  <section class="panel" id="governed-codex-center">
+    <div class="section-head"><div><span class="eyebrow">Governed Codex Worker</span><h2>受控自主开发</h2><p class="help">先生成执行提案，再由授权人批准一次真实 Codex 执行。Task、Attempt、Lease、Fencing 与报告证据完整保留。</p></div><span class="status-label proposal-only">需人工批准</span></div>
+    <div class="form-grid">
+      <div><label for="governed-project">目标项目</label><select id="governed-project">${governedProjectOptions || '<option value="">暂无已连接项目</option>'}</select></div>
+      <div><label for="governed-timeout">最长运行时间</label><select id="governed-timeout"><option value="600">10 分钟</option><option value="1200">20 分钟</option><option value="1800" selected>30 分钟</option></select></div>
+      <div style="grid-column:1/-1"><label for="governed-goal">开发目标</label><textarea id="governed-goal" rows="3" placeholder="说明要完成的功能、验收条件和不可触碰的边界"></textarea></div>
+      <div style="grid-column:1/-1"><label for="governed-paths">允许修改的路径（每行一个）</label><textarea id="governed-paths" rows="3" placeholder="例如：&#10;apps/console/web/render.mjs&#10;apps/console/web/render.test.mjs"></textarea></div>
+    </div>
+    <div class="button-row" style="justify-content:space-between;margin-top:14px"><p id="governed-run-status" class="help">不会自动提交、推送、合并或部署；仓库不干净时执行 Gate 会拒绝启动。</p><button id="governed-create" type="button" class="primary-action">生成执行提案</button></div>
+    <div id="governed-runs" class="simple-list" style="margin-top:16px"><div class="empty-state"><strong>正在读取执行记录</strong></div></div>
+  </section>
   <section class="operation-card-grid">${operationCards.map(([title, description, href, meta]) => `<a class="operation-card" href="${href.startsWith("#") ? href : routeHref(href, data.active_project_id)}"><span class="operation-card-icon">${navIcon(title === "Workers" ? "execution" : title === "Runtime" ? "projects" : title === "Approvals" ? "config" : "actions")}</span><div><h3>${title}</h3><p>${description}</p><small>${meta}</small></div><span class="operation-arrow">→</span></a>`).join("")}</section>
   <section class="system-strip"><div><span>默认模式</span><strong>Controlled execution</strong></div><div><span>外部写入</span><strong>关闭</strong></div><div><span>可用操作</span><strong>${actions.length}</strong></div><div><span>审计日志</span><strong>持续记录</strong></div></section>
   <details id="advanced-operations" class="advanced-section"><summary>打开高级操作台</summary><div class="advanced-body">
@@ -2610,7 +2623,20 @@ function pageActions(data) {
     risk: riskBadge(action.risk),
     mode: executionModeLabel(action.executionMode),
     gate: governanceGateForMode(action.executionMode)
-  })), [{ key: "id", label: messages.pages.actions.action }, { key: "intent", label: messages.pages.actions.intent }, { key: "risk", label: messages.common.risk, html: true }, { key: "mode", label: messages.common.mode }, { key: "gate", label: messages.common.gate }])}</section></div></details>`;
+  })), [{ key: "id", label: messages.pages.actions.action }, { key: "intent", label: messages.pages.actions.intent }, { key: "risk", label: messages.common.risk, html: true }, { key: "mode", label: messages.common.mode }, { key: "gate", label: messages.common.gate }])}</section></div></details>
+  <script>
+  (() => {
+    const list=document.getElementById("governed-runs"), status=document.getElementById("governed-run-status"); if(!list)return;
+    const esc=(value)=>String(value??"").replace(/[&<>"']/g,(char)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]);
+    const labels={PENDING_APPROVAL:"等待批准",RUNNING:"执行中",SUCCEEDED:"已完成",FAILED:"失败",CANCELLED:"已取消",BLOCKED:"已阻塞"};
+    const tones={PENDING_APPROVAL:"proposal-only",RUNNING:"local",SUCCEEDED:"pass",FAILED:"blocked",CANCELLED:"pending",BLOCKED:"blocked"};
+    const call=async(url,options={})=>{const response=await fetch(url,{headers:{"content-type":"application/json"},...options});const body=await response.json();if(!response.ok)throw new Error(body.reason||body.status||"请求失败");return body;};
+    const render=(runs)=>{if(!runs.length){list.innerHTML='<div class="empty-state"><strong>还没有执行提案</strong>填写目标与路径后生成第一份受控提案。</div>';return;}list.innerHTML=runs.map((run)=>'<div class="simple-row" style="align-items:flex-start;gap:18px"><div style="min-width:0;flex:1"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong>'+esc(run.goal)+'</strong><span class="status-label '+(tones[run.status]||"pending")+'">● '+esc(labels[run.status]||run.status)+'</span></div><small>'+esc(run.projectId)+' · '+esc((run.allowedPaths||[]).join(", "))+' · '+esc(run.id)+'</small>'+(run.error?'<p class="help">'+esc(run.error)+'</p>':'')+'</div><div class="button-row compact-row">'+(run.status==="PENDING_APPROVAL"?'<button class="primary" data-governed-approve="'+esc(run.id)+'">批准并启动</button>':'')+(run.status==="RUNNING"?'<button class="danger" data-governed-cancel="'+esc(run.id)+'">停止</button>':'')+'</div></div>').join("");};
+    const refresh=async()=>{try{const body=await call("/api/governed-runs");render(body.runs||[]);if((body.runs||[]).some((run)=>run.status==="RUNNING"))window.setTimeout(refresh,2500);}catch(error){status.textContent=error.message;}};
+    document.getElementById("governed-create").addEventListener("click",async()=>{const button=document.getElementById("governed-create");const payload={projectId:document.getElementById("governed-project").value,goal:document.getElementById("governed-goal").value.trim(),allowedPaths:document.getElementById("governed-paths").value.split("\\n").map((item)=>item.trim()).filter(Boolean),maxRuntimeSeconds:Number(document.getElementById("governed-timeout").value)};if(!payload.goal||!payload.allowedPaths.length){status.textContent="请填写开发目标，并至少指定一个允许修改的路径。";return;}button.disabled=true;status.textContent="正在生成受控执行提案……";try{await call("/api/governed-runs",{method:"POST",body:JSON.stringify(payload)});status.textContent="提案已生成。请复核项目、路径与目标后再批准。";await refresh();}catch(error){status.textContent=error.message;}finally{button.disabled=false;}});
+    list.addEventListener("click",async(event)=>{const approve=event.target.closest("[data-governed-approve]"),cancel=event.target.closest("[data-governed-cancel]");if(approve){if(!window.confirm("批准后将启动一次真实 Codex 执行。确认项目和允许路径均正确？"))return;approve.disabled=true;status.textContent="正在通过 Activation Gate 并启动 Worker……";try{await call("/api/governed-runs/"+encodeURIComponent(approve.dataset.governedApprove)+"/approve",{method:"POST",body:"{}"});await refresh();}catch(error){status.textContent=error.message;approve.disabled=false;}}if(cancel){cancel.disabled=true;try{await call("/api/governed-runs/"+encodeURIComponent(cancel.dataset.governedCancel)+"/cancel",{method:"POST",body:"{}"});await refresh();}catch(error){status.textContent=error.message;cancel.disabled=false;}}});refresh();
+  })();
+  </script>`;
 }
 
 function pageConfig(data) {
