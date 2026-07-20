@@ -3,6 +3,8 @@ import { closeSync, existsSync, openSync, statSync, unlinkSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { compileDomainWorkflow, getStudioApplication, getStudioDomain } from "./domain-center.mjs";
+import { getEnterpriseApplication } from "./enterprise-applications.mjs";
+import { getBusinessObjectDefinition } from "./business-object-definitions.mjs";
 
 const terminal = new Set(["SUCCEEDED", "FAILED", "BLOCKED", "CANCELLED"]);
 const positiveInt = (value, fallback, max = Number.MAX_SAFE_INTEGER) => {
@@ -35,6 +37,7 @@ export class AutonomousPortfolioService {
 
   path(id) { return join(this.storeDir, `${safeId(id)}.json`); }
   lockPath(id) { return join(this.storeDir, `${safeId(id)}.tick.lock`); }
+  proposalLockPath(id) { return join(this.storeDir, `${safeId(id)}.proposal.lock`); }
   async save(campaign) { await mkdir(this.storeDir, { recursive: true }); await writeFile(this.path(campaign.id), `${JSON.stringify(campaign, null, 2)}\n`, "utf8"); return campaign; }
   async get(id,scope=null) { if (!existsSync(this.path(id))) return null;const campaign=JSON.parse(await readFile(this.path(id), "utf8"));return scope&&((campaign.organizationId??"studio-org")!==scope.organizationId||(campaign.workspaceId??"studio-workspace")!==scope.workspaceId)?null:campaign; }
   async list(scope=null) {
@@ -85,6 +88,7 @@ export class AutonomousPortfolioService {
     const id = `portfolio-${Date.now()}-${randomUUID().slice(0, 8)}`;
     const scheduleMode = input.scheduleMode === "RECURRING" ? "RECURRING" : "ONCE";
     const maxCycles = scheduleMode === "RECURRING" ? positiveInt(input.maxCycles, 4, 52) : 1;
+    const businessObjectProposals=workstreams.map(stream=>{const app=getEnterpriseApplication(stream.applicationId),type=app?.objectTypes.find(item=>item.primary)??app?.objectTypes[0],schema=type?getBusinessObjectDefinition(app.id,type.id):null;return{id:`${id}-proposal-${stream.sequence}`,sequence:stream.sequence,applicationId:stream.applicationId,applicationName:stream.applicationName,objectType:type?.id??null,objectTypeName:type?.name??null,title:`${goal} · ${stream.applicationName}`,displayKey:`PROGRAM-${safeId(id).slice(-16).toUpperCase()}-${stream.sequence}`,requiredFields:(schema?.fields??[]).filter(item=>item.required).map(item=>({key:item.key,label:item.label,type:item.type,options:item.options??null,min:item.min??null,max:item.max??null,referenceOnly:item.referenceOnly===true})),status:"NEEDS_INPUT",record:null,materializedAt:null,materializedBy:null};});
     const campaign = {
       schemaVersion: 2,
       id,
@@ -102,6 +106,7 @@ export class AutonomousPortfolioService {
       budget: { maxTasks: positiveInt(input.maxTasks, Math.max(20, workstreams.reduce((sum,item)=>sum+item.domainIds.length,0) * 4), 1000), maxTokenEstimate: positiveInt(input.maxTokenEstimate, Math.max(100000, workstreams.reduce((sum,item)=>sum+item.domainIds.length,0) * 20000), 100000000), maxRuntimeMinutes: positiveInt(input.maxRuntimeMinutes, Math.max(120, workstreams.reduce((sum,item)=>sum+item.domainIds.length,0) * 20), 100000), maxCostUsd: Number(input.maxCostUsd ?? 20) },
       usage: { reservedTasks: 0, reservedTokenEstimate: 0, reservedRuntimeMinutes: 0, actualTasks: 0, actualRuntimeExecutions: 0, actualTokenUsage: null, actualCostUsd: null },
       initiatives: this.buildInitiatives(id, 0, workstreams, goal),
+      businessObjectProposals,
       createdBy: actor.userId ?? "unknown",
       approvedBy: null,
       createdAt: this.clock().toISOString(),
@@ -119,6 +124,7 @@ export class AutonomousPortfolioService {
     const campaign = await this.get(id);
     if (!campaign) throw Object.assign(new Error("PORTFOLIO_NOT_FOUND"), { code: "PORTFOLIO_NOT_FOUND" });
     if (campaign.status !== "DRAFT" && campaign.status !== "PAUSED") throw Object.assign(new Error("PORTFOLIO_NOT_ACTIVATABLE"), { code: "PORTFOLIO_NOT_ACTIVATABLE" });
+    if(campaign.plannerEvidence&&campaign.businessObjectProposals?.some(item=>item.status!=="MATERIALIZED"))throw Object.assign(new Error("PORTFOLIO_BUSINESS_OBJECTS_REQUIRED"),{code:"PORTFOLIO_BUSINESS_OBJECTS_REQUIRED",pendingProposalIds:campaign.businessObjectProposals.filter(item=>item.status!=="MATERIALIZED").map(item=>item.id)});
     campaign.status = "ACTIVE";
     campaign.approvedBy = actor.userId ?? "unknown";
     campaign.startedAt ??= this.clock().toISOString();
@@ -226,5 +232,9 @@ export class AutonomousPortfolioService {
     campaign.updatedAt = this.clock().toISOString();
     checkpoint(campaign,"CAMPAIGN_PAUSED",{actorId:campaign.pausedBy},campaign.updatedAt);
     return this.save(campaign);
+  }
+
+  async materializeProposal(id,proposalId,{actor={},createOrLoad}={}){
+    if(typeof createOrLoad!=="function")throw Object.assign(new Error("PORTFOLIO_PROPOSAL_WRITER_REQUIRED"),{code:"PORTFOLIO_PROPOSAL_WRITER_REQUIRED"});await mkdir(this.storeDir,{recursive:true});let fd;try{fd=openSync(this.proposalLockPath(id),"wx");}catch{throw Object.assign(new Error("PORTFOLIO_PROPOSAL_BUSY"),{code:"PORTFOLIO_PROPOSAL_BUSY"});}closeSync(fd);try{const campaign=await this.get(id,{organizationId:actor.organizationId,workspaceId:actor.workspaceId});if(!campaign)throw Object.assign(new Error("PORTFOLIO_NOT_FOUND"),{code:"PORTFOLIO_NOT_FOUND"});if(!["DRAFT","PAUSED"].includes(campaign.status))throw Object.assign(new Error("PORTFOLIO_PROPOSAL_CAMPAIGN_STATE_DENIED"),{code:"PORTFOLIO_PROPOSAL_CAMPAIGN_STATE_DENIED"});const proposal=campaign.businessObjectProposals?.find(item=>item.id===proposalId);if(!proposal)throw Object.assign(new Error("PORTFOLIO_PROPOSAL_NOT_FOUND"),{code:"PORTFOLIO_PROPOSAL_NOT_FOUND"});if(proposal.record)return{campaign,proposal,resumed:true};const record=await createOrLoad(proposal);proposal.status="MATERIALIZED";proposal.record={id:record.id,applicationId:record.applicationId,objectType:record.objectType,displayKey:record.displayKey,title:record.title,status:record.status,version:record.version,href:`${getEnterpriseApplication(record.applicationId).path}?record=${record.id}`};proposal.materializedAt=this.clock().toISOString();proposal.materializedBy=actor.userId??"unknown";campaign.updatedAt=proposal.materializedAt;checkpoint(campaign,"BUSINESS_OBJECT_MATERIALIZED",{proposalId:proposal.id,applicationId:proposal.applicationId,recordId:record.id,displayKey:record.displayKey},proposal.materializedAt);await this.save(campaign);return{campaign,proposal,resumed:false};}finally{try{unlinkSync(this.proposalLockPath(id));}catch{}}
   }
 }

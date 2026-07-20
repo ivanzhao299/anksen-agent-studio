@@ -6,6 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { loadDomainRuntimeRegistry } from "../lib/domain-center.mjs";
 import { AutonomousPortfolioService } from "../lib/autonomous-portfolio.mjs";
+import { BusinessApplicationStore } from "../lib/business-application-store.mjs";
 import { renderConsolePage } from "../../../apps/console/web/render.mjs";
 
 async function setup({ dispatcher, now = new Date("2026-07-20T00:00:00.000Z") } = {}) {
@@ -18,7 +19,7 @@ async function setup({ dispatcher, now = new Date("2026-07-20T00:00:00.000Z") } 
     dispatcher: dispatcher ?? (async ({ initiative }) => ({ status: "SUCCEEDED", report: { sessionId: initiative.id, goalId: initiative.id, totalTasks: initiative.taskEstimate, runtimeExecutionCount: initiative.taskEstimate } })),
     clock: () => current
   });
-  return { service, advance(minutes) { current = new Date(current.getTime() + minutes * 60000); } };
+  return { service,repoRoot, advance(minutes) { current = new Date(current.getTime() + minutes * 60000); } };
 }
 
 test("composes a durable campaign from real domain skills and agent assignments", async () => {
@@ -84,12 +85,20 @@ test("cross-application program rejects cyclic dependencies before persistence",
 
 test("campaign reads fail closed outside the owning organization and workspace",async()=>{const{service}=await setup();const campaign=await service.create({applicationId:"finance-platform",goal:"租户隔离任务"},{userId:"owner",organizationId:"org-a",workspaceId:"workspace-a"});assert.equal((await service.list({organizationId:"org-a",workspaceId:"workspace-a"})).length,1);assert.equal((await service.list({organizationId:"org-b",workspaceId:"workspace-a"})).length,0);assert.equal(await service.get(campaign.id,{organizationId:"org-a",workspaceId:"workspace-b"}),null);});
 
+test("business object proposals require formal fields and materialize idempotently through the owning application writer",async()=>{const{service}=await setup(),campaign=await service.create({applicationId:"finance-platform",goal:"建立年度预算"},{userId:"finance-owner",organizationId:"org-a",workspaceId:"workspace-a"}),proposal=campaign.businessObjectProposals[0];assert.equal(proposal.objectType,"budget");assert.ok(proposal.requiredFields.some(item=>item.key==="budgetCode"));let writes=0;const createOrLoad=async current=>{writes++;return{id:"budget-1",applicationId:current.applicationId,objectType:current.objectType,displayKey:current.displayKey,title:current.title,status:"DRAFT",version:1};},actor={userId:"finance-owner",organizationId:"org-a",workspaceId:"workspace-a"},first=await service.materializeProposal(campaign.id,proposal.id,{actor,createOrLoad}),second=await service.materializeProposal(campaign.id,proposal.id,{actor,createOrLoad});assert.equal(first.proposal.status,"MATERIALIZED");assert.equal(second.resumed,true);assert.equal(writes,1);assert.equal(second.proposal.record.href,"/finance?record=budget-1");assert.equal(second.campaign.checkpoints.at(-1).type,"BUSINESS_OBJECT_MATERIALIZED");});
+
+test("Planner-generated Campaign cannot activate before every proposed business object is materialized",async()=>{const{service}=await setup(),campaign=await service.create({applicationId:"finance-platform",goal:"建立正式预算",plannerPlan:{plannerVersion:"enterprise-rule-planner-v1",planHash:"hash",dependencyMode:"PARALLEL",llmUsed:false}},{userId:"owner"});await assert.rejects(()=>service.activate(campaign.id,{userId:"approver"}),error=>error.code==="PORTFOLIO_BUSINESS_OBJECTS_REQUIRED");await service.materializeProposal(campaign.id,campaign.businessObjectProposals[0].id,{actor:{userId:"owner",organizationId:"studio-org",workspaceId:"studio-workspace"},createOrLoad:async proposal=>({id:"budget-2",applicationId:proposal.applicationId,objectType:proposal.objectType,displayKey:proposal.displayKey,title:proposal.title,status:"DRAFT",version:1})});assert.equal((await service.activate(campaign.id,{userId:"approver"})).status,"ACTIVE");});
+
+test("proposal materialization uses the conventional application's field validation and record ledger",async()=>{const{service,repoRoot}=await setup(),store=new BusinessApplicationStore({repoRoot}),actor={userId:"finance-owner",organizationId:"org-ledger",workspaceId:"workspace-ledger"},campaign=await service.create({applicationId:"finance-platform",goal:"建立受控预算"},actor),proposal=campaign.businessObjectProposals[0];await assert.rejects(()=>service.materializeProposal(campaign.id,proposal.id,{actor,createOrLoad:item=>store.createRecord(item.applicationId,{objectType:item.objectType,displayKey:item.displayKey,title:item.title,fields:{}},actor)}),error=>error.code==="BUSINESS_FIELD_REQUIRED");const result=await service.materializeProposal(campaign.id,proposal.id,{actor,createOrLoad:item=>store.createRecord(item.applicationId,{objectType:item.objectType,displayKey:item.displayKey,title:item.title,fields:{fiscalYear:2027,department:"集团运营",budgetCode:"OPS",amount:100000,currency:"CNY"}},actor)}),record=await store.getRecord("finance-platform",result.proposal.record.id,actor);assert.equal(record.displayKey,proposal.displayKey);assert.equal(record.fields.amount,100000);assert.equal((await store.recordDetail("finance-platform",record.id,actor)).timeline[0].type,"business.object.created");});
+
 test("Studio exposes the portfolio product route and authenticated lifecycle API", async () => {
   const html = await renderConsolePage("/portfolio", { authenticated: true, capabilities: ["*"], project_allowlist: ["*"] });
   const server = await readFile(new URL("../../../apps/console/web/server.mjs", import.meta.url), "utf8");
   const access = await readFile(new URL("../../access-center/lib/access-center-utils.mjs", import.meta.url), "utf8");
   assert.match(html, /集团长期任务编排/);
   assert.match(html, /智能拆解目标/);
+  assert.match(html, /正式业务对象提案/);
+  assert.match(html, /data-materialize-proposal/);
   assert.match(html, /portfolio-plan-preview/);
   assert.match(html, /\/api\/portfolio\/plan/);
   assert.match(html, /Skill \/ Agent/);
@@ -98,6 +107,8 @@ test("Studio exposes the portfolio product route and authenticated lifecycle API
   assert.match(server, /EnterpriseProgramPlanner/);
   assert.match(server, /PORTFOLIO_APPLICATION_FORBIDDEN/);
   assert.match(server, /PORTFOLIO_PLANNER_PLAN_MISMATCH/);
+  assert.match(server, /materializeProposal/);
+  assert.match(server, /PORTFOLIO_PROPOSAL_NOT_FOUND/);
   assert.match(server, /`portfolio-\$\{portfolioAction\[2\]\}`/);
   assert.match(access, /"portfolio-activate"/);
   assert.match(server, /runDaemon/);
