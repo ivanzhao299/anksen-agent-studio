@@ -1,60 +1,58 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-06-29T03:58:28Z",
-  "goal": "保持 Agent Studio Pilot 控制面与 managed project 上下文同步，准备接管后续开发任务",
-  "current_stage": "V5 closure complete; Pilot local control plane active; managed-project branch sync pending",
-  "next_stage": "Continue single-worktree development on jinhu-smart-park feature branch; resync stale agent worktrees before any multi-agent dispatch.",
+  "schema_version": 2,
+  "generated_at": "2026-07-20T15:00:00+08:00",
+  "goal": "Build independent conventional business applications driven by one shared intelligent runtime, while keeping the group cockpit as the command and observation layer.",
+  "current_stage": "Enterprise Application Foundation and Intelligent Workflow Integration",
+  "next_stage": "Implement application endpoints, business-object contracts, My Work, conventional workbenches, and the first object-write-back workflow.",
+  "architecture_source": "docs/ENTERPRISE_APPLICATION_INTELLIGENCE_ARCHITECTURE.md",
+  "product_principles": [
+    "The cockpit commands and observes; it does not replace operational applications.",
+    "Ordinary users work with conventional records, forms, approvals, ledgers, reports, and work queues.",
+    "Business objects are authoritative; Agent tasks only advance or analyse them.",
+    "All applications share one Kernel, Scheduler, Worker, Runtime, Memory, Approval, and Audit foundation.",
+    "Runtime-off applications remain usable; runtime-on applications gain continuous intelligent operation.",
+    "Business outcomes must be source-backed and must not be substituted by Agent completion counts."
+  ],
   "milestones": [
-    {
-      "id": "v5-closure",
-      "title": "V5 productization closure",
-      "completed": true
-    },
-    {
-      "id": "pilot-console-local-service",
-      "title": "Pilot local console and action server",
-      "completed": true
-    },
-    {
-      "id": "managed-project-context-refresh",
-      "title": "Managed project runtime memory imported into Agent Studio",
-      "completed": true
-    },
-    {
-      "id": "feature-branch-baseline",
-      "title": "jinhu-smart-park feature branch baseline established",
-      "completed": true
-    },
-    {
-      "id": "agent-worktree-resync",
-      "title": "Resync agent-1..5 worktrees to the active managed-project branch",
-      "completed": false
-    }
+    { "id": "ea-001-architecture-memory", "title": "Persist enterprise application intelligence architecture", "completed": true },
+    { "id": "ea-002-application-registry", "title": "Application endpoint, persona, navigation and permission registry", "completed": true },
+    { "id": "ea-003-business-work-contract", "title": "Business object to Agent Task and Runner contract", "completed": true },
+    { "id": "ea-004-my-work", "title": "Shared conventional My Work center", "completed": true },
+    { "id": "ea-005-business-workbenches", "title": "Minimum conventional workbench for six business applications", "completed": true },
+    { "id": "ea-006-intelligent-workflow", "title": "First validated workflow with business-object write-back", "completed": true },
+    { "id": "ea-007-production-release", "title": "Tests, push and Office 204 deployment", "completed": false }
   ],
   "next_recommended_action": {
-    "title": "Stabilize jinhu-smart-park branch topology before multi-agent execution",
-    "reason": "The platform is ready for pilot use and the managed-project context is refreshed, but orchestrated multi-agent execution should not resume until stale agent worktrees are resynced to feature/engineering-project-delivery-runtime. Continue direct development on the active feature branch meanwhile, and do not push directly to main.",
-    "target_project": "jinhu-smart-park",
-    "target_package": "ops/agent-orchestrator",
+    "title": "Deepen each application with domain-specific records, forms and approval workflows",
+    "reason": "The shared application shell, business object contract, My Work and first finance write-back workflow are complete. The next slice must replace generic record fields with domain-specific detail and reports without duplicating the runtime.",
+    "target_project": "anksen-agent-studio",
+    "target_packages": ["packages/domain-center", "packages/orchestrator-core", "apps/console"],
     "expected_files": [
-      "runtime/projects/jinhu-smart-park/project-state.json",
-      "runtime/projects/jinhu-smart-park/handoff-summary.md"
-    ],
-    "validation_commands": [
-      "node packages/orchestrator-core/bin/studio.mjs context summary",
-      "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
-      "git -C ../jinhu-smart-park worktree list",
-      "node ../jinhu-smart-park/ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+      "packages/domain-center/lib/enterprise-applications.mjs",
+      "packages/orchestrator-core/lib/business-work-contract.mjs",
+      "apps/console/web/routes.mjs",
+      "apps/console/web/render.mjs",
+      "apps/console/web/server.mjs"
     ],
     "risk": "MEDIUM",
     "approval_required": false,
-    "execution_mode": "single_worktree_until_resynced"
+    "execution_mode": "test-gated-continuous-implementation"
   },
-  "validation_commands": [
-    "node packages/orchestrator-core/bin/studio.mjs context summary",
-    "node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park",
-    "git -C ../jinhu-smart-park worktree list",
-    "node ../jinhu-smart-park/ops/agent-orchestrator/scripts/orchestratorctl.mjs doctor"
+  "six_hour_task_graph": [
+    { "id": "EA-001", "depends_on": [], "title": "Architecture memory" },
+    { "id": "EA-002", "depends_on": ["EA-001"], "title": "Application registry and endpoints" },
+    { "id": "EA-003", "depends_on": ["EA-001"], "title": "Business work contract" },
+    { "id": "EA-004", "depends_on": ["EA-002", "EA-003"], "title": "My Work projection" },
+    { "id": "EA-005", "depends_on": ["EA-002", "EA-003"], "title": "Six conventional workbenches" },
+    { "id": "EA-006", "depends_on": ["EA-004", "EA-005"], "title": "Intelligent workflow write-back" },
+    { "id": "EA-007", "depends_on": ["EA-006"], "title": "Verification and production deployment" }
   ],
-  "stop_policy": "single-worktree mode until managed-project agent worktrees are resynced; no direct push to main"
+  "validation_commands": [
+    "node --test packages/domain-center/test/*.test.mjs packages/orchestrator-core/test/*.test.mjs apps/console/web/*.test.mjs",
+    "pnpm typecheck",
+    "pnpm build",
+    "node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run",
+    "git diff --check"
+  ],
+  "stop_policy": "Stop on business-object boundary violations, duplicate runtime stacks, permission bypass, unvalidated write-back, secret exposure, or failed release checks."
 }

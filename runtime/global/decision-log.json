@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-29T11:22:00Z",
+  "generated_at": "2026-07-20T15:00:00+08:00",
   "decisions": [
     {
       "date": "2026-06-23",
@@ -43,6 +43,30 @@
       "title": "Resolve managed-project execution into the target repository before any write decision",
       "decision": "Autopilot and Console execution must first resolve the target project repo path, branch, project context, and runtime-memory location. Governance then decides whether execution stays proposal-only or can proceed, but branch creation and write planning must never default back into the Studio repository for managed-project work.",
       "source": "managed project execution routing audit"
+    },
+    {
+      "date": "2026-07-20",
+      "title": "Treat conventional business applications as the primary product surface",
+      "decision": "The group cockpit is a cross-system command and observation entry. Strategy, HR, Finance, Growth and Sales, Manufacturing ERP, and Smart Park remain independent conventional business applications with their own endpoints, personas, permissions, data, forms, records, approvals, work queues, reports, and workflows.",
+      "source": "docs/ENTERPRISE_APPLICATION_INTELLIGENCE_ARCHITECTURE.md"
+    },
+    {
+      "date": "2026-07-20",
+      "title": "Use one intelligent runtime beneath every business application",
+      "decision": "All applications share the existing Kernel, Scheduler, Workflow, Skill, Agent, online Runner, Runtime Adapter, Runtime Memory, Approval, Audit, and Outbox foundations. Business applications must not create duplicate orchestration stacks.",
+      "source": "docs/ENTERPRISE_APPLICATION_INTELLIGENCE_ARCHITECTURE.md"
+    },
+    {
+      "date": "2026-07-20",
+      "title": "Keep business records authoritative over Agent tasks",
+      "decision": "A Goal or Agent Task may plan, analyse, assign, or advance a business record, but it cannot replace that record. Runtime Memory stores scoped execution knowledge and recovery state, not the authoritative ERP, CRM, HR, finance, manufacturing, or park transaction.",
+      "source": "docs/ENTERPRISE_APPLICATION_INTELLIGENCE_ARCHITECTURE.md"
+    },
+    {
+      "date": "2026-07-20",
+      "title": "Deploy Studio only through the reviewed Office 204 release workflow",
+      "decision": "Agents and business Runners may not invoke arbitrary deployment commands. An explicitly authorized Studio release may deploy main only through the guarded GitHub Actions to Aliyun jump host to Office 204 workflow, with validation, commit pinning, health checks, and no interactive production shell.",
+      "source": "docs/release/GITHUB_ACTIONS_OFFICE_DEPLOYMENT.md"
     }
   ]
 }

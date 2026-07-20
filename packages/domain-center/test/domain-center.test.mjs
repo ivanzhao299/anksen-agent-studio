@@ -73,14 +73,21 @@ test("software workflow binds stages to real skills, agents, runtimes, and worke
   assert.ok(workflow.tasks.every((item) => item.metadata.applicationId === "software-factory" && item.metadata.businessSkillId));
 });
 
-test("missing professional Runner blocks the business workflow honestly", () => {
+test("professional spreadsheet workflow resolves to declared online Runner capacity", () => {
   const finance = getStudioDomain("finance-management");
   const capability = resolveDomainCapability(finance, registry);
-  assert.equal(capability.status, "BLOCKED");
-  assert.ok(capability.blockedReasons.includes("NO_ONLINE_CAPACITY:spreadsheet_analysis"));
+  assert.equal(capability.status, "READY");
+  assert.equal(capability.blockedReasons.length, 0);
   const workflow = compileDomainWorkflow("编制财务预算", registry, { goalId: "finance-goal", explicitDomainId: "finance-management" });
-  assert.equal(workflow.status, "BLOCKED");
-  assert.ok(workflow.blockedReasons.includes("NO_WORKER_FOR_SKILL:spreadsheet_analysis"));
+  assert.equal(workflow.status, "READY");
+  assert.ok(workflow.assignments.every((item) => item.workerKey));
+});
+
+test("business task binding propagates through every workflow stage without replacing the object", () => {
+  const binding = { schemaVersion: 1, taskKind: "BUSINESS", scope: { organizationId: "org", workspaceId: "workspace", projectId: "project", applicationId: "finance-platform", domainId: "finance-management", userId: "finance-user" }, businessObject: { systemId: "finance-platform", objectType: "expense", objectId: "expense-1", version: 1, displayKey: "EXP-1", href: "/finance?record=expense-1" }, relations: [], workflow: { definitionId: "expense-review", definitionVersion: "1", instanceId: "workflow-1", stageId: "PLAN" }, skill: { businessSkillId: "finance_scope_control", skillId: "document-generation", skillType: "document_generation", contractVersion: "1", requiredCapabilities: ["document_generation"], riskLevel: "LOW", approvalPolicy: "RISK_BASED", idempotencyKey: "expense-1:workflow-1" }, execution: { preferredRuntimeId: "controlled-stub", preferredWorkerKey: null, assignmentPolicy: "CAPABILITY", runnerClass: null, memoryScopeKey: "finance:expense:expense-1" }, writeback: { operation: "TRANSITION", expectedObjectVersion: 1, resultSchemaRef: null, eventType: "finance.expense.review-ready" } };
+  const workflow = compileDomainWorkflow("审核差旅费用", registry, { goalId: "expense-goal", explicitDomainId: "finance-management", businessTaskBinding: binding });
+  assert.ok(workflow.tasks.every((task) => task.metadata.businessTaskBinding.businessObject.objectId === "expense-1"));
+  assert.deepEqual(workflow.tasks.map((task) => task.metadata.businessTaskBinding.workflow.stageId), workflow.assignments.map((item) => item.key));
 });
 
 test("workflow submits the business graph through the existing Kernel port", async () => {

@@ -4,6 +4,15 @@ const messages = getConsoleMessages();
 
 export const consoleWebRoutes = [
   { id: "dashboard", label: messages.nav.dashboard, path: "/", navPath: "/" },
+  { id: "cockpit", label: "集团驾驶舱", path: "/cockpit", navPath: "/cockpit" },
+  { id: "work", label: "我的工作", path: "/work", navPath: "/work" },
+  { id: "strategy", label: "战略执行", path: "/strategy", navPath: "/strategy" },
+  { id: "hr", label: "人力资源", path: "/hr", navPath: "/hr" },
+  { id: "finance", label: "财务管理", path: "/finance", navPath: "/finance" },
+  { id: "growthSales", label: "增长销售", path: "/growth-sales", navPath: "/growth-sales" },
+  { id: "manufacturing", label: "制造 ERP", path: "/manufacturing", navPath: "/manufacturing" },
+  { id: "smartPark", label: "智慧园区", path: "/smart-park", navPath: "/smart-park" },
+  { id: "video", label: "视频工厂", path: "/video", navPath: "/video" },
   { id: "execution", label: "运行", path: "/execution", navPath: "/execution" },
   { id: "development", label: "自主开发", path: "/development", navPath: "/development" },
   { id: "domains", label: "领域中心", path: "/domains", navPath: "/domains" },

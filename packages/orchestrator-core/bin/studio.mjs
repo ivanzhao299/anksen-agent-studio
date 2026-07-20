@@ -9997,7 +9997,7 @@ async function consoleActionServerSmoke(args) {
     agent: "auto"
   });
   const cancelledRun = await actionServer.cancelConversationAction(cancelRun.run_id);
-  const loadedRun = actionServer.getConversationAction(asyncRun.run_id);
+  const loadedRun = await actionServer.getConversationAction(asyncRun.run_id);
   const routeCheck = [
     "/api/access/login",
     "/api/access/logout",

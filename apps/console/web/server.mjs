@@ -7,6 +7,7 @@ import {
   createAccessInvite,
   currentSessionSummary,
   evaluateConsoleActionAccess,
+  evaluateConsoleRouteAccess,
   loadAccessCenter,
   loginToAccessCenter,
   logoutFromAccessCenter,
@@ -20,6 +21,9 @@ import { PersistentDomainWorkflowService } from "../../../packages/domain-center
 import { AutonomousPortfolioService } from "../../../packages/domain-center/lib/autonomous-portfolio.mjs";
 import { BusinessOutcomeCenter } from "../../../packages/domain-center/lib/business-outcome-center.mjs";
 import { AutonomousDevelopmentJobs } from "../../../packages/orchestrator-core/lib/autonomous-development-jobs.mjs";
+import { BusinessApplicationStore } from "../../../packages/domain-center/lib/business-application-store.mjs";
+import { enterpriseApplicationSummary, getEnterpriseApplication } from "../../../packages/domain-center/lib/enterprise-applications.mjs";
+import { createBusinessTaskBinding } from "../../../packages/orchestrator-core/lib/business-task-binding.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
 import { createStudioMcpRequestHandler } from "../../../packages/orchestrator-core/lib/studio-mcp-server.mjs";
@@ -66,6 +70,7 @@ const dispatchPortfolioInitiative = async ({ campaign, initiative }) => {
 const autonomousPortfolio = new AutonomousPortfolioService({ repoRoot, registry: portfolioRegistry, dispatcher: dispatchPortfolioInitiative });
 const businessOutcomeCenter = new BusinessOutcomeCenter({ repoRoot });
 const autonomousDevelopmentJobs = new AutonomousDevelopmentJobs({ repoRoot });
+const businessApplicationStore = new BusinessApplicationStore({ repoRoot });
 setInterval(() => autonomousPortfolio.tick().catch((error) => console.error("portfolio tick failed", error?.code ?? error?.message ?? error)), 30000).unref();
 const identityRuntime = await loadIdentityRuntimeConfig();
 const identityOwnerBootstrap = identityRuntime ? new IdentityOwnerBootstrap({ upstreamOrigin: identityRuntime.upstreamOrigin }) : null;
@@ -334,6 +339,40 @@ const server = createServer(async (request, response) => {
     if (request.method === "GET" && pathname === "/api/outcomes/catalog") {
       sendJson(response, 200, { contracts: businessOutcomeCenter.catalog(), connectors: await businessOutcomeCenter.connectors() });
       return;
+    }
+    if (request.method === "GET" && pathname === "/api/business/applications") {
+      const summary=enterpriseApplicationSummary();
+      sendJson(response,200,{...summary,applications:summary.applications.filter(app=>evaluateConsoleRouteAccess(app.routeId,accessContext).allowed)});
+      return;
+    }
+    if (request.method === "GET" && pathname === "/api/work") {
+      const access=evaluateConsoleRouteAccess("work",accessContext);if(!access.allowed){sendJson(response,403,access);return;}
+      sendJson(response,200,await businessApplicationStore.myWork({userId:accessContext.user?.user_id,applicationId:url.searchParams.get("applicationId")}));
+      return;
+    }
+    const businessRecords=pathname.match(/^\/api\/business\/applications\/([^/]+)\/records$/);
+    if (businessRecords) {
+      const applicationId=decodeURIComponent(businessRecords[1]),app=getEnterpriseApplication(applicationId);if(!app){sendJson(response,404,{status:"APPLICATION_NOT_FOUND"});return;}
+      const routeAccess=evaluateConsoleRouteAccess(app.routeId,accessContext);if(!routeAccess.allowed){sendJson(response,403,routeAccess);return;}
+      if(request.method==="GET"){sendJson(response,200,{application:app,records:await businessApplicationStore.listRecords(app.id,{objectType:url.searchParams.get("objectType")})});return;}
+      if(request.method==="POST"){const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-record-create",risk:"LOW"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}try{sendJson(response,201,await businessApplicationStore.createRecord(app.id,await readJsonBody(request),{userId:accessContext.user?.user_id}));}catch(error){sendJson(response,400,{status:error.code??"BUSINESS_RECORD_INVALID",reason:error.message});}return;}
+    }
+    const businessTransition=pathname.match(/^\/api\/business\/applications\/([^/]+)\/records\/([^/]+)\/transition$/);
+    if(request.method==="POST"&&businessTransition){const applicationId=decodeURIComponent(businessTransition[1]),app=getEnterpriseApplication(applicationId);if(!app){sendJson(response,404,{status:"APPLICATION_NOT_FOUND"});return;}const routeAccess=evaluateConsoleRouteAccess(app.routeId,accessContext);if(!routeAccess.allowed){sendJson(response,403,routeAccess);return;}const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-record-transition",risk:"MEDIUM"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}try{sendJson(response,200,await businessApplicationStore.transitionRecord(app.id,decodeURIComponent(businessTransition[2]),await readJsonBody(request),{userId:accessContext.user?.user_id}));}catch(error){sendJson(response,409,{status:error.code??"BUSINESS_TRANSITION_FAILED",reason:error.message});}return;}
+    const businessWork=pathname.match(/^\/api\/business\/applications\/([^/]+)\/work$/);
+    if(request.method==="POST"&&businessWork){
+      const applicationId=decodeURIComponent(businessWork[1]),app=getEnterpriseApplication(applicationId);if(!app){sendJson(response,404,{status:"APPLICATION_NOT_FOUND"});return;}
+      const routeAccess=evaluateConsoleRouteAccess(app.routeId,accessContext);if(!routeAccess.allowed){sendJson(response,403,routeAccess);return;}
+      const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-work-assign",risk:"LOW"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}
+      let pool=null;
+      try{
+        const body=await readJsonBody(request),actor={userId:accessContext.user?.user_id},record=await businessApplicationStore.getRecord(app.id,body.businessObjectId);if(!record)throw Object.assign(new Error("BUSINESS_RECORD_NOT_FOUND"),{code:"BUSINESS_RECORD_NOT_FOUND"});
+        const item=await businessApplicationStore.createWorkItem({...body,applicationId:app.id},actor);
+        if(item.assignmentType!=="AGENT"){sendJson(response,201,item);return;}
+        const catalog=domainCenterSummary(),domain=catalog.applications.find(value=>value.id===app.id)?.domains?.[0];if(!domain)throw Object.assign(new Error("APPLICATION_WORKFLOW_NOT_FOUND"),{code:"APPLICATION_WORKFLOW_NOT_FOUND"});
+        const stage=domain.workflow[0],binding=createBusinessTaskBinding({scope:{organizationId:accessContext.organization_id??"anksen-local",workspaceId:accessContext.workspace_id,projectId:"anksen-agent-studio",applicationId:app.id,domainId:domain.id,userId:actor.userId},businessObject:{systemId:app.id,objectType:record.objectType,objectId:record.id,version:record.version,displayKey:record.displayKey,href:`${app.path}?record=${record.id}`},workflow:{definitionId:`${domain.id}-workflow`,definitionVersion:"1",instanceId:item.id,stageId:stage.key},skill:{businessSkillId:stage.businessSkillId,skillId:stage.skillType,skillType:stage.skillType,requiredCapabilities:[stage.skillType],riskLevel:"LOW"},execution:{assignmentPolicy:"CAPABILITY",preferredRuntimeId:"controlled-stub",memoryScopeKey:`${app.id}:${record.objectType}:${record.id}`},writeback:{operation:"TRANSITION",expectedObjectVersion:record.version,eventType:"business.object.workflow.review-ready"}});
+        await ensurePostgresFixture();pool=createTestPool();await migrate(pool,"up");const service=new PersistentDomainWorkflowService(pool,{registry:portfolioRegistry});const submitted=await service.submit({sessionKey:`business-work:${item.id}`,goal:item.title,explicitDomainId:domain.id,businessTaskBinding:binding,scope:binding.scope});await service.runDaemon({pollMs:5,idleTimeoutMs:50,maxRuntimeMs:5000});const report=await service.night.loadReport(submitted.session.id),nextStatus=report?.sessionStatus==="SUCCEEDED"?"WAITING_APPROVAL":"BLOCKED";await businessApplicationStore.attachWorkflow(item.id,{goalId:submitted.goal?.id??submitted.session.goal_id,sessionId:submitted.session.id,report,status:nextStatus});if(nextStatus==="WAITING_APPROVAL")await businessApplicationStore.transitionRecord(app.id,record.id,{expectedVersion:record.version,status:"WAITING_APPROVAL"},actor);sendJson(response,201,{...await businessApplicationStore.myWork({userId:actor.userId,applicationId:app.id}),workItemId:item.id,workflowStatus:nextStatus,report});
+      }catch(error){sendJson(response,400,{status:error.code??"BUSINESS_WORK_INVALID",reason:error.message});}finally{if(pool)await pool.end();}return;
     }
     if (request.method === "GET" && pathname === "/api/outcomes/dashboard") {
       sendJson(response, 200, await businessOutcomeCenter.dashboard());

@@ -1,50 +1,47 @@
-# ANKSEN Agent Studio Runtime Handoff
+# ANKSEN Studio Runtime Handoff
 
-Generated at: 2026-06-29T03:58:28Z
+Generated at: 2026-07-20T15:35:00+08:00
 
-## Platform
+## Product North Star
 
-- platform_status: READY_FOR_PILOT
-- repo_branch: main
-- repo_clean: yes
-- repo_head: ac88a23 chore(context): refresh platform and project memory
+ANKSEN is one intelligent runtime beneath multiple independent conventional business applications. The Group Cockpit commands and observes; Strategy, HR, Finance, Growth & Sales, Manufacturing ERP, Smart Park, Software Factory, and Video Factory own their business records, forms, work queues, approvals, reports, users, and endpoints.
+
+Business records remain authoritative. Agent Tasks advance or analyse those records and Runtime Memory preserves scoped execution knowledge; neither replaces the business database.
 
 ## Current Stage
 
-- current_stage: V5 closure complete; Pilot local control plane active; managed-project branch sync pending
-- next_stage: Continue single-worktree development on jinhu-smart-park feature branch; resync stale agent worktrees before any multi-agent dispatch.
-- next_action: Stabilize jinhu-smart-park branch topology before multi-agent execution
-- target_project: jinhu-smart-park
-- risk: MEDIUM
-- execution_mode: single_worktree_until_resynced
+- program: Enterprise Application Foundation and Intelligent Workflow Integration
+- architecture: `docs/ENTERPRISE_APPLICATION_INTELLIGENCE_ARCHITECTURE.md`
+- completed foundation: application registry, independent routes, persona capabilities, BusinessTaskBindingV1, conventional record store, My Work, business-to-Kernel workflow bridge
+- verified thin slice: Finance expense → Workflow → four Kernel tasks → Scheduler → Worker claims → controlled Runtime → review-ready business state
+- next stage: deepen each application from the shared conventional shell into its first domain-specific record detail, forms, reports, and write-back workflow
 
-## Managed Projects
+## Application Endpoints
 
-- jinhu-smart-park: doctor=CONDITIONAL_GO, repo_branch=feature/engineering-project-delivery-runtime, repo_clean=yes, memory=runtime/projects/jinhu-smart-park
-- phoenix-erp: status=PLANNED, connection=NOT_CONNECTED, memory=runtime/projects/phoenix-erp
-
-## Required Startup Command
-
-```bash
-node packages/orchestrator-core/bin/studio.mjs context summary
-```
+- `/cockpit`
+- `/work`
+- `/strategy`
+- `/hr`
+- `/finance`
+- `/growth-sales`
+- `/manufacturing`
+- `/smart-park`
+- `/development`
+- `/video`
 
 ## Required Reading
 
-- runtime/global/codex-startup.md
-- runtime/global/handoff-summary.md
-- runtime/global/platform-state.json
-- runtime/global/roadmap-memory.json
-- runtime/projects/jinhu-smart-park/handoff-summary.md
-- docs/release/V5_PRODUCTIZATION_CLOSURE_REPORT.md
-- docs/release/PILOT_5_CONSOLE_PRODUCTIZATION.md
-- README.md
+- `docs/ENTERPRISE_APPLICATION_INTELLIGENCE_ARCHITECTURE.md`
+- `runtime/global/decision-log.json`
+- `runtime/global/roadmap-memory.json`
+- `runtime/global/platform-state.json`
+- `docs/BUSINESS_APPLICATION_MODEL.md`
+- `docs/release/GITHUB_ACTIONS_OFFICE_DEPLOYMENT.md`
 
 ## Safety Boundaries
 
-- Do not push jinhu-smart-park directly to main; keep active development on reviewed feature or integration branches until merge time.
-- Do not dispatch stale agent worktrees until they are resynced to the active managed-project branch.
-- Do not deploy.
-- Do not run production migration, seed, reset, cleanup, or production operations.
-- Do not read or write real credential values.
-- Keep Studio Context under runtime/global and Project Context under runtime/projects/<project_id>.
+- Do not duplicate Kernel, Scheduler, Worker, Runtime, Approval, or Audit stacks per application.
+- Do not represent a business record only as a Goal, Task, Prompt, or Runtime Memory object.
+- Do not perform direct production deployment; an explicitly authorized release may use only the guarded Office 204 workflow.
+- Do not run production migration, destructive data operations, or expose credential values.
+- Keep high-risk business writes approval-gated and version/fencing protected.

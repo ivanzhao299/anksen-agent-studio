@@ -6,36 +6,23 @@ First command:
 node packages/orchestrator-core/bin/studio.mjs context summary
 ```
 
-Then inspect the active managed project when needed:
+## Active Program
 
-```bash
-node packages/orchestrator-core/bin/studio.mjs context project --project jinhu-smart-park
-```
+Continue **Enterprise Application Foundation and Intelligent Workflow Integration**. Read `docs/ENTERPRISE_APPLICATION_INTELLIGENCE_ARCHITECTURE.md` before planning or implementation.
 
-## Current State
+The cockpit is only the cross-system command and observation entry. Business capability belongs in independent conventional applications. Business records are authoritative; Tasks, Agents, Runners, and Runtime Memory drive those records through the shared Kernel.
 
-- platform_status: READY_FOR_PILOT
-- current_stage: V5 closure complete; Pilot local control plane active; managed-project branch sync pending
-- next_stage: Continue single-worktree development on jinhu-smart-park feature branch; resync stale agent worktrees before any multi-agent dispatch.
-- next_action: Stabilize jinhu-smart-park branch topology before multi-agent execution
-- active_managed_project_branch: feature/engineering-project-delivery-runtime
+## Next Implementation Order
 
-## Required Reading
-
-- runtime/global/codex-startup.md
-- runtime/global/handoff-summary.md
-- runtime/global/platform-state.json
-- runtime/global/roadmap-memory.json
-- runtime/projects/jinhu-smart-park/handoff-summary.md
-- docs/release/V5_PRODUCTIZATION_CLOSURE_REPORT.md
-- docs/release/PILOT_5_CONSOLE_PRODUCTIZATION.md
-- README.md
+1. Domain-specific business record detail and forms for Strategy, HR, Finance, Sales, Manufacturing, and Smart Park.
+2. Shared My Work actions, approval, notification, and failed-work recovery.
+3. PostgreSQL business-object relation and scoped Runtime Memory migrations.
+4. One validated write-back workflow per application.
+5. Source-backed business outcome aggregation in the cockpit.
 
 ## Safety
 
-- Do not push jinhu-smart-park directly to main; keep active development on reviewed feature or integration branches until merge time.
-- Do not dispatch stale agent worktrees until they are resynced to the active managed-project branch.
-- Do not deploy.
-- Do not run production migration, seed, reset, cleanup, or production operations.
-- Do not read or write real credential values.
-- Keep Studio Context under runtime/global and Project Context under runtime/projects/<project_id>.
+- Do not create a second Planner, Scheduler, Worker, Runtime, or business database inside the cockpit.
+- Do not replace business records with Agent tasks.
+- Do not directly deploy or open interactive production access. Use only the explicitly authorized Office 204 release workflow.
+- Do not expose credential values or run destructive production operations.

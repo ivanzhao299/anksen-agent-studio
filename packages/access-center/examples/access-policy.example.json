@@ -26,7 +26,15 @@
     "agent.runtime.status",
     "access.manage",
     "multi_project.visible",
-    "smart_park.workspace"
+    "smart_park.workspace",
+    "work.read",
+    "business.operate",
+    "strategy.read",
+    "hr.read",
+    "finance.read",
+    "sales.read",
+    "manufacturing.read",
+    "media.read"
   ],
   "roles": [
     {
@@ -141,6 +149,54 @@
       ],
       "direct_execute_max_risk": "MEDIUM",
       "can_manage_access": true
+    },
+    {
+      "role_id": "strategy_operator",
+      "display_name": "战略执行用户",
+      "description": "使用战略目标、指标、举措、复盘和相关智能工作流。",
+      "capabilities": ["console.access", "work.read", "strategy.read", "business.operate", "autopilot.plan"],
+      "direct_execute_max_risk": "LOW",
+      "can_manage_access": false
+    },
+    {
+      "role_id": "hr_operator",
+      "display_name": "人力资源用户",
+      "description": "使用组织、岗位、员工、招聘和入职业务功能。",
+      "capabilities": ["console.access", "work.read", "hr.read", "business.operate", "autopilot.plan"],
+      "direct_execute_max_risk": "LOW",
+      "can_manage_access": false
+    },
+    {
+      "role_id": "finance_operator",
+      "display_name": "财务业务用户",
+      "description": "使用预算、费用、应收应付和财务分析功能。",
+      "capabilities": ["console.access", "work.read", "finance.read", "business.operate", "autopilot.plan"],
+      "direct_execute_max_risk": "LOW",
+      "can_manage_access": false
+    },
+    {
+      "role_id": "sales_operator",
+      "display_name": "增长销售用户",
+      "description": "使用产品、营销活动、线索、客户、商机和服务流程。",
+      "capabilities": ["console.access", "work.read", "sales.read", "media.read", "business.operate", "autopilot.plan"],
+      "direct_execute_max_risk": "LOW",
+      "can_manage_access": false
+    },
+    {
+      "role_id": "manufacturing_operator",
+      "display_name": "制造业务用户",
+      "description": "使用物料、BOM、工单、库存和质量业务功能。",
+      "capabilities": ["console.access", "work.read", "manufacturing.read", "business.operate", "autopilot.plan"],
+      "direct_execute_max_risk": "LOW",
+      "can_manage_access": false
+    },
+    {
+      "role_id": "smart_park_operator",
+      "display_name": "智慧园区用户",
+      "description": "使用企业、空间、合同、工单和能源业务功能。",
+      "capabilities": ["console.access", "work.read", "smart_park.workspace", "business.operate", "autopilot.plan"],
+      "direct_execute_max_risk": "LOW",
+      "can_manage_access": false
     }
   ]
 }

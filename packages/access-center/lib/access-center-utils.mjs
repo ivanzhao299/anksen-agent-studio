@@ -45,6 +45,9 @@ const directExecuteActionIds = new Set([
   "development-job-approve",
   "development-job-control",
   "development-commit",
+  "business-record-create",
+  "business-record-transition",
+  "business-work-assign",
   "identity-owner-bootstrap"
 ]);
 const agentRuntimeIds = new Set([
@@ -73,6 +76,9 @@ const consoleActionCatalog = {
   "development-job-approve": { capabilities: ["console.access", "autopilot.execute.local", "proposal.approve"], execution_mode: "direct_execute", projectScoped: true, risk: "MEDIUM" },
   "development-job-control": { capabilities: ["console.access", "autopilot.execute.local"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
   "development-commit": { capabilities: ["console.access", "autopilot.execute.local", "proposal.approve"], execution_mode: "direct_execute", projectScoped: true, risk: "MEDIUM" },
+  "business-record-create": { capabilities: ["console.access", "business.operate"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
+  "business-record-transition": { capabilities: ["console.access", "business.operate"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
+  "business-work-assign": { capabilities: ["console.access", "business.operate", "autopilot.plan"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "workspace-goal": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "project-dispatch": { capabilities: ["console.access", "project.read", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "agent-real-plan": { capabilities: ["console.access", "agent.runtime.readonly"], execution_mode: "direct_execute", projectScoped: true },
@@ -102,6 +108,15 @@ const consoleActionCatalog = {
 };
 
 const consoleRouteCatalog = {
+  cockpit: ["console.access"],
+  work: ["console.access", "work.read"],
+  strategy: ["console.access", "strategy.read"],
+  hr: ["console.access", "hr.read"],
+  finance: ["console.access", "finance.read"],
+  growthSales: ["console.access", "sales.read"],
+  manufacturing: ["console.access", "manufacturing.read"],
+  smartPark: ["console.access", "smart_park.workspace"],
+  video: ["console.access", "media.read"],
   execution: ["console.access", "autopilot.plan"],
   domains: ["console.access"],
   portfolio: ["console.access", "autopilot.plan"],

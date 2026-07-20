@@ -376,7 +376,7 @@ export function resolveDomainCapability(domain, registry) {
   return { status: skills.every((item) => item.ready) ? "READY" : "BLOCKED", skills, stages, blockedReasons: skills.filter((item) => !item.ready).map((item) => `NO_ONLINE_CAPACITY:${item.skillType}`) };
 }
 
-export function compileDomainWorkflow(goal, registry, { explicitDomainId = null, goalId = "domain-goal" } = {}) {
+export function compileDomainWorkflow(goal, registry, { explicitDomainId = null, goalId = "domain-goal", businessTaskBinding = null } = {}) {
   const domainRoute = routeStudioDomain(goal, { explicitDomainId });
   const domain = getStudioDomain(domainRoute.domainId);
   const application = getStudioApplication(domain.applicationId);
@@ -417,7 +417,8 @@ export function compileDomainWorkflow(goal, registry, { explicitDomainId = null,
       workerKey: assignment.workerKey,
       workerMode: assignment.workerMode,
       assignmentStatus: assignment.status,
-      blockedReasons: assignment.blockedReasons
+      blockedReasons: assignment.blockedReasons,
+      businessTaskBinding: businessTaskBinding ? { ...businessTaskBinding, workflow: { ...businessTaskBinding.workflow, stageId: assignment.key } } : null
     }
   }));
   const dependencies = assignments.filter((assignment) => assignment.dependsOn).map((assignment) => ({
