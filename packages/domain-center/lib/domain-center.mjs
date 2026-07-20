@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { professionalBusinessSkillContracts } from "./professional-business-skill-runner.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(packageRoot, "../..");
@@ -473,6 +474,7 @@ export function domainCenterSummary() {
     domainCount: studioDomains.length,
     singleControlPlane: true,
     sourceOfTruth: "business-application-registry",
+    professionalSkillRunners: professionalBusinessSkillContracts,
     applications: studioApplications.map((application) => ({
       ...application,
       domains: application.domainIds.map((domainId) => getStudioDomain(domainId))
