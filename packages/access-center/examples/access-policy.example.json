@@ -234,6 +234,14 @@
       "capabilities": ["console.access", "work.read", "smart_park.workspace", "business.operate", "business.work.control", "autopilot.plan"],
       "direct_execute_max_risk": "MEDIUM",
       "can_manage_access": false
+    },
+    {
+      "role_id": "smart_park_reviewer",
+      "display_name": "园区服务验收用户",
+      "description": "验收园区服务工单及其版本化处理证据，不具备 Agent Runtime 或平台管理权限。",
+      "capabilities": ["console.access", "work.read", "smart_park.workspace", "business.operate", "proposal.approve"],
+      "direct_execute_max_risk": "MEDIUM",
+      "can_manage_access": false
     }
   ]
 }

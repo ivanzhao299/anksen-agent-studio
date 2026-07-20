@@ -211,7 +211,8 @@ const definitions = Object.freeze({
   "smart-park-platform": Object.freeze({
     service_order: definition({
       label: "园区工单", workflowDomainId: "tenant-service-workflow",
-      fields: [field("enterpriseName", "服务企业", "text", { required: true }), field("serviceType", "服务类型", "select", { required: true, options: ["报修", "企业服务", "投诉", "安全", "其他"] }), field("location", "发生位置", "text", { required: true }), field("slaHours", "SLA(小时)", "number", { required: true, min: 1 }), field("description", "问题描述", "textarea", { required: true })],
+      editableStatuses: ["DRAFT", "OPEN", "DISPATCHED", "IN_PROGRESS"],
+      fields: [field("enterpriseName", "服务企业", "text", { required: true }), field("serviceType", "服务类型", "select", { required: true, options: ["报修", "企业服务", "投诉", "安全", "其他"] }), field("location", "发生位置", "text", { required: true }), field("requestedAt", "受理时间", "datetime-local", { required: true }), field("slaHours", "SLA(小时)", "number", { required: true, min: 1 }), field("priority", "优先级", "select", { required: true, options: ["一般", "紧急", "关键"] }), field("assignedTeam", "责任班组", "text", { required: true }), field("description", "问题描述", "textarea", { required: true }), field("resolutionSummary", "处理结果", "textarea"), field("completionEvidenceRef", "完工证据编号", "text"), field("resolvedAt", "完成时间", "datetime-local")],
       transitions: { DRAFT: ["OPEN"], OPEN: ["DISPATCHED", "CANCELLED"], DISPATCHED: ["IN_PROGRESS", "BLOCKED"], IN_PROGRESS: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["RESOLVED", "IN_PROGRESS"], RESOLVED: ["COMPLETED", "REOPENED"], REOPENED: ["DISPATCHED"] },
       workflowGoal: (record) => `分析园区工单“${record.title}”的优先级、SLA、责任班组和处理方案。`
     }),
