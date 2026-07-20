@@ -88,7 +88,7 @@ export class AutonomousPortfolioService {
     const id = `portfolio-${Date.now()}-${randomUUID().slice(0, 8)}`;
     const scheduleMode = input.scheduleMode === "RECURRING" ? "RECURRING" : "ONCE";
     const maxCycles = scheduleMode === "RECURRING" ? positiveInt(input.maxCycles, 4, 52) : 1;
-    const businessObjectProposals=workstreams.map(stream=>{const app=getEnterpriseApplication(stream.applicationId),type=app?.objectTypes.find(item=>item.primary)??app?.objectTypes[0],schema=type?getBusinessObjectDefinition(app.id,type.id):null;return{id:`${id}-proposal-${stream.sequence}`,sequence:stream.sequence,applicationId:stream.applicationId,applicationName:stream.applicationName,objectType:type?.id??null,objectTypeName:type?.name??null,title:`${goal} · ${stream.applicationName}`,displayKey:`PROGRAM-${safeId(id).slice(-16).toUpperCase()}-${stream.sequence}`,requiredFields:(schema?.fields??[]).filter(item=>item.required).map(item=>({key:item.key,label:item.label,type:item.type,options:item.options??null,min:item.min??null,max:item.max??null,referenceOnly:item.referenceOnly===true})),status:"NEEDS_INPUT",record:null,materializedAt:null,materializedBy:null};});
+    const initiatives=this.buildInitiatives(id,0,workstreams,goal),businessObjectProposals=initiatives.map((initiative,index)=>{const app=getEnterpriseApplication(initiative.applicationId),compatible=(app?.objectTypes??[]).filter(item=>getBusinessObjectDefinition(app.id,item.id).workflowDomainId===initiative.domainId),type=compatible.find(item=>item.primary)??compatible[0]??null,schema=type?getBusinessObjectDefinition(app.id,type.id):null;return{id:`${id}-proposal-${index+1}`,sequence:index+1,initiativeDomainId:initiative.domainId,applicationId:initiative.applicationId,applicationName:app?.name??initiative.applicationId,objectType:type?.id??null,objectTypeName:type?.name??null,title:`${goal} · ${initiative.domainName}`,displayKey:`PROGRAM-${safeId(id).slice(-16).toUpperCase()}-${index+1}`,requiredFields:(schema?.fields??[]).filter(item=>item.required).map(item=>({key:item.key,label:item.label,type:item.type,options:item.options??null,min:item.min??null,max:item.max??null,referenceOnly:item.referenceOnly===true})),status:type?"NEEDS_INPUT":"UNSUPPORTED",blockedReason:type?null:`BUSINESS_OBJECT_SCHEMA_MISSING:${initiative.applicationId}:${initiative.domainId}`,record:null,materializedAt:null,materializedBy:null};});
     const campaign = {
       schemaVersion: 2,
       id,
@@ -105,7 +105,7 @@ export class AutonomousPortfolioService {
       schedule: { mode: scheduleMode, intervalMinutes: scheduleMode === "RECURRING" ? positiveInt(input.intervalMinutes, 1440, 525600) : null, maxCycles, currentCycle: 0, nextRunAt: new Date(input.startAt || this.clock()).toISOString() },
       budget: { maxTasks: positiveInt(input.maxTasks, Math.max(20, workstreams.reduce((sum,item)=>sum+item.domainIds.length,0) * 4), 1000), maxTokenEstimate: positiveInt(input.maxTokenEstimate, Math.max(100000, workstreams.reduce((sum,item)=>sum+item.domainIds.length,0) * 20000), 100000000), maxRuntimeMinutes: positiveInt(input.maxRuntimeMinutes, Math.max(120, workstreams.reduce((sum,item)=>sum+item.domainIds.length,0) * 20), 100000), maxCostUsd: Number(input.maxCostUsd ?? 20) },
       usage: { reservedTasks: 0, reservedTokenEstimate: 0, reservedRuntimeMinutes: 0, actualTasks: 0, actualRuntimeExecutions: 0, actualTokenUsage: null, actualCostUsd: null },
-      initiatives: this.buildInitiatives(id, 0, workstreams, goal),
+      initiatives,
       businessObjectProposals,
       createdBy: actor.userId ?? "unknown",
       approvedBy: null,
@@ -148,7 +148,7 @@ export class AutonomousPortfolioService {
     if (campaign.status === "WAITING_NEXT_CYCLE" && new Date(campaign.schedule.nextRunAt) <= now) {
       const cycle = campaign.schedule.currentCycle + 1;
       campaign.schedule.currentCycle = cycle;
-      campaign.initiatives.push(...this.buildInitiatives(campaign.id, cycle, campaign.workstreams, campaign.goal));
+      const next=this.buildInitiatives(campaign.id, cycle, campaign.workstreams, campaign.goal);for(const item of next){const proposal=campaign.businessObjectProposals?.find(value=>value.applicationId===item.applicationId&&value.initiativeDomainId===item.domainId&&value.record);if(proposal)item.businessObject=proposal.record;}campaign.initiatives.push(...next);
       campaign.status = "ACTIVE";
     }
     if (campaign.status !== "ACTIVE" || new Date(campaign.schedule.nextRunAt) > now) return campaign;
@@ -168,6 +168,7 @@ export class AutonomousPortfolioService {
       }
       return campaign;
     }
+    if(campaign.plannerEvidence&&!initiative.businessObject){initiative.status="BLOCKED";initiative.blockedReasons=[...initiative.blockedReasons,"INITIATIVE_BUSINESS_OBJECT_REQUIRED"];checkpoint(campaign,"INITIATIVE_BLOCKED",{initiativeId:initiative.id,reason:"INITIATIVE_BUSINESS_OBJECT_REQUIRED"},now.toISOString());return campaign;}
     if (!this.withinBudget(campaign, initiative)) {
       initiative.status = "BLOCKED";
       initiative.blockedReasons = [...initiative.blockedReasons, "CAMPAIGN_BUDGET_EXCEEDED"];
@@ -185,7 +186,7 @@ export class AutonomousPortfolioService {
       const result = await this.dispatcher({ campaign, initiative });
       initiative.status = result.status === "SUCCEEDED" ? "SUCCEEDED" : result.status === "BLOCKED" ? "BLOCKED" : "FAILED";
       initiative.report = result.report ?? null;
-      initiative.kernel = { sessionKey: initiative.sessionKey, goalId: result.report?.goalId ?? null, sessionId: result.report?.sessionId ?? null };
+      initiative.kernel = { sessionKey: initiative.sessionKey, goalId: result.report?.goalId ?? null, sessionId: result.report?.sessionId ?? null,businessObject:result.report?.businessObject??initiative.businessObject??null,capabilityContractId:result.report?.capabilityContractId??null,capabilityContractHash:result.report?.capabilityContractHash??null };
       initiative.finishedAt = this.clock().toISOString();
       campaign.usage.actualTasks += Number(result.report?.totalTasks ?? initiative.taskEstimate);
       campaign.usage.actualRuntimeExecutions += Number(result.report?.runtimeExecutionCount ?? 0);
@@ -235,6 +236,6 @@ export class AutonomousPortfolioService {
   }
 
   async materializeProposal(id,proposalId,{actor={},createOrLoad}={}){
-    if(typeof createOrLoad!=="function")throw Object.assign(new Error("PORTFOLIO_PROPOSAL_WRITER_REQUIRED"),{code:"PORTFOLIO_PROPOSAL_WRITER_REQUIRED"});await mkdir(this.storeDir,{recursive:true});let fd;try{fd=openSync(this.proposalLockPath(id),"wx");}catch{throw Object.assign(new Error("PORTFOLIO_PROPOSAL_BUSY"),{code:"PORTFOLIO_PROPOSAL_BUSY"});}closeSync(fd);try{const campaign=await this.get(id,{organizationId:actor.organizationId,workspaceId:actor.workspaceId});if(!campaign)throw Object.assign(new Error("PORTFOLIO_NOT_FOUND"),{code:"PORTFOLIO_NOT_FOUND"});if(!["DRAFT","PAUSED"].includes(campaign.status))throw Object.assign(new Error("PORTFOLIO_PROPOSAL_CAMPAIGN_STATE_DENIED"),{code:"PORTFOLIO_PROPOSAL_CAMPAIGN_STATE_DENIED"});const proposal=campaign.businessObjectProposals?.find(item=>item.id===proposalId);if(!proposal)throw Object.assign(new Error("PORTFOLIO_PROPOSAL_NOT_FOUND"),{code:"PORTFOLIO_PROPOSAL_NOT_FOUND"});if(proposal.record)return{campaign,proposal,resumed:true};const record=await createOrLoad(proposal);proposal.status="MATERIALIZED";proposal.record={id:record.id,applicationId:record.applicationId,objectType:record.objectType,displayKey:record.displayKey,title:record.title,status:record.status,version:record.version,href:`${getEnterpriseApplication(record.applicationId).path}?record=${record.id}`};proposal.materializedAt=this.clock().toISOString();proposal.materializedBy=actor.userId??"unknown";campaign.updatedAt=proposal.materializedAt;checkpoint(campaign,"BUSINESS_OBJECT_MATERIALIZED",{proposalId:proposal.id,applicationId:proposal.applicationId,recordId:record.id,displayKey:record.displayKey},proposal.materializedAt);await this.save(campaign);return{campaign,proposal,resumed:false};}finally{try{unlinkSync(this.proposalLockPath(id));}catch{}}
+    if(typeof createOrLoad!=="function")throw Object.assign(new Error("PORTFOLIO_PROPOSAL_WRITER_REQUIRED"),{code:"PORTFOLIO_PROPOSAL_WRITER_REQUIRED"});await mkdir(this.storeDir,{recursive:true});let fd;try{fd=openSync(this.proposalLockPath(id),"wx");}catch{throw Object.assign(new Error("PORTFOLIO_PROPOSAL_BUSY"),{code:"PORTFOLIO_PROPOSAL_BUSY"});}closeSync(fd);try{const campaign=await this.get(id,{organizationId:actor.organizationId,workspaceId:actor.workspaceId});if(!campaign)throw Object.assign(new Error("PORTFOLIO_NOT_FOUND"),{code:"PORTFOLIO_NOT_FOUND"});if(!["DRAFT","PAUSED"].includes(campaign.status))throw Object.assign(new Error("PORTFOLIO_PROPOSAL_CAMPAIGN_STATE_DENIED"),{code:"PORTFOLIO_PROPOSAL_CAMPAIGN_STATE_DENIED"});const proposal=campaign.businessObjectProposals?.find(item=>item.id===proposalId);if(!proposal)throw Object.assign(new Error("PORTFOLIO_PROPOSAL_NOT_FOUND"),{code:"PORTFOLIO_PROPOSAL_NOT_FOUND"});if(proposal.status==="UNSUPPORTED"||!proposal.objectType)throw Object.assign(new Error(proposal.blockedReason??"PORTFOLIO_PROPOSAL_UNSUPPORTED"),{code:"PORTFOLIO_PROPOSAL_UNSUPPORTED"});if(proposal.record)return{campaign,proposal,resumed:true};const record=await createOrLoad(proposal);proposal.status="MATERIALIZED";proposal.record={id:record.id,applicationId:record.applicationId,objectType:record.objectType,displayKey:record.displayKey,title:record.title,status:record.status,version:record.version,href:`${getEnterpriseApplication(record.applicationId).path}?record=${record.id}`};for(const initiative of campaign.initiatives.filter(item=>item.applicationId===proposal.applicationId&&item.domainId===proposal.initiativeDomainId))initiative.businessObject=proposal.record;proposal.materializedAt=this.clock().toISOString();proposal.materializedBy=actor.userId??"unknown";campaign.updatedAt=proposal.materializedAt;checkpoint(campaign,"BUSINESS_OBJECT_MATERIALIZED",{proposalId:proposal.id,initiativeDomainId:proposal.initiativeDomainId,applicationId:proposal.applicationId,recordId:record.id,displayKey:record.displayKey},proposal.materializedAt);await this.save(campaign);return{campaign,proposal,resumed:false};}finally{try{unlinkSync(this.proposalLockPath(id));}catch{}}
   }
 }

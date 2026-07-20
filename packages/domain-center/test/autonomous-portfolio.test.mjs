@@ -35,7 +35,7 @@ test("composes a durable campaign from real domain skills and agent assignments"
 
 test("activation and ticks dispatch once through the injected existing kernel bridge", async () => {
   let calls = 0;
-  const { service } = await setup({ dispatcher: async ({ initiative }) => { calls += 1; return { status: "SUCCEEDED", report: { sessionId: "session-1", goalId: "goal-1", totalTasks: initiative.taskEstimate, runtimeExecutionCount: 4 } }; } });
+  const { service } = await setup({ dispatcher: async ({ initiative }) => { calls += 1; return { status: "SUCCEEDED", report: { sessionId: "session-1", goalId: "goal-1", totalTasks: initiative.taskEstimate, runtimeExecutionCount: 4,businessObject:{objectId:"record-1"},capabilityContractId:"contract-1",capabilityContractHash:"hash-1" } }; } });
   const draft = await service.create({ applicationId: "software-factory", goal: "Deliver one safe cycle", maxTasks: 20, maxTokenEstimate: 100000, maxRuntimeMinutes: 100 });
   await service.activate(draft.id, { userId: "approver" });
   await Promise.all([service.tick(draft.id), service.tick(draft.id)]);
@@ -43,6 +43,8 @@ test("activation and ticks dispatch once through the injected existing kernel br
   const completed = await service.tick(draft.id);
   assert.equal(completed.status, "SUCCEEDED");
   assert.equal(completed.initiatives[0].kernel.sessionId, "session-1");
+  assert.equal(completed.initiatives[0].kernel.businessObject.objectId,"record-1");
+  assert.equal(completed.initiatives[0].kernel.capabilityContractId,"contract-1");
   assert.equal(completed.approvedBy, "approver");
 });
 
@@ -85,7 +87,9 @@ test("cross-application program rejects cyclic dependencies before persistence",
 
 test("campaign reads fail closed outside the owning organization and workspace",async()=>{const{service}=await setup();const campaign=await service.create({applicationId:"finance-platform",goal:"租户隔离任务"},{userId:"owner",organizationId:"org-a",workspaceId:"workspace-a"});assert.equal((await service.list({organizationId:"org-a",workspaceId:"workspace-a"})).length,1);assert.equal((await service.list({organizationId:"org-b",workspaceId:"workspace-a"})).length,0);assert.equal(await service.get(campaign.id,{organizationId:"org-a",workspaceId:"workspace-b"}),null);});
 
-test("business object proposals require formal fields and materialize idempotently through the owning application writer",async()=>{const{service}=await setup(),campaign=await service.create({applicationId:"finance-platform",goal:"建立年度预算"},{userId:"finance-owner",organizationId:"org-a",workspaceId:"workspace-a"}),proposal=campaign.businessObjectProposals[0];assert.equal(proposal.objectType,"budget");assert.ok(proposal.requiredFields.some(item=>item.key==="budgetCode"));let writes=0;const createOrLoad=async current=>{writes++;return{id:"budget-1",applicationId:current.applicationId,objectType:current.objectType,displayKey:current.displayKey,title:current.title,status:"DRAFT",version:1};},actor={userId:"finance-owner",organizationId:"org-a",workspaceId:"workspace-a"},first=await service.materializeProposal(campaign.id,proposal.id,{actor,createOrLoad}),second=await service.materializeProposal(campaign.id,proposal.id,{actor,createOrLoad});assert.equal(first.proposal.status,"MATERIALIZED");assert.equal(second.resumed,true);assert.equal(writes,1);assert.equal(second.proposal.record.href,"/finance?record=budget-1");assert.equal(second.campaign.checkpoints.at(-1).type,"BUSINESS_OBJECT_MATERIALIZED");});
+test("business object proposals require formal fields and materialize idempotently through the owning application writer",async()=>{const{service}=await setup(),campaign=await service.create({applicationId:"finance-platform",goal:"建立年度预算"},{userId:"finance-owner",organizationId:"org-a",workspaceId:"workspace-a"}),proposal=campaign.businessObjectProposals[0];assert.equal(proposal.objectType,"budget");assert.equal(proposal.initiativeDomainId,"finance-management");assert.ok(proposal.requiredFields.some(item=>item.key==="budgetCode"));let writes=0;const createOrLoad=async current=>{writes++;return{id:"budget-1",applicationId:current.applicationId,objectType:current.objectType,displayKey:current.displayKey,title:current.title,status:"DRAFT",version:1};},actor={userId:"finance-owner",organizationId:"org-a",workspaceId:"workspace-a"},first=await service.materializeProposal(campaign.id,proposal.id,{actor,createOrLoad}),second=await service.materializeProposal(campaign.id,proposal.id,{actor,createOrLoad});assert.equal(first.proposal.status,"MATERIALIZED");assert.equal(first.campaign.initiatives[0].businessObject.id,"budget-1");assert.equal(second.resumed,true);assert.equal(writes,1);assert.equal(second.proposal.record.href,"/finance?record=budget-1");assert.equal(second.campaign.checkpoints.at(-1).type,"BUSINESS_OBJECT_MATERIALIZED");});
+
+test("a domain without a compatible conventional object schema is explicit and cannot be materialized",async()=>{const{service}=await setup(),campaign=await service.create({applicationId:"smart-park-platform",domainIds:["iot-platform"],goal:"完善园区 IoT"},{userId:"owner"}),proposal=campaign.businessObjectProposals[0];assert.equal(proposal.status,"UNSUPPORTED");assert.match(proposal.blockedReason,/BUSINESS_OBJECT_SCHEMA_MISSING/);await assert.rejects(()=>service.materializeProposal(campaign.id,proposal.id,{actor:{userId:"owner",organizationId:"studio-org",workspaceId:"studio-workspace"},createOrLoad:async()=>{throw new Error("must not write");}}),error=>error.code==="PORTFOLIO_PROPOSAL_UNSUPPORTED");});
 
 test("Planner-generated Campaign cannot activate before every proposed business object is materialized",async()=>{const{service}=await setup(),campaign=await service.create({applicationId:"finance-platform",goal:"建立正式预算",plannerPlan:{plannerVersion:"enterprise-rule-planner-v1",planHash:"hash",dependencyMode:"PARALLEL",llmUsed:false}},{userId:"owner"});await assert.rejects(()=>service.activate(campaign.id,{userId:"approver"}),error=>error.code==="PORTFOLIO_BUSINESS_OBJECTS_REQUIRED");await service.materializeProposal(campaign.id,campaign.businessObjectProposals[0].id,{actor:{userId:"owner",organizationId:"studio-org",workspaceId:"studio-workspace"},createOrLoad:async proposal=>({id:"budget-2",applicationId:proposal.applicationId,objectType:proposal.objectType,displayKey:proposal.displayKey,title:proposal.title,status:"DRAFT",version:1})});assert.equal((await service.activate(campaign.id,{userId:"approver"})).status,"ACTIVE");});
 
@@ -109,6 +113,9 @@ test("Studio exposes the portfolio product route and authenticated lifecycle API
   assert.match(server, /PORTFOLIO_PLANNER_PLAN_MISMATCH/);
   assert.match(server, /materializeProposal/);
   assert.match(server, /PORTFOLIO_PROPOSAL_NOT_FOUND/);
+  assert.match(server, /PORTFOLIO_BUSINESS_OBJECT_DOMAIN_MISMATCH/);
+  assert.match(server, /businessTaskBinding/);
+  assert.match(server, /capabilityProtocol/);
   assert.match(server, /`portfolio-\$\{portfolioAction\[2\]\}`/);
   assert.match(access, /"portfolio-activate"/);
   assert.match(server, /runDaemon/);
