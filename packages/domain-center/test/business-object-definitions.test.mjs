@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { availableBusinessTransitions, businessWorkflowGoal, getBusinessObjectDefinition, validateBusinessObjectFields } from "../lib/business-object-definitions.mjs";
 import { enterpriseApplications } from "../lib/enterprise-applications.mjs";
-import { getStudioDomain } from "../lib/domain-center.mjs";
+import { getStudioApplication, getStudioDomain } from "../lib/domain-center.mjs";
 
 test("strategy, HR and finance have domain-specific schemas and review states", () => {
   const strategy = getBusinessObjectDefinition("enterprise-strategy-platform", "objective");
@@ -42,3 +42,5 @@ test("operational applications route distinct objects to distinct skill domains"
   assert.equal(getBusinessObjectDefinition("smart-park-platform", "service_order").workflowDomainId, "tenant-service-workflow");
   assert.equal(getBusinessObjectDefinition("smart-park-platform", "meter").workflowDomainId, "energy-management");
 });
+
+test("Smart Park has a conventional business object for every intelligent workflow domain",()=>{const application=enterpriseApplications.find(item=>item.id==="smart-park-platform"),covered=new Set(application.objectTypes.map(item=>getBusinessObjectDefinition(application.id,item.id).workflowDomainId));assert.deepEqual([...getStudioApplication(application.id).domainIds].filter(domainId=>!covered.has(domainId)),[]);assert.equal(application.objectTypes.length,14);assert.equal(getBusinessObjectDefinition(application.id,"iot_device").fields.find(item=>item.key==="credentialReferenceId").referenceOnly,true);});

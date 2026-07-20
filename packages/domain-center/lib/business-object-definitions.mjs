@@ -239,6 +239,60 @@ const definitions = Object.freeze({
       fields: [field("meterCode", "表计编号", "text", { required: true }), field("energyType", "能源类型", "select", { required: true, options: ["电", "水", "燃气", "热力"] }), field("location", "安装位置", "text", { required: true }), field("tenant", "计费对象", "text", { required: true }), field("multiplier", "计量倍率", "number", { required: true, min: 0.001 })],
       transitions: { DRAFT: ["VERIFYING"], VERIFYING: ["WAITING_APPROVAL", "FAULT"], WAITING_APPROVAL: ["ACTIVE", "VERIFYING"], ACTIVE: ["FAULT", "INACTIVE"], FAULT: ["VERIFYING", "INACTIVE"] },
       workflowGoal: (record) => `检查能源表计“${record.title}”的计费对象、倍率、读数质量和异常风险。`
+    }),
+    operating_review: definition({
+      label: "园区经营复盘", workflowDomainId: "park-cockpit",
+      fields: [field("period", "经营周期", "text", { required: true }), field("occupancyRate", "出租率(%)", "number", { required: true, min: 0, max: 100 }), field("collectionRate", "收缴率(%)", "number", { required: true, min: 0, max: 100 }), field("serviceSlaRate", "服务达标率(%)", "number", { required: true, min: 0, max: 100 }), field("evidenceRef", "经营证据编号", "text", { required: true })],
+      transitions: { DRAFT: ["ANALYZING"], ANALYZING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "ANALYZING"], APPROVED: ["COMPLETED"] },
+      workflowGoal: (record) => `复核园区经营“${record.title}”的出租、收缴、服务指标及证据，形成经营改进建议。`
+    }),
+    settlement_bill: definition({
+      label: "园区结算单", workflowDomainId: "park-settlement-billing",
+      fields: [field("enterpriseName", "结算企业", "text", { required: true }), field("billingPeriod", "账期", "text", { required: true }), field("rentAmount", "租金", "number", { required: true, min: 0 }), field("energyAmount", "能源费", "number", { required: true, min: 0 }), field("serviceAmount", "服务费", "number", { required: true, min: 0 }), field("currency", "币种", "select", { required: true, options: ["CNY", "USD", "EUR"] }), field("contractRef", "合同编号", "text", { required: true })],
+      transitions: { DRAFT: ["CALCULATING"], CALCULATING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "CALCULATING"], APPROVED: ["ISSUED"], ISSUED: ["PAID", "OVERDUE"] },
+      workflowGoal: (record) => `核对园区结算单“${record.title}”的合同、租金、能源和服务费用，不自动开票或扣款。`
+    }),
+    safety_incident: definition({
+      label: "安全事件", workflowDomainId: "safety-management",
+      fields: [field("occurredAt", "发生时间", "datetime-local", { required: true }), field("location", "发生位置", "text", { required: true }), field("severity", "事件级别", "select", { required: true, options: ["一般", "较大", "重大", "特别重大"] }), field("incidentType", "事件类型", "text", { required: true }), field("responsibleTeam", "责任团队", "text", { required: true }), field("evidenceRef", "现场证据编号", "text", { required: true })],
+      transitions: { DRAFT: ["OPEN"], OPEN: ["CONTAINMENT", "BLOCKED"], CONTAINMENT: ["INVESTIGATING"], INVESTIGATING: ["WAITING_APPROVAL", "CONTAINMENT"], WAITING_APPROVAL: ["APPROVED", "INVESTIGATING"], APPROVED: ["RESOLVED"] },
+      workflowGoal: (record) => `分析安全事件“${record.title}”的等级、遏制、根因和整改证据，不替代现场应急指挥。`
+    }),
+    engineering_project: definition({
+      label: "工程项目", workflowDomainId: "engineering-management",
+      fields: [field("projectCode", "项目编号", "text", { required: true }), field("site", "施工位置", "text", { required: true }), field("contractor", "施工单位", "text", { required: true }), field("startDate", "计划开工", "date", { required: true }), field("dueDate", "计划完工", "date", { required: true }), field("budgetAmount", "项目预算", "number", { required: true, min: 0 }), field("acceptanceCriteria", "验收标准", "textarea", { required: true })],
+      transitions: { DRAFT: ["PLANNING"], PLANNING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "PLANNING"], APPROVED: ["IN_PROGRESS"], IN_PROGRESS: ["ACCEPTANCE", "BLOCKED"], ACCEPTANCE: ["COMPLETED", "IN_PROGRESS"] },
+      workflowGoal: (record) => `检查工程项目“${record.title}”的范围、预算、承包方、工期和验收标准。`
+    }),
+    iot_device: definition({
+      label: "IoT 设备", workflowDomainId: "iot-platform",
+      fields: [field("deviceCode", "设备编号", "text", { required: true }), field("deviceType", "设备类型", "text", { required: true }), field("location", "安装位置", "text", { required: true }), field("protocol", "接入协议", "text", { required: true }), field("dataOwner", "数据责任人", "text", { required: true }), field("credentialReferenceId", "设备凭据引用", "text", { required: true, referenceOnly: true })],
+      transitions: { DRAFT: ["REGISTERING"], REGISTERING: ["WAITING_APPROVAL", "FAULT"], WAITING_APPROVAL: ["APPROVED", "REGISTERING"], APPROVED: ["ACTIVE"], ACTIVE: ["FAULT", "INACTIVE"], FAULT: ["REGISTERING", "INACTIVE"] },
+      workflowGoal: (record) => `检查 IoT 设备“${record.title}”的协议、位置、数据责任和凭据引用，不读取设备密钥。`
+    }),
+    security_event: definition({
+      label: "安防事件", workflowDomainId: "video-security",
+      fields: [field("occurredAt", "事件时间", "datetime-local", { required: true }), field("cameraRef", "摄像机编号", "text", { required: true }), field("location", "事件位置", "text", { required: true }), field("eventType", "事件类型", "text", { required: true }), field("severity", "风险级别", "select", { required: true, options: ["低", "中", "高", "紧急"] }), field("evidenceRef", "受控视频证据编号", "text", { required: true })],
+      transitions: { DRAFT: ["OPEN"], OPEN: ["VERIFYING", "DISMISSED"], VERIFYING: ["WAITING_APPROVAL", "OPEN"], WAITING_APPROVAL: ["APPROVED", "VERIFYING"], APPROVED: ["RESOLVED"] },
+      workflowGoal: (record) => `复核安防事件“${record.title}”的视频证据、位置和风险级别，不执行人员身份判断。`
+    }),
+    robot_mission: definition({
+      label: "机器人任务", workflowDomainId: "robot-operations",
+      fields: [field("robotCode", "机器人编号", "text", { required: true }), field("missionType", "任务类型", "text", { required: true }), field("routeRef", "受控路线编号", "text", { required: true }), field("scheduledAt", "计划时间", "datetime-local", { required: true }), field("safetyZone", "安全区域", "text", { required: true }), field("operator", "值守人员", "text", { required: true })],
+      transitions: { DRAFT: ["PLANNING"], PLANNING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "PLANNING"], APPROVED: ["SCHEDULED"], SCHEDULED: ["IN_PROGRESS", "CANCELLED"], IN_PROGRESS: ["COMPLETED", "BLOCKED"] },
+      workflowGoal: (record) => `检查机器人任务“${record.title}”的路线、安全区域、计划和人工值守，不直接控制机器人。`
+    }),
+    digital_twin_model: definition({
+      label: "数字孪生模型", workflowDomainId: "digital-twin",
+      fields: [field("modelCode", "模型编号", "text", { required: true }), field("building", "楼栋范围", "text", { required: true }), field("modelVersion", "模型版本", "text", { required: true }), field("sourceRef", "BIM/测绘来源编号", "text", { required: true }), field("asOfDate", "数据截止日", "date", { required: true }), field("ownerTeam", "责任团队", "text", { required: true })],
+      transitions: { DRAFT: ["VALIDATING"], VALIDATING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "VALIDATING"], APPROVED: ["ACTIVE"], ACTIVE: ["SUPERSEDED", "INACTIVE"] },
+      workflowGoal: (record) => `验证数字孪生模型“${record.title}”的来源、版本、空间范围和数据新鲜度。`
+    }),
+    ai_operation_case: definition({
+      label: "AI 运营建议", workflowDomainId: "ai-park-operations",
+      fields: [field("businessScenario", "业务场景", "text", { required: true }), field("sourceSnapshotRef", "来源快照编号", "text", { required: true }), field("recommendation", "运营建议", "textarea", { required: true }), field("expectedImpact", "预期影响", "textarea", { required: true }), field("riskLevel", "风险级别", "select", { required: true, options: ["低", "中", "高"] }), field("humanOwner", "人工责任人", "text", { required: true })],
+      transitions: { DRAFT: ["ANALYZING"], ANALYZING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "ANALYZING"], APPROVED: ["ACTIVE"], ACTIVE: ["COMPLETED", "CANCELLED"] },
+      workflowGoal: (record) => `审查 AI 园区运营建议“${record.title}”的数据来源、预期影响、风险与人工责任边界。`
     })
   })
 });
