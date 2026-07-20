@@ -41,7 +41,7 @@ function nav(activeId, auth = {}, activeProjectId = "") {
     const active = route.id === activeId ? "active" : "";
     return `<a class="${active}" href="${routeHref(route.navPath, activeProjectId)}" title="${escapeHtml(route.label)}"><span class="nav-icon">${navIcon(route.id)}</span><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
   }).join("");
-  return `<nav class="top-nav"><span class="nav-group-label">Workspace</span>${renderLinks(primaryIds)}<span class="nav-spacer"></span><span class="nav-group-label">System</span>${renderLinks(["actions", "config"])}</nav>`;
+  return `<nav class="top-nav"><span class="nav-group-label">Workspace</span>${renderLinks(primaryIds)}<span class="nav-spacer"></span><span class="nav-group-label">System</span>${renderLinks(["actions", "credentials", "config"])}</nav>`;
 }
 
 function metric(label, value) {
@@ -2435,12 +2435,11 @@ function pageWorkers(data) {
 }
 
 function pageCredentials(data) {
-  return `<section><h2>${messages.pages.credentials.title}</h2><div class="grid">
-    ${metric(messages.pages.credentials.references, data.credentials.reference_count)}
-    ${metric(messages.pages.credentials.backends, data.credentials.backend_count)}
-    ${metric(messages.pages.credentials.secretValues, data.safety.credential_values)}
-  </div></section>
-  <section><h2>${messages.pages.credentials.files}</h2>${table(data.credentials.examples.map((item) => ({ path: item.path, keys: Object.keys(item.data ?? {}).join(", ") })), [{ key: "path", label: messages.common.file }, { key: "keys", label: messages.common.keys }])}</section>`;
+  return `<section class="product-hero"><div><span class="eyebrow">Runtime Identity & Usage</span><h2>AI 运行身份与用量</h2><p>统一查看 Codex 与其他智能体的认证方式、Credential Reference 位置和 Runtime 报告的 Token 用量。页面永远不读取或显示密钥值。</p></div><button id="runtime-usage-refresh" class="secondary" type="button">刷新状态</button></section>
+  <section class="domain-summary"><div><span>Runtime</span><strong id="runtime-count">—</strong></div><div><span>已安装</span><strong id="runtime-installed">—</strong></div><div><span>运行次数</span><strong id="runtime-runs">—</strong></div><div><span>已报告 Token</span><strong id="runtime-tokens">—</strong></div></section>
+  <section class="panel"><div class="section-head"><div><h2>认证方式与位置</h2><p class="help">CLI Session 由对应 CLI 在本机用户会话中管理；API 凭据只显示 Reference ID 与后端位置。</p></div><span class="status-label pass">密钥值不暴露</span></div><div class="table-scroll"><table><thead><tr><th>Runtime</th><th>Provider</th><th>安装</th><th>认证策略</th><th>Credential Reference</th><th>类型</th><th>引用位置</th><th>状态</th></tr></thead><tbody id="runtime-identity-body"><tr><td colspan="8">正在读取…</td></tr></tbody></table></div></section>
+  <section class="panel"><div class="section-head"><div><h2>Token 使用统计</h2><p class="help">只汇总 Runtime 明确报告的 Token。未报告的运行单独计数，不进行推算。</p></div><span id="runtime-usage-time" class="pill">—</span></div><div class="table-scroll"><table><thead><tr><th>Runtime</th><th>运行</th><th>已报告</th><th>未报告</th><th>输入</th><th>输出</th><th>缓存</th><th>总计</th><th>完整性</th></tr></thead><tbody id="runtime-usage-body"><tr><td colspan="9">正在读取…</td></tr></tbody></table></div></section>
+  <script>(()=>{const q=id=>document.getElementById(id),esc=v=>String(v??'—').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),num=v=>v==null?'未报告':Number(v).toLocaleString();async function load(){const r=await fetch('/api/runtime/identity-usage',{cache:'no-store'});if(!r.ok)throw new Error(await r.text());const d=await r.json();q('runtime-count').textContent=d.summary.runtimeCount;q('runtime-installed').textContent=d.summary.installedCount;q('runtime-runs').textContent=d.summary.runCount;q('runtime-tokens').textContent=num(d.summary.totalTokens);q('runtime-usage-time').textContent=new Date(d.generatedAt).toLocaleString();q('runtime-identity-body').innerHTML=d.runtimes.map(x=>'<tr><td>'+esc(x.runtimeId)+'</td><td>'+esc(x.provider)+'</td><td>'+esc(x.installed?'已安装':'未安装')+'</td><td>'+esc(x.credentialPolicy)+'</td><td>'+esc(x.credentialReferenceId)+'</td><td>'+esc(x.credentialReferenceType)+'</td><td>'+esc(x.credentialReferenceLocation)+'</td><td>'+esc(x.credentialStatus)+'</td></tr>').join('');q('runtime-usage-body').innerHTML=d.runtimes.map(x=>'<tr><td>'+esc(x.runtimeId)+'</td><td>'+num(x.usage.runCount)+'</td><td>'+num(x.usage.reportedRunCount)+'</td><td>'+num(x.usage.unreportedRunCount)+'</td><td>'+num(x.usage.inputTokens)+'</td><td>'+num(x.usage.outputTokens)+'</td><td>'+num(x.usage.cachedTokens)+'</td><td>'+num(x.usage.totalTokens)+'</td><td>'+esc(x.usage.status)+'</td></tr>').join('');}q('runtime-usage-refresh').onclick=()=>load().catch(e=>q('runtime-usage-time').textContent=e.message);load().catch(e=>q('runtime-usage-time').textContent=e.message);})();</script>`;
 }
 
 function pageGovernance(data) {
@@ -2597,6 +2596,7 @@ function pageActions(data) {
     ["任务与队列", "查看任务生命周期、调度队列和执行证据。", "#advanced-operations", `${actions.length} 项能力`],
     ["Workers", "检查在线 Worker、领取状态与租约健康度。", "/workers", "运行资源"],
     ["Runtime", "查看 Runtime Adapter、限制与执行模式。", "/runtime", "安全边界"],
+    ["AI 身份与用量", "查看 Codex/Agent 认证引用、安装状态与 Token 用量。", "/credentials", "认证与成本"],
     ["Approvals", "处理审批、策略和 Activation Readiness。", "/governance", "治理"],
   ];
   return `<section class="operations-hero"><span class="eyebrow">Operations</span><h2>运行管理</h2><p>日常工作无需进入这里。需要诊断任务、Worker、Runtime 或审批时，再打开对应模块。</p></section>

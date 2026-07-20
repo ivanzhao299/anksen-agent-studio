@@ -19,6 +19,7 @@ const webDir = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(webDir, "../../..");
 export const actionLogDir = "autopilot-runs/console-actions";
 export const actionUploadDir = `${actionLogDir}/uploads`;
+const credentialReferencePath = resolve(repoRoot, "packages/credential-vault/examples/credential-references.example.json");
 const studioScript = "packages/orchestrator-core/bin/studio.mjs";
 const actionRuns = new Map();
 const terminalRunStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED", "RECOVERY_REQUIRED"]);
@@ -1990,6 +1991,66 @@ function actionPlanCommandFor(plan, input) {
   };
 }
 
+function exactTokenUsage(text) {
+  const value = String(text ?? "");
+  const read = (patterns) => {
+    for (const pattern of patterns) {
+      const match = value.match(pattern);
+      if (match) return Number(String(match[1]).replaceAll(",", ""));
+    }
+    return null;
+  };
+  const inputTokens = read([/"input_tokens"\s*:\s*(\d+)/i, /input tokens?\s*[:=]\s*([\d,]+)/i]);
+  const outputTokens = read([/"output_tokens"\s*:\s*(\d+)/i, /output tokens?\s*[:=]\s*([\d,]+)/i]);
+  const cachedTokens = read([/"cached_input_tokens"\s*:\s*(\d+)/i, /cached tokens?\s*[:=]\s*([\d,]+)/i]);
+  const explicitTotal = read([/"total_tokens"\s*:\s*(\d+)/i, /tokens used\s*[:=]?\s*([\d,]+)/i, /total tokens?\s*[:=]\s*([\d,]+)/i]);
+  const reported = [inputTokens, outputTokens, cachedTokens, explicitTotal].some(Number.isFinite);
+  return { reported, inputTokens, outputTokens, cachedTokens, totalTokens: explicitTotal ?? (Number.isFinite(inputTokens) || Number.isFinite(outputTokens) ? Number(inputTokens ?? 0) + Number(outputTokens ?? 0) : null), source: reported ? "RUNTIME_REPORTED" : "NOT_REPORTED" };
+}
+
+function usageForRun(run) {
+  if (run?.usage) return run.usage;
+  return exactTokenUsage([run?.result?.stdout_summary, run?.result?.stderr_summary, ...(run?.transcript ?? []).map((item) => item.content)].filter(Boolean).join("\n"));
+}
+
+async function codexAuthenticationStatus(runtime) {
+  if (!runtime?.installed) return "RUNTIME_UNAVAILABLE";
+  try {
+    await execFileAsync(runtime.command || "codex", ["login", "status"], { cwd: repoRoot, timeout: 5000, maxBuffer: 1024 * 128 });
+    return "AUTHENTICATED_LOCAL_CLI_SESSION";
+  } catch {
+    return "LOCAL_CLI_SESSION_NOT_AUTHENTICATED";
+  }
+}
+
+export async function getRuntimeIdentityUsage() {
+  await hydrateConversationRuns();
+  const [detected, credentialBundle] = await Promise.all([detectLocalAiRuntimes(), readJsonIfExists(credentialReferencePath)]);
+  const references = credentialBundle?.credential_references ?? [];
+  const referenceByProvider = new Map(references.map((item) => [item.provider, item]));
+  const runs = [...actionRuns.values()];
+  const codexAuthStatus = await codexAuthenticationStatus(detected.runtimes.find((item) => item.runtime_id === "codex-cli"));
+  const runtimes = detected.runtimes.map((runtime) => {
+    const runtimeRuns = runs.filter((run) => run.plan?.runtime_id === runtime.runtime_id || run.plan?.agent === runtime.runtime_id);
+    const values = runtimeRuns.map(usageForRun);
+    const reported = values.filter((item) => item.reported);
+    const sum = (key) => reported.some((item) => Number.isFinite(item[key])) ? reported.reduce((total, item) => total + Number(item[key] ?? 0), 0) : null;
+    const credential = runtime.runtime_id === "codex-cli" ? references.find((item) => item.credential_id === "codex-local-session-ref") ?? null : referenceByProvider.get(runtime.provider) ?? null;
+    return {
+      runtimeId: runtime.runtime_id, provider: runtime.provider, installed: runtime.installed, version: runtime.version,
+      invocationMode: runtime.invocation_mode, credentialPolicy: runtime.credential_policy,
+      credentialReferenceId: credential?.credential_id ?? (runtime.path?.startsWith("credential-reference:") ? runtime.path.slice("credential-reference:".length) : null),
+      credentialReferenceType: credential?.reference?.reference_type ?? runtime.credential_policy,
+      credentialReferenceLocation: credential ? Object.entries(credential.reference ?? {}).find(([key]) => key !== "reference_type")?.[1] ?? null : runtime.path?.startsWith("credential-reference:") ? runtime.path : null,
+      credentialStatus: runtime.runtime_id === "codex-cli" ? codexAuthStatus : credential?.status ?? (runtime.credential_policy === "not_required" ? "not_required" : runtime.installed ? "EXTERNAL_SESSION_NOT_VERIFIED" : "RUNTIME_UNAVAILABLE"),
+      secretValuesExposed: false,
+      usage: { runCount: runtimeRuns.length, reportedRunCount: reported.length, unreportedRunCount: runtimeRuns.length - reported.length, inputTokens: reported.length ? sum("inputTokens") : null, outputTokens: reported.length ? sum("outputTokens") : null, cachedTokens: reported.length ? sum("cachedTokens") : null, totalTokens: reported.length ? sum("totalTokens") : null, status: runtimeRuns.length === 0 ? "NO_RUNS" : reported.length === 0 ? "NOT_REPORTED" : reported.length === runtimeRuns.length ? "COMPLETE" : "PARTIAL" }
+    };
+  });
+  const known = runtimes.filter((item) => Number.isFinite(item.usage.totalTokens));
+  return { generatedAt: new Date().toISOString(), safety: { secretValuesRead: false, secretValuesReturned: false, credentialReferencesOnly: true }, summary: { runtimeCount: runtimes.length, installedCount: runtimes.filter((item) => item.installed).length, runCount: runtimes.reduce((total, item) => total + item.usage.runCount, 0), reportedRunCount: runtimes.reduce((total, item) => total + item.usage.reportedRunCount, 0), totalTokens: known.length ? known.reduce((total, item) => total + Number(item.usage.totalTokens), 0) : null }, runtimes };
+}
+
 function summarizeStdout(stdout) {
   const lines = redactSensitive(stdout)
     .split("\n")
@@ -2089,6 +2150,7 @@ function publicRun(run) {
 
 async function persistConversationRun(run) {
   run.updated_at = new Date().toISOString();
+  if (terminalRunStatuses.has(run.status)) run.usage = exactTokenUsage([run.result?.stdout_summary, run.result?.stderr_summary, ...(run.transcript ?? []).map((item) => item.content)].filter(Boolean).join("\n"));
   const logs = await writeActionLog(publicRun(run));
   run.logs = logs;
   run.plan.log_path = logs.json;

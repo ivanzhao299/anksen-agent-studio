@@ -30,6 +30,7 @@ import {
   executeConsoleAction,
   getConversationAction,
   getLatestConversationAction,
+  getRuntimeIdentityUsage,
   latestActionLog,
   startConversationAction
 } from "./action-server.mjs";
@@ -354,6 +355,10 @@ const server = createServer(async (request, response) => {
     if (request.method === "GET" && pathname === "/api/actions/latest") {
       const run = await getLatestConversationAction();
       sendJson(response, run ? 200 : 404, run ?? { status: "EMPTY" });
+      return;
+    }
+    if (request.method === "GET" && pathname === "/api/runtime/identity-usage") {
+      sendJson(response, 200, await getRuntimeIdentityUsage());
       return;
     }
     if (request.method === "GET" && actionRunMatch) {
