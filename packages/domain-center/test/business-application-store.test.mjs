@@ -27,6 +27,21 @@ test("conventional finance records enforce domain fields and lifecycle", async (
   const submitted = await store.transitionRecord("finance-platform", record.id, { expectedVersion: 1, status: "SUBMITTED" }, { userId: "finance-user" });
   assert.equal(submitted.version, 2);
   assert.deepEqual(submitted.availableTransitions, ["UNDER_REVIEW", "REJECTED"]);
+  const detail = await store.recordDetail("finance-platform", record.id);
+  assert.equal(detail.record.id, record.id);
+  assert.equal(detail.workItems[0].id, work.id);
+  assert.deepEqual(detail.timeline.map((item) => item.type), ["business.object.changed", "business.work.assigned", "business.object.created"]);
+  await store.transitionRecord("finance-platform", record.id, { expectedVersion: 2, status: "UNDER_REVIEW" }, { userId: "finance-user" });
+  await store.transitionRecord("finance-platform", record.id, { expectedVersion: 3, status: "WAITING_APPROVAL" }, { userId: "finance-user" });
+  await assert.rejects(() => store.transitionRecord("finance-platform", record.id, { expectedVersion: 4, status: "APPROVED" }, { userId: "finance-user" }), (error) => error.code === "BUSINESS_APPROVAL_REQUIRED");
+  const approval = await store.requestApproval("finance-platform", record.id, { expectedVersion: 4, requestedStatus: "APPROVED" }, { userId: "finance-user" });
+  assert.equal(approval.status, "PENDING");
+  assert.equal((await store.approvalInbox({}))[0].businessObject.href, `/finance?record=${record.id}`);
+  const decision = await store.decideApproval("finance-platform", approval.id, { decision: "APPROVED", comment: "预算与票据已复核" }, { userId: "finance-manager" });
+  assert.equal(decision.record.status, "APPROVED");
+  assert.equal(decision.record.version, 5);
+  assert.equal((await store.recordDetail("finance-platform", record.id)).approvals[0].reviewedBy, "finance-manager");
+  assert.equal((await store.approvalInbox({})).length, 0);
 });
 
 test("strategy and HR records expose different authoritative fields", async () => {

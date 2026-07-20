@@ -26,6 +26,8 @@ Ordinary users work with familiar software concepts: forms, records, ledgers, do
 
 Authoritative business records, user work items, and business audit events are persisted in an isolated transactional PostgreSQL store. Record transitions use optimistic version CAS, while Runtime completion and business-state write-back commit in one transaction. The file store is retained only as an explicit local fallback when no business database is configured.
 
+Every business record has a conventional detail surface containing its typed fields, accountable owner, version, work assignments, Agent/Kernel references, approval history, and audit timeline. A record in `WAITING_APPROVAL` cannot be advanced by a normal transition: a scoped, single-pending approval must be requested and an authorized reviewer must approve or reject it. Approval consumes the exact object version and writes the decision, state change, and audit event atomically, so stale approvals cannot change newer business facts.
+
 ## Application boundaries
 
 | Application | Endpoint | Primary users | Initial conventional objects | First intelligent workflow |

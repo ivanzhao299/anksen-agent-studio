@@ -47,6 +47,8 @@ const directExecuteActionIds = new Set([
   "development-commit",
   "business-record-create",
   "business-record-transition",
+  "business-approval-request",
+  "business-approval-decision",
   "business-work-assign",
   "identity-owner-bootstrap"
 ]);
@@ -78,6 +80,8 @@ const consoleActionCatalog = {
   "development-commit": { capabilities: ["console.access", "autopilot.execute.local", "proposal.approve"], execution_mode: "direct_execute", projectScoped: true, risk: "MEDIUM" },
   "business-record-create": { capabilities: ["console.access", "business.operate"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "business-record-transition": { capabilities: ["console.access", "business.operate"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
+  "business-approval-request": { capabilities: ["console.access", "business.operate"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
+  "business-approval-decision": { capabilities: ["console.access", "business.operate", "proposal.approve"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "business-work-assign": { capabilities: ["console.access", "business.operate", "autopilot.plan"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "workspace-goal": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "project-dispatch": { capabilities: ["console.access", "project.read", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },

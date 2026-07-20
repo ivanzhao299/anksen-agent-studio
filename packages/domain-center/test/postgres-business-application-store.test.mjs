@@ -50,8 +50,23 @@ test("PostgreSQL business store is scoped, transactional, idempotent and restart
     const recoveredRecord = await restarted.getRecord("finance-platform", record.id, scope);
     assert.equal(recoveredRecord.status, "UNDER_REVIEW");
     assert.equal(recoveredRecord.version, 3);
+    const detail = await restarted.recordDetail("finance-platform", record.id, scope);
+    assert.equal(detail.record.id, record.id);
+    assert.equal(detail.workItems.length, 1);
+    assert.equal(detail.timeline[0].type, "business.work.runtime.completed");
+    assert.equal(await restarted.recordDetail("finance-platform", record.id, { organizationId: "other-org", workspaceId: scope.workspaceId }), null);
+    await restarted.transitionRecord("finance-platform", record.id, { expectedVersion: 3, status: "WAITING_APPROVAL" }, scope);
+    await assert.rejects(() => restarted.transitionRecord("finance-platform", record.id, { expectedVersion: 4, status: "APPROVED" }, scope), (error) => error.code === "BUSINESS_APPROVAL_REQUIRED");
+    const approval = await restarted.requestApproval("finance-platform", record.id, { expectedVersion: 4, requestedStatus: "APPROVED" }, scope);
+    assert.equal((await restarted.requestApproval("finance-platform", record.id, { expectedVersion: 4, requestedStatus: "APPROVED" }, scope)).id, approval.id);
+    assert.equal((await restarted.approvalInbox(scope))[0].businessObject.href, `/finance?record=${record.id}`);
+    const approved = await restarted.decideApproval("finance-platform", approval.id, { decision: "APPROVED" }, { ...scope, userId: "finance-manager" });
+    assert.equal(approved.record.status, "APPROVED");
+    await assert.rejects(() => restarted.decideApproval("finance-platform", approval.id, { decision: "APPROVED" }, scope), (error) => error.code === "BUSINESS_APPROVAL_NOT_PENDING");
+    assert.equal((await restarted.recordDetail("finance-platform", record.id, scope)).approvals[0].status, "APPROVED");
+    assert.equal((await restarted.approvalInbox(scope)).length, 0);
     const events = await restarted.events(scope);
-    assert.deepEqual(events.map((event) => event.event_type), ["business.object.created", "business.object.changed", "business.work.assigned", "business.object.workflow-transitioned", "business.work.runtime.completed"]);
+    assert.deepEqual(events.map((event) => event.event_type), ["business.object.created", "business.object.changed", "business.work.assigned", "business.object.workflow-transitioned", "business.work.runtime.completed", "business.object.changed", "business.approval.requested", "business.approval.decided"]);
     assert.equal(events.filter((event) => event.event_type === "business.work.assigned").length, 1);
   } finally {
     await pool.end();

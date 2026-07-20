@@ -55,6 +55,25 @@ export class PostgresBusinessApplicationStore {
     };
   }
 
+  presentEvent(row) {
+    return {
+      id: row.id, sequence: Number(row.sequence), type: row.event_type, event_type: row.event_type, applicationId: row.application_id,
+      objectType: row.object_type, objectId: row.object_id, objectVersion: row.object_version,
+      workItemId: row.work_item_id, actorId: row.actor_id, payload: row.payload,
+      createdAt: iso(row.created_at)
+    };
+  }
+
+  presentApproval(row) {
+    return {
+      id: row.id, applicationId: row.application_id, businessRecordId: row.business_record_id,
+      objectVersion: row.object_version, fromStatus: row.from_status, requestedStatus: row.requested_status,
+      status: row.status, requestedBy: row.requested_by, reviewedBy: row.reviewed_by,
+      comment: row.comment, idempotencyKey: row.idempotency_key,
+      createdAt: iso(row.created_at), reviewedAt: iso(row.reviewed_at)
+    };
+  }
+
   async listRecords(applicationId, options = {}) {
     assertEnterpriseApplication(applicationId);
     const scope = scopeOf(options);
@@ -70,6 +89,51 @@ export class PostgresBusinessApplicationStore {
     const scope = scopeOf(actor);
     const row = (await this.pool.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND application_id=$4", [id, scope.organizationId, scope.workspaceId, applicationId])).rows[0];
     return row ? this.presentRecord(row) : null;
+  }
+
+  async recordDetail(applicationId, id, actor = {}) {
+    const scope = scopeOf(actor), record = await this.getRecord(applicationId, id, scope);
+    if (!record) return null;
+    const [work, events, approvals] = await Promise.all([
+      this.pool.query("SELECT * FROM business_work_item WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND business_record_id=$4 ORDER BY updated_at DESC", [scope.organizationId, scope.workspaceId, applicationId, id]),
+      this.pool.query("SELECT * FROM business_application_event WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND object_id=$4 ORDER BY sequence DESC", [scope.organizationId, scope.workspaceId, applicationId, id]),
+      this.pool.query("SELECT * FROM business_approval WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND business_record_id=$4 ORDER BY created_at DESC", [scope.organizationId, scope.workspaceId, applicationId, id])
+    ]);
+    return { record, workItems: work.rows.map((row) => this.presentWork(row)), approvals: approvals.rows.map((row) => this.presentApproval(row)), timeline: events.rows.map((row) => this.presentEvent(row)) };
+  }
+
+  async requestApproval(applicationId, recordId, input, actor = {}) {
+    const scope = scopeOf(actor), actorId = String(actor.userId ?? "unknown");
+    return this.transaction(async (client) => {
+      const record = (await client.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND application_id=$4 FOR UPDATE", [recordId, scope.organizationId, scope.workspaceId, applicationId])).rows[0];
+      if (!record) throw Object.assign(new Error("BUSINESS_RECORD_NOT_FOUND"), { code: "BUSINESS_RECORD_NOT_FOUND" });
+      if (record.status !== "WAITING_APPROVAL" || Number(input.expectedVersion) !== record.version || !availableBusinessTransitions(applicationId, record.object_type, record.status).includes(input.requestedStatus)) throw Object.assign(new Error("BUSINESS_APPROVAL_REQUEST_DENIED"), { code: "BUSINESS_APPROVAL_REQUEST_DENIED" });
+      const idempotencyKey = String(input.idempotencyKey ?? `${record.id}:${record.version}:${input.requestedStatus}`), now = this.clock(), id = randomUUID();
+      const inserted = (await client.query("INSERT INTO business_approval(id,organization_id,workspace_id,application_id,business_record_id,object_version,from_status,requested_status,status,requested_by,comment,idempotency_key,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'PENDING',$9,$10,$11,$12) ON CONFLICT(organization_id,workspace_id,idempotency_key) DO NOTHING RETURNING *", [id, scope.organizationId, scope.workspaceId, applicationId, record.id, record.version, record.status, input.requestedStatus, actorId, String(input.comment ?? ""), idempotencyKey, now])).rows[0];
+      const approval = inserted ?? (await client.query("SELECT * FROM business_approval WHERE organization_id=$1 AND workspace_id=$2 AND idempotency_key=$3", [scope.organizationId, scope.workspaceId, idempotencyKey])).rows[0];
+      if (inserted) await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,actor_id,payload,created_at) VALUES($1,$2,$3,'business.approval.requested',$4,$5,$6,$7,$8,$9,$10)", [randomUUID(), scope.organizationId, scope.workspaceId, applicationId, record.object_type, record.id, record.version, actorId, { approvalId: approval.id, requestedStatus: approval.requested_status }, now]);
+      return this.presentApproval(approval);
+    });
+  }
+
+  async decideApproval(applicationId, approvalId, input, actor = {}) {
+    const scope = scopeOf(actor), decision = String(input.decision ?? "").toUpperCase(), actorId = String(actor.userId ?? "unknown");
+    if (!["APPROVED", "REJECTED"].includes(decision)) throw Object.assign(new Error("BUSINESS_APPROVAL_DECISION_INVALID"), { code: "BUSINESS_APPROVAL_DECISION_INVALID" });
+    return this.transaction(async (client) => {
+      const approval = (await client.query("SELECT * FROM business_approval WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND application_id=$4 FOR UPDATE", [approvalId, scope.organizationId, scope.workspaceId, applicationId])).rows[0];
+      if (!approval || approval.status !== "PENDING") throw Object.assign(new Error("BUSINESS_APPROVAL_NOT_PENDING"), { code: "BUSINESS_APPROVAL_NOT_PENDING" });
+      const record = (await client.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 FOR UPDATE", [approval.business_record_id, scope.organizationId, scope.workspaceId])).rows[0];
+      if (!record || record.version !== approval.object_version || record.status !== approval.from_status) throw Object.assign(new Error("BUSINESS_APPROVAL_STALE"), { code: "BUSINESS_APPROVAL_STALE" });
+      const now = this.clock();
+      if (decision === "APPROVED") {
+        const allowed = availableBusinessTransitions(applicationId, record.object_type, record.status);
+        if (!allowed.includes(approval.requested_status)) throw Object.assign(new Error("BUSINESS_RECORD_TRANSITION_DENIED"), { code: "BUSINESS_RECORD_TRANSITION_DENIED" });
+        await client.query("UPDATE business_application_record SET status=$1,version=version+1,updated_at=$2 WHERE id=$3 AND version=$4", [approval.requested_status, now, record.id, record.version]);
+      }
+      const updated = (await client.query("UPDATE business_approval SET status=$1,reviewed_by=$2,comment=COALESCE(NULLIF($3,''),comment),reviewed_at=$4 WHERE id=$5 RETURNING *", [decision, actorId, String(input.comment ?? ""), now, approval.id])).rows[0];
+      await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,actor_id,payload,created_at) VALUES($1,$2,$3,'business.approval.decided',$4,$5,$6,$7,$8,$9,$10)", [randomUUID(), scope.organizationId, scope.workspaceId, applicationId, record.object_type, record.id, decision === "APPROVED" ? record.version + 1 : record.version, actorId, { approvalId: approval.id, decision, requestedStatus: approval.requested_status }, now]);
+      return { approval: this.presentApproval(updated), record: this.presentRecord(decision === "APPROVED" ? { ...record, status: approval.requested_status, version: record.version + 1, updated_at: now } : record) };
+    });
   }
 
   async createRecord(applicationId, input, actor = {}) {
@@ -94,6 +158,7 @@ export class PostgresBusinessApplicationStore {
       if (!row) throw Object.assign(new Error("BUSINESS_RECORD_NOT_FOUND"), { code: "BUSINESS_RECORD_NOT_FOUND" });
       if (expectedVersion !== row.version) throw Object.assign(new Error("BUSINESS_RECORD_VERSION_CONFLICT"), { code: "BUSINESS_RECORD_VERSION_CONFLICT" });
       const fromStatus = row.status, allowed = availableBusinessTransitions(applicationId, row.object_type, fromStatus);
+      if (fromStatus === "WAITING_APPROVAL") throw Object.assign(new Error("BUSINESS_APPROVAL_REQUIRED"), { code: "BUSINESS_APPROVAL_REQUIRED", allowed });
       if (!allowed.includes(input.status) || terminal.has(fromStatus)) throw Object.assign(new Error("BUSINESS_RECORD_TRANSITION_DENIED"), { code: "BUSINESS_RECORD_TRANSITION_DENIED", allowed });
       const now = this.clock();
       const updated = (await client.query("UPDATE business_application_record SET status=$1,version=version+1,updated_at=$2 WHERE id=$3 AND version=$4 RETURNING *", [input.status, now, id, expectedVersion])).rows[0];
@@ -123,6 +188,11 @@ export class PostgresBusinessApplicationStore {
     sql += " ORDER BY updated_at DESC";
     const items = (await this.pool.query(sql, params)).rows.map((row) => this.presentWork(row));
     return { items, summary: { total: items.length, human: items.filter((item) => item.assignmentType === "HUMAN").length, agent: items.filter((item) => item.assignmentType === "AGENT").length, blocked: items.filter((item) => item.status === "BLOCKED").length, waitingApproval: items.filter((item) => ["WAITING_APPROVAL", "WAITING_REVIEW"].includes(item.status)).length } };
+  }
+
+  async approvalInbox(options = {}) {
+    const scope = scopeOf(options), rows = (await this.pool.query("SELECT a.*,r.display_key,r.title record_title,r.object_type FROM business_approval a JOIN business_application_record r ON r.id=a.business_record_id WHERE a.organization_id=$1 AND a.workspace_id=$2 AND a.status='PENDING' ORDER BY a.created_at", [scope.organizationId, scope.workspaceId])).rows;
+    return rows.map((row) => ({ ...this.presentApproval(row), businessObject: { objectType: row.object_type, objectId: row.business_record_id, displayKey: row.display_key, title: row.record_title, href: `${assertEnterpriseApplication(row.application_id).path}?record=${row.business_record_id}` } }));
   }
 
   async attachWorkflow(workItemId, { goalId, sessionId, report, status = "WAITING_APPROVAL" }) {
@@ -162,6 +232,6 @@ export class PostgresBusinessApplicationStore {
     let sql = "SELECT * FROM business_application_event WHERE organization_id=$1 AND workspace_id=$2";
     if (options.applicationId) { params.push(options.applicationId); sql += ` AND application_id=$${params.length}`; }
     sql += " ORDER BY sequence";
-    return (await this.pool.query(sql, params)).rows;
+    return (await this.pool.query(sql, params)).rows.map((row) => this.presentEvent(row));
   }
 }

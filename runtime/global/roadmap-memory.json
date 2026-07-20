@@ -25,11 +25,11 @@
     { "id": "ea-009-group-application-workflows", "title": "Strategy, HR and Finance business-object workflows on the shared Kernel", "completed": true },
     { "id": "ea-010-operational-application-schemas", "title": "Growth & Sales, Manufacturing ERP and Smart Park domain records and workflows", "completed": true },
     { "id": "ea-011-transactional-business-store", "title": "Move authoritative business records and work items to isolated transactional PostgreSQL", "completed": true },
-    { "id": "ea-012-business-details-and-approvals", "title": "Domain record detail pages, approval inbox and source-backed application reports", "completed": false }
+    { "id": "ea-012-business-details-and-approvals", "title": "Domain record details and version-bound approvals complete; approval inbox and source-backed reports remain", "completed": false }
   ],
   "next_recommended_action": {
-    "title": "Implement business detail, approval and reporting surfaces",
-    "reason": "Authoritative records, work items and audit events now use scoped transactional PostgreSQL with CAS, idempotency, restart recovery and atomic Runtime write-back. Normal users next need record detail pages, approval inboxes and source-backed domain reports.",
+    "title": "Implement the shared approval inbox and source-backed application reports",
+    "reason": "Record detail pages now expose typed facts, work and Runner evidence, approval history and audit timelines. Version-bound business approvals are durable and atomic. Normal users next need a cross-application approval inbox and domain KPI reports sourced from business records.",
     "target_project": "anksen-agent-studio",
     "target_packages": ["packages/domain-center", "packages/orchestrator-core", "apps/console"],
     "expected_files": [
