@@ -168,6 +168,24 @@ const definitions = Object.freeze({
       fields: [field("customerName", "客户", "text", { required: true }), field("productCode", "意向产品", "text", { required: true }), field("estimatedAmount", "预计金额", "number", { required: true, min: 0 }), field("probability", "赢单概率(%)", "number", { required: true, min: 0, max: 100 }), field("expectedCloseDate", "预计成交日", "date", { required: true }), field("owner", "销售负责人", "text", { required: true })],
       transitions: { DRAFT: ["DISCOVERY"], DISCOVERY: ["PROPOSAL", "LOST"], PROPOSAL: ["WAITING_APPROVAL", "DISCOVERY", "LOST"], WAITING_APPROVAL: ["NEGOTIATION", "PROPOSAL"], NEGOTIATION: ["WON", "LOST"], WON: ["HANDED_OFF"] },
       workflowGoal: (record) => `分析商机“${record.title}”的需求匹配、赢单概率、报价风险和成交行动计划。`
+    }),
+    video_matrix: definition({
+      label: "视频内容矩阵", workflowDomainId: "video-matrix",
+      fields: [field("productCode", "产品编码", "text", { required: true }), field("campaignRef", "营销活动编号", "text", { required: true }), field("masterAssetRef", "母版内容编号", "text", { required: true }), field("variantCount", "矩阵版本数", "number", { required: true, min: 1 }), field("targetChannels", "目标渠道", "textarea", { required: true }), field("rightsEvidenceRef", "素材权利证据编号", "text", { required: true }), field("humanReviewer", "人工审核人", "text", { required: true })],
+      transitions: { DRAFT: ["GENERATING"], GENERATING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "GENERATING"], APPROVED: ["READY"], READY: ["ARCHIVED"] },
+      workflowGoal: (record) => `检查视频矩阵“${record.title}”的产品事实、母版、渠道适配、素材权利和人工审核，不自动发布。`
+    }),
+    transaction_handoff: definition({
+      label: "交易交接单", workflowDomainId: "transaction-handoff",
+      fields: [field("opportunityRef", "商机编号", "text", { required: true }), field("customerRef", "客户编号", "text", { required: true }), field("productCode", "产品编码", "text", { required: true }), field("quotedAmount", "确认金额", "number", { required: true, min: 0 }), field("currency", "币种", "select", { required: true, options: ["CNY", "USD", "EUR"] }), field("commercialTermsRef", "商务条款编号", "text", { required: true }), field("humanDecisionRef", "人工成交决定编号", "text", { required: true }), field("targetSystem", "交易系统", "text", { required: true })],
+      transitions: { DRAFT: ["VALIDATING"], VALIDATING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "VALIDATING"], APPROVED: ["READY"], READY: ["HANDED_OFF", "CANCELLED"], HANDED_OFF: ["COMPLETED"] },
+      workflowGoal: (record) => `核验交易交接“${record.title}”的客户、商机、产品、金额、商务条款和人工成交决定，不代替交易系统下单。`
+    }),
+    customer_success_case: definition({
+      label: "客户成功工单", workflowDomainId: "customer-success-service",
+      fields: [field("customerRef", "客户编号", "text", { required: true }), field("transactionRef", "交易编号", "text", { required: true }), field("productCode", "产品编码", "text", { required: true }), field("serviceType", "服务类型", "select", { required: true, options: ["交付支持", "使用咨询", "投诉", "续费", "退换处理"] }), field("openedAt", "受理时间", "datetime-local", { required: true }), field("slaHours", "响应 SLA(小时)", "number", { required: true, min: 1 }), field("consentStatus", "联系授权", "select", { required: true, options: ["已授权", "待确认", "已拒绝"] }), field("humanOwner", "人工责任人", "text", { required: true })],
+      transitions: { DRAFT: ["OPEN"], OPEN: ["IN_PROGRESS", "BLOCKED"], IN_PROGRESS: ["WAITING_APPROVAL", "ESCALATED"], WAITING_APPROVAL: ["APPROVED", "IN_PROGRESS"], APPROVED: ["RESOLVED"], ESCALATED: ["IN_PROGRESS", "RESOLVED"], RESOLVED: ["COMPLETED", "REOPENED"] },
+      workflowGoal: (record) => `分析客户成功工单“${record.title}”的交易事实、授权、SLA、需求和升级路径，生成受控答复建议。`
     })
   }),
   "intelligent-manufacturing-erp": Object.freeze({
