@@ -3,7 +3,7 @@
   "generated_at": "2026-07-20T15:00:00+08:00",
   "goal": "Build independent conventional business applications driven by one shared intelligent runtime, while keeping the group cockpit as the command and observation layer.",
   "current_stage": "Enterprise Application Foundation and Intelligent Workflow Integration",
-  "next_stage": "Implement application endpoints, business-object contracts, My Work, conventional workbenches, and the first object-write-back workflow.",
+  "next_stage": "Deepen Growth & Sales, Manufacturing ERP and Smart Park with domain-specific records, state machines and object-write-back workflows.",
   "architecture_source": "docs/ENTERPRISE_APPLICATION_INTELLIGENCE_ARCHITECTURE.md",
   "product_principles": [
     "The cockpit commands and observes; it does not replace operational applications.",
@@ -20,16 +20,19 @@
     { "id": "ea-004-my-work", "title": "Shared conventional My Work center", "completed": true },
     { "id": "ea-005-business-workbenches", "title": "Minimum conventional workbench for six business applications", "completed": true },
     { "id": "ea-006-intelligent-workflow", "title": "First validated workflow with business-object write-back", "completed": true },
-    { "id": "ea-007-production-release", "title": "Tests, push and Office 204 deployment", "completed": true }
+    { "id": "ea-007-production-release", "title": "Tests, push and Office 204 deployment", "completed": true },
+    { "id": "ea-008-group-application-schemas", "title": "Strategy, HR and Finance domain fields and lifecycle state machines", "completed": true },
+    { "id": "ea-009-group-application-workflows", "title": "Strategy, HR and Finance business-object workflows on the shared Kernel", "completed": true },
+    { "id": "ea-010-operational-application-schemas", "title": "Growth & Sales, Manufacturing ERP and Smart Park domain records and workflows", "completed": false }
   ],
   "next_recommended_action": {
-    "title": "Deepen each application with domain-specific records, forms and approval workflows",
-    "reason": "The shared application shell, business object contract, My Work and first finance write-back workflow are complete. The next slice must replace generic record fields with domain-specific detail and reports without duplicating the runtime.",
+    "title": "Deepen operational applications with domain-specific records, forms and approval workflows",
+    "reason": "Strategy, HR and Finance now have distinct required fields, lifecycle transitions and verified controlled workflows. Growth & Sales, Manufacturing ERP and Smart Park are the next application slice.",
     "target_project": "anksen-agent-studio",
     "target_packages": ["packages/domain-center", "packages/orchestrator-core", "apps/console"],
     "expected_files": [
       "packages/domain-center/lib/enterprise-applications.mjs",
-      "packages/orchestrator-core/lib/business-work-contract.mjs",
+      "packages/domain-center/lib/business-object-definitions.mjs",
       "apps/console/web/routes.mjs",
       "apps/console/web/render.mjs",
       "apps/console/web/server.mjs"

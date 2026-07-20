@@ -15,6 +15,8 @@ Business records remain authoritative. Agent Tasks advance or analyse those reco
 - completed foundation: application registry, independent routes, persona capabilities, BusinessTaskBindingV1, conventional record store, My Work, business-to-Kernel workflow bridge
 - verified thin slice: Finance expense → Workflow → four Kernel tasks → Scheduler → Worker claims → controlled Runtime → review-ready business state
 - release evidence: commits `de4763f` and `0e84d1d` deployed through guarded Office 204 run `29756529313`; public login, Cockpit, My Work, all application endpoints, and MCP readiness returned HTTP 200
+- second slice: Strategy objectives/KPIs, HR recruitment/onboarding, and Finance expenses/budgets now have distinct required fields, lifecycle transitions, Agent review gates, and business-object-aware workflow goals
+- verified workflow evidence: Strategy objective, HR recruitment case, and Finance expense each completed four Kernel tasks through the existing Scheduler, Worker and CONTROLLED_STUB runtime with the original business object ID on every stage
 - next stage: deepen each application from the shared conventional shell into its first domain-specific record detail, forms, reports, and write-back workflow
 
 ## Application Endpoints
