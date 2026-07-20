@@ -72,6 +72,16 @@ test("business record updates are versioned, validated, audited and draft-only",
   const event=(await store.recordDetail("finance-platform",record.id,scope)).timeline.find(item=>item.type==="business.object.updated");assert.deepEqual(event.payload.changedFields,["amount"]);assert.equal(event.payload.titleChanged,true);assert.equal(event.payload.ownerChanged,true);
 });
 
+test("business record notes are immutable exact-version scoped timeline events",async()=>{
+  const root=await mkdtemp(resolve(tmpdir(),"business-notes-")),store=new BusinessApplicationStore({repoRoot:root}),scope={organizationId:"notes-org",workspaceId:"notes-workspace",userId:"finance-user"},record=await store.createRecord("finance-platform",{objectType:"expense",title:"费用备注测试",fields:expenseFields},scope);
+  const note=await store.addRecordNote("finance-platform",record.id,{expectedVersion:1,text:"  已核对原始票据，等待负责人确认。  "},scope);assert.equal(note.type,"business.record.note.added");assert.equal(note.objectVersion,1);assert.equal(note.payload.text,"已核对原始票据，等待负责人确认。");assert.equal((await store.getRecord("finance-platform",record.id,scope)).version,1);
+  await store.updateRecord("finance-platform",record.id,{expectedVersion:1,title:"费用备注测试（更新）"},scope);
+  await assert.rejects(()=>store.addRecordNote("finance-platform",record.id,{expectedVersion:1,text:"过期备注"},scope),error=>error.code==="BUSINESS_RECORD_VERSION_CONFLICT");
+  await assert.rejects(()=>store.addRecordNote("finance-platform",record.id,{expectedVersion:2,text:"token=super-secret-value"},scope),error=>error.code==="BUSINESS_RECORD_NOTE_SECRET_REJECTED");
+  await assert.rejects(()=>store.addRecordNote("finance-platform",record.id,{expectedVersion:2,text:"跨租户"},{...scope,organizationId:"other"}),error=>error.code==="BUSINESS_RECORD_NOT_FOUND");
+  const timeline=(await store.recordDetail("finance-platform",record.id,scope)).timeline;assert.equal(timeline.filter(item=>item.type==="business.record.note.added").length,1);assert.equal(timeline.find(item=>item.type==="business.record.note.added").actorId,"finance-user");
+});
+
 test("strategy and HR records expose different authoritative fields", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "business-app-domain-"));
   const store = new BusinessApplicationStore({ repoRoot: root });
