@@ -69,6 +69,21 @@ test("recurring campaign persists the next cycle and resumes when due", async ()
   assert.equal(resumed.initiatives.filter((item) => item.cycle === 1).length, 1);
 });
 
+test("cross-application program waits for upstream business platform and records durable checkpoints",async()=>{
+  const dispatched=[];const{service}=await setup({dispatcher:async({initiative})=>{dispatched.push(initiative.applicationId);return{status:"SUCCEEDED",report:{sessionId:`session-${dispatched.length}`,goalId:`goal-${dispatched.length}`,totalTasks:initiative.taskEstimate,runtimeExecutionCount:initiative.taskEstimate}};}});
+  const draft=await service.create({goal:"从战略目标推进到预算控制",workstreams:[{applicationId:"enterprise-strategy-platform",domainIds:["strategy-execution"]},{applicationId:"finance-platform",domainIds:["finance-management"],dependsOn:["enterprise-strategy-platform"]}],maxTasks:20,maxTokenEstimate:200000,maxRuntimeMinutes:200},{userId:"chairman"});
+  assert.equal(draft.schemaVersion,2);assert.deepEqual(draft.applicationIds,["enterprise-strategy-platform","finance-platform"]);assert.equal(draft.initiatives[1].dependsOn[0],draft.initiatives[0].id);
+  await service.activate(draft.id,{userId:"chairman"});await service.tick(draft.id);assert.deepEqual(dispatched,["enterprise-strategy-platform"]);await service.tick(draft.id);assert.deepEqual(dispatched,["enterprise-strategy-platform","finance-platform"]);const completed=await service.tick(draft.id);assert.equal(completed.status,"SUCCEEDED");assert.deepEqual(completed.checkpoints.filter(item=>item.type==="INITIATIVE_FINISHED").map(item=>item.status),["SUCCEEDED","SUCCEEDED"]);
+});
+
+test("cross-application dependency failure blocks downstream work without dispatch",async()=>{
+  let calls=0;const{service}=await setup({dispatcher:async()=>{calls++;return{status:"FAILED",report:{totalTasks:4,runtimeExecutionCount:1}};}});const draft=await service.create({goal:"受控跨平台任务",workstreams:[{applicationId:"human-resources-platform",domainIds:["human-resources"]},{applicationId:"finance-platform",domainIds:["finance-management"],dependsOn:["human-resources-platform"]}],maxTasks:20,maxTokenEstimate:200000,maxRuntimeMinutes:200});await service.activate(draft.id);await service.tick(draft.id);const blocked=await service.tick(draft.id);assert.equal(calls,1);assert.equal(blocked.initiatives[1].status,"BLOCKED");assert.ok(blocked.initiatives[1].blockedReasons.includes("UPSTREAM_INITIATIVE_BLOCKED"));assert.equal(blocked.status,"COMPLETED_WITH_BLOCKERS");
+});
+
+test("cross-application program rejects cyclic dependencies before persistence",async()=>{const{service}=await setup();await assert.rejects(()=>service.create({goal:"错误依赖",workstreams:[{applicationId:"human-resources-platform",dependsOn:["finance-platform"]},{applicationId:"finance-platform",dependsOn:["human-resources-platform"]}]}),error=>error.code==="PORTFOLIO_DEPENDENCY_CYCLE");});
+
+test("campaign reads fail closed outside the owning organization and workspace",async()=>{const{service}=await setup();const campaign=await service.create({applicationId:"finance-platform",goal:"租户隔离任务"},{userId:"owner",organizationId:"org-a",workspaceId:"workspace-a"});assert.equal((await service.list({organizationId:"org-a",workspaceId:"workspace-a"})).length,1);assert.equal((await service.list({organizationId:"org-b",workspaceId:"workspace-a"})).length,0);assert.equal(await service.get(campaign.id,{organizationId:"org-a",workspaceId:"workspace-b"}),null);});
+
 test("Studio exposes the portfolio product route and authenticated lifecycle API", async () => {
   const html = await renderConsolePage("/portfolio", { authenticated: true, capabilities: ["*"], project_allowlist: ["*"] });
   const server = await readFile(new URL("../../../apps/console/web/server.mjs", import.meta.url), "utf8");

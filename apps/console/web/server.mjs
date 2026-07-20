@@ -519,20 +519,20 @@ const server = createServer(async (request, response) => {
       return;
     }
     if (request.method === "GET" && pathname === "/api/portfolio/campaigns") {
-      sendJson(response, 200, { campaigns: await autonomousPortfolio.list(), catalog: domainCenterSummary() });
+      const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"};sendJson(response, 200, { campaigns: await autonomousPortfolio.list(scope), catalog: domainCenterSummary() });
       return;
     }
     if (request.method === "POST" && pathname === "/api/portfolio/campaigns") {
       const body = await readJsonBody(request);
       const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "portfolio-create", project_id: String(body.projectId ?? "anksen-agent-studio"), risk: "LOW" }, { user_context: accessContext });
       if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
-      try { sendJson(response, 201, await autonomousPortfolio.create(body, { userId: accessContext.user?.user_id })); }
+      try { sendJson(response, 201, await autonomousPortfolio.create(body, { userId: accessContext.user?.user_id,organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace" })); }
       catch (error) { sendJson(response, 400, { status: error?.code ?? "PORTFOLIO_INVALID", reason: error instanceof Error ? error.message : String(error) }); }
       return;
     }
     const portfolioAction = pathname.match(/^\/api\/portfolio\/campaigns\/([^/]+)\/(activate|tick|pause)$/);
     if (request.method === "POST" && portfolioAction) {
-      const campaign = await autonomousPortfolio.get(decodeURIComponent(portfolioAction[1]));
+      const campaign = await autonomousPortfolio.get(decodeURIComponent(portfolioAction[1]),{organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"});
       if (!campaign) { sendJson(response, 404, { status: "PORTFOLIO_NOT_FOUND" }); return; }
       const access = await evaluateConsoleActionAccess(accessBundle, { action_id: `portfolio-${portfolioAction[2]}`, project_id: campaign.projectId, risk: portfolioAction[2] === "activate" ? "MEDIUM" : "LOW" }, { user_context: accessContext });
       if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
