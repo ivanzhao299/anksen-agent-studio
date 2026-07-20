@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { assertEnterpriseApplication } from "./enterprise-applications.mjs";
-import { availableBusinessTransitions, getBusinessObjectDefinition, validateBusinessObjectFields } from "./business-object-definitions.mjs";
+import { availableBusinessTransitions, businessRecordEditable, getBusinessObjectDefinition, validateBusinessObjectFields } from "./business-object-definitions.mjs";
 import { assertBusinessRelationContract, relationContractsFor } from "./business-relation-definitions.mjs";
 import { businessExceptionResult, businessRecordExceptionStatuses, businessWorkExceptionStatuses, presentBusinessRecordException, presentBusinessWorkException } from "./business-exceptions.mjs";
 import { businessSearchResult, normalizeBusinessSearch, presentBusinessSearchRecord } from "./business-record-search.mjs";
@@ -42,6 +42,7 @@ export class PostgresBusinessApplicationStore {
       title: row.title, status: row.status, version: row.version, ownerId: row.owner_id, fields: row.fields,
       source: row.source, createdBy: row.created_by, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at),
       availableTransitions: availableBusinessTransitions(row.application_id, row.object_type, row.status),
+      editable: businessRecordEditable(row.application_id,row.object_type,row.status),
       schema: getBusinessObjectDefinition(row.application_id, row.object_type)
     };
   }
@@ -133,6 +134,10 @@ export class PostgresBusinessApplicationStore {
     const scope = scopeOf(actor);
     const row = (await this.pool.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND application_id=$4", [id, scope.organizationId, scope.workspaceId, applicationId])).rows[0];
     return row ? this.presentRecord(row) : null;
+  }
+
+  async updateRecord(applicationId,id,input,actor={}) {
+    const scope=scopeOf(actor),actorId=String(actor.userId??"unknown");return this.transaction(async client=>{const row=(await client.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND application_id=$4 FOR UPDATE",[id,scope.organizationId,scope.workspaceId,applicationId])).rows[0];if(!row)throw Object.assign(new Error("BUSINESS_RECORD_NOT_FOUND"),{code:"BUSINESS_RECORD_NOT_FOUND"});if(row.version!==Number(input.expectedVersion))throw Object.assign(new Error("BUSINESS_RECORD_VERSION_CONFLICT"),{code:"BUSINESS_RECORD_VERSION_CONFLICT"});if(!businessRecordEditable(applicationId,row.object_type,row.status))throw Object.assign(new Error("BUSINESS_RECORD_NOT_EDITABLE"),{code:"BUSINESS_RECORD_NOT_EDITABLE"});const title=String(input.title??row.title).trim(),ownerId=String(input.ownerId??row.owner_id).trim();if(!title)throw Object.assign(new Error("BUSINESS_RECORD_TITLE_REQUIRED"),{code:"BUSINESS_RECORD_TITLE_REQUIRED"});if(!ownerId)throw Object.assign(new Error("BUSINESS_RECORD_OWNER_REQUIRED"),{code:"BUSINESS_RECORD_OWNER_REQUIRED"});const fields=validateBusinessObjectFields(applicationId,row.object_type,{...row.fields,...(input.fields??{})}),changedFields=Object.keys(fields).filter(key=>JSON.stringify(fields[key])!==JSON.stringify(row.fields?.[key])),now=this.clock(),updated=(await client.query("UPDATE business_application_record SET title=$1,owner_id=$2,fields=$3,version=version+1,updated_at=$4 WHERE id=$5 AND version=$6 RETURNING *",[title,ownerId,fields,now,row.id,row.version])).rows[0];if(!updated)throw Object.assign(new Error("BUSINESS_RECORD_VERSION_CONFLICT"),{code:"BUSINESS_RECORD_VERSION_CONFLICT"});await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,actor_id,payload,created_at) VALUES($1,$2,$3,'business.object.updated',$4,$5,$6,$7,$8,$9,$10)",[randomUUID(),scope.organizationId,scope.workspaceId,applicationId,row.object_type,row.id,updated.version,actorId,{changedFields,titleChanged:title!==row.title,ownerChanged:ownerId!==row.owner_id},now]);return this.presentRecord(updated);});
   }
 
   async recordDetail(applicationId, id, actor = {}) {

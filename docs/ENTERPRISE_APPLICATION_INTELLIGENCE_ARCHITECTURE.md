@@ -101,6 +101,8 @@ The group cockpit action feed is an idempotent projection of the same exceptions
 
 The group cockpit also provides conventional cross-application record search over authoritative display keys, titles, owners, and statuses. Search always injects the server-derived application allowlist plus organization and workspace scope; a client cannot broaden it. PostgreSQL uses parameterized literal substring matching rather than user-controlled wildcard patterns. Results are paginated, link to the owning application, and intentionally omit typed field payloads, Runtime metadata, credentials, and internal orchestration state.
 
+Conventional record details support versioned editing of title, accountable owner, and typed business fields while the object is in a schema-declared editable state. Updates merge and revalidate the complete field set, use optimistic object-version CAS, preserve the immutable display key, and atomically append a `business.object.updated` audit event. Approval, active-processing, and terminal states fail closed. The audit records changed field names and title/owner change flags rather than duplicating field values.
+
 ## Named business roles
 
 Strategy, HR, finance, sales, manufacturing, and Smart Park operators have separate least-privilege roles. Each role can open only its own application and My Work, create and transition its formal records, establish allowed business chains, request approvals, and delegate LOW-risk work to the shared Planner. These conventional MEDIUM-risk lifecycle actions are allowed, but approval decisions, Runtime execution control, development commit, release, deployment, credentials, and access administration remain denied unless separately granted.

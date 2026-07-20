@@ -101,6 +101,10 @@ test("PostgreSQL business store is scoped, transactional, idempotent and restart
   }
 });
 
+test("PostgreSQL business record update uses scoped version CAS and immutable lifecycle gates",async()=>{
+  await ensurePostgresFixture();const pool=createTestPool(),suffix=randomUUID(),scope={organizationId:`update-org-${suffix}`,workspaceId:`update-workspace-${suffix}`,userId:"finance-editor"};try{const store=(await createBusinessApplicationRuntime({repoRoot:process.cwd(),pool})).store,record=await store.createRecord("finance-platform",{objectType:"expense",title:"数据库修改测试",displayKey:`UPDATE-${suffix}`,ownerId:"old-owner",fields:expenseFields},scope),updated=await store.updateRecord("finance-platform",record.id,{expectedVersion:1,title:"数据库修改完成",ownerId:"new-owner",fields:{amount:3200}},scope);assert.equal(updated.version,2);assert.equal(updated.fields.amount,3200);assert.equal(updated.fields.description,expenseFields.description);await assert.rejects(()=>store.updateRecord("finance-platform",record.id,{expectedVersion:1,title:"过期"},scope),error=>error.code==="BUSINESS_RECORD_VERSION_CONFLICT");await assert.rejects(()=>store.updateRecord("finance-platform",record.id,{expectedVersion:2,title:"跨租户"},{...scope,organizationId:"other"}),error=>error.code==="BUSINESS_RECORD_NOT_FOUND");await store.transitionRecord("finance-platform",record.id,{expectedVersion:2,status:"SUBMITTED"},scope);await assert.rejects(()=>store.updateRecord("finance-platform",record.id,{expectedVersion:3,title:"流程中修改"},scope),error=>error.code==="BUSINESS_RECORD_NOT_EDITABLE");const event=(await store.events(scope)).find(item=>item.type==="business.object.updated");assert.deepEqual(event.payload.changedFields,["amount"]);assert.equal(event.objectVersion,2);}finally{await pool.end();}
+});
+
 test("business work control refuses to bypass an active Kernel lease", async () => {
   await ensurePostgresFixture();
   const pool = createTestPool(), suffix = randomUUID(), scope = { organizationId: `lease-org-${suffix}`, workspaceId: `lease-workspace-${suffix}`, userId: "operator" };

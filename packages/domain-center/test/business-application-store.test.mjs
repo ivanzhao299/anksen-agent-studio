@@ -64,6 +64,14 @@ test("conventional finance records enforce domain fields and lifecycle", async (
   assert.equal(takeover.version, 4);
 });
 
+test("business record updates are versioned, validated, audited and draft-only",async()=>{
+  const root=await mkdtemp(resolve(tmpdir(),"business-update-")),store=new BusinessApplicationStore({repoRoot:root}),scope={organizationId:"update-org",workspaceId:"update-workspace",userId:"finance-user"},record=await store.createRecord("finance-platform",{objectType:"expense",title:"待修改费用",ownerId:"old-owner",fields:expenseFields},scope);
+  assert.equal(record.editable,true);const updated=await store.updateRecord("finance-platform",record.id,{expectedVersion:1,title:"已修改费用",ownerId:"new-owner",fields:{amount:1380.5}},scope);assert.equal(updated.version,2);assert.equal(updated.title,"已修改费用");assert.equal(updated.ownerId,"new-owner");assert.equal(updated.fields.amount,1380.5);assert.equal(updated.fields.description,expenseFields.description);
+  await assert.rejects(()=>store.updateRecord("finance-platform",record.id,{expectedVersion:1,title:"过期修改"},scope),error=>error.code==="BUSINESS_RECORD_VERSION_CONFLICT");await assert.rejects(()=>store.updateRecord("finance-platform",record.id,{expectedVersion:2,fields:{amount:0}},scope),error=>error.code==="BUSINESS_FIELD_INVALID");
+  const submitted=await store.transitionRecord("finance-platform",record.id,{expectedVersion:2,status:"SUBMITTED"},scope);assert.equal(submitted.editable,false);await assert.rejects(()=>store.updateRecord("finance-platform",record.id,{expectedVersion:3,title:"审批中修改"},scope),error=>error.code==="BUSINESS_RECORD_NOT_EDITABLE");
+  const event=(await store.recordDetail("finance-platform",record.id,scope)).timeline.find(item=>item.type==="business.object.updated");assert.deepEqual(event.payload.changedFields,["amount"]);assert.equal(event.payload.titleChanged,true);assert.equal(event.payload.ownerChanged,true);
+});
+
 test("strategy and HR records expose different authoritative fields", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "business-app-domain-"));
   const store = new BusinessApplicationStore({ repoRoot: root });

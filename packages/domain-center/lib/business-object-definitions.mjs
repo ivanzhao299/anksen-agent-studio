@@ -3,6 +3,7 @@ const field = (key, label, type = "text", options = {}) => Object.freeze({ key, 
 const definition = (value) => Object.freeze({
   initialStatus: "DRAFT",
   agentReviewStatus: "WAITING_APPROVAL",
+  editableStatuses: Object.freeze(value.editableStatuses ?? ["DRAFT"]),
   fields: Object.freeze(value.fields ?? []),
   transitions: Object.freeze(value.transitions),
   ...value
@@ -230,6 +231,10 @@ export function validateBusinessObjectFields(applicationId, objectType, input = 
 
 export function availableBusinessTransitions(applicationId, objectType, status) {
   return [...(getBusinessObjectDefinition(applicationId, objectType).transitions[status] ?? [])];
+}
+
+export function businessRecordEditable(applicationId, objectType, status) {
+  return getBusinessObjectDefinition(applicationId, objectType).editableStatuses.includes(status);
 }
 
 export function businessWorkflowGoal(applicationId, record) {
