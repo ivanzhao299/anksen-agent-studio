@@ -149,9 +149,15 @@ const definitions = Object.freeze({
     }),
     bom: definition({
       label: "BOM", workflowDomainId: "product-engineering-bom",
-      fields: [field("productCode", "产品编码", "text", { required: true }), field("revision", "版本", "text", { required: true }), field("plant", "适用工厂", "text", { required: true }), field("effectiveDate", "生效日期", "date", { required: true }), field("componentCount", "组件数量", "number", { required: true, min: 1 })],
+      fields: [field("productCode", "产品编码", "text", { required: true }), field("revision", "版本", "text", { required: true }), field("plant", "适用工厂", "text", { required: true }), field("effectiveDate", "生效日期", "date", { required: true }), field("componentCount", "组件数量", "number", { required: true, min: 1 }), field("componentRequirements", "组件需求（物料编码:单台用量）", "textarea", { required: true })],
       transitions: { DRAFT: ["ENGINEERING_REVIEW"], ENGINEERING_REVIEW: ["WAITING_APPROVAL", "DRAFT"], WAITING_APPROVAL: ["RELEASED", "DRAFT"], RELEASED: ["OBSOLETE"] },
       workflowGoal: (record) => `校验 BOM“${record.title}”的结构、版本、替代料和生效边界，形成工程放行建议。`
+    }),
+    routing_sop: definition({
+      label: "工艺路线与 SOP", workflowDomainId: "process-routing-sop",
+      fields: [field("productCode", "产品编码", "text", { required: true }), field("revision", "版本", "text", { required: true }), field("plant", "适用工厂", "text", { required: true }), field("effectiveDate", "生效日期", "date", { required: true }), field("operationCount", "工序数量", "number", { required: true, min: 1 }), field("controlledDocumentRef", "受控作业指导书编号", "text", { required: true })],
+      transitions: { DRAFT: ["PROCESS_REVIEW"], PROCESS_REVIEW: ["WAITING_APPROVAL", "DRAFT"], WAITING_APPROVAL: ["RELEASED", "DRAFT"], RELEASED: ["OBSOLETE"] },
+      workflowGoal: (record) => `校验工艺路线与 SOP“${record.title}”的工序、版本、生效边界和受控作业指导书。`
     }),
     inventory: definition({
       label: "库存", workflowDomainId: "wms-logistics",

@@ -15,6 +15,8 @@ export const businessRelationContracts=Object.freeze([
   contract("ai-growth-sales-platform","customer","opportunity","HAS_OPPORTUNITY","客户发起商机",["ACTIVE"]),
   contract("intelligent-manufacturing-erp","material","bom","USED_IN","物料进入 BOM",["ACTIVE"]),
   contract("intelligent-manufacturing-erp","bom","work_order","USED_BY","已放行 BOM 创建工单",["RELEASED"]),
+  contract("intelligent-manufacturing-erp","routing_sop","work_order","GOVERNS","已放行 SOP 管控工单",["RELEASED"]),
+  contract("intelligent-manufacturing-erp","inventory","work_order","ALLOCATED_TO","已完成盘点库存支持工单",["COMPLETED"]),
   contract("intelligent-manufacturing-erp","work_order","quality_case","GENERATES","工单产生质量事件",["RELEASED","IN_PRODUCTION","COMPLETED","BLOCKED"]),
   contract("smart-park-platform","enterprise","service_order","REQUESTS","入园企业发起服务",["ADMITTED","ACTIVE"]),
   contract("smart-park-platform","enterprise","lease_contract","SIGNS","入园企业签订租约",["ADMITTED","ACTIVE"]),
