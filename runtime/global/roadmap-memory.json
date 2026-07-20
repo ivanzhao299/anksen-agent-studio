@@ -37,7 +37,8 @@
     { "id": "ea-021-business-execution-evidence", "title": "Read-only Skill, Agent, Runner, Attempt and sanitized Runtime result projection on business records", "completed": true },
     { "id": "ea-022-business-exception-center", "title": "Role-scoped cross-application exception center backed by formal business and work states", "completed": true },
     { "id": "ea-023-role-browser-uat", "title": "Authenticated browser UAT with named business roles", "completed": false },
-    { "id": "ea-024-exception-resolution", "title": "Versioned exception-to-resolution actions through conventional record lifecycles and shared work control", "completed": true }
+    { "id": "ea-024-exception-resolution", "title": "Versioned exception-to-resolution actions through conventional record lifecycles and shared work control", "completed": true },
+    { "id": "ea-025-action-notification-projection", "title": "Idempotent role-scoped action feed from formal exceptions and exact-version approvals", "completed": true }
   ],
   "next_recommended_action": {
     "title": "Run authenticated browser UAT and continue exception-to-resolution workflows",
@@ -60,7 +61,7 @@
     { "id": "EA-022", "depends_on": ["EA-021"], "title": "Authoritative cross-application exception center", "status": "COMPLETED", "checkpoint": "tests and PostgreSQL scope evidence" },
     { "id": "EA-023", "depends_on": ["EA-022"], "title": "Named-role authenticated browser UAT", "status": "READY", "checkpoint": "role-by-role UI evidence" },
     { "id": "EA-024", "depends_on": ["EA-022"], "title": "Exception-to-resolution domain transactions", "status": "COMPLETED", "checkpoint": "version-CAS and audited resolution write-back" },
-    { "id": "EA-025", "depends_on": ["EA-024"], "title": "Notification and escalation projection", "status": "PENDING", "checkpoint": "idempotent notification evidence" },
+    { "id": "EA-025", "depends_on": ["EA-024"], "title": "Notification and escalation projection", "status": "COMPLETED", "checkpoint": "stable notification keys and role-filtered source evidence" },
     { "id": "EA-026", "depends_on": ["EA-023", "EA-024", "EA-025"], "title": "Enterprise regression, commit and Office 204 production deployment", "status": "PENDING", "checkpoint": "exact production commit and HTTP verification" }
   ],
   "long_task_runtime": {
