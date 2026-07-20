@@ -124,6 +124,28 @@ export class PostgresBusinessApplicationStore {
     });
   }
 
+  async createRelatedRecord(applicationId, sourceRecordId, input, actor = {}) {
+    const application = assertEnterpriseApplication(applicationId), scope = scopeOf(actor), actorId = String(actor.userId ?? "unknown");
+    const targetType = String(input.objectType ?? ""), relationType = String(input.relationType ?? "").toUpperCase(), title = String(input.title ?? "").trim(), displayKey = String(input.displayKey ?? "").trim();
+    if (!application.objectTypes.some((item) => item.id === targetType)) throw Object.assign(new Error("BUSINESS_OBJECT_TYPE_DENIED"), { code: "BUSINESS_OBJECT_TYPE_DENIED" });
+    if (!title) throw Object.assign(new Error("BUSINESS_RECORD_TITLE_REQUIRED"), { code: "BUSINESS_RECORD_TITLE_REQUIRED" });
+    if (!displayKey) throw Object.assign(new Error("BUSINESS_RELATED_DISPLAY_KEY_REQUIRED"), { code: "BUSINESS_RELATED_DISPLAY_KEY_REQUIRED" });
+    const schema = getBusinessObjectDefinition(applicationId, targetType), fields = validateBusinessObjectFields(applicationId, targetType, input.fields), ownerId = String(input.ownerId ?? actor.userId ?? "unassigned");
+    return this.transaction(async (client) => {
+      const source = (await client.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND application_id=$4 FOR SHARE", [sourceRecordId, scope.organizationId, scope.workspaceId, applicationId])).rows[0];
+      if (!source) throw Object.assign(new Error("BUSINESS_RELATION_RECORD_NOT_FOUND"), { code: "BUSINESS_RELATION_RECORD_NOT_FOUND" });
+      const contract = assertBusinessRelationContract(applicationId, source.object_type, targetType, relationType), now = this.clock(), targetId = randomUUID();
+      const inserted = (await client.query("INSERT INTO business_application_record(id,organization_id,workspace_id,application_id,object_type,display_key,title,status,owner_id,fields,version,created_by,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,$11,$12,$12) ON CONFLICT(organization_id,workspace_id,application_id,display_key) DO NOTHING RETURNING *", [targetId, scope.organizationId, scope.workspaceId, applicationId, targetType, displayKey, title, schema.initialStatus, ownerId, fields, actorId, now])).rows[0];
+      const target = inserted ?? (await client.query("SELECT * FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND display_key=$4 FOR SHARE", [scope.organizationId, scope.workspaceId, applicationId, displayKey])).rows[0];
+      if (!target || target.object_type !== targetType) throw Object.assign(new Error("BUSINESS_RELATED_IDEMPOTENCY_CONFLICT"), { code: "BUSINESS_RELATED_IDEMPOTENCY_CONFLICT" });
+      const relationId = randomUUID(), relationInserted = (await client.query("INSERT INTO business_record_relation(id,organization_id,workspace_id,application_id,source_record_id,target_record_id,relation_type,created_by,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(organization_id,workspace_id,source_record_id,target_record_id,relation_type) DO NOTHING RETURNING *", [relationId, scope.organizationId, scope.workspaceId, applicationId, source.id, target.id, contract.relationType, actorId, now])).rows[0];
+      const relation = relationInserted ?? (await client.query("SELECT * FROM business_record_relation WHERE organization_id=$1 AND workspace_id=$2 AND source_record_id=$3 AND target_record_id=$4 AND relation_type=$5", [scope.organizationId, scope.workspaceId, source.id, target.id, contract.relationType])).rows[0];
+      if (inserted) await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,actor_id,payload,created_at) VALUES($1,$2,$3,'business.object.created',$4,$5,$6,1,$7,$8,$9)", [randomUUID(), scope.organizationId, scope.workspaceId, applicationId, targetType, target.id, actorId, { displayKey, title, status: schema.initialStatus, sourceRecordId: source.id }, now]);
+      if (relationInserted) await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,actor_id,payload,created_at) VALUES($1,$2,$3,'business.record.related',$4,$5,$6,$7,$8,$9,$10)", [randomUUID(), scope.organizationId, scope.workspaceId, applicationId, source.object_type, source.id, source.version, actorId, { relationId: relation.id, relationType: contract.relationType, targetRecordId: target.id, targetDisplayKey: target.display_key, createdAtomically: true }, now]);
+      return { record: this.presentRecord(target), relation: { ...this.presentRelation({ ...relation, source_object_type: source.object_type, source_display_key: source.display_key, source_title: source.title, source_status: source.status, target_object_type: target.object_type, target_display_key: target.display_key, target_title: target.title, target_status: target.status }, source.id), label: contract.label }, created: Boolean(inserted) };
+    });
+  }
+
   async requestApproval(applicationId, recordId, input, actor = {}) {
     const scope = scopeOf(actor), actorId = String(actor.userId ?? "unknown");
     return this.transaction(async (client) => {

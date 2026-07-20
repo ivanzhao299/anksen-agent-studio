@@ -94,3 +94,12 @@ test("file fallback preserves typed business record relations",async()=>{
   assert.equal(detail.relations[0].id,relation.id);assert.equal(detail.relations[0].record.id,expense.id);assert.deepEqual((await store.applicationReport("finance-platform",scope)).businessChains,{total:1,byType:{CONTROLS:1}});
   await assert.rejects(()=>store.createRelation("finance-platform",expense.id,{targetRecordId:budget.id,relationType:"CONTROLS"},scope),error=>error.code==="BUSINESS_RELATION_DENIED");
 });
+
+test("file fallback atomically creates an idempotent downstream business transaction",async()=>{
+  const root=await mkdtemp(resolve(tmpdir(),"business-related-create-")),store=new BusinessApplicationStore({repoRoot:root}),scope={organizationId:"sales-org",workspaceId:"sales-workspace",userId:"sales-owner"};
+  const lead=await store.createRecord("ai-growth-sales-platform",{objectType:"lead",title:"能源管理线索",displayKey:"LEAD-ATOMIC-1",fields:{source:"官网",contactName:"李经理",company:"示例制造",contactChannel:"authorized-ref-001",consentStatus:"已授权",interest:"能源管理"}},scope),input={objectType:"opportunity",relationType:"CONVERTS_TO",title:"示例制造能源管理商机",displayKey:"OPP-ATOMIC-1",fields:{customerName:"示例制造",productCode:"ENERGY",estimatedAmount:100000,probability:30,expectedCloseDate:"2026-09-30",owner:"sales-owner"}};
+  await assert.rejects(()=>store.createRelatedRecord("ai-growth-sales-platform",lead.id,{...input,displayKey:"OPP-INVALID",fields:{...input.fields,owner:""}},scope),error=>error.code==="BUSINESS_FIELD_REQUIRED");
+  assert.equal((await store.listRecords("ai-growth-sales-platform",scope)).length,1);
+  const first=await store.createRelatedRecord("ai-growth-sales-platform",lead.id,input,scope),duplicate=await store.createRelatedRecord("ai-growth-sales-platform",lead.id,input,scope),detail=await store.recordDetail("ai-growth-sales-platform",lead.id,scope);
+  assert.equal(first.created,true);assert.equal(duplicate.created,false);assert.equal(first.record.id,duplicate.record.id);assert.equal(detail.relations.length,1);assert.equal(detail.relations[0].record.id,first.record.id);assert.equal((await store.listRecords("ai-growth-sales-platform",scope)).length,2);
+});

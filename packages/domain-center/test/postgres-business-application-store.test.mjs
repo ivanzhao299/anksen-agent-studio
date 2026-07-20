@@ -149,5 +149,10 @@ test("business record relations are typed, scoped, idempotent and restart-readab
     assert.equal(await restarted.recordDetail("finance-platform",budget.id,{organizationId:"foreign",workspaceId:scope.workspaceId}),null);
     await assert.rejects(()=>store.createRelation("finance-platform",expense.id,{targetRecordId:budget.id,relationType:"CONTROLS"},scope),error=>error.code==="BUSINESS_RELATION_DENIED");
     const event=(await store.events(scope)).find(item=>item.type==="business.record.related");assert.equal(event.payload.targetRecordId,expense.id);
+    const atomicBudget=await store.createRecord("finance-platform",{objectType:"budget",title:"原子事务预算",displayKey:`BUD-ATOMIC-${suffix}`,fields:{fiscalYear:2027,department:"市场中心",budgetCode:"MKT-2027",amount:50000,currency:"CNY"}},scope),relatedInput={objectType:"expense",relationType:"CONTROLS",title:"市场活动费用",displayKey:`EXP-ATOMIC-${suffix}`,fields:{...expenseFields,department:"市场中心",budgetCode:"MKT-2027"}};
+    await assert.rejects(()=>store.createRelatedRecord("finance-platform",atomicBudget.id,{...relatedInput,displayKey:`EXP-INVALID-${suffix}`,fields:{...relatedInput.fields,description:""}},scope),error=>error.code==="BUSINESS_FIELD_REQUIRED");
+    const firstAtomic=await store.createRelatedRecord("finance-platform",atomicBudget.id,relatedInput,scope),duplicateAtomic=await store.createRelatedRecord("finance-platform",atomicBudget.id,relatedInput,scope),atomicDetail=await store.recordDetail("finance-platform",atomicBudget.id,scope);
+    assert.equal(firstAtomic.created,true);assert.equal(duplicateAtomic.created,false);assert.equal(firstAtomic.record.id,duplicateAtomic.record.id);assert.equal(atomicDetail.relations.length,1);assert.equal(atomicDetail.relations[0].record.id,firstAtomic.record.id);
+    assert.equal((await store.events(scope)).filter(item=>item.type==="business.object.created"&&item.payload?.sourceRecordId===atomicBudget.id).length,1);
   }finally{await pool.end();}
 });
