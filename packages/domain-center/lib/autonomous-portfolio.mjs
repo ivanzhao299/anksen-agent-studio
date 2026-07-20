@@ -186,6 +186,7 @@ export class AutonomousPortfolioService {
       const result = await this.dispatcher({ campaign, initiative });
       initiative.status = result.status === "SUCCEEDED" ? "SUCCEEDED" : result.status === "BLOCKED" ? "BLOCKED" : "FAILED";
       initiative.report = result.report ?? null;
+      if(initiative.status==="BLOCKED")initiative.blockedReasons=[...new Set([...initiative.blockedReasons,...(result.report?.blockedReasons??[]),...(result.report?.workStatus&&result.report.workStatus!=="COMPLETED"?[`BUSINESS_WORK_${result.report.workStatus}`]:[])])];
       initiative.kernel = { sessionKey: initiative.sessionKey, goalId: result.report?.goalId ?? null, sessionId: result.report?.sessionId ?? null,businessObject:result.report?.businessObject??initiative.businessObject??null,capabilityContractId:result.report?.capabilityContractId??null,capabilityContractHash:result.report?.capabilityContractHash??null };
       initiative.finishedAt = this.clock().toISOString();
       campaign.usage.actualTasks += Number(result.report?.totalTasks ?? initiative.taskEstimate);

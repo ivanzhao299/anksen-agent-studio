@@ -116,6 +116,10 @@ test("Studio exposes the portfolio product route and authenticated lifecycle API
   assert.match(server, /PORTFOLIO_BUSINESS_OBJECT_DOMAIN_MISMATCH/);
   assert.match(server, /businessTaskBinding/);
   assert.match(server, /capabilityProtocol/);
+  assert.match(server, /PORTFOLIO_BUSINESS_OBJECTS_NOT_READY/);
+  assert.match(server, /ResidentBusinessWorkRunner/);
+  assert.match(server, /getWorkItemForRunner/);
+  assert.match(server, /completed\.status==="COMPLETED"/);
   assert.match(server, /`portfolio-\$\{portfolioAction\[2\]\}`/);
   assert.match(access, /"portfolio-activate"/);
   assert.match(server, /runDaemon/);
