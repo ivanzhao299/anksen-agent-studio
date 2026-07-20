@@ -13,6 +13,7 @@
     "smart-park:program:submit": "node packages/domain-center/bin/smart-park-program-submit.mjs",
     "smart-park:audit": "node packages/domain-center/bin/smart-park-audit.mjs",
     "smart-park:audit:record": "node packages/domain-center/bin/smart-park-audit-record.mjs",
+    "growth-sales:program:submit": "node packages/domain-center/bin/ai-growth-sales-program-submit.mjs",
     "domain-runner:start": "node packages/domain-center/bin/domain-runner.mjs",
     "lint:check": "node packages/orchestrator-core/bin/studio.mjs lint-check",
     "night-shift:smoke": "node packages/orchestrator-core/bin/night-shift-smoke.mjs",

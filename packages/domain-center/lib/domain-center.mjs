@@ -31,6 +31,37 @@ const parkDomain = ({ id, name, nameEn, icon, summary, keywords, skill }) => Obj
   ])
 });
 
+const growthDomain = ({ id, name, nameEn, icon, summary, keywords, skill, risk = "MEDIUM" }) => Object.freeze({
+  id,
+  applicationId: "ai-growth-sales-platform",
+  name,
+  nameEn,
+  icon,
+  summary,
+  keywords,
+  riskLevel: risk,
+  skillPack: [`${skill}_strategy`, `${skill}_execution`, `${skill}_compliance`, `${skill}_optimization`],
+  workflow: Object.freeze([
+    stage("STRATEGY", `制定${name}策略与成功指标`, "document_generation", "agent-1", null, `${skill}_strategy`),
+    stage("EXECUTE", `执行${name}受控流程`, "code_development", "agent-4", "STRATEGY", `${skill}_execution`),
+    stage("GOVERN", `校验${name}授权、合规与质量`, "validation_testing", "agent-2", "EXECUTE", `${skill}_compliance`),
+    stage("OPTIMIZE", `分析${name}结果并优化`, "spreadsheet_analysis", "agent-2", "GOVERN", `${skill}_optimization`)
+  ])
+});
+
+export const aiGrowthSalesDomains = Object.freeze([
+  growthDomain({ id: "product-offer-center", name: "产品与营销资产", nameEn: "Product & Offer Center", icon: "OFR", summary: "接入不同产品、价格、权益、受众、品牌规范、事实证据和转化目标。", keywords: ["产品营销", "产品卖点", "产品文案", "offer", "营销资产"], skill: "product_offer" }),
+  growthDomain({ id: "content-generation", name: "智能内容生产", nameEn: "AI Content Generation", icon: "COPY", summary: "生成并审核产品文案、图文、脚本、落地页素材和多语言版本。", keywords: ["自动生成文案", "产品文案", "营销文案", "内容生产", "copywriting"], skill: "content_generation" }),
+  growthDomain({ id: "video-matrix", name: "视频与内容矩阵", nameEn: "Video & Content Matrix", icon: "VMX", summary: "将产品策略转为脚本、素材、成片、版本变体和渠道内容矩阵。", keywords: ["视频矩阵", "自动生成视频", "短视频矩阵", "内容矩阵"], skill: "video_matrix" }),
+  growthDomain({ id: "channel-account-governance", name: "渠道与账号治理", nameEn: "Channel & Account Governance", icon: "CHN", summary: "管理平台账号申请、实名授权、凭据引用、角色权限、风控状态和账号健康；注册需人工批准。", keywords: ["平台注册", "账号注册", "渠道账号", "账号矩阵"], skill: "channel_account", risk: "HIGH" }),
+  growthDomain({ id: "publishing-distribution", name: "智能发布与分发", nameEn: "Publishing & Distribution", icon: "PUB", summary: "按平台规则完成排期、审批、发布、失败恢复、链接追踪和矩阵效果归因。", keywords: ["自动发布", "内容发布", "矩阵发布", "渠道分发"], skill: "publishing_distribution", risk: "HIGH" }),
+  growthDomain({ id: "lead-intelligence", name: "线索获取与客户洞察", nameEn: "Lead Intelligence", icon: "LEAD", summary: "从合法授权渠道采集线索、去重、补全、评分、分群并记录来源与同意状态。", keywords: ["获取客户信息", "客户线索", "获客", "线索评分", "客户洞察"], skill: "lead_intelligence", risk: "HIGH" }),
+  growthDomain({ id: "customer-engagement", name: "客户触达与智能应答", nameEn: "Customer Engagement", icon: "ENG", summary: "在客户同意、频控和渠道规则内完成触达、会话接待、需求识别、答复和人工升级。", keywords: ["联系客户", "自动加客户", "答复客户", "智能应答", "客户触达"], skill: "customer_engagement", risk: "CRITICAL" }),
+  growthDomain({ id: "sales-conversion", name: "销售机会与转化", nameEn: "Sales Conversion", icon: "CRM", summary: "管理客户、商机、跟进、方案、报价、审批、预测和成交转化。", keywords: ["销售转化", "销售机会", "商机", "报价", "成交"], skill: "sales_conversion", risk: "HIGH" }),
+  growthDomain({ id: "transaction-handoff", name: "交易系统交接", nameEn: "Transaction Handoff", icon: "ORD", summary: "将已确认的客户、商品、价格和交易意向幂等交接到外部订单、合同、支付或 ERP。", keywords: ["转入交易系统", "成交后", "订单交接", "合同交接", "支付交接"], skill: "transaction_handoff", risk: "CRITICAL" }),
+  growthDomain({ id: "customer-success-service", name: "售后与客户成功", nameEn: "Customer Success & Service", icon: "CS", summary: "提供机器人客服、知识答复、工单、退换售后、续费增购、满意度和人工接管。", keywords: ["售后机器人", "机器人客服", "自动售后", "客户成功", "售后服务"], skill: "customer_success", risk: "HIGH" })
+]);
+
 export const smartParkBusinessDomains = Object.freeze([
   parkDomain({ id: "park-cockpit", name: "园区经营驾驶舱", nameEn: "Park Operations Cockpit", icon: "OPS", summary: "汇总园区资产、招商、服务、安全、工程和智能运营指标，并向集团战略平台提供业务板块指标。", keywords: ["园区驾驶舱", "园区经营", "经营总览", "park cockpit"], skill: "park_cockpit" }),
   parkDomain({ id: "asset-space", name: "资产与空间", nameEn: "Assets & Space", icon: "AST", summary: "管理园区、楼栋、楼层、房源、企业入驻与空间关系。", keywords: ["园区资产", "空间", "房源", "楼栋", "楼层", "asset"], skill: "asset_space" }),
@@ -96,6 +127,15 @@ export const studioApplications = Object.freeze([
     summary: "集团预算、核算、资金、税务、应收应付和经营分析的独立业务平台。",
     evidence: "USER_CONFIRMED",
     domainIds: ["finance-management"]
+  },
+  {
+    id: "ai-growth-sales-platform",
+    name: "AI 增长与销售平台",
+    nameEn: "AI Growth & Sales Platform",
+    icon: "GROW",
+    summary: "面向多产品的智能获客、内容矩阵、客户触达、销售转化、交易交接和售后服务平台。",
+    evidence: "USER_CONFIRMED",
+    domainIds: aiGrowthSalesDomains.map((domain) => domain.id)
   },
   {
     id: "smart-park-platform",
@@ -193,7 +233,8 @@ export const studioDomains = Object.freeze([
       stage("REPORT", "生成财务管理报告", "document_generation", "agent-1", "VALIDATE", "management_reporting")
     ])
   },
-  ...smartParkBusinessDomains
+  ...smartParkBusinessDomains,
+  ...aiGrowthSalesDomains
 ]);
 
 const normalize = (value) => String(value ?? "").toLowerCase();
