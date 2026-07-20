@@ -155,7 +155,7 @@
       "display_name": "战略执行用户",
       "description": "使用战略目标、指标、举措、复盘和相关智能工作流。",
       "capabilities": ["console.access", "work.read", "strategy.read", "business.operate", "autopilot.plan"],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "can_manage_access": false
     },
     {
@@ -163,7 +163,7 @@
       "display_name": "人力资源用户",
       "description": "使用组织、岗位、员工、招聘和入职业务功能。",
       "capabilities": ["console.access", "work.read", "hr.read", "business.operate", "autopilot.plan"],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "can_manage_access": false
     },
     {
@@ -171,7 +171,15 @@
       "display_name": "财务业务用户",
       "description": "使用预算、费用、应收应付和财务分析功能。",
       "capabilities": ["console.access", "work.read", "finance.read", "business.operate", "autopilot.plan"],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
+      "can_manage_access": false
+    },
+    {
+      "role_id": "finance_reviewer",
+      "display_name": "财务审批用户",
+      "description": "复核财务单据并执行版本绑定审批，不具备 Runtime、部署或平台管理权限。",
+      "capabilities": ["console.access", "work.read", "finance.read", "business.operate", "proposal.approve"],
+      "direct_execute_max_risk": "MEDIUM",
       "can_manage_access": false
     },
     {
@@ -179,7 +187,7 @@
       "display_name": "增长销售用户",
       "description": "使用产品、营销活动、线索、客户、商机和服务流程。",
       "capabilities": ["console.access", "work.read", "sales.read", "media.read", "business.operate", "autopilot.plan"],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "can_manage_access": false
     },
     {
@@ -187,7 +195,7 @@
       "display_name": "制造业务用户",
       "description": "使用物料、BOM、工单、库存和质量业务功能。",
       "capabilities": ["console.access", "work.read", "manufacturing.read", "business.operate", "autopilot.plan"],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "can_manage_access": false
     },
     {
@@ -195,7 +203,7 @@
       "display_name": "智慧园区用户",
       "description": "使用企业、空间、合同、工单和能源业务功能。",
       "capabilities": ["console.access", "work.read", "smart_park.workspace", "business.operate", "autopilot.plan"],
-      "direct_execute_max_risk": "LOW",
+      "direct_execute_max_risk": "MEDIUM",
       "can_manage_access": false
     }
   ]

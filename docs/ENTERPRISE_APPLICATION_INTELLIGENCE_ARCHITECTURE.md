@@ -86,3 +86,9 @@ Business records are not isolated task cards. The transactional store persists t
 These links remain business facts rather than Runtime Memory. Agent workflows may read or advance linked records only through the same scoped business APIs, while the detail page shows a user-friendly upstream/downstream chain without exposing Kernel internals. `pnpm enterprise-business:acceptance` now creates and reloads all six chains as part of its evidence gate.
 
 Application operational reports aggregate persisted relationship counts and relation types from the same scoped business database. The group cockpit displays these source-backed chain counts alongside formal records, approvals, and Agent work, so an executive can distinguish a collection of isolated records from an operating end-to-end process. Relationship counts are operational structure, not fabricated revenue, conversion, delivery, or financial outcomes.
+
+## Named business roles
+
+Strategy, HR, finance, sales, manufacturing, and Smart Park operators have separate least-privilege roles. Each role can open only its own application and My Work, create and transition its formal records, establish allowed business chains, request approvals, and delegate LOW-risk work to the shared Planner. These conventional MEDIUM-risk lifecycle actions are allowed, but approval decisions, Runtime execution control, development commit, release, deployment, credentials, and access administration remain denied unless separately granted.
+
+Finance review is a separate role with `proposal.approve`. It can read finance and My Work and decide a version-bound finance approval, but it has no `autopilot.execute.local`, `access.manage`, production, deployment, or other application capability. This separation is enforced by the same Access Center checks used by the HTTP APIs, not by hiding buttons alone.
