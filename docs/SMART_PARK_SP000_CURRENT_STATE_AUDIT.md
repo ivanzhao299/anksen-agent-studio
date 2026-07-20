@@ -1,4 +1,4 @@
-# SP-000 Smart Park ERP Current-State Audit
+# SP-000 Smart Park Business Platform Current-State Audit
 
 ## Audit basis
 
@@ -17,6 +17,11 @@ Status meanings:
 - `PROTOTYPE`: UI, adapter, skeleton, or limited vertical slice exists without a complete domain loop.
 - `MISSING`: no matching business implementation was found.
 - `FOUNDATION_ONLY`: shared platform capability exists but must not be presented as the named business application.
+- `UPSTREAM_PLATFORM_BOUNDARY`: the capability belongs to an independent group platform; Smart Park is responsible only for a governed integration contract.
+
+## Corrected product boundary
+
+Group Strategy Execution, Group Human Resources and Group Finance are independent products at group level. Their absence from `jinhu-smart-park` is expected and must not be recorded as a Smart Park product gap. Smart Park owns park operational facts and consumes or publishes only governed cross-platform contracts.
 
 ## Repository baseline
 
@@ -48,9 +53,10 @@ Build success establishes an engineering baseline only. It does not prove that a
 | Program task | Business domain | Status | Real implementation evidence | Missing proof / required work |
 | --- | --- | --- | --- | --- |
 | SP-010 | Platform governance | IMPLEMENTED_BASELINE | `orgs`, `users`, `roles`, `permissions`, `data-scopes`, `field-policies`, `saas-modules`, `files`, `attachments`, `audit`; corresponding `/system/*` pages | Consolidate organization/post semantics, module-route-permission consistency, integration tests, master-data ownership and migration governance |
-| SP-100 | Strategy execution | MISSING | No strategy module, strategic-goal entity, KPI ownership model, strategy page, controller, migration, or test found | Build strategy map, annual objectives, KPI definitions/actuals, initiatives, ownership cascade, review cycle and cockpit drill-down |
-| SP-110 | Human resources | FOUNDATION_ONLY | `orgs/entities/org.entity.ts`, `post.entity.ts`, `users/entities/user.entity.ts`; `/system/orgs` and `/system/users` | These are identity/governance records, not HR. Build employee master, employment lifecycle, recruitment, performance, talent review, HR permissions and audit |
-| SP-120 | Finance management | PARTIAL | leasing receivable/payment/invoice/waiver/refund controllers and entities; migrations `000052`–`000057`; finance and leasing pages; payment/invoice/waiver E2E | Current scope is leasing AR/cash collection, not enterprise finance. Add budget, AP, accounting periods, voucher/general-ledger boundary, fund view, close and consolidated management reports |
+| SP-030 | Group Strategy integration | UPSTREAM_PLATFORM_BOUNDARY | No strategy ownership model exists in the park repository, which is the correct boundary | Define KPI target input, actual-value output, risk and drill-down-reference contracts; do not build Group Strategy here |
+| SP-040 | Group HR integration | UPSTREAM_PLATFORM_BOUNDARY | `orgs`, `posts` and `users` provide a local authorization view; no employee lifecycle domain exists | Define organization/person/position/assignment synchronization and identity references; do not build Group HR here |
+| SP-050 | Group Finance integration | UPSTREAM_PLATFORM_BOUNDARY | No general ledger, group budget or accounts-payable modules exist, which is the correct boundary | Define park settlement voucher, reconciliation, posting-result and error-receipt contracts; do not build Group Finance here |
+| SP-145 | Park settlement and billing | IMPLEMENTED_BASELINE | leasing receivable/payment/invoice/waiver/refund controllers and entities; migrations `000052`–`000057`; finance and leasing pages; payment/invoice/waiver E2E | Preserve park receivable and collection facts, close reconciliation gaps, and publish controlled vouchers to Group Finance |
 | SP-130 | Asset and space | IMPLEMENTED_BASELINE | `assets.controller.ts`, `assets.service.ts`, park/building/floor/unit entities; `/assets/*`; `s2b-smoke.mjs`; `s3a-park-tenant-smoke.mjs` | Validate imports/exports, enterprise-space links, data quality, current occupant, cross-domain 360 and role-specific acceptance |
 | SP-140 | Investment, CRM, contract and leasing | IMPLEMENTED_BASELINE | leasing lead/pool/quote/statistics, contract/unit/status log, changes, checkout/refund controllers; `/invest/*` and `/leasing/*`; `s3b`, `s3c`, `s3e` E2E | Resolve duplicate invest/leasing routes, prove quotation-to-contract-to-checkout chain, add product-level browser regression and finance reconciliation |
 | SP-150 | Tenant service, workflow and work orders | IMPLEMENTED_BASELINE | `work-orders` controller/service/query/SLA entities; `workflow` message service; `/tenant/service`, `/workflow/inbox`, `/workorders/*`; migrations `000071`–`000079` | Root E2E has limited work-order coverage; complete attachment, evaluation, cross-domain source links, role/mobile/browser regression and SLA observability |
@@ -61,8 +67,8 @@ Build success establishes an engineering baseline only. It does not prove that a
 | SP-200 | Video security | IMPLEMENTED_BASELINE | platform adapters, camera, preview/config, alert and evidence controllers/entities; `/admin/video-security/*`; `s8c`–`s8f` smokes | Prove real platform credentials/streams, failure recovery, retention/access policy, browser playback and safety evidence chain; smokes are not in root E2E |
 | SP-210 | Robot operations | PARTIAL | `robots.controller.ts`, `robots.service.ts`, command log, Ezviz adapter; `/robots/overview` and `/robots/cleaning`; migrations `000132`, `000134`, `000138` | No dedicated robot E2E found; missing generic task/history/track domain, multi-vendor contract, command fencing, failure recovery and work-order linkage proof |
 | SP-220 | BIM and digital twin | PROTOTYPE | `/bim/overview` page, menu/module permissions | No BIM API module, model/space/device entities, upload/conversion pipeline, mapping APIs or tests found. Current page is not a digital-twin operating loop |
-| SP-230 | AI park operations assistant | PROTOTYPE | `/ai/assistant`; `ai-work-plans` and autonomous-development modules provide task-planning infrastructure | No AI chat/RAG domain, authorized operational data retrieval contract, domain answer evaluation, model credential gate or governed action loop proven |
-| SP-240 | Executive and operating cockpit | PROTOTYPE | `/cockpit/overview`, permission/module enablement and static cross-module presentation | No dedicated cockpit API/semantic metric layer found; executive/invest/assets/finance/safety routes are explicitly disabled placeholders in `apps/web/lib/menu.ts` |
+| SP-230 | AI park operations | PROTOTYPE | `/ai/assistant`; `ai-work-plans` and autonomous-development modules provide task-planning infrastructure | No AI chat/RAG domain, authorized operational data retrieval contract, domain answer evaluation, model credential gate or governed action loop proven |
+| SP-240 | Park operations cockpit | PROTOTYPE | `/cockpit/overview`, permission/module enablement and static cross-module presentation | No dedicated cockpit API/semantic metric layer found; executive/invest/assets/finance/safety routes are explicitly disabled placeholders in `apps/web/lib/menu.ts` |
 
 ## Cross-domain findings
 
@@ -74,13 +80,13 @@ Build success establishes an engineering baseline only. It does not prove that a
 
 The root `test:e2e` command covers platform, assets, tenants, leasing/finance and safety. IoT, energy and video have directed smoke scripts but are not part of the root E2E chain. Engineering has unusually strong unit/integration coverage but still needs a stable browser-level business journey. Robot, BIM, cockpit, strategy and HR lack equivalent domain E2E evidence.
 
-### 3. “Finance” is currently leasing finance
+### 3. Park settlement is not Group Finance
 
-The implemented finance routes cover receivables, payments, aging, invoices, waivers and refunds. This is valuable and must be preserved, but it is not an enterprise finance system. SP-120 must explicitly introduce budgeting, broader payable/accounting boundaries and management reporting without weakening existing financial write protections.
+The implemented finance-labelled routes cover park receivables, payments, aging, invoices, waivers and refunds. This is valuable park settlement capability, not an incomplete group finance system. It remains in Smart Park as SP-145 and sends controlled accounting facts to the independent Group Finance Platform.
 
-### 4. Organization management is not HR
+### 4. Park organization views are not Group HR
 
-The existing organization, post, user and role structures are shared identity and authorization foundations. Employee/employment records, recruitment, movement, performance and talent workflows are absent. SP-110 is therefore a new domain, not a relabeling exercise.
+The existing organization, post, user and role structures are identity and authorization views. Employee records, recruitment, movement, performance and talent workflows belong to the independent Group HR Platform. Smart Park must consume governed references rather than recreate that domain.
 
 ### 5. External-integration readiness is not proven locally
 
@@ -90,11 +96,11 @@ IoT, video and robot adapters exist. Production broker, camera platform and robo
 
 The repository has a viable engineering baseline and substantial park-operation implementation. The completion program must not rewrite mature modules indiscriminately. It should:
 
-1. build the missing Strategy and HR domains;
-2. expand leasing finance into a governed Finance domain;
+1. establish governed KPI, people-master and finance-voucher integration contracts with the three independent group platforms;
+2. preserve park settlement as a park domain and close its reconciliation gaps;
 3. close acceptance and integration gaps in existing operational modules;
-4. convert BIM, AI and Cockpit prototypes into real cross-domain products;
+4. convert BIM, AI and the Park Cockpit prototypes into real cross-domain products;
 5. enforce one consistent module/RBAC/route/release contract;
-6. add an evidence-backed validation matrix that runs by domain and as a complete release gate.
+6. add an evidence-backed validation matrix that runs by park domain and as a complete release gate.
 
 SP-000 can move to completion only after this matrix is linked to the persistent Program Goal and its evidence snapshot can be reproduced by an audit command. That reproducible audit command is the next implementation item.

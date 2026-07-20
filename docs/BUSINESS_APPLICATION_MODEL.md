@@ -1,57 +1,43 @@
-# ANKSEN Studio Business Application Model
+# ANKSEN 多业务平台模型
 
-## Decision
+## 产品边界
 
-ANKSEN Studio is one control plane with multiple business applications. Business applications and domains are not Agent lanes.
+Studio 是统一的自主执行与治理底座，不是把所有业务揉成一个 ERP。顶层产品由六个边界清晰的平台构成：
 
-The currently confirmed product hierarchy is:
+1. 软件工厂
+2. 视频工厂
+3. 集团战略执行平台
+4. 集团人力资源平台
+5. 集团财务平台
+6. 智慧园区业务平台
 
-```text
-ANKSEN Studio
-├── Software Factory
-│   └── Software Engineering
-├── Video Factory
-│   └── Video Production
-└── Smart Park ERP
-    ├── Strategy Execution
-    ├── Human Resources
-    └── Finance Management
-```
+集团战略、人力、财务拥有各自的数据模型、权限、业务流程、页面和产品入口。智慧园区是集团下属的业务板块，不拥有也不复制上述三套集团能力。
 
-This hierarchy restores the applications explicitly recorded by the user. Additional Smart Park ERP modules must not be inferred from the current Smart Park repository and presented as user-approved scope. They require a separate product decision.
+## 智慧园区范围
 
-## Layer boundaries
+智慧园区只承载园区经营业务：园区经营驾驶舱、资产与空间、招商与租赁、园区结算、企业服务与工单、园区安全、工程管理、IoT、能耗管理、视频安防、机器人运营、BIM 数字孪生和 AI 园区运营。
 
-| Layer | Responsibility | Example |
+园区租赁应收、能耗账单和服务收费属于园区业务事实与结算来源；集团总账、预算、资金、税务、合并报表属于集团财务平台。园区组织视图和执行人引用来自集团人力主数据；集团战略平台拥有目标和 KPI 定义，园区只接收目标并回传经营实际值。
+
+## 平台间契约
+
+| 提供方 | 消费方 | 受控契约 |
 | --- | --- | --- |
-| Application | Product entry point and business ownership boundary | Smart Park ERP |
-| Business domain | Professional process boundary | Strategy Execution |
-| Workflow | Ordered, dependent business stages | goal clarification → KPI model → initiative cascade → review |
-| Business Skill | Domain capability required by a stage | `strategy_kpi_modeling` |
-| Execution Skill | Tool/runtime capability used to perform it | `spreadsheet_analysis` |
-| Agent | Stage responsibility selected from the Agent Registry | `agent-2` |
-| Runner | Online execution capacity selected from the Worker Registry | spreadsheet Runner |
-| Kernel | Persistent Goal, Task Graph, Scheduler, Attempt, Lease and report source of truth | Autonomous Kernel |
+| 集团战略平台 | 智慧园区 | 业务板块目标、指标定义、目标值 |
+| 智慧园区 | 集团战略平台 | 指标实际值、风险、业务钻取引用 |
+| 集团人力平台 | 智慧园区 | 组织、人员、岗位、任职、身份状态 |
+| 智慧园区 | 集团财务平台 | 应收来源、结算凭证、发票和对账请求 |
+| 集团财务平台 | 智慧园区 | 收款核销、入账结果、差错和关账状态 |
 
-Applications do not receive independent Planner, Scheduler, Worker, or Kernel implementations. Every compiled business workflow is submitted to the existing Autonomous Kernel.
+接口必须具备版本、幂等键、数据作用域、审计、失败重放和人工补偿机制。跨平台只传业务事实和引用，不跨边界直接写对方核心表。
 
-## Current runtime truth
+## 统一执行内核
 
-- Software Engineering is runnable through the existing controlled local Runner.
-- Human Resources has a runnable document-and-validation workflow.
-- Strategy Execution and Finance Management require `spreadsheet_analysis`; they remain blocked until a matching online Runner is registered.
-- Video Production requires media-specific online capacity. The current implementation exposes the missing capability rather than claiming the application is operational.
-- Real Codex remains governed separately by the Activation Gate. Domain selection does not bypass runtime policy, approval, fencing, or feature flags.
+各平台共享 Planner、Task Graph、Scheduler、Worker、Lease、Fencing、Approval、Runtime Adapter 和 Report，但不共享业务模型。业务域定义 Workflow 和 Skill Pack；Agent 承担阶段职责；在线 Runner 按能力和策略执行。统一内核负责调度与审计，不改变产品归属。
 
-## Source of truth
+## 当前真实性
 
-The executable catalog is defined in `packages/domain-center/lib/domain-center.mjs`. It contains:
-
-- application-to-domain ownership;
-- domain keywords and explicit selection;
-- professional Skill Packs;
-- Workflow stages and dependencies;
-- business Skill to execution Skill mapping;
-- dynamic Agent and Runner resolution.
-
-The Console consumes this registry directly. Static UI-only domain cards are not allowed.
+- 软件工厂已有可运行代码执行链路。
+- 集团战略、人力和财务已建立独立产品入口与工作流定义，专业 Runner 和完整业务实现仍需后续建设。
+- 智慧园区已有大量真实业务实现，当前长任务仅完善园区域和三类集团接口。
+- 视频工厂已有产品边界与工作流定义，媒体专用 Runner 尚未接通。

@@ -4,9 +4,10 @@ import { join, relative, resolve } from "node:path";
 
 const domainChecks = Object.freeze([
   { id: "platform-governance", status: "IMPLEMENTED_BASELINE", required: ["apps/api/src/modules/orgs/orgs.controller.ts", "apps/api/src/modules/users/users.controller.ts", "apps/api/src/modules/roles/roles.controller.ts", "apps/api/src/modules/saas-modules/saas-modules.controller.ts", "apps/api/src/modules/audit/audit.controller.ts", "apps/web/app/system/orgs/page.tsx"] },
-  { id: "strategy-execution", status: "MISSING", absent: ["apps/api/src/modules/strategy", "apps/web/app/strategy"] },
-  { id: "human-resources", status: "FOUNDATION_ONLY", required: ["apps/api/src/modules/orgs/entities/org.entity.ts", "apps/api/src/modules/orgs/entities/post.entity.ts", "apps/api/src/modules/users/entities/user.entity.ts"], absent: ["apps/api/src/modules/human-resources", "apps/web/app/hr"] },
-  { id: "finance-management", status: "PARTIAL", required: ["apps/api/src/modules/leasing-receivables/leasing-receivables.controller.ts", "apps/api/src/modules/leasing-payments/leasing-payments.controller.ts", "apps/api/src/modules/leasing-invoices/leasing-invoices.controller.ts", "apps/web/app/finance/receivables/page.tsx"], absent: ["apps/api/src/modules/general-ledger", "apps/api/src/modules/budgets", "apps/api/src/modules/accounts-payable"] },
+  { id: "group-strategy-integration", status: "UPSTREAM_PLATFORM_BOUNDARY", absent: ["apps/api/src/modules/strategy", "apps/web/app/strategy"] },
+  { id: "group-hr-integration", status: "UPSTREAM_PLATFORM_BOUNDARY", required: ["apps/api/src/modules/orgs/entities/org.entity.ts", "apps/api/src/modules/users/entities/user.entity.ts"], absent: ["apps/api/src/modules/human-resources", "apps/web/app/hr"] },
+  { id: "group-finance-integration", status: "UPSTREAM_PLATFORM_BOUNDARY", absent: ["apps/api/src/modules/general-ledger", "apps/api/src/modules/budgets", "apps/api/src/modules/accounts-payable"] },
+  { id: "park-settlement-billing", status: "IMPLEMENTED_BASELINE", required: ["apps/api/src/modules/leasing-receivables/leasing-receivables.controller.ts", "apps/api/src/modules/leasing-payments/leasing-payments.controller.ts", "apps/api/src/modules/leasing-invoices/leasing-invoices.controller.ts", "apps/web/app/finance/receivables/page.tsx"] },
   { id: "asset-space", status: "IMPLEMENTED_BASELINE", required: ["apps/api/src/modules/assets/assets.controller.ts", "apps/api/src/modules/assets/entities/asset-unit.entity.ts", "apps/web/app/assets/units/page.tsx", "scripts/e2e/s2b-smoke.mjs"] },
   { id: "investment-leasing", status: "IMPLEMENTED_BASELINE", required: ["apps/api/src/modules/leasing-leads/leasing-leads.controller.ts", "apps/api/src/modules/leasing-contracts/leasing-contracts.controller.ts", "apps/api/src/modules/leasing-checkouts/leasing-checkouts.controller.ts", "apps/web/app/leasing/contracts/page.tsx", "scripts/e2e/s3c-contract-smoke.mjs"] },
   { id: "tenant-service-workflow", status: "IMPLEMENTED_BASELINE", required: ["apps/api/src/modules/work-orders/work-orders.controller.ts", "apps/api/src/modules/workflow/workflow.controller.ts", "apps/web/app/tenant/service/page.tsx", "apps/web/app/workorders/list/page.tsx"] },
@@ -17,8 +18,8 @@ const domainChecks = Object.freeze([
   { id: "video-security", status: "IMPLEMENTED_BASELINE", required: ["apps/api/src/modules/video-cameras/video-cameras.controller.ts", "apps/api/src/modules/video-cameras/video-alerts.controller.ts", "apps/api/src/modules/video-cameras/video-evidences.controller.ts", "scripts/e2e/s8f-video-alert-dashboard-smoke.mjs"] },
   { id: "robot-operations", status: "PARTIAL", required: ["apps/api/src/modules/robots/robots.controller.ts", "apps/api/src/modules/robots/adapters/ezviz-cleaning-robot.adapter.ts", "apps/web/app/robots/cleaning/page.tsx"], absent: ["scripts/e2e/robot-operations-smoke.mjs"] },
   { id: "digital-twin", status: "PROTOTYPE", required: ["apps/web/app/bim/overview/page.tsx"], absent: ["apps/api/src/modules/bim"] },
-  { id: "ai-operations", status: "PROTOTYPE", required: ["apps/web/app/ai/assistant/page.tsx", "apps/api/src/modules/ai-work-plans/ai-work-plans.controller.ts"], absent: ["apps/api/src/modules/ai-assistant"] },
-  { id: "executive-cockpit", status: "PROTOTYPE", required: ["apps/web/app/cockpit/overview/page.tsx"], absent: ["apps/api/src/modules/cockpit"] }
+  { id: "ai-park-operations", status: "PROTOTYPE", required: ["apps/web/app/ai/assistant/page.tsx", "apps/api/src/modules/ai-work-plans/ai-work-plans.controller.ts"], absent: ["apps/api/src/modules/ai-assistant"] },
+  { id: "park-cockpit", status: "PROTOTYPE", required: ["apps/web/app/cockpit/overview/page.tsx"], absent: ["apps/api/src/modules/cockpit"] }
 ]);
 
 async function exists(path) {
@@ -66,7 +67,7 @@ export async function auditSmartPark(rootInput) {
       smokeTests: count((path) => path.startsWith("scripts/e2e/") && path.includes("smoke") && path.endsWith(".mjs"))
     },
     domains,
-    summary: Object.fromEntries(["IMPLEMENTED_BASELINE", "PARTIAL", "PROTOTYPE", "FOUNDATION_ONLY", "MISSING"].map((status) => [status, domains.filter((domain) => domain.status === status).length])),
+    summary: Object.fromEntries(["IMPLEMENTED_BASELINE", "PARTIAL", "PROTOTYPE", "FOUNDATION_ONLY", "MISSING", "UPSTREAM_PLATFORM_BOUNDARY"].map((status) => [status, domains.filter((domain) => domain.status === status).length])),
     allConfiguredEvidenceMatched: domains.every((domain) => domain.evidenceComplete)
   };
 }

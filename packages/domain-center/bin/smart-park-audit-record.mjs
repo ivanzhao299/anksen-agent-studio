@@ -16,7 +16,7 @@ try {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const goal = (await client.query("SELECT * FROM ad_goal WHERE organization_id='anksen' AND workspace_id='smart-park-program' AND project_id='jinhu-smart-park' AND idempotency_key='smart-park-completion-v1' FOR UPDATE")).rows[0];
+    const goal = (await client.query("SELECT * FROM ad_goal WHERE organization_id='anksen' AND workspace_id='smart-park-program' AND project_id='jinhu-smart-park' AND idempotency_key='smart-park-completion-v2' FOR UPDATE")).rows[0];
     if (!goal) throw new Error("SMART_PARK_PROGRAM_GOAL_NOT_FOUND");
     const task = (await client.query("SELECT * FROM ad_task WHERE goal_id=$1 AND task_key='SP-000' FOR UPDATE", [goal.id])).rows[0];
     if (!task) throw new Error("SMART_PARK_AUDIT_TASK_NOT_FOUND");

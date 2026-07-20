@@ -14,6 +14,39 @@ const paths = {
 const stage = (key, title, skillType, preferredAgentId, dependsOn = null, businessSkillId = null) =>
   Object.freeze({ key, title, businessSkillId: businessSkillId ?? key.toLowerCase(), skillType, preferredAgentId, dependsOn });
 
+const parkDomain = ({ id, name, nameEn, icon, summary, keywords, skill }) => Object.freeze({
+  id,
+  applicationId: "smart-park-platform",
+  name,
+  nameEn,
+  icon,
+  summary,
+  keywords,
+  skillPack: [`${skill}_analysis`, `${skill}_delivery`, `${skill}_validation`, `${skill}_reporting`],
+  workflow: Object.freeze([
+    stage("PLAN", `分析${name}目标与边界`, "code_development", "agent-5", null, `${skill}_analysis`),
+    stage("BUILD", `完善${name}业务闭环`, "code_development", "agent-4", "PLAN", `${skill}_delivery`),
+    stage("VALIDATE", `验证${name}权限、数据与状态`, "validation_testing", "agent-2", "BUILD", `${skill}_validation`),
+    stage("REPORT", `生成${name}验收报告`, "document_generation", "agent-1", "VALIDATE", `${skill}_reporting`)
+  ])
+});
+
+export const smartParkBusinessDomains = Object.freeze([
+  parkDomain({ id: "park-cockpit", name: "园区经营驾驶舱", nameEn: "Park Operations Cockpit", icon: "OPS", summary: "汇总园区资产、招商、服务、安全、工程和智能运营指标，并向集团战略平台提供业务板块指标。", keywords: ["园区驾驶舱", "园区经营", "经营总览", "park cockpit"], skill: "park_cockpit" }),
+  parkDomain({ id: "asset-space", name: "资产与空间", nameEn: "Assets & Space", icon: "AST", summary: "管理园区、楼栋、楼层、房源、企业入驻与空间关系。", keywords: ["园区资产", "空间", "房源", "楼栋", "楼层", "asset"], skill: "asset_space" }),
+  parkDomain({ id: "investment-leasing", name: "招商与租赁", nameEn: "Investment & Leasing", icon: "CRM", summary: "贯通招商线索、公海、漏斗、合同、变更、退租和园区结算来源。", keywords: ["招商", "租赁", "合同", "线索", "退租", "leasing"], skill: "investment_leasing" }),
+  parkDomain({ id: "park-settlement-billing", name: "园区结算", nameEn: "Park Settlement & Billing", icon: "BILL", summary: "管理租赁与服务应收、收款、核销、发票、减免、退款和对账，并向集团财务发送受控凭证。", keywords: ["园区结算", "园区应收", "租赁收款", "园区发票", "park billing"], skill: "park_settlement" }),
+  parkDomain({ id: "tenant-service-workflow", name: "企业服务与工单", nameEn: "Tenant Service & Workflows", icon: "SVC", summary: "贯通企业服务、流程收件箱、工单、SLA、评价和跨域协同。", keywords: ["企业服务", "租户服务", "工单", "sla", "workflow"], skill: "tenant_service" }),
+  parkDomain({ id: "safety-management", name: "园区安全", nameEn: "Park Safety", icon: "SAFE", summary: "覆盖巡检、隐患、应急事件、作业许可与整改闭环。", keywords: ["园区安全", "巡检", "隐患", "应急", "作业许可"], skill: "park_safety" }),
+  parkDomain({ id: "engineering-management", name: "工程管理", nameEn: "Engineering Management", icon: "ENG", summary: "管理园区工程项目、计划、日报、巡检、整改和验收。", keywords: ["工程", "施工", "工程计划", "工程验收"], skill: "engineering" }),
+  parkDomain({ id: "iot-platform", name: "园区 IoT", nameEn: "Park IoT", icon: "IoT", summary: "管理网关、设备、协议、指标、告警、规则与场景联动。", keywords: ["iot", "设备", "网关", "场景联动", "设备告警"], skill: "park_iot" }),
+  parkDomain({ id: "energy-management", name: "能耗管理", nameEn: "Energy Management", icon: "NRG", summary: "完成园区能源计量、分摊、账单和红冲，并将结算事实交给园区结算域。", keywords: ["能耗", "电表", "能源", "energy"], skill: "energy_management" }),
+  parkDomain({ id: "video-security", name: "视频安防", nameEn: "Video Security", icon: "VID", summary: "管理视频平台、摄像头、告警、截图与安全事件证据。", keywords: ["视频安防", "摄像头", "视频告警", "监控"], skill: "video_security" }),
+  parkDomain({ id: "robot-operations", name: "机器人运营", nameEn: "Robot Operations", icon: "BOT", summary: "管理机器人接入、任务、状态、轨迹、异常与工单联动。", keywords: ["机器人", "清洁机器人", "巡检机器人", "robot"], skill: "robot_operations" }),
+  parkDomain({ id: "digital-twin", name: "BIM 数字孪生", nameEn: "BIM Digital Twin", icon: "BIM", summary: "将园区空间、设备、能耗、视频、机器人和事件映射到统一空间界面。", keywords: ["bim", "数字孪生", "三维", "空间模型"], skill: "digital_twin" }),
+  parkDomain({ id: "ai-park-operations", name: "AI 园区运营", nameEn: "AI Park Operations", icon: "AI", summary: "在园区授权数据范围内提供查询、分析、建议和受控运营动作。", keywords: ["ai园区", "园区助手", "运营助手", "ai park"], skill: "ai_park_operations" })
+]);
+
 /**
  * Product applications are navigation and ownership boundaries. They are not
  * Agent lanes and do not own a second scheduler, worker pool, or data model.
@@ -38,13 +71,40 @@ export const studioApplications = Object.freeze([
     domainIds: ["video-production"]
   },
   {
-    id: "smart-park-erp",
-    name: "智慧园区 ERP",
-    nameEn: "Smart Park ERP",
-    icon: "ERP",
-    summary: "统一承载园区经营管理；当前恢复战略执行、人力资源和财务管理三个已确认业务域。",
+    id: "enterprise-strategy-platform",
+    name: "集团战略执行平台",
+    nameEn: "Enterprise Strategy Platform",
+    icon: "STR",
+    summary: "集团战略地图、目标、指标、重点任务、责任分解和复盘的独立业务平台。",
     evidence: "USER_CONFIRMED",
-    domainIds: ["strategy-execution", "human-resources", "finance-management"]
+    domainIds: ["strategy-execution"]
+  },
+  {
+    id: "human-resources-platform",
+    name: "集团人力资源平台",
+    nameEn: "Enterprise HR Platform",
+    icon: "HR",
+    summary: "集团组织、岗位、员工、招聘、绩效和人才发展的独立业务平台。",
+    evidence: "USER_CONFIRMED",
+    domainIds: ["human-resources"]
+  },
+  {
+    id: "finance-platform",
+    name: "集团财务平台",
+    nameEn: "Enterprise Finance Platform",
+    icon: "FIN",
+    summary: "集团预算、核算、资金、税务、应收应付和经营分析的独立业务平台。",
+    evidence: "USER_CONFIRMED",
+    domainIds: ["finance-management"]
+  },
+  {
+    id: "smart-park-platform",
+    name: "智慧园区业务平台",
+    nameEn: "Smart Park Business Platform",
+    icon: "ERP",
+    summary: "集团旗下智慧园区业务板块，承载园区资产、招商、服务、安全、工程与智能运营。",
+    evidence: "USER_CONFIRMED",
+    domainIds: smartParkBusinessDomains.map((domain) => domain.id)
   }
 ]);
 
@@ -87,7 +147,7 @@ export const studioDomains = Object.freeze([
   },
   {
     id: "strategy-execution",
-    applicationId: "smart-park-erp",
+    applicationId: "enterprise-strategy-platform",
     name: "战略执行",
     nameEn: "Strategy Execution",
     icon: "STR",
@@ -103,7 +163,7 @@ export const studioDomains = Object.freeze([
   },
   {
     id: "human-resources",
-    applicationId: "smart-park-erp",
+    applicationId: "human-resources-platform",
     name: "人力资源",
     nameEn: "Human Resources",
     icon: "HR",
@@ -119,7 +179,7 @@ export const studioDomains = Object.freeze([
   },
   {
     id: "finance-management",
-    applicationId: "smart-park-erp",
+    applicationId: "finance-platform",
     name: "财务管理",
     nameEn: "Finance Management",
     icon: "FIN",
@@ -132,7 +192,8 @@ export const studioDomains = Object.freeze([
       stage("VALIDATE", "执行财务校验与风控检查", "validation_testing", "agent-2", "MODEL", "financial_control_validation"),
       stage("REPORT", "生成财务管理报告", "document_generation", "agent-1", "VALIDATE", "management_reporting")
     ])
-  }
+  },
+  ...smartParkBusinessDomains
 ]);
 
 const normalize = (value) => String(value ?? "").toLowerCase();
