@@ -20,6 +20,8 @@ importers:
 
   packages/discovery-engine: {}
 
+  packages/domain-center: {}
+
   packages/evolution-center: {}
 
   packages/governance-center: {}
@@ -56,6 +58,8 @@ importers:
   packages/runtime-memory: {}
 
   packages/skill-router: {}
+
+  packages/software-engineering-domain: {}
 
   packages/worker-pool: {}
 
