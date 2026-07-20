@@ -42,7 +42,8 @@
     { "id": "ea-026-authoritative-record-search", "title": "Role-scoped cross-application search over authoritative conventional business records", "completed": true },
     { "id": "ea-027-versioned-record-editing", "title": "Schema-validated, version-CAS conventional business record editing with audit", "completed": true },
     { "id": "ea-028-versioned-business-notes", "title": "Immutable exact-version business record notes in the authoritative audit timeline", "completed": true },
-    { "id": "ea-029-application-ledger-query", "title": "Server-filtered and paginated conventional application ledgers", "completed": true }
+    { "id": "ea-029-application-ledger-query", "title": "Server-filtered and paginated conventional application ledgers", "completed": true },
+    { "id": "ea-030-business-delegation-preflight", "title": "Exact-version visible Workflow Skill Agent Runner delegation contract", "completed": true }
   ],
   "next_recommended_action": {
     "title": "Run authenticated browser UAT and continue exception-to-resolution workflows",
@@ -70,7 +71,8 @@
     { "id": "EA-027", "depends_on": ["EA-026"], "title": "Versioned conventional record editing", "status": "COMPLETED", "checkpoint": "field validation, scope, CAS, lifecycle gate and audit evidence" },
     { "id": "EA-028", "depends_on": ["EA-027"], "title": "Version-bound immutable business record notes", "status": "COMPLETED", "checkpoint": "scope, version CAS, secret rejection, restart persistence and UI evidence" },
     { "id": "EA-029", "depends_on": ["EA-028"], "title": "Server-filtered and paginated conventional application ledgers", "status": "COMPLETED", "checkpoint": "scope, literal match, object/status/owner filters, stable pagination and UI evidence" },
-    { "id": "EA-030", "depends_on": ["EA-023", "EA-024", "EA-025", "EA-026", "EA-027", "EA-028", "EA-029"], "title": "Enterprise regression, commit and Office 204 production deployment", "status": "PENDING", "checkpoint": "exact production commit and HTTP verification" }
+    { "id": "EA-030", "depends_on": ["EA-029"], "title": "Exact-version visible Workflow Skill Agent Runner delegation preflight", "status": "COMPLETED", "checkpoint": "object state, version, capability, runtime policy and UI confirmation evidence" },
+    { "id": "EA-031", "depends_on": ["EA-023", "EA-024", "EA-025", "EA-026", "EA-027", "EA-028", "EA-029", "EA-030"], "title": "Enterprise regression, commit and Office 204 production deployment", "status": "PENDING", "checkpoint": "exact production commit and HTTP verification" }
   ],
   "long_task_runtime": {
     "duration_budget_hours": 6,
