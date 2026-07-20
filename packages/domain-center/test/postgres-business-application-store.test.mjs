@@ -24,6 +24,8 @@ test("PostgreSQL business store is scoped, transactional, idempotent and restart
     assert.equal(record.source, "POSTGRESQL_BUSINESS_APPLICATION_STORE");
     assert.equal((await store.listRecords("finance-platform", scope)).length, 1);
     assert.equal(await store.getRecord("finance-platform", record.id, { organizationId: "other-org", workspaceId: scope.workspaceId }), null);
+    const search=await store.searchRecords({...scope,applicationIds:["finance-platform"],query:"采购费用"});assert.equal(search.pagination.total,1);assert.equal(search.items[0].id,record.id);assert.equal(search.items[0].fields,undefined);
+    assert.equal((await store.searchRecords({...scope,applicationIds:["smart-park-platform"],query:"采购"})).pagination.total,0);assert.equal((await store.searchRecords({...scope,applicationIds:["finance-platform"],query:"%"})).pagination.total,0);assert.equal((await store.searchRecords({...scope,organizationId:"other-org",applicationIds:["finance-platform"],query:"采购"})).pagination.total,0);
 
     const transitions = await Promise.allSettled([
       store.transitionRecord("finance-platform", record.id, { expectedVersion: 1, status: "SUBMITTED" }, scope),

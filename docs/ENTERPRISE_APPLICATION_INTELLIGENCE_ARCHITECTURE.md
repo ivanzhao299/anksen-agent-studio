@@ -99,6 +99,8 @@ Exception resolution reuses the conventional application's declared lifecycle an
 
 The group cockpit action feed is an idempotent projection of the same exceptions and exact-version pending approvals. Stable notification keys are derived from source type, source ID, version, and status, so refreshes and process restarts do not duplicate reminders. The feed distinguishes critical exceptions, warnings, and approval actions, links back to the authoritative business record, and applies the same server-derived application allowlist. Because no read-receipt store exists yet, the product deliberately does not claim that an item is read or unread.
 
+The group cockpit also provides conventional cross-application record search over authoritative display keys, titles, owners, and statuses. Search always injects the server-derived application allowlist plus organization and workspace scope; a client cannot broaden it. PostgreSQL uses parameterized literal substring matching rather than user-controlled wildcard patterns. Results are paginated, link to the owning application, and intentionally omit typed field payloads, Runtime metadata, credentials, and internal orchestration state.
+
 ## Named business roles
 
 Strategy, HR, finance, sales, manufacturing, and Smart Park operators have separate least-privilege roles. Each role can open only its own application and My Work, create and transition its formal records, establish allowed business chains, request approvals, and delegate LOW-risk work to the shared Planner. These conventional MEDIUM-risk lifecycle actions are allowed, but approval decisions, Runtime execution control, development commit, release, deployment, credentials, and access administration remain denied unless separately granted.

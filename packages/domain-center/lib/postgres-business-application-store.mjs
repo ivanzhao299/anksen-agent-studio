@@ -3,6 +3,7 @@ import { assertEnterpriseApplication } from "./enterprise-applications.mjs";
 import { availableBusinessTransitions, getBusinessObjectDefinition, validateBusinessObjectFields } from "./business-object-definitions.mjs";
 import { assertBusinessRelationContract, relationContractsFor } from "./business-relation-definitions.mjs";
 import { businessExceptionResult, businessRecordExceptionStatuses, businessWorkExceptionStatuses, presentBusinessRecordException, presentBusinessWorkException } from "./business-exceptions.mjs";
+import { businessSearchResult, normalizeBusinessSearch, presentBusinessSearchRecord } from "./business-record-search.mjs";
 
 const terminal = new Set(["COMPLETED", "CANCELLED", "PAID", "ARCHIVED", "TERMINATED", "WRITTEN_OFF"]);
 const scopeOf = (value = {}) => {
@@ -114,6 +115,17 @@ export class PostgresBusinessApplicationStore {
     if (options.objectType) { params.push(options.objectType); sql += ` AND object_type=$${params.length}`; }
     sql += " ORDER BY updated_at DESC";
     return (await this.pool.query(sql, params)).rows.map((row) => this.presentRecord(row));
+  }
+
+  async searchRecords(options={}) {
+    const scope=scopeOf(options),search=normalizeBusinessSearch(options);
+    if(!search.applicationIds.length)return businessSearchResult({items:[],total:0,search,generatedAt:this.clock().toISOString(),source:"POSTGRESQL_BUSINESS_APPLICATION_STORE"});
+    const params=[scope.organizationId,scope.workspaceId,search.applicationIds],conditions=["organization_id=$1","workspace_id=$2","application_id=ANY($3::text[])"];
+    if(search.query){params.push(search.query);conditions.push(`(position(lower($${params.length}) in lower(display_key))>0 OR position(lower($${params.length}) in lower(title))>0 OR position(lower($${params.length}) in lower(owner_id))>0)`);}
+    if(search.status){params.push(search.status);conditions.push(`status=$${params.length}`);}
+    if(search.ownerId){params.push(search.ownerId);conditions.push(`owner_id=$${params.length}`);}
+    params.push(search.limit,search.offset);const rows=(await this.pool.query(`SELECT *,count(*) OVER()::int total_count FROM business_application_record WHERE ${conditions.join(" AND ")} ORDER BY updated_at DESC,id LIMIT $${params.length-1} OFFSET $${params.length}`,params)).rows,items=rows.map(row=>presentBusinessSearchRecord(this.presentRecord(row))),total=rows[0]?.total_count??(search.offset?Number((await this.pool.query(`SELECT count(*)::int count FROM business_application_record WHERE ${conditions.join(" AND ")}`,params.slice(0,-2))).rows[0].count):0);
+    return businessSearchResult({items,total,search,generatedAt:this.clock().toISOString(),source:"POSTGRESQL_BUSINESS_APPLICATION_STORE"});
   }
 
   async getRecord(applicationId, id, actor = {}) {
