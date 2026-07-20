@@ -134,7 +134,9 @@ export class PostgresBusinessApplicationStore {
     return this.transaction(async (client) => {
       const source = (await client.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND application_id=$4 FOR SHARE", [sourceRecordId, scope.organizationId, scope.workspaceId, applicationId])).rows[0];
       if (!source) throw Object.assign(new Error("BUSINESS_RELATION_RECORD_NOT_FOUND"), { code: "BUSINESS_RELATION_RECORD_NOT_FOUND" });
-      const contract = assertBusinessRelationContract(applicationId, source.object_type, targetType, relationType), now = this.clock(), targetId = randomUUID();
+      const contract = assertBusinessRelationContract(applicationId, source.object_type, targetType, relationType);
+      if (!contract.sourceStatuses.includes(source.status)) throw Object.assign(new Error("BUSINESS_RELATED_SOURCE_STATUS_DENIED"), { code: "BUSINESS_RELATED_SOURCE_STATUS_DENIED", allowed: contract.sourceStatuses, current: source.status });
+      const now = this.clock(), targetId = randomUUID();
       const inserted = (await client.query("INSERT INTO business_application_record(id,organization_id,workspace_id,application_id,object_type,display_key,title,status,owner_id,fields,version,created_by,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,$11,$12,$12) ON CONFLICT(organization_id,workspace_id,application_id,display_key) DO NOTHING RETURNING *", [targetId, scope.organizationId, scope.workspaceId, applicationId, targetType, displayKey, title, schema.initialStatus, ownerId, fields, actorId, now])).rows[0];
       const target = inserted ?? (await client.query("SELECT * FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND display_key=$4 FOR SHARE", [scope.organizationId, scope.workspaceId, applicationId, displayKey])).rows[0];
       if (!target || target.object_type !== targetType) throw Object.assign(new Error("BUSINESS_RELATED_IDEMPOTENCY_CONFLICT"), { code: "BUSINESS_RELATED_IDEMPOTENCY_CONFLICT" });

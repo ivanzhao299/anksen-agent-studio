@@ -14,10 +14,28 @@ const cases = [
   { applicationId:"smart-park-platform", relationType:"REQUESTS", source:{objectType:"enterprise",title:"示例制造企业",displayKey:"ENT-CHAIN",fields:{creditCode:"91330000EXAMPLE",industry:"智能制造",contactName:"王经理",contactPhone:"authorized-ref-002",requestedArea:2000}}, target:{objectType:"service_order",title:"厂房空调报修",displayKey:"SVC-CHAIN",fields:{enterpriseName:"示例制造企业",serviceType:"报修",location:"A1 厂房",slaHours:4,description:"空调无法启动"}} }
 ];
 
+const readiness = {
+  "enterprise-strategy-platform": ["ACTIVE"],
+  "human-resources-platform": ["OPEN","SCREENING","INTERVIEWING","OFFER","WAITING_APPROVAL",{approve:"COMPLETED"}],
+  "finance-platform": ["SUBMITTED","WAITING_APPROVAL",{approve:"APPROVED"},"ACTIVE"],
+  "ai-growth-sales-platform": ["NEW","QUALIFYING","WAITING_APPROVAL",{approve:"QUALIFIED"}],
+  "intelligent-manufacturing-erp": ["ENGINEERING_REVIEW","WAITING_APPROVAL",{approve:"RELEASED"}],
+  "smart-park-platform": ["PROSPECT","QUALIFYING","WAITING_APPROVAL",{approve:"ADMITTED"}]
+};
+
+async function matureSource(store,item,record,scope){
+  let current=record;
+  for(const step of readiness[item.applicationId]){
+    if(typeof step==="string")current=await store.transitionRecord(item.applicationId,current.id,{expectedVersion:current.version,status:step},scope);
+    else{const approval=await store.requestApproval(item.applicationId,current.id,{expectedVersion:current.version,requestedStatus:step.approve},scope);current=(await store.decideApproval(item.applicationId,approval.id,{decision:"APPROVED"},scope)).record;}
+  }
+  return current;
+}
+
 test("six independent applications execute atomic source-to-downstream business transactions", async () => {
   const root=await mkdtemp(resolve(tmpdir(),"enterprise-related-transactions-")),store=new BusinessApplicationStore({repoRoot:root}),scope={organizationId:"enterprise-org",workspaceId:"enterprise-workspace",userId:"business-operator"};
   for(const item of cases){
-    const source=await store.createRecord(item.applicationId,item.source,scope),first=await store.createRelatedRecord(item.applicationId,source.id,{...item.target,relationType:item.relationType},scope),duplicate=await store.createRelatedRecord(item.applicationId,source.id,{...item.target,relationType:item.relationType},scope),detail=await store.recordDetail(item.applicationId,source.id,scope),report=await store.applicationReport(item.applicationId,scope);
+    const draft=await store.createRecord(item.applicationId,item.source,scope);await assert.rejects(()=>store.createRelatedRecord(item.applicationId,draft.id,{...item.target,relationType:item.relationType},scope),error=>error.code==="BUSINESS_RELATED_SOURCE_STATUS_DENIED");const source=await matureSource(store,item,draft,scope),first=await store.createRelatedRecord(item.applicationId,source.id,{...item.target,relationType:item.relationType},scope),duplicate=await store.createRelatedRecord(item.applicationId,source.id,{...item.target,relationType:item.relationType},scope),detail=await store.recordDetail(item.applicationId,source.id,scope),report=await store.applicationReport(item.applicationId,scope);
     assert.equal(first.created,true,item.applicationId);assert.equal(duplicate.created,false,item.applicationId);assert.equal(first.record.id,duplicate.record.id,item.applicationId);assert.equal(detail.relations.length,1,item.applicationId);assert.equal(detail.relations[0].record.id,first.record.id,item.applicationId);assert.deepEqual(report.businessChains,{total:1,byType:{[item.relationType]:1}},item.applicationId);
   }
   const data=await store.load();
