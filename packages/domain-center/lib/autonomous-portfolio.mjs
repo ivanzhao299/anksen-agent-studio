@@ -4,7 +4,7 @@ import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { compileDomainWorkflow, getStudioApplication, getStudioDomain } from "./domain-center.mjs";
 import { getEnterpriseApplication } from "./enterprise-applications.mjs";
-import { getBusinessObjectDefinition } from "./business-object-definitions.mjs";
+import { businessApprovalAccepted, getBusinessObjectDefinition } from "./business-object-definitions.mjs";
 
 const terminal = new Set(["SUCCEEDED", "FAILED", "BLOCKED", "CANCELLED"]);
 const positiveInt = (value, fallback, max = Number.MAX_SAFE_INTEGER) => {
@@ -234,6 +234,11 @@ export class AutonomousPortfolioService {
     campaign.updatedAt = this.clock().toISOString();
     checkpoint(campaign,"CAMPAIGN_PAUSED",{actorId:campaign.pausedBy},campaign.updatedAt);
     return this.save(campaign);
+  }
+
+  async resolveHumanApproval(id,initiativeId,{actor={},record}={}){
+    const campaign=await this.get(id,{organizationId:actor.organizationId,workspaceId:actor.workspaceId});if(!campaign)throw Object.assign(new Error("PORTFOLIO_NOT_FOUND"),{code:"PORTFOLIO_NOT_FOUND"});const initiative=campaign.initiatives.find(item=>item.id===initiativeId);if(!initiative||initiative.status!=="BLOCKED"||initiative.report?.humanApprovalRequired!==true)throw Object.assign(new Error("PORTFOLIO_APPROVAL_RECONCILE_DENIED"),{code:"PORTFOLIO_APPROVAL_RECONCILE_DENIED"});const reference=initiative.report.businessObject;if(!record||record.id!==reference?.objectId||record.applicationId!==reference.applicationId)throw Object.assign(new Error("PORTFOLIO_APPROVAL_RECORD_MISMATCH"),{code:"PORTFOLIO_APPROVAL_RECORD_MISMATCH"});if(record.status===record.schema?.agentReviewStatus)throw Object.assign(new Error("PORTFOLIO_APPROVAL_STILL_PENDING"),{code:"PORTFOLIO_APPROVAL_STILL_PENDING"});if(!businessApprovalAccepted(record.applicationId,record.objectType,record.status))throw Object.assign(new Error("PORTFOLIO_APPROVAL_NOT_ACCEPTED"),{code:"PORTFOLIO_APPROVAL_NOT_ACCEPTED",recordStatus:record.status});initiative.status="SUCCEEDED";initiative.blockedReasons=initiative.blockedReasons.filter(reason=>reason!=="BUSINESS_HUMAN_APPROVAL_REQUIRED"&&reason!=="BUSINESS_WORK_WAITING_APPROVAL");initiative.approvalResolution={recordStatus:record.status,recordVersion:record.version,resolvedBy:actor.userId??"unknown",resolvedAt:this.clock().toISOString()};for(const item of campaign.initiatives.filter(value=>value.status==="BLOCKED"&&value.blockedReasons.includes("UPSTREAM_INITIATIVE_BLOCKED"))){const dependencies=item.dependsOn.map(dependency=>campaign.initiatives.find(value=>value.id===dependency));if(dependencies.every(value=>value?.status==="SUCCEEDED")){item.status="PENDING";item.blockedReasons=item.blockedReasons.filter(reason=>reason!=="UPSTREAM_INITIATIVE_BLOCKED");item.error=null;item.finishedAt=null;}}
+    campaign.status="ACTIVE";campaign.finishedAt=null;campaign.updatedAt=this.clock().toISOString();checkpoint(campaign,"HUMAN_APPROVAL_RECONCILED",{initiativeId:initiative.id,recordId:record.id,recordStatus:record.status,recordVersion:record.version,actorId:initiative.approvalResolution.resolvedBy},campaign.updatedAt);return this.save(campaign);
   }
 
   async materializeProposal(id,proposalId,{actor={},createOrLoad}={}){

@@ -277,6 +277,19 @@ export function availableBusinessTransitions(applicationId, objectType, status) 
   return [...(getBusinessObjectDefinition(applicationId, objectType).transitions[status] ?? [])];
 }
 
+const acceptedApprovalStatuses = new Set([
+  "APPROVED", "COMPLETED", "READY", "SELECTED", "ACCEPTED", "RELEASED",
+  "RESOLVED", "PAID", "SCHEDULED", "SIGNED", "ADMITTED", "RESERVED",
+  "ACTIVE", "CAPA", "ESCALATED"
+]);
+
+export function businessApprovalAccepted(applicationId, objectType, status) {
+  const schema = getBusinessObjectDefinition(applicationId, objectType);
+  return status !== schema.agentReviewStatus
+    && (schema.transitions[schema.agentReviewStatus] ?? []).includes(status)
+    && acceptedApprovalStatuses.has(status);
+}
+
 export function businessRecordEditable(applicationId, objectType, status) {
   return getBusinessObjectDefinition(applicationId, objectType).editableStatuses.includes(status);
 }
