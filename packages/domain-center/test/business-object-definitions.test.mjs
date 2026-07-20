@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { availableBusinessTransitions, businessWorkflowGoal, getBusinessObjectDefinition, validateBusinessObjectFields } from "../lib/business-object-definitions.mjs";
+import { enterpriseApplications } from "../lib/enterprise-applications.mjs";
+import { getStudioDomain } from "../lib/domain-center.mjs";
 
 test("strategy, HR and finance have domain-specific schemas and review states", () => {
   const strategy = getBusinessObjectDefinition("enterprise-strategy-platform", "objective");
@@ -17,4 +19,24 @@ test("business field validation normalizes numbers and rejects invalid values", 
   const fields = validateBusinessObjectFields("finance-platform", "expense", { expenseDate: "2026-07-20", department: "财务中心", category: "差旅", amount: "88.50", currency: "CNY", budgetCode: "TRAVEL", description: "出差" });
   assert.equal(fields.amount, 88.5);
   assert.throws(() => validateBusinessObjectFields("finance-platform", "expense", { expenseDate: "2026-07-20" }), (error) => error.code === "BUSINESS_FIELD_REQUIRED");
+});
+
+test("every registered business object routes to a domain owned by its application", () => {
+  for (const application of enterpriseApplications.filter((item) => !["software-factory", "video-factory"].includes(item.id))) {
+    for (const objectType of application.objectTypes) {
+      const schema = getBusinessObjectDefinition(application.id, objectType.id);
+      assert.ok(schema.workflowDomainId, `${application.id}.${objectType.id} must declare workflowDomainId`);
+      assert.equal(getStudioDomain(schema.workflowDomainId)?.applicationId, application.id);
+      assert.ok(schema.fields.some((field) => field.required), `${application.id}.${objectType.id} must have required domain fields`);
+    }
+  }
+});
+
+test("operational applications route distinct objects to distinct skill domains", () => {
+  assert.equal(getBusinessObjectDefinition("ai-growth-sales-platform", "lead").workflowDomainId, "lead-intelligence");
+  assert.equal(getBusinessObjectDefinition("ai-growth-sales-platform", "opportunity").workflowDomainId, "sales-conversion");
+  assert.equal(getBusinessObjectDefinition("intelligent-manufacturing-erp", "bom").workflowDomainId, "product-engineering-bom");
+  assert.equal(getBusinessObjectDefinition("intelligent-manufacturing-erp", "quality_case").workflowDomainId, "quality-management");
+  assert.equal(getBusinessObjectDefinition("smart-park-platform", "service_order").workflowDomainId, "tenant-service-workflow");
+  assert.equal(getBusinessObjectDefinition("smart-park-platform", "meter").workflowDomainId, "energy-management");
 });

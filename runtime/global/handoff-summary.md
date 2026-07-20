@@ -17,6 +17,8 @@ Business records remain authoritative. Agent Tasks advance or analyse those reco
 - release evidence: commits `de4763f` and `0e84d1d` deployed through guarded Office 204 run `29756529313`; public login, Cockpit, My Work, all application endpoints, and MCP readiness returned HTTP 200
 - second slice: Strategy objectives/KPIs, HR recruitment/onboarding, and Finance expenses/budgets now have distinct required fields, lifecycle transitions, Agent review gates, and business-object-aware workflow goals
 - verified workflow evidence: Strategy objective, HR recruitment case, and Finance expense each completed four Kernel tasks through the existing Scheduler, Worker and CONTROLLED_STUB runtime with the original business object ID on every stage
+- third slice: every registered Strategy, HR, Finance, Growth & Sales, Manufacturing ERP and Smart Park object now declares required domain fields, lifecycle transitions and an owning workflow Domain; Agent delegation no longer falls back to the application's first Domain
+- operational workflow evidence: Growth lead, manufacturing work order and Smart Park service order each completed four existing-Kernel tasks through CONTROLLED_STUB with stable object IDs and the expected Domain-specific stages
 - next stage: deepen each application from the shared conventional shell into its first domain-specific record detail, forms, reports, and write-back workflow
 
 ## Application Endpoints

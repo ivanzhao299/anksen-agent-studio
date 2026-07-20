@@ -23,16 +23,18 @@
     { "id": "ea-007-production-release", "title": "Tests, push and Office 204 deployment", "completed": true },
     { "id": "ea-008-group-application-schemas", "title": "Strategy, HR and Finance domain fields and lifecycle state machines", "completed": true },
     { "id": "ea-009-group-application-workflows", "title": "Strategy, HR and Finance business-object workflows on the shared Kernel", "completed": true },
-    { "id": "ea-010-operational-application-schemas", "title": "Growth & Sales, Manufacturing ERP and Smart Park domain records and workflows", "completed": false }
+    { "id": "ea-010-operational-application-schemas", "title": "Growth & Sales, Manufacturing ERP and Smart Park domain records and workflows", "completed": true },
+    { "id": "ea-011-transactional-business-store", "title": "Move authoritative business records and work items to isolated transactional PostgreSQL", "completed": false }
   ],
   "next_recommended_action": {
-    "title": "Deepen operational applications with domain-specific records, forms and approval workflows",
-    "reason": "Strategy, HR and Finance now have distinct required fields, lifecycle transitions and verified controlled workflows. Growth & Sales, Manufacturing ERP and Smart Park are the next application slice.",
+    "title": "Persist authoritative business records and work items transactionally",
+    "reason": "All registered group and operational business objects now have explicit fields, state machines and deterministic Domain routing. The current file-backed application store must be replaced by isolated PostgreSQL before multi-user production use.",
     "target_project": "anksen-agent-studio",
     "target_packages": ["packages/domain-center", "packages/orchestrator-core", "apps/console"],
     "expected_files": [
       "packages/domain-center/lib/enterprise-applications.mjs",
-      "packages/domain-center/lib/business-object-definitions.mjs",
+      "packages/domain-center/lib/business-application-store.mjs",
+      "packages/domain-center/lib/postgres-business-application-store.mjs",
       "apps/console/web/routes.mjs",
       "apps/console/web/render.mjs",
       "apps/console/web/server.mjs"

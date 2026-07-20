@@ -38,3 +38,17 @@ test("strategy and HR records expose different authoritative fields", async () =
   assert.equal(recruitment.fields.positionName, "财务分析经理");
   assert.notDeepEqual(objective.schema.fields.map((item) => item.key), recruitment.schema.fields.map((item) => item.key));
 });
+
+test("growth, manufacturing and Smart Park records keep operational data and routing", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "business-app-operations-"));
+  const store = new BusinessApplicationStore({ repoRoot: root });
+  const lead = await store.createRecord("ai-growth-sales-platform", { objectType: "lead", title: "园区设备客户线索", fields: { source: "官网", contactName: "李经理", company: "示例制造", contactChannel: "authorized-ref-001", consentStatus: "已授权", interest: "能源管理" } }, { userId: "sales-user" });
+  const order = await store.createRecord("intelligent-manufacturing-erp", { objectType: "work_order", title: "WO-2026-001", fields: { productCode: "P-001", quantity: 100, unit: "台", dueDate: "2026-08-20", plant: "一号工厂", priority: "关键" } }, { userId: "planner" });
+  const service = await store.createRecord("smart-park-platform", { objectType: "service_order", title: "空调报修", fields: { enterpriseName: "示例企业", serviceType: "报修", location: "A1-302", slaHours: 4, description: "空调无法启动" } }, { userId: "park-user" });
+  assert.equal(lead.schema.workflowDomainId, "lead-intelligence");
+  assert.equal(order.schema.workflowDomainId, "production-planning");
+  assert.equal(service.schema.workflowDomainId, "tenant-service-workflow");
+  assert.deepEqual(lead.availableTransitions, ["NEW"]);
+  assert.deepEqual(order.availableTransitions, ["PLANNED"]);
+  assert.deepEqual(service.availableTransitions, ["OPEN"]);
+});
