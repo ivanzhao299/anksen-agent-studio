@@ -5,6 +5,7 @@ import { assertBusinessRelationContract, relationContractsFor } from "./business
 import { businessExceptionResult, businessRecordExceptionStatuses, businessWorkExceptionStatuses, presentBusinessRecordException, presentBusinessWorkException } from "./business-exceptions.mjs";
 import { businessSearchResult, normalizeBusinessSearch, presentBusinessSearchRecord } from "./business-record-search.mjs";
 import { validateBusinessRecordNote } from "./business-record-notes.mjs";
+import { businessRecordListResult, normalizeBusinessRecordList } from "./business-record-list.mjs";
 
 const terminal = new Set(["COMPLETED", "CANCELLED", "PAID", "ARCHIVED", "TERMINATED", "WRITTEN_OFF"]);
 const scopeOf = (value = {}) => {
@@ -117,6 +118,15 @@ export class PostgresBusinessApplicationStore {
     if (options.objectType) { params.push(options.objectType); sql += ` AND object_type=$${params.length}`; }
     sql += " ORDER BY updated_at DESC";
     return (await this.pool.query(sql, params)).rows.map((row) => this.presentRecord(row));
+  }
+
+  async recordPage(applicationId,options={}) {
+    assertEnterpriseApplication(applicationId);const scope=scopeOf(options),filter=normalizeBusinessRecordList(options),params=[scope.organizationId,scope.workspaceId,applicationId],conditions=["organization_id=$1","workspace_id=$2","application_id=$3"];
+    if(filter.query){params.push(filter.query);conditions.push(`(position(lower($${params.length}) in lower(display_key))>0 OR position(lower($${params.length}) in lower(title))>0 OR position(lower($${params.length}) in lower(owner_id))>0)`);}
+    if(filter.objectType){params.push(filter.objectType);conditions.push(`object_type=$${params.length}`);}
+    if(filter.status){params.push(filter.status);conditions.push(`status=$${params.length}`);}
+    if(filter.ownerId){params.push(filter.ownerId);conditions.push(`owner_id=$${params.length}`);}
+    params.push(filter.limit,filter.offset);const rows=(await this.pool.query(`SELECT *,count(*) OVER()::int total_count FROM business_application_record WHERE ${conditions.join(" AND ")} ORDER BY updated_at DESC,id LIMIT $${params.length-1} OFFSET $${params.length}`,params)).rows,items=rows.map(row=>this.presentRecord(row)),total=rows[0]?.total_count??(filter.offset?Number((await this.pool.query(`SELECT count(*)::int count FROM business_application_record WHERE ${conditions.join(" AND ")}`,params.slice(0,-2))).rows[0].count):0);return businessRecordListResult({items,total,filter,generatedAt:this.clock().toISOString(),source:"POSTGRESQL_BUSINESS_APPLICATION_STORE"});
   }
 
   async searchRecords(options={}) {

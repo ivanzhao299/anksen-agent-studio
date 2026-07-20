@@ -82,6 +82,14 @@ test("business record notes are immutable exact-version scoped timeline events",
   const timeline=(await store.recordDetail("finance-platform",record.id,scope)).timeline;assert.equal(timeline.filter(item=>item.type==="business.record.note.added").length,1);assert.equal(timeline.find(item=>item.type==="business.record.note.added").actorId,"finance-user");
 });
 
+test("application record pages apply literal scoped filters and stable pagination",async()=>{
+  const root=await mkdtemp(resolve(tmpdir(),"business-list-")),store=new BusinessApplicationStore({repoRoot:root}),scope={organizationId:"list-org",workspaceId:"list-workspace",userId:"finance-a"};
+  for(let index=0;index<3;index+=1)await store.createRecord("finance-platform",{objectType:"expense",title:index===1?"差旅 % 专项":"日常费用 "+index,displayKey:`LIST-${index}`,ownerId:index===2?"finance-b":"finance-a",fields:{...expenseFields,amount:100+index}},scope);
+  await store.createRecord("finance-platform",{objectType:"budget",title:"年度预算",displayKey:"LIST-BUDGET",ownerId:"finance-a",fields:{fiscalYear:2027,department:"运营",budgetCode:"OPS-2027",amount:10000,currency:"CNY"}},scope);
+  const first=await store.recordPage("finance-platform",{...scope,limit:2,offset:0});assert.equal(first.records.length,2);assert.equal(first.pagination.total,4);assert.equal(first.pagination.hasMore,true);const second=await store.recordPage("finance-platform",{...scope,limit:2,offset:2});assert.equal(second.records.length,2);assert.equal(new Set([...first.records,...second.records].map(item=>item.id)).size,4);
+  assert.equal((await store.recordPage("finance-platform",{...scope,query:"%"})).pagination.total,1);assert.equal((await store.recordPage("finance-platform",{...scope,objectType:"expense",ownerId:"finance-b"})).pagination.total,1);assert.equal((await store.recordPage("finance-platform",{...scope,objectType:"budget"})).pagination.total,1);assert.equal((await store.recordPage("finance-platform",{...scope,organizationId:"foreign"})).pagination.total,0);
+});
+
 test("strategy and HR records expose different authoritative fields", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "business-app-domain-"));
   const store = new BusinessApplicationStore({ repoRoot: root });
