@@ -15,3 +15,5 @@ runtime/agent-tools/
 runtime/pipx/
 runtime/uv-python/
 runtime/uv-tools/
+runtime/autonomous-portfolio/
+runtime/governed-codex-runs/

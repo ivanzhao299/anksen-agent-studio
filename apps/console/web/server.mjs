@@ -17,6 +17,7 @@ import { createTestPool, ensurePostgresFixture } from "../../../packages/orchest
 import { migrate } from "../../../packages/orchestrator-core/lib/persistent-night-shift.mjs";
 import { domainCenterSummary, loadDomainRuntimeRegistry } from "../../../packages/domain-center/lib/domain-center.mjs";
 import { PersistentDomainWorkflowService } from "../../../packages/domain-center/lib/persistent-domain-workflow.mjs";
+import { AutonomousPortfolioService } from "../../../packages/domain-center/lib/autonomous-portfolio.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
 import { createStudioMcpRequestHandler } from "../../../packages/orchestrator-core/lib/studio-mcp-server.mjs";
@@ -40,12 +41,28 @@ import {
 const port = Number(process.env.PORT ?? 4317);
 const allowedPaths = new Set([...consoleWebRoutes.map((route) => route.path), "/login", "/register", "/identity-bootstrap"]);
 const webDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(webDir, "../../..");
 const assetsDir = join(webDir, "assets");
 const staticAssets = new Map([
   ["/assets/anksen-logo.svg", { path: join(assetsDir, "anksen-logo.svg"), type: "image/svg+xml; charset=utf-8" }]
 ]);
 const autonomousExecutionCenter = new AutonomousExecutionCenter();
-const governedRunManager = new GovernedRunManager({ repoRoot: resolve(webDir, "../../..") });
+const governedRunManager = new GovernedRunManager({ repoRoot });
+const portfolioRegistry = await loadDomainRuntimeRegistry();
+const dispatchPortfolioInitiative = async ({ campaign, initiative }) => {
+  await ensurePostgresFixture();
+  const pool = createTestPool();
+  try {
+    if (!(await pool.query("SELECT to_regclass('ad_night_shift_session') ok")).rows[0].ok) await migrate(pool, "up");
+    const service = new PersistentDomainWorkflowService(pool, { registry: portfolioRegistry });
+    const submitted = await service.submit({ sessionKey: initiative.sessionKey, goal: initiative.title, explicitDomainId: initiative.domainId, scope: { organizationId: "studio-org", workspaceId: "studio-workspace", projectId: campaign.projectId } });
+    await service.runDaemon({ pollMs: 5, idleTimeoutMs: 100, maxRuntimeMs: 60000 });
+    const report = await service.night.loadReport(submitted.session.id);
+    return { status: report?.sessionStatus ?? "FAILED", report };
+  } finally { await pool.end(); }
+};
+const autonomousPortfolio = new AutonomousPortfolioService({ repoRoot, registry: portfolioRegistry, dispatcher: dispatchPortfolioInitiative });
+setInterval(() => autonomousPortfolio.tick().catch((error) => console.error("portfolio tick failed", error?.code ?? error?.message ?? error)), 30000).unref();
 const identityRuntime = await loadIdentityRuntimeConfig();
 const identityOwnerBootstrap = identityRuntime ? new IdentityOwnerBootstrap({ upstreamOrigin: identityRuntime.upstreamOrigin }) : null;
 const mcpOauthEnabled = identityRuntime?.authMode === "oauth";
@@ -306,6 +323,28 @@ const server = createServer(async (request, response) => {
           businessResults: { status: "AWAITING_SOURCE", metrics: [] }
         }))
       });
+      return;
+    }
+    if (request.method === "GET" && pathname === "/api/portfolio/campaigns") {
+      sendJson(response, 200, { campaigns: await autonomousPortfolio.list(), catalog: domainCenterSummary() });
+      return;
+    }
+    if (request.method === "POST" && pathname === "/api/portfolio/campaigns") {
+      const body = await readJsonBody(request);
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "portfolio-create", project_id: String(body.projectId ?? "anksen-agent-studio"), risk: "LOW" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      try { sendJson(response, 201, await autonomousPortfolio.create(body, { userId: accessContext.user?.user_id })); }
+      catch (error) { sendJson(response, 400, { status: error?.code ?? "PORTFOLIO_INVALID", reason: error instanceof Error ? error.message : String(error) }); }
+      return;
+    }
+    const portfolioAction = pathname.match(/^\/api\/portfolio\/campaigns\/([^/]+)\/(activate|tick|pause)$/);
+    if (request.method === "POST" && portfolioAction) {
+      const campaign = await autonomousPortfolio.get(decodeURIComponent(portfolioAction[1]));
+      if (!campaign) { sendJson(response, 404, { status: "PORTFOLIO_NOT_FOUND" }); return; }
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: `portfolio-${portfolioAction[2]}`, project_id: campaign.projectId, risk: portfolioAction[2] === "activate" ? "MEDIUM" : "LOW" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      const result = portfolioAction[2] === "activate" ? await autonomousPortfolio.activate(campaign.id, { userId: accessContext.user?.user_id }) : portfolioAction[2] === "pause" ? await autonomousPortfolio.pause(campaign.id, { userId: accessContext.user?.user_id }) : await autonomousPortfolio.tick(campaign.id);
+      sendJson(response, 200, result);
       return;
     }
     if (request.method === "POST" && pathname === "/api/aec/goals") {

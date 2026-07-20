@@ -35,6 +35,10 @@ const directExecuteActionIds = new Set([
   "proposal-approve-apply",
   "worker-claim-preflight",
   "aec-goal",
+  "portfolio-create",
+  "portfolio-activate",
+  "portfolio-tick",
+  "portfolio-pause",
   "identity-owner-bootstrap"
 ]);
 const agentRuntimeIds = new Set([
@@ -53,6 +57,10 @@ const agentRuntimeIds = new Set([
 const consoleActionCatalog = {
   "identity-owner-bootstrap": { capabilities: ["console.access", "access.manage"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "aec-goal": { capabilities: ["console.access", "autopilot.execute.local"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
+  "portfolio-create": { capabilities: ["console.access", "autopilot.plan", "proposal.create"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
+  "portfolio-activate": { capabilities: ["console.access", "autopilot.execute.local", "proposal.approve"], execution_mode: "direct_execute", projectScoped: true, risk: "MEDIUM" },
+  "portfolio-tick": { capabilities: ["console.access", "autopilot.execute.local"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
+  "portfolio-pause": { capabilities: ["console.access", "autopilot.execute.local"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
   "workspace-goal": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "project-dispatch": { capabilities: ["console.access", "project.read", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "agent-real-plan": { capabilities: ["console.access", "agent.runtime.readonly"], execution_mode: "direct_execute", projectScoped: true },
@@ -84,6 +92,7 @@ const consoleActionCatalog = {
 const consoleRouteCatalog = {
   execution: ["console.access", "autopilot.plan"],
   domains: ["console.access"],
+  portfolio: ["console.access", "autopilot.plan"],
   dashboard: ["console.access"],
   projects: ["project.read"],
   workers: ["worker.read"],

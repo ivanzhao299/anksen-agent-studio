@@ -6,6 +6,7 @@ export const consoleWebRoutes = [
   { id: "dashboard", label: messages.nav.dashboard, path: "/", navPath: "/" },
   { id: "execution", label: "运行", path: "/execution", navPath: "/execution" },
   { id: "domains", label: "领域中心", path: "/domains", navPath: "/domains" },
+  { id: "portfolio", label: "长期任务", path: "/portfolio", navPath: "/portfolio" },
   { id: "projects", label: messages.nav.projects, path: "/projects", navPath: "/projects" },
   { id: "workers", label: messages.nav.workers, path: "/workers", navPath: "/workers", showInNav: false },
   { id: "actions", label: messages.nav.actions, path: "/actions", navPath: "/actions" },

@@ -25,6 +25,7 @@ function navIcon(id) {
   const paths = {
     dashboard: '<path d="M3 10.5 10 4l7 6.5v6a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5z"/><path d="M8 18v-5h4v5"/>',
     execution: '<circle cx="10" cy="10" r="7.5"/><path d="m8.5 7 4.5 3-4.5 3z"/>',
+    portfolio: '<path d="M3 5h14v11H3z"/><path d="M7 5V3h6v2M3 9h14M8 9v2h4V9"/>',
     domains: '<path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z"/>',
     projects: '<path d="M2.5 6.5h6l1.5 2h7.5v7a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2z"/><path d="M2.5 8.5v-3a2 2 0 0 1 2-2h3l1.5 2h4"/>',
     autopilot: '<path d="M3 17V9m5 8V5m5 12v-6m5 6V3"/>',
@@ -36,7 +37,7 @@ function navIcon(id) {
 
 function nav(activeId, auth = {}, activeProjectId = "") {
   const visibleRoutes = new Set(visibleConsoleRouteIds(auth));
-  const primaryIds = ["dashboard", "execution", "domains", "projects", "autopilot"];
+  const primaryIds = ["dashboard", "execution", "portfolio", "domains", "projects", "autopilot"];
   const renderLinks = (ids) => ids.map((id) => consoleWebRoutes.find((route) => route.id === id)).filter((route) => route && visibleRoutes.has(route.id)).map((route) => {
     const active = route.id === activeId ? "active" : "";
     return `<a class="${active}" href="${routeHref(route.navPath, activeProjectId)}" title="${escapeHtml(route.label)}"><span class="nav-icon">${navIcon(route.id)}</span><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
@@ -2196,6 +2197,40 @@ function pageDashboard(_model, data) {
   <script>(()=>{const input=document.getElementById('command-goal'),run=document.getElementById('command-run');const openRun=()=>{const goal=input.value.trim();if(!goal){input.focus();return;}const url=new URL('${executionHref}',location.origin);url.searchParams.set('goal',goal);location.href=url.pathname+url.search;};run.addEventListener('click',openRun);input.addEventListener('keydown',event=>{if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();openRun();}});document.querySelectorAll('[data-command-suggestion]').forEach(button=>button.addEventListener('click',()=>{input.value=button.dataset.commandSuggestion;input.focus();}));const source=document.getElementById('portfolio-source');fetch('/api/portfolio/dashboard',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('portfolio unavailable');return response.json();}).then(body=>{for(const app of body.applications){const card=document.querySelector('[data-portfolio-app="'+CSS.escape(app.id)+'"]');if(!card)continue;const p=app.progress,state=card.querySelector('[data-portfolio-state]'),bar=card.querySelector('[data-portfolio-progress]'),done=card.querySelector('[data-portfolio-done]'),result=card.querySelector('[data-portfolio-result]');if(!p){state.textContent='尚未启动';state.className='portfolio-state planned';bar.style.width='0%';done.textContent='0 / 0';}else{const total=Number(p.task_count||0),success=Number(p.succeeded_count||0),percent=total?Math.round(success/total*100):0;state.textContent=p.goal_status;state.className='portfolio-state '+(p.goal_status==='SUCCEEDED'?'pass':Number(p.blocked_count)>0||Number(p.failed_count)>0?'blocked':'active');bar.style.width=percent+'%';done.textContent=success+' / '+total;card.title=p.title;}result.textContent=app.businessResults.status==='AWAITING_SOURCE'?'业务结果待接入':'业务结果已同步';}source.textContent='数据源：Autonomous Kernel · '+new Date(body.generatedAt).toLocaleString();}).catch(()=>{source.textContent='Kernel 暂不可用；未展示的数据不会被推测或伪造。';});})();</script>`;
 }
 
+function pagePortfolio(data) {
+  const catalog = domainCenterSummary();
+  const catalogJson = JSON.stringify(catalog.applications.map((application) => ({ id: application.id, name: application.name, domainCount: application.domains.length }))).replaceAll("<", "\\u003c");
+  const projectOptions = (data.project_router.projects ?? []).filter((project) => project.connection_status === "CONNECTED").map((project) => `<option value="${escapeHtml(project.project_id)}">${escapeHtml(project.project_name ?? project.project_id)}</option>`).join("");
+  const applicationOptions = catalog.applications.map((application) => `<option value="${escapeHtml(application.id)}">${escapeHtml(application.name)} · ${application.domains.length} 个领域</option>`).join("");
+  return `<section class="product-hero"><div><span class="eyebrow">Autonomous Portfolio</span><h2>集团长期任务编排</h2><p>以业务平台为边界，把长期目标分解为领域 Initiative，并为每个阶段绑定真实 Skill、Agent 与在线 Runner。所有执行继续进入同一持久化 Kernel。</p></div><span class="status-label pass">● Resident scheduler</span></section>
+  <section class="panel"><div class="section-head"><div><h2>新建 Campaign</h2><p class="help">创建后保持草稿；授权人批准才会进入常驻调度。默认使用 CONTROLLED_STUB，不会自动启用真实 Codex。</p></div><span class="pill">预算先行</span></div>
+    <div class="form-grid">
+      <div><label for="portfolio-application">业务平台</label><select id="portfolio-application">${applicationOptions}</select></div>
+      <div><label for="portfolio-project">执行项目</label><select id="portfolio-project">${projectOptions}</select></div>
+      <div style="grid-column:1/-1"><label for="portfolio-goal">长期目标</label><textarea id="portfolio-goal" rows="3" placeholder="例如：在未来四周完善智慧园区全部核心业务闭环并形成每周验收报告"></textarea></div>
+      <div><label for="portfolio-mode">运行计划</label><select id="portfolio-mode"><option value="ONCE">执行一轮</option><option value="RECURRING">周期续跑</option></select></div>
+      <div><label for="portfolio-interval">续跑间隔（分钟）</label><input id="portfolio-interval" type="number" min="1" value="1440"></div>
+      <div><label for="portfolio-cycles">最多周期</label><input id="portfolio-cycles" type="number" min="1" max="52" value="4"></div>
+      <div><label for="portfolio-tasks">任务预算</label><input id="portfolio-tasks" type="number" min="1" value="100"></div>
+      <div><label for="portfolio-tokens">Token 预留上限</label><input id="portfolio-tokens" type="number" min="1" value="500000"></div>
+      <div><label for="portfolio-runtime">运行时间预算（分钟）</label><input id="portfolio-runtime" type="number" min="1" value="600"></div>
+    </div>
+    <div class="button-row" style="justify-content:space-between;margin-top:14px"><p id="portfolio-message" class="help">Token 为调度预估上限；实际用量只在 Runtime 返回 usage 时记录，不会伪造。</p><button id="portfolio-create" class="primary-action" type="button">生成长期任务草稿</button></div>
+  </section>
+  <section><div class="section-head"><div><h2>Campaign 运行看板</h2><p class="help">草稿、预算、周期、领域进度和 Kernel 执行证据</p></div><button id="portfolio-refresh" class="secondary" type="button">刷新</button></div><div id="portfolio-campaigns"><div class="empty-state"><strong>正在读取长期任务</strong></div></div></section>
+  <details class="advanced-section"><summary>执行模型与安全边界</summary><div class="advanced-body"><div class="domain-flow"><span>Campaign</span><i>→</i><span>业务平台</span><i>→</i><span>领域 Initiative</span><i>→</i><span>Skill / Agent</span><i>→</i><span>Kernel</span><i>→</i><span>报告</span></div><p class="help">常驻调度器每 30 秒检查已批准 Campaign。文件锁防止多 Tick 重复派发；固定 Session Key 让进程恢复后仍保持幂等。预算不足、缺少 Agent 或缺少在线 Runner 时进入 BLOCKED，不扩大权限。</p></div></details>
+  <script>
+  (()=>{const catalog=${catalogJson},box=document.getElementById('portfolio-campaigns'),message=document.getElementById('portfolio-message');
+  const esc=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const call=async(url,options={})=>{const response=await fetch(url,{headers:{'content-type':'application/json'},...options});const body=await response.json();if(!response.ok)throw new Error(body.reason||body.status||'请求失败');return body;};
+  const labels={DRAFT:'草稿',ACTIVE:'运行中',WAITING_NEXT_CYCLE:'等待下轮',SUCCEEDED:'已完成',COMPLETED_WITH_BLOCKERS:'完成但有阻塞',BUDGET_BLOCKED:'预算阻塞',PAUSED:'已暂停'};
+  const render=(campaigns)=>{if(!campaigns.length){box.innerHTML='<div class="panel empty-state"><strong>还没有长期任务</strong>从上方选择一个业务平台并创建第一项 Campaign。</div>';return;}box.innerHTML=campaigns.map(c=>{const current=c.initiatives.filter(i=>i.cycle===c.schedule.currentCycle),done=current.filter(i=>i.status==='SUCCEEDED').length;return '<article class="panel" style="margin-bottom:14px"><div class="section-head"><div><span class="eyebrow">'+esc(c.applicationName)+' · Cycle '+esc(c.schedule.currentCycle+1)+'</span><h2>'+esc(c.goal)+'</h2><p class="help">'+esc(c.id)+' · '+esc(c.projectId)+'</p></div><span class="status-label '+(c.status==='SUCCEEDED'?'pass':c.status.includes('BLOCK')?'blocked':c.status==='ACTIVE'?'local':'pending')+'">● '+esc(labels[c.status]||c.status)+'</span></div><div class="grid"><div class="metric"><span>领域进度</span><strong>'+done+' / '+current.length+'</strong></div><div class="metric"><span>任务预算</span><strong>'+c.usage.reservedTasks+' / '+c.budget.maxTasks+'</strong></div><div class="metric"><span>Token 预留</span><strong>'+c.usage.reservedTokenEstimate.toLocaleString()+' / '+c.budget.maxTokenEstimate.toLocaleString()+'</strong></div><div class="metric"><span>Runtime 执行</span><strong>'+c.usage.actualRuntimeExecutions+'</strong></div></div><div class="simple-list" style="margin-top:12px">'+current.map(i=>'<div class="simple-row"><div><strong>'+esc(i.domainName)+'</strong><small>'+esc(i.skillPack.join(' · '))+'</small></div><div><span class="status-label '+(i.status==='SUCCEEDED'?'pass':i.status==='BLOCKED'||i.status==='FAILED'?'blocked':i.status==='PENDING'?'pending':'local')+'">'+esc(i.status)+'</span><small>'+esc(i.agentAssignments.map(a=>a.agentId||'缺少 Agent').join(' / '))+'</small></div></div>').join('')+'</div><div class="button-row" style="justify-content:flex-end;margin-top:12px">'+(c.status==='DRAFT'||c.status==='PAUSED'?'<button class="primary" data-portfolio-action="activate" data-id="'+esc(c.id)+'">批准并启动</button>':'')+(c.status==='ACTIVE'||c.status==='WAITING_NEXT_CYCLE'?'<button class="secondary" data-portfolio-action="tick" data-id="'+esc(c.id)+'">立即调度一项</button><button class="danger" data-portfolio-action="pause" data-id="'+esc(c.id)+'">暂停</button>':'')+'</div></article>';}).join('');};
+  const refresh=async()=>{try{const body=await call('/api/portfolio/campaigns');render(body.campaigns||[]);}catch(error){message.textContent=error.message;}};
+  document.getElementById('portfolio-create').addEventListener('click',async()=>{const button=document.getElementById('portfolio-create'),payload={applicationId:document.getElementById('portfolio-application').value,projectId:document.getElementById('portfolio-project').value,goal:document.getElementById('portfolio-goal').value.trim(),scheduleMode:document.getElementById('portfolio-mode').value,intervalMinutes:Number(document.getElementById('portfolio-interval').value),maxCycles:Number(document.getElementById('portfolio-cycles').value),maxTasks:Number(document.getElementById('portfolio-tasks').value),maxTokenEstimate:Number(document.getElementById('portfolio-tokens').value),maxRuntimeMinutes:Number(document.getElementById('portfolio-runtime').value)};if(!payload.goal){message.textContent='请先填写长期目标。';return;}button.disabled=true;try{await call('/api/portfolio/campaigns',{method:'POST',body:JSON.stringify(payload)});message.textContent='草稿已生成。请检查领域、Skill、Agent 与预算后批准。';await refresh();}catch(error){message.textContent=error.message;}finally{button.disabled=false;}});
+  box.addEventListener('click',async(event)=>{const button=event.target.closest('[data-portfolio-action]');if(!button)return;if(button.dataset.portfolioAction==='activate'&&!confirm('批准后常驻调度器将按预算自动派发领域任务，是否继续？'))return;button.disabled=true;try{await call('/api/portfolio/campaigns/'+encodeURIComponent(button.dataset.id)+'/'+button.dataset.portfolioAction,{method:'POST',body:'{}'});await refresh();}catch(error){message.textContent=error.message;button.disabled=false;}});document.getElementById('portfolio-refresh').addEventListener('click',refresh);refresh();})();
+  </script>`;
+}
+
 async function pageDomains(data) {
   const center = domainCenterSummary();
   const runtimeRegistry = await loadDomainRuntimeRegistry();
@@ -3043,6 +3078,7 @@ export async function renderConsolePage(pathname = "/", auth = null, options = {
   const contentById = {
     dashboard: () => pageDashboard(model, data),
     execution: () => pageExecution(),
+    portfolio: () => pagePortfolio(data),
     domains: () => pageDomains(data),
     projects: () => pageProjects(data),
     runtime: () => pageRuntime(data),
