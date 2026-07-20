@@ -6,7 +6,7 @@ import { businessExceptionResult, businessRecordExceptionStatuses, businessWorkE
 import { businessSearchResult, normalizeBusinessSearch, presentBusinessSearchRecord } from "./business-record-search.mjs";
 import { validateBusinessRecordNote } from "./business-record-notes.mjs";
 import { businessRecordListResult, normalizeBusinessRecordList } from "./business-record-list.mjs";
-import { businessDelegationAuditPayload } from "./business-delegation-preview.mjs";
+import { businessDelegationAuditPayload, presentBusinessDelegationProjection } from "./business-delegation-preview.mjs";
 
 const terminal = new Set(["COMPLETED", "CANCELLED", "PAID", "ARCHIVED", "TERMINATED", "WRITTEN_OFF"]);
 const scopeOf = (value = {}) => {
@@ -168,7 +168,8 @@ export class PostgresBusinessApplicationStore {
       this.pool.query("SELECT id,object_type,display_key,title,status FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND id<>$4 ORDER BY updated_at DESC",[scope.organizationId,scope.workspaceId,applicationId,id])
     ]);
     const contracts=relationContractsFor(applicationId,record.objectType),relatedIds=new Set(relations.rows.flatMap(row=>[row.source_record_id,row.target_record_id])),evidence=await this.kernelExecutionEvidence(work.rows.map(row=>row.kernel_goal_id));
-    return { record, workItems: work.rows.map((row) => ({...this.presentWork(row),executionEvidence:evidence.get(row.kernel_goal_id)??[]})), approvals: approvals.rows.map((row) => this.presentApproval(row)), relations:relations.rows.map(row=>this.presentRelation(row,id)), relationOptions:contracts.flatMap(contract=>candidates.rows.filter(candidate=>!relatedIds.has(candidate.id)&&((contract.sourceType===record.objectType&&candidate.object_type===contract.targetType)||(contract.targetType===record.objectType&&candidate.object_type===contract.sourceType))).map(candidate=>({contract,direction:contract.sourceType===record.objectType?"OUTGOING":"INCOMING",record:{id:candidate.id,objectType:candidate.object_type,displayKey:candidate.display_key,title:candidate.title,status:candidate.status}}))), timeline: events.rows.map((row) => this.presentEvent(row)) };
+    const delegationPlans=new Map(events.rows.filter(row=>row.event_type==="business.work.delegation-approved"&&row.work_item_id).map(row=>[row.work_item_id,presentBusinessDelegationProjection(row.payload)]));
+    return { record, workItems: work.rows.map((row) => ({...this.presentWork(row),delegationPlan:delegationPlans.get(row.id)??null,executionEvidence:evidence.get(row.kernel_goal_id)??[]})), approvals: approvals.rows.map((row) => this.presentApproval(row)), relations:relations.rows.map(row=>this.presentRelation(row,id)), relationOptions:contracts.flatMap(contract=>candidates.rows.filter(candidate=>!relatedIds.has(candidate.id)&&((contract.sourceType===record.objectType&&candidate.object_type===contract.targetType)||(contract.targetType===record.objectType&&candidate.object_type===contract.sourceType))).map(candidate=>({contract,direction:contract.sourceType===record.objectType?"OUTGOING":"INCOMING",record:{id:candidate.id,objectType:candidate.object_type,displayKey:candidate.display_key,title:candidate.title,status:candidate.status}}))), timeline: events.rows.map((row) => this.presentEvent(row)) };
   }
 
   async createRelation(applicationId,sourceRecordId,input,actor={}){
@@ -295,7 +296,9 @@ export class PostgresBusinessApplicationStore {
     if (options.applicationId) { params.push(options.applicationId); sql += ` AND application_id=$${params.length}`; }
     sql += " ORDER BY updated_at DESC";
     const items = (await this.pool.query(sql, params)).rows.map((row) => this.presentWork(row));
-    return { items, summary: { total: items.length, human: items.filter((item) => item.assignmentType === "HUMAN").length, agent: items.filter((item) => item.assignmentType === "AGENT").length, blocked: items.filter((item) => item.status === "BLOCKED").length, waitingApproval: items.filter((item) => ["WAITING_APPROVAL", "WAITING_REVIEW"].includes(item.status)).length } };
+    const planRows=items.length?(await this.pool.query("SELECT work_item_id,payload FROM business_application_event WHERE organization_id=$1 AND workspace_id=$2 AND event_type='business.work.delegation-approved' AND work_item_id=ANY($3::uuid[]) ORDER BY sequence DESC",[scope.organizationId,scope.workspaceId,items.map(item=>item.id)])).rows:[];
+    const plans=new Map(planRows.map(row=>[row.work_item_id,presentBusinessDelegationProjection(row.payload)])),projected=items.map(item=>({...item,delegationPlan:plans.get(item.id)??null}));
+    return { items:projected, summary: { total: projected.length, human: projected.filter((item) => item.assignmentType === "HUMAN").length, agent: projected.filter((item) => item.assignmentType === "AGENT").length, blocked: projected.filter((item) => item.status === "BLOCKED").length, waitingApproval: projected.filter((item) => ["WAITING_APPROVAL", "WAITING_REVIEW"].includes(item.status)).length } };
   }
 
   async approvalInbox(options = {}) {
