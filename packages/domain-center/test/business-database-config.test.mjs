@@ -17,10 +17,11 @@ test("Office deployment provisions and verifies isolated business PostgreSQL bef
   const deployData = await readFile(new URL("../../../scripts/deploy-business-data.sh", import.meta.url), "utf8");
   const deploy = await readFile(new URL("../../../scripts/deploy.sh", import.meta.url), "utf8");
   const server = await readFile(new URL("../../../apps/console/web/server.mjs", import.meta.url), "utf8");
-  assert.match(compose, /127\.0\.0\.1:4330:5432/);
+  assert.match(compose, /127\.0\.0\.1:\$\{BUSINESS_DB_PORT:-54330\}:5432/);
   assert.match(compose, /business-db-data/);
   assert.match(deployData, /openssl rand -hex 32/);
   assert.match(deployData, /BUSINESS_DATABASE_REQUIRED=true/);
+  assert.match(deployData, /already occupied by another service/);
   assert.match(deployData, /business-database-migrate\.mjs/);
   assert.match(deploy, /deploy-business-data\.sh/);
   assert.match(server, /createBusinessApplicationRuntime/);

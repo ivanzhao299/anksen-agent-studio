@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: anksen_business
       POSTGRES_PASSWORD: ${BUSINESS_DB_PASSWORD:?BUSINESS_DB_PASSWORD is required}
     ports:
-      - "127.0.0.1:4330:5432"
+      - "127.0.0.1:${BUSINESS_DB_PORT:-54330}:5432"
     volumes:
       - business-db-data:/var/lib/postgresql/data
     healthcheck:

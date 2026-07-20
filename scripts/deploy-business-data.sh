@@ -6,6 +6,7 @@ umask 077
 repo_dir="${ANKSEN_DEPLOY_DIR:-/opt/anksen/agent-studio}"
 data_dir="${ANKSEN_BUSINESS_DATA_DIR:-/opt/anksen/business-data}"
 compose_file="$repo_dir/infrastructure/business-data/docker-compose.yml"
+business_db_port="${BUSINESS_DB_PORT:-54330}"
 data_env="$data_dir/.env"
 database_url_file="$data_dir/database-url"
 
@@ -24,9 +25,16 @@ fi
 set -a
 source "$data_env"
 set +a
-printf 'postgresql://anksen_business:%s@127.0.0.1:4330/anksen_studio_business\n' "$BUSINESS_DB_PASSWORD" > "$database_url_file"
+printf 'postgresql://anksen_business:%s@127.0.0.1:%s/anksen_studio_business\n' "$BUSINESS_DB_PASSWORD" "$business_db_port" > "$database_url_file"
 chmod 600 "$database_url_file"
 
+if ss -lnt "sport = :$business_db_port" | tail -n +2 | grep -q . && \
+  [[ -z "$(docker compose --env-file "$data_env" -f "$compose_file" ps --status running -q business-db)" ]]; then
+  printf 'Business database port 127.0.0.1:%s is already occupied by another service.\n' "$business_db_port" >&2
+  exit 1
+fi
+
+export BUSINESS_DB_PORT="$business_db_port"
 docker compose --env-file "$data_env" -f "$compose_file" config --quiet
 docker compose --env-file "$data_env" -f "$compose_file" up -d
 for attempt in $(seq 1 60); do
