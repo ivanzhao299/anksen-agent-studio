@@ -49,6 +49,7 @@ export class PostgresBusinessApplicationStore {
       id: row.id, applicationId: row.application_id,
       businessObject: { objectType: row.business_object_type, objectId: row.business_record_id, displayKey: row.business_display_key, version: row.business_object_version, href: `${application.path}?record=${row.business_record_id}` },
       title: row.title, status: row.status, assignmentType: row.assignment_type, assigneeId: row.assignee_id,
+      version: row.version,
       delegatedBy: row.delegated_by, priority: row.priority, idempotencyKey: row.idempotency_key,
       kernelTaskId: row.kernel_task_id, kernelGoalId: row.kernel_goal_id, sessionId: row.session_id,
       resultRef: row.result_ref, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at)
@@ -195,6 +196,33 @@ export class PostgresBusinessApplicationStore {
     return rows.map((row) => ({ ...this.presentApproval(row), businessObject: { objectType: row.object_type, objectId: row.business_record_id, displayKey: row.display_key, title: row.record_title, href: `${assertEnterpriseApplication(row.application_id).path}?record=${row.business_record_id}` } }));
   }
 
+  async controlWorkItem(workItemId, input, actor = {}) {
+    const scope = scopeOf(actor), action = String(input.action ?? "").toUpperCase(), actorId = String(actor.userId ?? "unknown"), expectedVersion = Number(input.expectedVersion);
+    const allowedActions = new Set(["PAUSE", "RESUME", "TAKE_OVER", "REASSIGN", "RETRY", "CANCEL"]);
+    if (!allowedActions.has(action)) throw Object.assign(new Error("BUSINESS_WORK_CONTROL_INVALID"), { code: "BUSINESS_WORK_CONTROL_INVALID" });
+    return this.transaction(async (client) => {
+      const row = (await client.query("SELECT * FROM business_work_item WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 FOR UPDATE", [workItemId, scope.organizationId, scope.workspaceId])).rows[0];
+      if (!row) throw Object.assign(new Error("WORK_ITEM_NOT_FOUND"), { code: "WORK_ITEM_NOT_FOUND" });
+      if (row.version !== expectedVersion) throw Object.assign(new Error("BUSINESS_WORK_VERSION_CONFLICT"), { code: "BUSINESS_WORK_VERSION_CONFLICT" });
+      if (["COMPLETED", "CANCELLED"].includes(row.status)) throw Object.assign(new Error("BUSINESS_WORK_TERMINAL"), { code: "BUSINESS_WORK_TERMINAL" });
+      if (row.kernel_goal_id) {
+        const active = (await client.query("SELECT EXISTS(SELECT 1 FROM ad_task_lease l JOIN ad_task t ON t.id=l.task_id WHERE t.goal_id=$1 AND l.status='ACTIVE' AND l.expires_at>now()) active", [row.kernel_goal_id])).rows[0].active;
+        if (active) throw Object.assign(new Error("BUSINESS_WORK_ACTIVE_LEASE"), { code: "BUSINESS_WORK_ACTIVE_LEASE" });
+      }
+      let status = row.status, assignmentType = row.assignment_type, assigneeId = row.assignee_id;
+      if (action === "PAUSE") { if (row.assignment_type !== "AGENT" || !["OPEN", "BLOCKED", "WAITING_APPROVAL"].includes(row.status)) throw Object.assign(new Error("BUSINESS_WORK_CONTROL_DENIED"), { code: "BUSINESS_WORK_CONTROL_DENIED" }); status = "PAUSED"; }
+      if (action === "RESUME") { if (row.status !== "PAUSED") throw Object.assign(new Error("BUSINESS_WORK_CONTROL_DENIED"), { code: "BUSINESS_WORK_CONTROL_DENIED" }); status = "OPEN"; }
+      if (action === "RETRY") { if (row.status !== "BLOCKED") throw Object.assign(new Error("BUSINESS_WORK_CONTROL_DENIED"), { code: "BUSINESS_WORK_CONTROL_DENIED" }); status = "OPEN"; }
+      if (action === "TAKE_OVER") { if (row.assignment_type !== "AGENT" || !["OPEN", "PAUSED", "BLOCKED", "WAITING_APPROVAL"].includes(row.status)) throw Object.assign(new Error("BUSINESS_WORK_CONTROL_DENIED"), { code: "BUSINESS_WORK_CONTROL_DENIED" }); status = "OPEN"; assignmentType = "HUMAN"; assigneeId = String(input.assigneeId ?? actorId); }
+      if (action === "REASSIGN") { if (!["OPEN", "PAUSED", "BLOCKED", "WAITING_APPROVAL"].includes(row.status) || !String(input.assigneeId ?? "").trim()) throw Object.assign(new Error("BUSINESS_WORK_CONTROL_DENIED"), { code: "BUSINESS_WORK_CONTROL_DENIED" }); assignmentType = input.assignmentType === "AGENT" ? "AGENT" : "HUMAN"; assigneeId = String(input.assigneeId).trim(); status = row.status === "BLOCKED" ? "OPEN" : row.status; }
+      if (action === "CANCEL") status = "CANCELLED";
+      const now = this.clock(), updated = (await client.query("UPDATE business_work_item SET status=$1,assignment_type=$2,assignee_id=$3,version=version+1,updated_at=$4 WHERE id=$5 AND version=$6 RETURNING *", [status, assignmentType, assigneeId, now, row.id, expectedVersion])).rows[0];
+      if (!updated) throw Object.assign(new Error("BUSINESS_WORK_VERSION_CONFLICT"), { code: "BUSINESS_WORK_VERSION_CONFLICT" });
+      await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.work.controlled',$4,$5,$6,$7,$8,$9,$10,$11)", [randomUUID(), row.organization_id, row.workspace_id, row.application_id, row.business_object_type, row.business_record_id, row.business_object_version, row.id, actorId, { action, fromStatus: row.status, toStatus: status, fromAssignmentType: row.assignment_type, assignmentType, assigneeId, workVersion: updated.version, reason: String(input.reason ?? "") }, now]);
+      return this.presentWork(updated);
+    });
+  }
+
   async applicationReport(applicationId, options = {}) {
     const application = assertEnterpriseApplication(applicationId), scope = scopeOf(options), params = [scope.organizationId, scope.workspaceId, applicationId];
     const [records, work, approvals] = await Promise.all([
@@ -211,18 +239,19 @@ export class PostgresBusinessApplicationStore {
   async attachWorkflow(workItemId, { goalId, sessionId, report, status = "WAITING_APPROVAL" }) {
     return this.transaction(async (client) => {
       const now = this.clock(), resultRef = report ? `night-shift-report:${sessionId}` : null;
-      const row = (await client.query("UPDATE business_work_item SET kernel_goal_id=$1,session_id=$2,result_ref=$3,status=$4,updated_at=$5 WHERE id=$6 RETURNING *", [goalId, sessionId, resultRef, status, now, workItemId])).rows[0];
+      const row = (await client.query("UPDATE business_work_item SET kernel_goal_id=$1,session_id=$2,result_ref=$3,status=$4,version=version+1,updated_at=$5 WHERE id=$6 RETURNING *", [goalId, sessionId, resultRef, status, now, workItemId])).rows[0];
       if (!row) throw Object.assign(new Error("WORK_ITEM_NOT_FOUND"), { code: "WORK_ITEM_NOT_FOUND" });
-      await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.work.runtime.completed',$4,$5,$6,$7,$8,'runtime',$9,$10)", [randomUUID(), row.organization_id, row.workspace_id, row.application_id, row.business_object_type, row.business_record_id, row.business_object_version, row.id, { goalId, sessionId, status, resultRef }, now]);
+      await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.work.runtime.attached',$4,$5,$6,$7,$8,'runtime',$9,$10)", [randomUUID(), row.organization_id, row.workspace_id, row.application_id, row.business_object_type, row.business_record_id, row.business_object_version, row.id, { goalId, sessionId, status, resultRef }, now]);
       return this.presentWork(row);
     });
   }
 
-  async completeWorkflow(workItemId, { goalId, sessionId, report, workStatus, businessStatus = null, expectedObjectVersion = null, actorId = "runtime" }) {
+  async completeWorkflow(workItemId, { goalId, sessionId, report, workStatus, businessStatus = null, expectedObjectVersion = null, expectedWorkVersion = null, actorId = "runtime" }) {
     return this.transaction(async (client) => {
       const now = this.clock(), resultRef = report ? `night-shift-report:${sessionId}` : null;
       const work = (await client.query("SELECT * FROM business_work_item WHERE id=$1 FOR UPDATE", [workItemId])).rows[0];
       if (!work) throw Object.assign(new Error("WORK_ITEM_NOT_FOUND"), { code: "WORK_ITEM_NOT_FOUND" });
+      if (expectedWorkVersion !== null && work.version !== Number(expectedWorkVersion)) throw Object.assign(new Error("BUSINESS_WORK_VERSION_CONFLICT"), { code: "BUSINESS_WORK_VERSION_CONFLICT" });
       let record = null;
       if (businessStatus) {
         record = (await client.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 FOR UPDATE", [work.business_record_id, work.organization_id, work.workspace_id])).rows[0];
@@ -233,7 +262,7 @@ export class PostgresBusinessApplicationStore {
         record = (await client.query("UPDATE business_application_record SET status=$1,version=version+1,updated_at=$2 WHERE id=$3 AND version=$4 RETURNING *", [businessStatus, now, record.id, expectedObjectVersion])).rows[0];
         if (!record) throw Object.assign(new Error("BUSINESS_RECORD_VERSION_CONFLICT"), { code: "BUSINESS_RECORD_VERSION_CONFLICT" });
       }
-      const updatedWork = (await client.query("UPDATE business_work_item SET kernel_goal_id=$1,session_id=$2,result_ref=$3,status=$4,updated_at=$5 WHERE id=$6 RETURNING *", [goalId, sessionId, resultRef, workStatus, now, workItemId])).rows[0];
+      const updatedWork = (await client.query("UPDATE business_work_item SET kernel_goal_id=$1,session_id=$2,result_ref=$3,status=$4,version=version+1,updated_at=$5 WHERE id=$6 RETURNING *", [goalId, sessionId, resultRef, workStatus, now, workItemId])).rows[0];
       if (record) await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.object.workflow-transitioned',$4,$5,$6,$7,$8,$9,$10,$11)", [randomUUID(), work.organization_id, work.workspace_id, work.application_id, work.business_object_type, work.business_record_id, record.version, work.id, actorId, { toStatus: businessStatus, goalId, sessionId }, now]);
       await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.work.runtime.completed',$4,$5,$6,$7,$8,$9,$10,$11)", [randomUUID(), work.organization_id, work.workspace_id, work.application_id, work.business_object_type, work.business_record_id, record?.version ?? work.business_object_version, work.id, actorId, { goalId, sessionId, status: workStatus, resultRef }, now]);
       return { workItem: this.presentWork(updatedWork), record: record ? this.presentRecord(record) : null };

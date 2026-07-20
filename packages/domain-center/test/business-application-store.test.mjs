@@ -49,6 +49,15 @@ test("conventional finance records enforce domain fields and lifecycle", async (
   assert.equal(report.work.human, 1);
   assert.equal(report.approvals.APPROVED, 1);
   assert.equal(report.recentRecords[0].href, `/finance?record=${record.id}`);
+  const agentAssignment = await store.controlWorkItem(work.id, { action: "REASSIGN", expectedVersion: 1, assignmentType: "AGENT", assigneeId: "agent-finance" }, { userId: "finance-manager" });
+  assert.equal(agentAssignment.assignmentType, "AGENT");
+  const paused = await store.controlWorkItem(work.id, { action: "PAUSE", expectedVersion: 2, reason: "等待补充票据" }, { userId: "finance-manager" });
+  assert.equal(paused.status, "PAUSED");
+  await assert.rejects(() => store.controlWorkItem(work.id, { action: "RESUME", expectedVersion: 2 }, { userId: "finance-manager" }), (error) => error.code === "BUSINESS_WORK_VERSION_CONFLICT");
+  const takeover = await store.controlWorkItem(work.id, { action: "TAKE_OVER", expectedVersion: 3, assigneeId: "finance-user" }, { userId: "finance-manager" });
+  assert.equal(takeover.assignmentType, "HUMAN");
+  assert.equal(takeover.status, "OPEN");
+  assert.equal(takeover.version, 4);
 });
 
 test("strategy and HR records expose different authoritative fields", async () => {

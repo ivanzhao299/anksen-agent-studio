@@ -8,6 +8,7 @@ import { ensurePostgresFixture, createTestPool } from "../../orchestrator-core/l
 import { createBusinessApplicationRuntime, importLegacyBusinessApplicationFile } from "../lib/business-database.mjs";
 import { BusinessApplicationStore } from "../lib/business-application-store.mjs";
 import { PostgresBusinessApplicationStore } from "../lib/postgres-business-application-store.mjs";
+import { PersistentNightShiftService } from "../../orchestrator-core/lib/persistent-night-shift.mjs";
 
 const expenseFields = { expenseDate: "2026-07-21", department: "运营中心", category: "采购", amount: 2600, currency: "CNY", budgetCode: "OPS-01", description: "运营物资" };
 
@@ -72,9 +73,42 @@ test("PostgreSQL business store is scoped, transactional, idempotent and restart
     assert.equal(report.work.human, 1);
     assert.equal(report.approvals.APPROVED, 1);
     assert.equal(report.recentRecords[0].href, `/finance?record=${record.id}`);
+    const reassigned = await restarted.controlWorkItem(first.id, { action: "REASSIGN", expectedVersion: 2, assignmentType: "AGENT", assigneeId: "agent-finance" }, scope);
+    assert.equal(reassigned.assignmentType, "AGENT");
+    const paused = await restarted.controlWorkItem(first.id, { action: "PAUSE", expectedVersion: 3 }, scope);
+    assert.equal(paused.status, "PAUSED");
+    await assert.rejects(() => restarted.controlWorkItem(first.id, { action: "RESUME", expectedVersion: 3 }, scope), (error) => error.code === "BUSINESS_WORK_VERSION_CONFLICT");
+    const takeover = await restarted.controlWorkItem(first.id, { action: "TAKE_OVER", expectedVersion: 4, assigneeId: "finance-user" }, { ...scope, userId: "finance-manager" });
+    assert.equal(takeover.assignmentType, "HUMAN");
+    assert.equal(takeover.status, "OPEN");
+    assert.equal(takeover.version, 5);
     const events = await restarted.events(scope);
-    assert.deepEqual(events.map((event) => event.event_type), ["business.object.created", "business.object.changed", "business.work.assigned", "business.object.workflow-transitioned", "business.work.runtime.completed", "business.object.changed", "business.approval.requested", "business.approval.decided"]);
+    assert.deepEqual(events.map((event) => event.event_type), ["business.object.created", "business.object.changed", "business.work.assigned", "business.object.workflow-transitioned", "business.work.runtime.completed", "business.object.changed", "business.approval.requested", "business.approval.decided", "business.work.controlled", "business.work.controlled", "business.work.controlled"]);
     assert.equal(events.filter((event) => event.event_type === "business.work.assigned").length, 1);
+  } finally {
+    await pool.end();
+  }
+});
+
+test("business work control refuses to bypass an active Kernel lease", async () => {
+  await ensurePostgresFixture();
+  const pool = createTestPool(), suffix = randomUUID(), scope = { organizationId: `lease-org-${suffix}`, workspaceId: `lease-workspace-${suffix}`, userId: "operator" };
+  try {
+    const runtime = await createBusinessApplicationRuntime({ repoRoot: process.cwd(), pool }), store = runtime.store;
+    const record = await store.createRecord("finance-platform", { objectType: "expense", title: "租约控制测试", displayKey: `LEASE-${suffix}`, fields: expenseFields }, scope);
+    const work = await store.createWorkItem({ applicationId: "finance-platform", businessObjectId: record.id, assignmentType: "AGENT", assigneeId: "agent-finance" }, scope);
+    const night = new PersistentNightShiftService(pool), sessionKey = `business-control-${suffix}`;
+    const session = await night.acceptGoal(sessionKey, { id: sessionKey, title: "验证业务工作控制租约", scope: { ...scope, projectId: "business-control-test" } });
+    const identity = await night.registerWorker(`business-control-worker-${suffix}`, scope);
+    let claim = null;
+    for (let attempt = 0; attempt < 5 && !claim; attempt += 1) {
+      await night.tick(session, `business-control-scheduler-${suffix}-${attempt}`);
+      claim = await night.claim(session, identity);
+    }
+    assert.ok(claim?.leaseId);
+    const attached = await store.attachWorkflow(work.id, { goalId: session.goal_id, sessionId: session.id, report: null, status: "RUNNING" });
+    await assert.rejects(() => store.controlWorkItem(work.id, { action: "PAUSE", expectedVersion: attached.version }, scope), (error) => error.code === "BUSINESS_WORK_ACTIVE_LEASE");
+    assert.equal((await store.myWork(scope)).items[0].status, "RUNNING");
   } finally {
     await pool.end();
   }

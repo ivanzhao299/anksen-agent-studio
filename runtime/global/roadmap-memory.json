@@ -26,11 +26,12 @@
     { "id": "ea-010-operational-application-schemas", "title": "Growth & Sales, Manufacturing ERP and Smart Park domain records and workflows", "completed": true },
     { "id": "ea-011-transactional-business-store", "title": "Move authoritative business records and work items to isolated transactional PostgreSQL", "completed": true },
     { "id": "ea-012-business-details-and-approvals", "title": "Domain record details, version-bound approvals, approval inbox and source-backed operational reports", "completed": true },
-    { "id": "ea-013-runner-human-control", "title": "Human takeover, pause, resume and recovery controls for Agent work", "completed": false }
+    { "id": "ea-013-runner-human-control", "title": "Versioned human takeover, pause, resume, reassignment and recovery controls for Agent work", "completed": true },
+    { "id": "ea-014-enterprise-acceptance", "title": "Role-by-role business acceptance and production evidence pack", "completed": false }
   ],
   "next_recommended_action": {
-    "title": "Implement human takeover and recovery controls for Agent work",
-    "reason": "Business workbenches now expose source-backed operational reports, detail timelines, durable approvals and a cross-application approval inbox. Operators next need governed pause, resume, reassign and human-takeover controls without manipulating Kernel leases directly.",
+    "title": "Run role-by-role business acceptance and produce the production evidence pack",
+    "reason": "Agent work controls now use work-item CAS, ACTIVE-lease protection, audit events and version-scoped Kernel redispatch. The next phase must prove each persona can complete its conventional and intelligent workflow in production without technical control-plane access.",
     "target_project": "anksen-agent-studio",
     "target_packages": ["packages/domain-center", "packages/orchestrator-core", "apps/console"],
     "expected_files": [

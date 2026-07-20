@@ -11,6 +11,7 @@ import { migrate } from "../../orchestrator-core/lib/persistent-night-shift.mjs"
 const { Pool } = pg;
 const businessMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/004_business_applications.up.sql", import.meta.url)));
 const businessApprovalMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/005_business_approvals.up.sql", import.meta.url)));
+const businessWorkControlMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/006_business_work_control.up.sql", import.meta.url)));
 export const defaultBusinessDatabaseUrlFile = "/opt/anksen/business-data/database-url";
 
 export function resolveBusinessDatabaseUrl(env = process.env) {
@@ -42,6 +43,7 @@ export async function createBusinessApplicationRuntime({ repoRoot, env = process
     else {
       await databasePool.query(await readFile(businessMigration, "utf8"));
       await databasePool.query(await readFile(businessApprovalMigration, "utf8"));
+      await databasePool.query(await readFile(businessWorkControlMigration, "utf8"));
     }
     return { backend: "POSTGRESQL", pool: databasePool, ownsPool: !pool, store: new PostgresBusinessApplicationStore({ pool: databasePool }) };
   } catch (error) {

@@ -30,6 +30,8 @@ Every business record has a conventional detail surface containing its typed fie
 
 Application workbenches and the group cockpit expose source-backed operational reports derived from the same scoped records, work items, and approvals. These reports show record volume, object mix, lifecycle distribution, exception states, approval backlog, and human/Agent workload with drill-down links. They remain separate from connector-backed financial and commercial KPIs: the platform never relabels workflow counts as revenue, conversion, cash, production output, or other business outcomes.
 
+Agent work is controlled through the business work item, never by exposing Kernel lease operations to ordinary users. Work items carry an independent version for CAS. Authorized operators may pause, resume, retry, reassign, cancel, or take over eligible work; every control decision is audited. Pause, reassignment, cancellation, and takeover fail closed while the linked Kernel goal has an unexpired ACTIVE lease. Resume, retry, and Agent reassignment re-enter the same domain workflow through the shared Kernel using a new version-scoped session key, preserving the original business object and validation contract.
+
 ## Application boundaries
 
 | Application | Endpoint | Primary users | Initial conventional objects | First intelligent workflow |
