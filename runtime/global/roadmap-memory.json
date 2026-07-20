@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-07-20T15:00:00+08:00",
+  "generated_at": "2026-07-21T01:30:00+08:00",
   "goal": "Build independent conventional business applications driven by one shared intelligent runtime, while keeping the group cockpit as the command and observation layer.",
   "current_stage": "Enterprise Application Foundation and Intelligent Workflow Integration",
   "next_stage": "Deepen Growth & Sales, Manufacturing ERP and Smart Park with domain-specific records, state machines and object-write-back workflows.",
@@ -27,21 +27,20 @@
     { "id": "ea-011-transactional-business-store", "title": "Move authoritative business records and work items to isolated transactional PostgreSQL", "completed": true },
     { "id": "ea-012-business-details-and-approvals", "title": "Domain record details, version-bound approvals, approval inbox and source-backed operational reports", "completed": true },
     { "id": "ea-013-runner-human-control", "title": "Versioned human takeover, pause, resume, reassignment and recovery controls for Agent work", "completed": true },
-    { "id": "ea-014-enterprise-acceptance", "title": "Role-by-role business acceptance and production evidence pack", "completed": false }
+    { "id": "ea-014-enterprise-acceptance", "title": "Role-by-role business acceptance and production evidence pack", "completed": true },
+    { "id": "ea-015-role-uat", "title": "Authenticated role UAT and deeper business transactions for each independent application", "completed": false }
   ],
   "next_recommended_action": {
-    "title": "Run role-by-role business acceptance and produce the production evidence pack",
-    "reason": "Agent work controls now use work-item CAS, ACTIVE-lease protection, audit events and version-scoped Kernel redispatch. The next phase must prove each persona can complete its conventional and intelligent workflow in production without technical control-plane access.",
+    "title": "Deepen each independent business application and run authenticated role UAT",
+    "reason": "EA-014 now proves six isolated role workflows, tenant scope, restart persistence, My Work, shared-Kernel execution, finance approval replay protection and cockpit aggregation. The next phase must add richer domain transactions and verify the actual browser experience with named authenticated roles.",
     "target_project": "anksen-agent-studio",
     "target_packages": ["packages/domain-center", "packages/orchestrator-core", "apps/console"],
     "expected_files": [
-      "packages/domain-center/lib/enterprise-applications.mjs",
+      "packages/domain-center/lib/business-object-definitions.mjs",
+      "packages/domain-center/lib/postgres-business-application-store.mjs",
       "apps/console/web/render.mjs",
       "apps/console/web/server.mjs",
-      "packages/domain-center/lib/postgres-business-application-store.mjs",
-      "apps/console/web/routes.mjs",
-      "apps/console/web/render.mjs",
-      "apps/console/web/server.mjs"
+      "packages/domain-center/lib/enterprise-business-acceptance.mjs"
     ],
     "risk": "MEDIUM",
     "approval_required": false,

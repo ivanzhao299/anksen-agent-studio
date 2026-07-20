@@ -72,3 +72,9 @@ The task is complete only when its validation passes and the expected business-o
 ## Acceptance rule
 
 The implementation must be judged by a conventional-software test: a normal business user can open their application, find records, perform permitted actions, receive assigned work, and inspect results without knowing the internal orchestration vocabulary.
+
+## Executable enterprise acceptance
+
+`pnpm enterprise-business:acceptance` is the repeatable EA-014 evidence gate. It runs only against the local isolated PostgreSQL fixture and keeps `CONTROLLED_STUB` as the sole Runtime. The gate creates authoritative records for six operational roles (strategy owner, HR operator, finance requester, sales operator, manufacturing planner, and park operator), advances each record through its own lifecycle, creates human and Agent work, and drives every Agent assignment through the existing Planner, Kernel, Scheduler, Resident Worker, Attempt, Lease, and report path.
+
+The generated JSON evidence pack fails unless all six scopes prove restart readability, cross-tenant denial, a conventional My Work assignment, exactly four successful Kernel tasks and Attempts, and exactly four Runtime executions. It also exercises the finance requester/reviewer separation, version-bound approval, approval replay rejection, and six-application cockpit aggregation. The fixture does not call Codex, production databases, deployment, merge, or push. This is an engineering acceptance gate; authenticated browser UAT with named production roles remains a separate release activity.

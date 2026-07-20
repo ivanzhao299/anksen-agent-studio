@@ -3,6 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": { "typecheck": "tsc -p tsconfig.json --noEmit", "test": "node --test \"test/**/*.test.mjs\"" },
+  "scripts": { "typecheck": "tsc -p tsconfig.json --noEmit", "test": "node --test \"test/**/*.test.mjs\"", "acceptance": "node bin/enterprise-business-acceptance.mjs" },
   "dependencies": { "pg": "^8.22.0" }
 }
