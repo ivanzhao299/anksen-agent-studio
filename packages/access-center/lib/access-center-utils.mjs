@@ -83,6 +83,7 @@ const consoleActionCatalog = {
 
 const consoleRouteCatalog = {
   execution: ["console.access", "autopilot.plan"],
+  domains: ["console.access"],
   dashboard: ["console.access"],
   projects: ["project.read"],
   workers: ["worker.read"],

@@ -7,6 +7,7 @@ export const zhCN = {
   },
   nav: {
     dashboard: "首页",
+    domains: "领域中心",
     projects: "项目",
     runtime: "运行时",
     workers: "Agent",

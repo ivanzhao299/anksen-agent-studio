@@ -1,0 +1,7 @@
+{
+  "name": "@anksen-agent-studio/domain-center",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "typecheck": "tsc -p tsconfig.json --noEmit", "test": "node --test \"test/**/*.test.mjs\"" }
+}

@@ -7,6 +7,7 @@ export interface ConsoleMessages {
   };
   readonly nav: Record<
     | "dashboard"
+    | "domains"
     | "projects"
     | "runtime"
     | "workers"

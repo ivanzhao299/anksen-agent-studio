@@ -2,6 +2,7 @@ import { consoleWebRoutes } from "./routes.mjs";
 import { buildConsoleDashboardModel, loadConsoleLocalData } from "./data.mjs";
 import { getConsoleMessages } from "./i18n/index.mjs";
 import { evaluateConsoleRouteAccess, visibleConsoleRouteIds } from "../../../packages/access-center/lib/access-center-utils.mjs";
+import { domainCenterSummary } from "../../../packages/domain-center/lib/domain-center.mjs";
 
 const messages = getConsoleMessages();
 
@@ -24,6 +25,7 @@ function navIcon(id) {
   const paths = {
     dashboard: '<path d="M3 10.5 10 4l7 6.5v6a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5z"/><path d="M8 18v-5h4v5"/>',
     execution: '<circle cx="10" cy="10" r="7.5"/><path d="m8.5 7 4.5 3-4.5 3z"/>',
+    domains: '<path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z"/>',
     projects: '<path d="M2.5 6.5h6l1.5 2h7.5v7a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2z"/><path d="M2.5 8.5v-3a2 2 0 0 1 2-2h3l1.5 2h4"/>',
     autopilot: '<path d="M3 17V9m5 8V5m5 12v-6m5 6V3"/>',
     actions: '<rect x="3" y="3" width="5" height="5" rx="1"/><rect x="12" y="3" width="5" height="5" rx="1"/><rect x="3" y="12" width="5" height="5" rx="1"/><path d="M12 14.5h5m-2.5-2.5v5"/>',
@@ -34,7 +36,7 @@ function navIcon(id) {
 
 function nav(activeId, auth = {}, activeProjectId = "") {
   const visibleRoutes = new Set(visibleConsoleRouteIds(auth));
-  const primaryIds = ["dashboard", "execution", "projects", "autopilot"];
+  const primaryIds = ["dashboard", "execution", "domains", "projects", "autopilot"];
   const renderLinks = (ids) => ids.map((id) => consoleWebRoutes.find((route) => route.id === id)).filter((route) => route && visibleRoutes.has(route.id)).map((route) => {
     const active = route.id === activeId ? "active" : "";
     return `<a class="${active}" href="${routeHref(route.navPath, activeProjectId)}" title="${escapeHtml(route.label)}"><span class="nav-icon">${navIcon(route.id)}</span><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
@@ -1668,6 +1670,28 @@ function shell(content, activeId, model, data, auth = {}) {
     .product-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(280px,.8fr); gap:16px; }
     .goal-layout { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(280px,.7fr); gap:18px; align-items:start; }
     .goal-sidebar { position:sticky; top:96px; }
+    .domain-hero { margin-bottom:22px; }
+    .domain-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:28px; }
+    .domain-summary>div { padding:18px 20px; border:1px solid var(--line); border-radius:14px; background:linear-gradient(145deg,rgba(24,33,49,.92),rgba(13,18,28,.92)); }
+    .domain-summary span { display:block; color:var(--muted); font-size:13px; }
+    .domain-summary strong { display:block; margin-top:7px; font-size:26px; }
+    .domain-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .domain-card { min-height:260px; padding:22px; border:1px solid var(--line); border-radius:16px; background:linear-gradient(150deg,rgba(24,33,49,.92),rgba(13,18,28,.96)); box-shadow:0 16px 34px rgba(0,0,0,.12); display:flex; flex-direction:column; transition:.18s ease; }
+    .domain-card:hover { transform:translateY(-2px); border-color:rgba(79,124,255,.38); }
+    .domain-card-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .domain-mark { width:44px; height:44px; display:grid; place-items:center; border-radius:12px; background:rgba(79,124,255,.12); color:#8fb0ff; font-size:13px; font-weight:800; }
+    .domain-card h3 { margin:18px 0 2px; font-size:20px; }
+    .domain-card small { color:#718096; }
+    .domain-card p { color:var(--muted); line-height:1.65; }
+    .domain-skills { display:flex; flex-wrap:wrap; gap:6px; }
+    .domain-skills span { padding:5px 8px; border:1px solid var(--line); border-radius:7px; color:#aab4c4; font-size:11px; }
+    .domain-card-foot { margin-top:auto; padding-top:18px; }
+    .domain-next { color:#8390a3; font-size:12px; line-height:1.5; }
+    .domain-architecture { margin-top:28px; display:flex; align-items:center; justify-content:space-between; gap:32px; }
+    .domain-architecture>div:first-child { max-width:520px; }
+    .domain-flow { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+    .domain-flow span { padding:8px 10px; border:1px solid rgba(79,124,255,.24); border-radius:8px; background:rgba(79,124,255,.08); color:#b9caff; font-size:12px; }
+    .domain-flow i { color:#596579; font-style:normal; }
     .stage-rail { display:grid; grid-template-columns:repeat(5,1fr); gap:0; margin-top:18px; }
     .stage-item { position:relative; padding:24px 8px 0; color:#667085; font-size:11px; text-align:center; }
     .stage-item::before { content:""; position:absolute; top:7px; left:0; right:0; height:2px; background:var(--surface-3); }
@@ -1951,7 +1975,7 @@ function shell(content, activeId, model, data, auth = {}) {
     button.primary-action,.primary-link { background:var(--primary); border-color:rgba(255,255,255,.12); box-shadow:0 8px 24px rgba(79,124,255,.18); }
     button.primary-action:hover,.primary-link:hover { background:var(--primary-hover); }
     table { box-shadow:none; }
-    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width:72px; height:40px; } main { padding:18px 14px 36px; } .product-hero { align-items:flex-start; flex-direction:column; padding:22px; } .product-hero h2 { font-size:24px; } .command-center-hero { padding:22px 0 20px; } .command-center-copy h2 { font-size:28px; } .command-compose-footer { align-items:stretch; flex-direction:column; } .current-run-strip { grid-template-columns:12px minmax(0,1fr); } .current-run-actions { grid-column:2; align-items:flex-start; flex-wrap:wrap; } .diagnostic-snapshot { grid-template-columns:repeat(2,1fr); } .diagnostic-links,.activity-feed,.operation-card-grid,.system-strip,.summary-grid,.product-grid,.goal-layout,.timeline,.action-feedback-grid,.flow-rail,.conversation-result,.chat-message,.chat-message.user,.attachment-bubble,.attachment-list { grid-template-columns:1fr; } .activity-item { grid-template-columns:34px minmax(0,1fr); } .activity-item time { grid-column:2; } .goal-sidebar { position:static; } .stage-rail { overflow-x:auto; min-width:520px; } .chat-message.user .message-avatar,.chat-message.user .message-body { grid-column:auto; grid-row:auto; } .workspace-hero { display:block; } .workspace-meta { margin-top:8px; } .auth-strip,.auth-actions,.auth-help-row { align-items:flex-start; flex-direction:column; } .auth-card-head h3,.auth-side h2 { font-size:28px; } .auth-product-panel { min-height:180px; } .auth-product-panel::before { inset:18px; } .auth-side { padding:24px; } .auth-path-actions { grid-template-columns:1fr; } }
+    @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width:72px; height:40px; } main { padding:18px 14px 36px; } .product-hero { align-items:flex-start; flex-direction:column; padding:22px; } .product-hero h2 { font-size:24px; } .command-center-hero { padding:22px 0 20px; } .command-center-copy h2 { font-size:28px; } .command-compose-footer { align-items:stretch; flex-direction:column; } .current-run-strip { grid-template-columns:12px minmax(0,1fr); } .current-run-actions { grid-column:2; align-items:flex-start; flex-wrap:wrap; } .diagnostic-snapshot { grid-template-columns:repeat(2,1fr); } .domain-summary,.domain-grid { grid-template-columns:1fr; } .domain-architecture { align-items:flex-start; flex-direction:column; } .diagnostic-links,.activity-feed,.operation-card-grid,.system-strip,.summary-grid,.product-grid,.goal-layout,.timeline,.action-feedback-grid,.flow-rail,.conversation-result,.chat-message,.chat-message.user,.attachment-bubble,.attachment-list { grid-template-columns:1fr; } .activity-item { grid-template-columns:34px minmax(0,1fr); } .activity-item time { grid-column:2; } .goal-sidebar { position:static; } .stage-rail { overflow-x:auto; min-width:520px; } .chat-message.user .message-avatar,.chat-message.user .message-body { grid-column:auto; grid-row:auto; } .workspace-hero { display:block; } .workspace-meta { margin-top:8px; } .auth-strip,.auth-actions,.auth-help-row { align-items:flex-start; flex-direction:column; } .auth-card-head h3,.auth-side h2 { font-size:28px; } .auth-product-panel { min-height:180px; } .auth-product-panel::before { inset:18px; } .auth-side { padding:24px; } .auth-path-actions { grid-template-columns:1fr; } }
     .sidebar-scrim { display:none; }
     @media (max-width: 900px) { body:not(.login-gated) header:not(.login-header) { position:fixed; inset:0 auto 0 0; width:260px; height:100vh; padding:18px 14px; transform:translateX(-105%); transition:transform .2s ease; z-index:20; } body.sidebar-open header:not(.login-header) { transform:translateX(0); } body.sidebar-open .sidebar-scrim { display:block; position:fixed; inset:0; z-index:19; border:0; border-radius:0; background:rgba(0,0,0,.56); backdrop-filter:blur(2px); } body:not(.login-gated) header:not(.login-header) .brand-row { padding:0 4px 16px; } body:not(.login-gated) header:not(.login-header) .top-nav { flex-direction:column; overflow-y:auto; margin-top:12px; } body:not(.login-gated) header:not(.login-header) .nav-group-label,body:not(.login-gated) header:not(.login-header) .nav-spacer,body:not(.login-gated) header:not(.login-header) .top-status,body:not(.login-gated) header:not(.login-header) .auth-strip { display:flex; } body:not(.login-gated) main,body.sidebar-collapsed main { margin-left:0; padding:0 16px 40px; } .app-toolbar { height:60px; margin:0 -16px 20px; padding:0 16px; } .mobile-sidebar-toggle { display:inline-flex; } .sidebar-toggle { display:none; } .form-grid,.workspace-controls,.workspace-shell,.auth-shell,.auth-entry-shell { grid-template-columns:1fr; } .advanced-config,.project-rail { position:static; } .auth-side { order:-1; justify-self:stretch; } }
   </style>
@@ -2000,7 +2024,7 @@ function shell(content, activeId, model, data, auth = {}) {
     const select = document.getElementById('language-switch');
     if (!select) return;
     const dictionary = {
-      '首页':'Home','运行':'Runs','项目':'Projects','报告':'Reports','运行管理':'Operations','设置':'Settings','任务':'Tasks','Agent':'Workers','运行时':'Runtime','治理':'Governance',
+      '首页':'Home','运行':'Runs','领域中心':'Domain Center','项目':'Projects','报告':'Reports','运行管理':'Operations','设置':'Settings','任务':'Tasks','Agent':'Workers','运行时':'Runtime','治理':'Governance',
       '新建目标':'New goal','查看运行报告':'View reports','今日概览':'Today overview','当前进展':'Current progress','快捷入口':'Quick links','查看全部':'View all','打开':'Open',
       '你想让 Studio 完成什么？':'What should Studio accomplish?','开始执行':'Start execution','刷新状态':'Refresh','执行进度':'Execution progress','任务列表':'Tasks','执行结果':'Results','系统准备度':'Readiness',
       '执行摘要':'Execution summary','等待批准':'Awaiting approval','等待调度':'Awaiting scheduling','发布检查':'Release check','任务进展':'Task progress','批准状态':'Approval','当前进展':'Progress','技术详情与审计证据':'Technical details and audit evidence'
@@ -2021,6 +2045,7 @@ function shell(content, activeId, model, data, auth = {}) {
       ,'已规划':'Planned','已调度':'Scheduled','验证':'Validating','最近':'Recently','自动':'Automatic','持续':'Continuous','最新检查全部通过':'Latest check passed','项能力':' capabilities','运行证据已保存':'Runtime evidence saved','高风险步骤不会自动执行。':'High-risk steps never run automatically.','查看审批':'Review approvals','默认模式':'Default mode'
       ,'自主工作区':'Autonomous workspace','当前运行':'Current run','项已调度':' scheduled','项等待队列':' awaiting queue','项待批准':' awaiting approval','描述你想完成的目标、背景和预期结果……':'Describe the goal, context, constraints, and expected outcome…'
       ,'高级运行信息':'Advanced runtime information','仅在诊断问题时查看':'Open only when diagnosing an issue','已进入队列':'Queued','系统检查':'System checks','需关注':'Needs attention','查看完整生命周期、调度与审计证据':'View the full lifecycle, scheduling, and audit evidence','查看执行模式、Adapter 和安全边界':'Review execution modes, adapters, and safety boundaries','查看结果、决策事项和验证记录':'Review outcomes, decisions, and validation records','执行报告':'Execution reports'
+      ,'一个 Studio，覆盖多个专业领域':'One Studio for multiple professional domains','所有领域共享项目、身份、Kernel、Scheduler、Worker、Runtime、审批和报告。领域包只定义专业合同、技能组合和验收标准。':'All domains share projects, identity, kernel, scheduler, workers, runtime, approvals, and reports.','新建跨领域目标':'New cross-domain goal','领域总数':'Total domains','正式可用':'Active','具备基础':'Foundation','规划中':'Planned','专业领域':'Professional domains','直接选择领域，或在首页输入目标让 Studio 自动识别。':'Select a domain or let Studio detect it from the goal.','可使用':'Available','基础能力已具备':'Foundation available','进入领域':'Open domain','统一运行架构':'Unified runtime architecture','Domain Pack 不是独立应用':'Domain packs are not separate apps','领域选择只改变专业规划和验收方式，不复制底层平台。跨领域 Goal 可以组合多个 Pack，并继续形成一张统一 Task Graph。':'Domain selection changes professional planning and acceptance without duplicating the platform.'
     };
     const originals = new WeakMap();
     const attributeOriginals = new WeakMap();
@@ -2121,6 +2146,22 @@ function pageDashboard(_model, data) {
     <div class="diagnostic-links"><a href="${routeHref("/actions", data.active_project_id)}"><span class="diagnostic-link-icon">${navIcon("actions")}</span><div><strong>任务与队列</strong><p>查看完整生命周期、调度与审计证据</p></div><span>→</span></a><a href="${routeHref("/runtime", data.active_project_id)}"><span class="diagnostic-link-icon">${navIcon("projects")}</span><div><strong>Runtime</strong><p>查看执行模式、Adapter 和安全边界</p></div><span>→</span></a><a href="${routeHref("/autopilot", data.active_project_id)}"><span class="diagnostic-link-icon">${navIcon("autopilot")}</span><div><strong>执行报告</strong><p>查看结果、决策事项和验证记录</p></div><span>→</span></a></div>
   </div></details>
   <script>(()=>{const input=document.getElementById('command-goal'),run=document.getElementById('command-run');const openRun=()=>{const goal=input.value.trim();if(!goal){input.focus();return;}const url=new URL('${executionHref}',location.origin);url.searchParams.set('goal',goal);location.href=url.pathname+url.search;};run.addEventListener('click',openRun);input.addEventListener('keydown',event=>{if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();openRun();}});document.querySelectorAll('[data-command-suggestion]').forEach(button=>button.addEventListener('click',()=>{input.value=button.dataset.commandSuggestion;input.focus();}));})();</script>`;
+}
+
+function pageDomains(data) {
+  const center = domainCenterSummary();
+  const activeProject = data.active_project_id ?? "workspace";
+  const cards = center.domains.map(domain => {
+    const tone = domain.maturity === "ACTIVE" ? "pass" : domain.maturity === "FOUNDATION" ? "local" : "pending";
+    const state = domain.maturity === "ACTIVE" ? "可使用" : domain.maturity === "FOUNDATION" ? "基础能力已具备" : "规划中";
+    const executionUrl = `${routeHref("/execution",activeProject)}${routeHref("/execution",activeProject).includes("?") ? "&" : "?"}domain=${encodeURIComponent(domain.id)}`;
+    const action = domain.maturity === "ACTIVE" ? `<a class="primary-link" href="${executionUrl}">进入领域</a>` : `<span class="domain-next">${escapeHtml(domain.nextMilestone)}</span>`;
+    return `<article class="domain-card" data-domain="${escapeHtml(domain.id)}"><div class="domain-card-head"><span class="domain-mark">${escapeHtml(domain.icon)}</span><span class="status-label ${tone}">${state}</span></div><h3>${escapeHtml(domain.name)}</h3><small>${escapeHtml(domain.nameEn)}</small><p>${escapeHtml(domain.summary)}</p><div class="domain-skills">${domain.skillTypes.slice(0,3).map(skill=>`<span>${escapeHtml(skill.replaceAll("_"," "))}</span>`).join("")}</div><div class="domain-card-foot">${action}</div></article>`;
+  }).join("");
+  return `<section class="product-hero domain-hero"><div><span class="eyebrow">Domain Center</span><h2>一个 Studio，覆盖多个专业领域</h2><p>所有领域共享项目、身份、Kernel、Scheduler、Worker、Runtime、审批和报告。领域包只定义专业合同、技能组合和验收标准。</p></div><div class="hero-actions"><a class="primary-link" href="${routeHref("/execution",activeProject)}">新建跨领域目标</a></div></section>
+  <section class="domain-summary"><div><span>领域总数</span><strong>${center.total}</strong></div><div><span>正式可用</span><strong>${center.active}</strong></div><div><span>具备基础</span><strong>${center.foundation}</strong></div><div><span>规划中</span><strong>${center.planned}</strong></div></section>
+  <section><div class="section-head"><div><h2>专业领域</h2><p>直接选择领域，或在首页输入目标让 Studio 自动识别。</p></div><span class="pill">Single control plane</span></div><div class="domain-grid">${cards}</div></section>
+  <section class="panel domain-architecture"><div><span class="eyebrow">统一运行架构</span><h2>Domain Pack 不是独立应用</h2><p>领域选择只改变专业规划和验收方式，不复制底层平台。跨领域 Goal 可以组合多个 Pack，并继续形成一张统一 Task Graph。</p></div><div class="domain-flow"><span>Goal</span><i>→</i><span>Domain Router</span><i>→</i><span>Domain Pack</span><i>→</i><span>Shared Kernel</span><i>→</i><span>Report</span></div></section>`;
 }
 
 function pageProjects(data) {
@@ -2918,6 +2959,7 @@ export async function renderConsolePage(pathname = "/", auth = null, options = {
   const contentById = {
     dashboard: () => pageDashboard(model, data),
     execution: () => pageExecution(),
+    domains: () => pageDomains(data),
     projects: () => pageProjects(data),
     runtime: () => pageRuntime(data),
     workers: () => pageWorkers(data),
