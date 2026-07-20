@@ -14,7 +14,12 @@ export class PersistentBusinessWorkExecutor {
 
   async taskEvidence(pool,goalId){return(await pool.query("SELECT t.task_key,t.title,t.status,t.metadata#>>'{businessTaskBinding,workflow,stageId}' stage_id,t.metadata#>>'{businessTaskBinding,skill,businessSkillId}' business_skill_id,t.metadata->>'skillType' skill_type,t.metadata->>'agentId' agent_id,t.metadata->>'workerKey' planned_worker,a.attempt_number,a.validation_result,w.worker_key,w.runtime_type FROM ad_task t LEFT JOIN LATERAL(SELECT * FROM ad_task_attempt x WHERE x.task_id=t.id ORDER BY x.attempt_number DESC LIMIT 1)a ON true LEFT JOIN ad_worker w ON w.id=a.worker_id WHERE t.goal_id=$1 ORDER BY t.created_at,t.task_key",[goalId])).rows.map(row=>({...row,duration_ms:row.validation_result?.durationMs??null}));}
 
-  async professionalOutcome(fresh,record,actor){if(!this.professionalSkillRunner?.supports(record)||!this.store.recordDetail)return null;const detail=await this.store.recordDetail(fresh.applicationId,record.id,actor),relatedRecords=(await Promise.all((detail?.relations??[]).filter(relation=>relation.record?.id).map(relation=>this.store.getRecord(fresh.applicationId,relation.record.id,actor)))).filter(Boolean);return this.professionalSkillRunner.execute({record,relatedRecords});}
+  async professionalOutcome(fresh,record,actor){
+    if(!this.professionalSkillRunner?.supports(record)||!this.store.recordDetail)return null;
+    const found=new Map(),frontier=[{id:record.id,path:[]}],expanded=new Set();
+    while(frontier.length){const current=frontier.shift(),expansionKey=`${current.id}:${current.path.length}`;if(expanded.has(expansionKey)||current.path.length>=3)continue;expanded.add(expansionKey);const detail=await this.store.recordDetail(fresh.applicationId,current.id,actor);for(const relation of detail?.relations??[]){const relatedId=relation.record?.id;if(!relatedId||relatedId===record.id)continue;const path=[...current.path,relation.relationType],existing=found.get(relatedId),related=existing?.record??await this.store.getRecord(fresh.applicationId,relatedId,actor);if(!related)continue;if(existing){if(!existing.paths.some(value=>JSON.stringify(value)===JSON.stringify(path)))existing.paths.push(path);}else found.set(relatedId,{record:related,paths:[path]});frontier.push({id:relatedId,path});}}
+    const evidence=[...found.values()];return this.professionalSkillRunner.execute({record,relatedRecords:evidence.map(item=>item.record),relatedEvidence:evidence.map(item=>({recordId:item.record.id,paths:item.paths}))});
+  }
 
   async execute(item){let pool=null,ownsPool=false;try{
     ({pool,ownsPool=false}=await this.acquirePool());

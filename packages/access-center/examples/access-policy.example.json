@@ -172,6 +172,14 @@
       "can_manage_access": false
     },
     {
+      "role_id": "hr_reviewer",
+      "display_name": "人力审批用户",
+      "description": "复核候选选择、录用和入职单据的版本绑定审批，不具备候选自动决策、Runtime 或平台管理权限。",
+      "capabilities": ["console.access", "work.read", "hr.read", "business.operate", "proposal.approve"],
+      "direct_execute_max_risk": "MEDIUM",
+      "can_manage_access": false
+    },
+    {
       "role_id": "finance_operator",
       "display_name": "财务业务用户",
       "description": "使用预算、费用、应收应付和财务分析功能。",

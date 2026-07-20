@@ -57,9 +57,21 @@ const definitions = Object.freeze({
     onboarding_case: definition({
       label: "入职流程",
       workflowDomainId: "human-resources",
-      fields: [field("employeeName", "员工姓名", "text", { required: true }), field("department", "所属部门", "text", { required: true }), field("positionName", "岗位", "text", { required: true }), field("startDate", "入职日期", "date", { required: true }), field("manager", "直属经理", "text", { required: true })],
+      fields: [field("employeeName", "员工姓名", "text", { required: true }), field("candidateRef", "候选人引用编号", "text", { required: true }), field("department", "所属部门", "text", { required: true }), field("positionName", "岗位", "text", { required: true }), field("employmentType", "用工类型", "select", { required: true, options: ["全职", "兼职", "实习", "外包"] }), field("startDate", "入职日期", "date", { required: true }), field("manager", "直属经理", "text", { required: true }), field("identityVerificationRef", "身份核验记录编号", "text", { required: true }), field("contractDocumentRef", "受控合同文件编号", "text", { required: true }), field("equipmentRequestRef", "设备申请编号", "text", { required: true }), field("accessProfileRef", "最小权限模板编号", "text", { required: true })],
       transitions: { DRAFT: ["PREPARING"], PREPARING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["READY", "PREPARING"], READY: ["COMPLETED"] },
       workflowGoal: (record) => `检查“${record.title}”入职准备事项、权限最小化和首周任务安排。`
+    }),
+    candidate_application: definition({
+      label: "候选申请", workflowDomainId: "human-resources",
+      fields: [field("candidateRef", "候选人引用编号", "text", { required: true }), field("positionName", "申请岗位", "text", { required: true }), field("source", "候选来源", "select", { required: true, options: ["官网", "招聘平台", "内推", "猎头", "校招", "其他"] }), field("consentStatus", "个人信息授权", "select", { required: true, options: ["已授权", "待确认", "已撤回"] }), field("privacyNoticeVersion", "隐私告知版本", "text", { required: true }), field("humanSelectionDecisionRef", "人工选择决定编号", "text", { required: true })],
+      transitions: { DRAFT: ["SCREENING"], SCREENING: ["INTERVIEWING", "REJECTED"], INTERVIEWING: ["WAITING_APPROVAL", "REJECTED"], WAITING_APPROVAL: ["SELECTED", "INTERVIEWING"], SELECTED: ["ARCHIVED"], REJECTED: ["ARCHIVED"] },
+      workflowGoal: (record) => `检查候选申请“${record.title}”的个人信息授权、人工评审证据和流程完整性，不执行自动录用决策。`
+    }),
+    employment_offer: definition({
+      label: "录用通知", workflowDomainId: "human-resources",
+      fields: [field("candidateRef", "候选人引用编号", "text", { required: true }), field("department", "录用部门", "text", { required: true }), field("positionName", "录用岗位", "text", { required: true }), field("employmentType", "用工类型", "select", { required: true, options: ["全职", "兼职", "实习", "外包"] }), field("proposedStartDate", "拟入职日期", "date", { required: true }), field("offerDocumentRef", "受控录用文件编号", "text", { required: true })],
+      transitions: { DRAFT: ["REVIEWING"], REVIEWING: ["WAITING_APPROVAL", "DRAFT"], WAITING_APPROVAL: ["APPROVED", "REVIEWING"], APPROVED: ["ACCEPTED", "DECLINED"], ACCEPTED: ["ONBOARDING_STARTED"] },
+      workflowGoal: (record) => `检查录用通知“${record.title}”的岗位、用工类型、入职日期和受控文件，不自动发送或接受录用。`
     }),
     employee: definition({
       label: "员工", workflowDomainId: "human-resources",
@@ -69,7 +81,7 @@ const definitions = Object.freeze({
     }),
     position: definition({
       label: "岗位", workflowDomainId: "human-resources",
-      fields: [field("positionCode", "岗位编码", "text", { required: true }), field("department", "所属部门", "text", { required: true }), field("jobFamily", "职族", "text", { required: true }), field("grade", "职级", "text", { required: true }), field("headcount", "编制人数", "number", { required: true, min: 0 })],
+      fields: [field("positionCode", "岗位编码", "text", { required: true }), field("positionName", "岗位名称", "text", { required: true }), field("department", "所属部门", "text", { required: true }), field("jobFamily", "职族", "text", { required: true }), field("grade", "职级", "text", { required: true }), field("headcount", "编制人数", "number", { required: true, min: 0 })],
       transitions: { DRAFT: ["REVIEWING"], REVIEWING: ["WAITING_APPROVAL", "DRAFT"], WAITING_APPROVAL: ["ACTIVE", "DRAFT"], ACTIVE: ["INACTIVE"] },
       workflowGoal: (record) => `分析岗位“${record.title}”的职责、能力要求、职级和编制合理性。`
     })
