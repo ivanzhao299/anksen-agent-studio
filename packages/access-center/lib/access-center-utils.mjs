@@ -39,6 +39,8 @@ const directExecuteActionIds = new Set([
   "portfolio-activate",
   "portfolio-tick",
   "portfolio-pause",
+  "outcome-connector-register",
+  "outcome-snapshot-ingest",
   "identity-owner-bootstrap"
 ]);
 const agentRuntimeIds = new Set([
@@ -61,6 +63,8 @@ const consoleActionCatalog = {
   "portfolio-activate": { capabilities: ["console.access", "autopilot.execute.local", "proposal.approve"], execution_mode: "direct_execute", projectScoped: true, risk: "MEDIUM" },
   "portfolio-tick": { capabilities: ["console.access", "autopilot.execute.local"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
   "portfolio-pause": { capabilities: ["console.access", "autopilot.execute.local"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
+  "outcome-connector-register": { capabilities: ["console.access", "governance.read", "credential.read"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
+  "outcome-snapshot-ingest": { capabilities: ["console.access", "autopilot.execute.local", "governance.read"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "workspace-goal": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "project-dispatch": { capabilities: ["console.access", "project.read", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "agent-real-plan": { capabilities: ["console.access", "agent.runtime.readonly"], execution_mode: "direct_execute", projectScoped: true },
@@ -93,6 +97,7 @@ const consoleRouteCatalog = {
   execution: ["console.access", "autopilot.plan"],
   domains: ["console.access"],
   portfolio: ["console.access", "autopilot.plan"],
+  outcomes: ["console.access", "governance.read"],
   dashboard: ["console.access"],
   projects: ["project.read"],
   workers: ["worker.read"],

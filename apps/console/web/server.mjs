@@ -18,6 +18,7 @@ import { migrate } from "../../../packages/orchestrator-core/lib/persistent-nigh
 import { domainCenterSummary, loadDomainRuntimeRegistry } from "../../../packages/domain-center/lib/domain-center.mjs";
 import { PersistentDomainWorkflowService } from "../../../packages/domain-center/lib/persistent-domain-workflow.mjs";
 import { AutonomousPortfolioService } from "../../../packages/domain-center/lib/autonomous-portfolio.mjs";
+import { BusinessOutcomeCenter } from "../../../packages/domain-center/lib/business-outcome-center.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
 import { createStudioMcpRequestHandler } from "../../../packages/orchestrator-core/lib/studio-mcp-server.mjs";
@@ -62,6 +63,7 @@ const dispatchPortfolioInitiative = async ({ campaign, initiative }) => {
   } finally { await pool.end(); }
 };
 const autonomousPortfolio = new AutonomousPortfolioService({ repoRoot, registry: portfolioRegistry, dispatcher: dispatchPortfolioInitiative });
+const businessOutcomeCenter = new BusinessOutcomeCenter({ repoRoot });
 setInterval(() => autonomousPortfolio.tick().catch((error) => console.error("portfolio tick failed", error?.code ?? error?.message ?? error)), 30000).unref();
 const identityRuntime = await loadIdentityRuntimeConfig();
 const identityOwnerBootstrap = identityRuntime ? new IdentityOwnerBootstrap({ upstreamOrigin: identityRuntime.upstreamOrigin }) : null;
@@ -309,6 +311,8 @@ const server = createServer(async (request, response) => {
     if (request.method === "GET" && pathname === "/api/portfolio/dashboard") {
       const progress = await autonomousExecutionCenter.getPortfolioProgress();
       const byApplication = new Map(progress.applications.map((item) => [item.application_id, item]));
+      const outcomes = await businessOutcomeCenter.dashboard();
+      const outcomesByApplication = new Map(outcomes.applications.map((item) => [item.applicationId, item]));
       sendJson(response, 200, {
         generatedAt: progress.generatedAt,
         source: progress.source,
@@ -320,9 +324,31 @@ const server = createServer(async (request, response) => {
           summary: application.summary,
           domainCount: application.domains.length,
           progress: byApplication.get(application.id) ?? null,
-          businessResults: { status: "AWAITING_SOURCE", metrics: [] }
+          businessResults: outcomesByApplication.get(application.id) ?? { status: "AWAITING_CONNECTOR", metrics: [], latest: null }
         }))
       });
+      return;
+    }
+    if (request.method === "GET" && pathname === "/api/outcomes/catalog") {
+      sendJson(response, 200, { contracts: businessOutcomeCenter.catalog(), connectors: await businessOutcomeCenter.connectors() });
+      return;
+    }
+    if (request.method === "GET" && pathname === "/api/outcomes/dashboard") {
+      sendJson(response, 200, await businessOutcomeCenter.dashboard());
+      return;
+    }
+    if (request.method === "POST" && pathname === "/api/outcomes/connectors") {
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "outcome-connector-register", risk: "MEDIUM" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      try { sendJson(response, 201, await businessOutcomeCenter.registerConnector(await readJsonBody(request), { userId: accessContext.user?.user_id })); }
+      catch (error) { sendJson(response, 400, { status: error?.code ?? "OUTCOME_CONNECTOR_INVALID", reason: error instanceof Error ? error.message : String(error) }); }
+      return;
+    }
+    if (request.method === "POST" && pathname === "/api/outcomes/snapshots") {
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "outcome-snapshot-ingest", risk: "MEDIUM" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      try { sendJson(response, 201, await businessOutcomeCenter.ingest(await readJsonBody(request), { userId: accessContext.user?.user_id })); }
+      catch (error) { sendJson(response, 400, { status: error?.code ?? "OUTCOME_SNAPSHOT_INVALID", reason: error instanceof Error ? error.message : String(error) }); }
       return;
     }
     if (request.method === "GET" && pathname === "/api/portfolio/campaigns") {
