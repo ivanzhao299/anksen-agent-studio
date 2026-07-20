@@ -332,6 +332,7 @@ export class PostgresBusinessApplicationStore {
     return this.transaction(async (client) => {
       const row = (await client.query("SELECT * FROM business_work_item WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 FOR UPDATE", [workItemId, scope.organizationId, scope.workspaceId])).rows[0];
       if (!row) throw Object.assign(new Error("WORK_ITEM_NOT_FOUND"), { code: "WORK_ITEM_NOT_FOUND" });
+      if (action === "RETRY" && row.session_id) throw Object.assign(new Error("BUSINESS_WORK_NEW_DELEGATION_REQUIRED"), { code: "BUSINESS_WORK_NEW_DELEGATION_REQUIRED" });
       if (!actor.canManageBusiness && actorId !== row.assignee_id && actorId !== row.delegated_by) throw Object.assign(new Error("BUSINESS_WORK_CONTROL_FORBIDDEN"), { code: "BUSINESS_WORK_CONTROL_FORBIDDEN" });
       if (row.version !== expectedVersion) throw Object.assign(new Error("BUSINESS_WORK_VERSION_CONFLICT"), { code: "BUSINESS_WORK_VERSION_CONFLICT" });
       if (["COMPLETED", "CANCELLED"].includes(row.status)) throw Object.assign(new Error("BUSINESS_WORK_TERMINAL"), { code: "BUSINESS_WORK_TERMINAL" });
@@ -367,11 +368,20 @@ export class PostgresBusinessApplicationStore {
     return { generatedAt: this.clock().toISOString(), source: "POSTGRESQL_BUSINESS_APPLICATION_STORE", application: { id: application.id, name: application.name, path: application.path }, totalRecords: sum(records.rows), byStatus: group(records.rows, "status"), byObjectType: records.rows.reduce((result, row) => ({ ...result, [row.object_type]: (result[row.object_type] ?? 0) + row.count }), {}), businessChains:{total:sum(relations.rows),byType:group(relations.rows,"relation_type")}, work: { total: sum(work.rows), human: work.rows.filter((row) => row.assignment_type === "HUMAN").reduce((total, row) => total + row.count, 0), agent: work.rows.filter((row) => row.assignment_type === "AGENT").reduce((total, row) => total + row.count, 0), blocked: work.rows.filter((row) => row.status === "BLOCKED").reduce((total, row) => total + row.count, 0) }, approvals: group(approvals.rows, "status"), pendingApprovals: approvals.rows.find((row) => row.status === "PENDING")?.count ?? 0, attention, recentRecords: recent.map((record) => ({ id: record.id, displayKey: record.displayKey, title: record.title, objectType: record.objectType, status: record.status, updatedAt: record.updatedAt, href: `${application.path}?record=${record.id}` })) };
   }
 
-  async attachWorkflow(workItemId, { goalId, sessionId, report, status = "WAITING_APPROVAL" }) {
+  async runnableAgentWorkItems({limit=20}={}) {
+    const bounded=Math.max(1,Math.min(Number(limit)||20,100)),rows=(await this.pool.query("SELECT * FROM business_work_item WHERE assignment_type='AGENT' AND status='RUNNING' AND kernel_goal_id IS NOT NULL AND session_id IS NOT NULL ORDER BY updated_at,id LIMIT $1",[bounded])).rows;
+    return rows.map(row=>({...this.presentWork(row),organizationId:row.organization_id,workspaceId:row.workspace_id}));
+  }
+
+  async getWorkItemForRunner(workItemId) {
+    const row=(await this.pool.query("SELECT * FROM business_work_item WHERE id=$1",[workItemId])).rows[0];return row?{...this.presentWork(row),organizationId:row.organization_id,workspaceId:row.workspace_id}:null;
+  }
+
+  async attachWorkflow(workItemId, { goalId, sessionId, report, status = "WAITING_APPROVAL", expectedWorkVersion = null }) {
     return this.transaction(async (client) => {
       const now = this.clock(), resultRef = report ? `night-shift-report:${sessionId}` : null;
-      const row = (await client.query("UPDATE business_work_item SET kernel_goal_id=$1,session_id=$2,result_ref=$3,status=$4,version=version+1,updated_at=$5 WHERE id=$6 RETURNING *", [goalId, sessionId, resultRef, status, now, workItemId])).rows[0];
-      if (!row) throw Object.assign(new Error("WORK_ITEM_NOT_FOUND"), { code: "WORK_ITEM_NOT_FOUND" });
+      const row = (await client.query("UPDATE business_work_item SET kernel_goal_id=$1,session_id=$2,result_ref=$3,status=$4,version=version+1,updated_at=$5 WHERE id=$6 AND ($7::int IS NULL OR version=$7) AND session_id IS NULL RETURNING *", [goalId, sessionId, resultRef, status, now, workItemId, expectedWorkVersion])).rows[0];
+      if (!row) {const existing=(await client.query("SELECT session_id,version FROM business_work_item WHERE id=$1",[workItemId])).rows[0];if(!existing)throw Object.assign(new Error("WORK_ITEM_NOT_FOUND"),{code:"WORK_ITEM_NOT_FOUND"});if(existing.session_id===sessionId)return this.presentWork((await client.query("SELECT * FROM business_work_item WHERE id=$1",[workItemId])).rows[0]);throw Object.assign(new Error("BUSINESS_WORK_VERSION_CONFLICT"),{code:"BUSINESS_WORK_VERSION_CONFLICT"});}
       await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.work.runtime.attached',$4,$5,$6,$7,$8,'runtime',$9,$10)", [randomUUID(), row.organization_id, row.workspace_id, row.application_id, row.business_object_type, row.business_record_id, row.business_object_version, row.id, { goalId, sessionId, status, resultRef }, now]);
       return this.presentWork(row);
     });

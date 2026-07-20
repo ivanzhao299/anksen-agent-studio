@@ -33,7 +33,7 @@ async function runAgentWorkflow({ pool, store, registry, scenario, record, scope
   const workflow=new PersistentDomainWorkflowService(pool,{registry});
   const sessionKey=`enterprise-acceptance:${runId}:${scenario.applicationId}`;
   const submitted=await workflow.submit({sessionKey,goal:schema.workflowGoal(record),explicitDomainId:runtimeDomainId,businessTaskBinding:binding,scope});
-  const attached=await store.attachWorkflow(work.id,{goalId:submitted.session.goal_id,sessionId:submitted.session.id,report:null,status:"RUNNING"});
+  const attached=await store.attachWorkflow(work.id,{goalId:submitted.session.goal_id,sessionId:submitted.session.id,report:null,status:"RUNNING",expectedWorkVersion:work.version});
   await workflow.runDaemon({pollMs:5,idleTimeoutMs:30,maxRuntimeMs:10000});
   const report=await workflow.night.loadReport(submitted.session.id);
   const completed=await store.completeWorkflow(work.id,{goalId:submitted.session.goal_id,sessionId:submitted.session.id,report,workStatus:"COMPLETED",expectedWorkVersion:attached.version,actorId:"controlled-stub"});
