@@ -15,6 +15,8 @@ import {
 } from "../lib/domain-center.mjs";
 import { renderConsolePage } from "../../../apps/console/web/render.mjs";
 import { consoleWebRoutes } from "../../../apps/console/web/routes.mjs";
+import { validateGraph } from "../../orchestrator-core/lib/autonomous-kernel/domain.mjs";
+import { compileSmartParkProgram } from "../lib/smart-park-program.mjs";
 
 const registry = await loadDomainRuntimeRegistry();
 
@@ -88,4 +90,15 @@ test("Console renders three applications and five business domains, not Agent la
   assert.equal((html.match(/class="application-suite"/g) ?? []).length, 3);
   assert.equal((html.match(/class="domain-card"/g) ?? []).length, 5);
   assert.doesNotMatch(html, /真实 Agent Lane|责任 Agent|应用范围与 Agent 分工/);
+});
+
+test("Smart Park completion program is a valid gated long-running DAG", () => {
+  const program = compileSmartParkProgram();
+  assert.equal(program.tasks.length, 20);
+  assert.ok(program.dependencies.length > 30);
+  assert.equal(validateGraph({ tasks: program.tasks.map((item) => ({ ...item, key: item.taskKey })), dependencies: program.dependencies }).valid, true);
+  assert.ok(program.tasks.every((item) => item.requiredCapabilities.includes("smart_park_development")));
+  assert.ok(program.tasks.every((item) => item.metadata.executionRuntime === "CODEX" && item.metadata.controlledStubCompletionForbidden));
+  assert.equal(program.tasks.at(-1).taskKey, "SP-260");
+  assert.equal(program.runtimePolicy.allowDeploy, false);
 });
