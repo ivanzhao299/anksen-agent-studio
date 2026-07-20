@@ -430,8 +430,8 @@ const server = createServer(async (request, response) => {
       try{
         const body=await readJsonBody(request),actor={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace",userId:accessContext.user?.user_id},record=await businessApplicationStore.getRecord(app.id,body.businessObjectId,actor);if(!record)throw Object.assign(new Error("BUSINESS_RECORD_NOT_FOUND"),{code:"BUSINESS_RECORD_NOT_FOUND"});
         if(body.assignmentType==="AGENT"&&record.version!==Number(body.expectedObjectVersion))throw Object.assign(new Error("BUSINESS_RECORD_VERSION_CONFLICT"),{code:"BUSINESS_RECORD_VERSION_CONFLICT"});
-        if(body.assignmentType==="AGENT"){const preview=buildBusinessDelegationPreview({application:app,record,registry:portfolioRegistry});if(preview.status!=="READY")throw Object.assign(new Error(preview.blockedReasons.join(",")),{code:"BUSINESS_DELEGATION_BLOCKED"});}
-        const item=await businessApplicationStore.createWorkItem({...body,title:body.title??businessWorkflowGoal(app.id,record),applicationId:app.id},actor);
+        let delegationPlan=null;if(body.assignmentType==="AGENT"){delegationPlan=buildBusinessDelegationPreview({application:app,record,registry:portfolioRegistry});if(delegationPlan.status!=="READY")throw Object.assign(new Error(delegationPlan.blockedReasons.join(",")),{code:"BUSINESS_DELEGATION_BLOCKED"});}
+        const item=await businessApplicationStore.createWorkItem({...body,delegationPlan,title:body.title??businessWorkflowGoal(app.id,record),applicationId:app.id},actor);
         if(item.assignmentType!=="AGENT"){sendJson(response,201,item);return;}
         const execution=await runBusinessWork({app,record,item,actor});sendJson(response,201,{...await businessApplicationStore.myWork({...actor,applicationId:app.id}),workItemId:item.id,...execution});
       }catch(error){sendJson(response,400,{status:error.code??"BUSINESS_WORK_INVALID",reason:error.message});}return;

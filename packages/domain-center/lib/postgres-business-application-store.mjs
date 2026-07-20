@@ -6,6 +6,7 @@ import { businessExceptionResult, businessRecordExceptionStatuses, businessWorkE
 import { businessSearchResult, normalizeBusinessSearch, presentBusinessSearchRecord } from "./business-record-search.mjs";
 import { validateBusinessRecordNote } from "./business-record-notes.mjs";
 import { businessRecordListResult, normalizeBusinessRecordList } from "./business-record-list.mjs";
+import { businessDelegationAuditPayload } from "./business-delegation-preview.mjs";
 
 const terminal = new Set(["COMPLETED", "CANCELLED", "PAID", "ARCHIVED", "TERMINATED", "WRITTEN_OFF"]);
 const scopeOf = (value = {}) => {
@@ -277,10 +278,12 @@ export class PostgresBusinessApplicationStore {
     return this.transaction(async (client) => {
       const record = (await client.query("SELECT * FROM business_application_record WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND application_id=$4 FOR SHARE", [input.businessObjectId, scope.organizationId, scope.workspaceId, application.id])).rows[0];
       if (!record) throw Object.assign(new Error("BUSINESS_RECORD_NOT_FOUND"), { code: "BUSINESS_RECORD_NOT_FOUND" });
+      const delegationPlan=input.delegationPlan?businessDelegationAuditPayload(input.delegationPlan):null;if(delegationPlan&&(delegationPlan.businessObjectVersion!==record.version||delegationPlan.businessObjectId!==record.id||delegationPlan.applicationId!==application.id||delegationPlan.objectType!==record.object_type))throw Object.assign(new Error("BUSINESS_DELEGATION_PLAN_MISMATCH"),{code:"BUSINESS_DELEGATION_PLAN_MISMATCH"});
       const idempotencyKey = String(input.idempotencyKey ?? `${assignmentType}:${record.id}:${record.version}:${assigneeId}`), id = randomUUID(), now = this.clock();
       const inserted = (await client.query("INSERT INTO business_work_item(id,organization_id,workspace_id,application_id,business_record_id,business_object_type,business_display_key,business_object_version,title,status,assignment_type,assignee_id,delegated_by,priority,idempotency_key,kernel_task_id,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'OPEN',$10,$11,$12,$13,$14,$15,$16,$16) ON CONFLICT(organization_id,workspace_id,idempotency_key) DO NOTHING RETURNING *", [id, scope.organizationId, scope.workspaceId, application.id, record.id, record.object_type, record.display_key, record.version, String(input.title ?? `处理 ${record.title}`), assignmentType, assigneeId, delegatedBy, input.priority ?? "MEDIUM", idempotencyKey, input.kernelTaskId ?? null, now])).rows[0];
       const row = inserted ?? (await client.query("SELECT * FROM business_work_item WHERE organization_id=$1 AND workspace_id=$2 AND idempotency_key=$3", [scope.organizationId, scope.workspaceId, idempotencyKey])).rows[0];
       if (inserted) await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.work.assigned',$4,$5,$6,$7,$8,$9,$10,$11)", [randomUUID(), scope.organizationId, scope.workspaceId, application.id, record.object_type, record.id, record.version, id, delegatedBy, { assignmentType, assigneeId, idempotencyKey }, now]);
+      if(inserted&&delegationPlan)await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,work_item_id,actor_id,payload,created_at) VALUES($1,$2,$3,'business.work.delegation-approved',$4,$5,$6,$7,$8,$9,$10,$11)",[randomUUID(),scope.organizationId,scope.workspaceId,application.id,record.object_type,record.id,record.version,id,delegatedBy,delegationPlan,now]);
       return this.presentWork(row);
     });
   }

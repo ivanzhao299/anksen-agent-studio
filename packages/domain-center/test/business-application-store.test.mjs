@@ -4,6 +4,9 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { BusinessApplicationStore } from "../lib/business-application-store.mjs";
+import { buildBusinessDelegationPreview } from "../lib/business-delegation-preview.mjs";
+import { getEnterpriseApplication } from "../lib/enterprise-applications.mjs";
+import { loadDomainRuntimeRegistry } from "../lib/domain-center.mjs";
 
 const expenseFields = { expenseDate: "2026-07-20", department: "市场部", category: "差旅", amount: 1280.5, currency: "CNY", budgetCode: "TRAVEL-01", description: "客户拜访" };
 
@@ -88,6 +91,10 @@ test("application record pages apply literal scoped filters and stable paginatio
   await store.createRecord("finance-platform",{objectType:"budget",title:"年度预算",displayKey:"LIST-BUDGET",ownerId:"finance-a",fields:{fiscalYear:2027,department:"运营",budgetCode:"OPS-2027",amount:10000,currency:"CNY"}},scope);
   const first=await store.recordPage("finance-platform",{...scope,limit:2,offset:0});assert.equal(first.records.length,2);assert.equal(first.pagination.total,4);assert.equal(first.pagination.hasMore,true);const second=await store.recordPage("finance-platform",{...scope,limit:2,offset:2});assert.equal(second.records.length,2);assert.equal(new Set([...first.records,...second.records].map(item=>item.id)).size,4);
   assert.equal((await store.recordPage("finance-platform",{...scope,query:"%"})).pagination.total,1);assert.equal((await store.recordPage("finance-platform",{...scope,objectType:"expense",ownerId:"finance-b"})).pagination.total,1);assert.equal((await store.recordPage("finance-platform",{...scope,objectType:"budget"})).pagination.total,1);assert.equal((await store.recordPage("finance-platform",{...scope,organizationId:"foreign"})).pagination.total,0);
+});
+
+test("file work assignment atomically audits the approved delegation plan once",async()=>{
+  const root=await mkdtemp(resolve(tmpdir(),"business-delegation-audit-")),store=new BusinessApplicationStore({repoRoot:root}),scope={organizationId:"delegation-org",workspaceId:"delegation-workspace",userId:"finance-user"},created=await store.createRecord("finance-platform",{objectType:"expense",title:"委派审计费用",fields:expenseFields},scope);await store.transitionRecord("finance-platform",created.id,{expectedVersion:1,status:"SUBMITTED"},scope);const record=await store.transitionRecord("finance-platform",created.id,{expectedVersion:2,status:"UNDER_REVIEW"},scope),delegationPlan=buildBusinessDelegationPreview({application:getEnterpriseApplication("finance-platform"),record,registry:await loadDomainRuntimeRegistry()}),input={applicationId:"finance-platform",businessObjectId:record.id,assignmentType:"AGENT",assigneeId:"agent-business-operator",delegationPlan};const first=await store.createWorkItem(input,scope),duplicate=await store.createWorkItem(input,scope);assert.equal(first.id,duplicate.id);const detail=await store.recordDetail("finance-platform",record.id,scope),event=detail.timeline.find(item=>item.type==="business.work.delegation-approved");assert.equal(detail.timeline.filter(item=>item.type==="business.work.delegation-approved").length,1);assert.equal(event.workItemId,first.id);assert.equal(event.objectVersion,3);assert.equal(event.payload.domainId,"finance-management");assert.equal(event.payload.stages.length,4);assert.equal(event.payload.executionRuntime,"CONTROLLED_STUB");assert.equal(event.payload.realRuntimeEnabled,false);await assert.rejects(()=>store.createWorkItem({...input,idempotencyKey:"mismatch",delegationPlan:{...delegationPlan,businessObject:{...delegationPlan.businessObject,objectId:"other"}}},scope),error=>error.code==="BUSINESS_DELEGATION_PLAN_MISMATCH");
 });
 
 test("strategy and HR records expose different authoritative fields", async () => {

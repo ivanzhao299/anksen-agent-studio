@@ -16,3 +16,10 @@ export function buildBusinessDelegationPreview({application,record,registry,gene
     blockedReasons
   };
 }
+
+export function businessDelegationAuditPayload(preview) {
+  if(!preview||preview.status!=="READY"||!Number.isInteger(Number(preview.businessObject?.version)))throw Object.assign(new Error("BUSINESS_DELEGATION_PLAN_INVALID"),{code:"BUSINESS_DELEGATION_PLAN_INVALID"});
+  const stages=(preview.stages??[]).slice(0,20).map(stage=>({stageId:String(stage.stageId),businessSkillId:String(stage.businessSkillId),skillType:String(stage.skillType),agentId:String(stage.agentId),workerKey:String(stage.workerKey),runnerMode:String(stage.runnerMode),status:String(stage.status)}));
+  if(!stages.length||stages.some(stage=>!stage.stageId||!stage.businessSkillId||!stage.skillType||!stage.agentId||!stage.workerKey||stage.status!=="READY"))throw Object.assign(new Error("BUSINESS_DELEGATION_PLAN_INVALID"),{code:"BUSINESS_DELEGATION_PLAN_INVALID"});
+  return{preflightGeneratedAt:String(preview.generatedAt),applicationId:String(preview.businessObject.applicationId),objectType:String(preview.businessObject.objectType),businessObjectId:String(preview.businessObject.objectId),businessObjectVersion:Number(preview.businessObject.version),domainId:String(preview.workflow.domainId),workflowDefinitionId:String(preview.workflow.definitionId),workflowDefinitionVersion:String(preview.workflow.definitionVersion),expectedWritebackStatus:String(preview.workflow.expectedWritebackStatus),executionRuntime:String(preview.policy.executionRuntime),realRuntimeEnabled:preview.policy.realRuntimeEnabled===true,maxAttempts:Number(preview.policy.maxAttempts),stages};
+}
