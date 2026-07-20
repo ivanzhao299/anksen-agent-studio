@@ -34,7 +34,8 @@
     { "id": "ea-018-scoped-work-control", "title": "Owner-scoped Agent work control with explicit workspace manager override", "completed": true },
     { "id": "ea-019-atomic-downstream-transactions", "title": "Atomic source-to-downstream business transactions across six independent applications", "completed": true },
     { "id": "ea-020-state-gated-business-chains", "title": "Nineteen state-gated multi-stage business chain contracts across six applications", "completed": true },
-    { "id": "ea-021-role-browser-uat", "title": "Authenticated browser UAT with named business roles", "completed": false }
+    { "id": "ea-021-business-execution-evidence", "title": "Read-only Skill, Agent, Runner, Attempt and sanitized Runtime result projection on business records", "completed": true },
+    { "id": "ea-022-role-browser-uat", "title": "Authenticated browser UAT with named business roles", "completed": false }
   ],
   "next_recommended_action": {
     "title": "Run authenticated browser UAT and continue domain transaction depth",

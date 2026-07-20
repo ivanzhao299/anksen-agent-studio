@@ -81,6 +81,30 @@ export class PostgresBusinessApplicationStore {
     return {id:row.id,applicationId:row.application_id,relationType:row.relation_type,direction:outgoing?"OUTGOING":"INCOMING",createdBy:row.created_by,createdAt:iso(row.created_at),record:{id:targetId,objectType:outgoing?row.target_object_type:row.source_object_type,displayKey:outgoing?row.target_display_key:row.source_display_key,title:outgoing?row.target_title:row.source_title,status:outgoing?row.target_status:row.source_status,href:`${assertEnterpriseApplication(row.application_id).path}?record=${targetId}`}};
   }
 
+  async kernelExecutionEvidence(goalIds) {
+    const ids=[...new Set(goalIds.filter(Boolean))];
+    if(!ids.length)return new Map();
+    const available=(await this.pool.query("SELECT to_regclass('ad_task') task,to_regclass('ad_task_attempt') attempt,to_regclass('ad_worker') worker")).rows[0];
+    if(!available.task||!available.attempt||!available.worker)return new Map();
+    const rows=(await this.pool.query(`SELECT t.goal_id,t.id task_id,t.task_key,t.title,t.status task_status,t.risk_level,
+      t.metadata->>'skillType' skill_type,t.metadata->>'agentId' agent_id,t.metadata->>'workerKey' planned_worker,
+      t.metadata#>>'{businessTaskBinding,skill,businessSkillId}' business_skill_id,
+      t.metadata#>>'{businessTaskBinding,workflow,stageId}' stage_id,
+      a.id attempt_id,a.attempt_number,a.status attempt_status,a.validation_result,a.started_at,a.finished_at,
+      w.worker_key actual_worker,w.name worker_name,w.runtime_type,w.status worker_status,
+      l.status lease_status
+      FROM ad_task t
+      LEFT JOIN LATERAL(SELECT * FROM ad_task_attempt x WHERE x.task_id=t.id ORDER BY x.attempt_number DESC LIMIT 1)a ON true
+      LEFT JOIN ad_worker w ON w.id=a.worker_id
+      LEFT JOIN ad_task_lease l ON l.id=a.lease_id
+      WHERE t.goal_id=ANY($1::uuid[]) ORDER BY t.created_at,t.task_key`,[ids])).rows,map=new Map(ids.map(id=>[id,[]]));
+    for(const row of rows){
+      const result=row.validation_result&&Object.keys(row.validation_result).length?row.validation_result:null;
+      map.get(row.goal_id)?.push({taskId:row.task_id,taskKey:row.task_key,title:row.title,taskStatus:row.task_status,riskLevel:row.risk_level,stageId:row.stage_id,businessSkillId:row.business_skill_id,skillType:row.skill_type,agentId:row.agent_id,plannedWorker:row.planned_worker,attempt:row.attempt_id?{id:row.attempt_id,number:row.attempt_number,status:row.attempt_status,startedAt:iso(row.started_at),finishedAt:iso(row.finished_at)}:null,runner:row.actual_worker?{workerKey:row.actual_worker,name:row.worker_name,runtimeType:row.runtime_type,status:row.worker_status}:null,lease:row.lease_status?{status:row.lease_status}:null,runtimeResult:result?{executionId:result.executionId??null,runtimeType:result.runtimeType??row.runtime_type,status:result.status??row.attempt_status,exitCode:result.exitCode??null,startedAt:result.startedAt??null,finishedAt:result.finishedAt??null,durationMs:result.durationMs??null,errorCode:result.errorCode??null,fencingValidated:result.fencingValidated===true}:null});
+    }
+    return map;
+  }
+
   async listRecords(applicationId, options = {}) {
     assertEnterpriseApplication(applicationId);
     const scope = scopeOf(options);
@@ -108,8 +132,8 @@ export class PostgresBusinessApplicationStore {
       this.pool.query("SELECT x.*,s.object_type source_object_type,s.display_key source_display_key,s.title source_title,s.status source_status,t.object_type target_object_type,t.display_key target_display_key,t.title target_title,t.status target_status FROM business_record_relation x JOIN business_application_record s ON s.id=x.source_record_id JOIN business_application_record t ON t.id=x.target_record_id WHERE x.organization_id=$1 AND x.workspace_id=$2 AND x.application_id=$3 AND (x.source_record_id=$4 OR x.target_record_id=$4) ORDER BY x.created_at DESC",[scope.organizationId,scope.workspaceId,applicationId,id]),
       this.pool.query("SELECT id,object_type,display_key,title,status FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND id<>$4 ORDER BY updated_at DESC",[scope.organizationId,scope.workspaceId,applicationId,id])
     ]);
-    const contracts=relationContractsFor(applicationId,record.objectType),relatedIds=new Set(relations.rows.flatMap(row=>[row.source_record_id,row.target_record_id]));
-    return { record, workItems: work.rows.map((row) => this.presentWork(row)), approvals: approvals.rows.map((row) => this.presentApproval(row)), relations:relations.rows.map(row=>this.presentRelation(row,id)), relationOptions:contracts.flatMap(contract=>candidates.rows.filter(candidate=>!relatedIds.has(candidate.id)&&((contract.sourceType===record.objectType&&candidate.object_type===contract.targetType)||(contract.targetType===record.objectType&&candidate.object_type===contract.sourceType))).map(candidate=>({contract,direction:contract.sourceType===record.objectType?"OUTGOING":"INCOMING",record:{id:candidate.id,objectType:candidate.object_type,displayKey:candidate.display_key,title:candidate.title,status:candidate.status}}))), timeline: events.rows.map((row) => this.presentEvent(row)) };
+    const contracts=relationContractsFor(applicationId,record.objectType),relatedIds=new Set(relations.rows.flatMap(row=>[row.source_record_id,row.target_record_id])),evidence=await this.kernelExecutionEvidence(work.rows.map(row=>row.kernel_goal_id));
+    return { record, workItems: work.rows.map((row) => ({...this.presentWork(row),executionEvidence:evidence.get(row.kernel_goal_id)??[]})), approvals: approvals.rows.map((row) => this.presentApproval(row)), relations:relations.rows.map(row=>this.presentRelation(row,id)), relationOptions:contracts.flatMap(contract=>candidates.rows.filter(candidate=>!relatedIds.has(candidate.id)&&((contract.sourceType===record.objectType&&candidate.object_type===contract.targetType)||(contract.targetType===record.objectType&&candidate.object_type===contract.sourceType))).map(candidate=>({contract,direction:contract.sourceType===record.objectType?"OUTGOING":"INCOMING",record:{id:candidate.id,objectType:candidate.object_type,displayKey:candidate.display_key,title:candidate.title,status:candidate.status}}))), timeline: events.rows.map((row) => this.presentEvent(row)) };
   }
 
   async createRelation(applicationId,sourceRecordId,input,actor={}){

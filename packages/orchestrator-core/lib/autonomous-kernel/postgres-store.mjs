@@ -138,10 +138,10 @@ export class PostgresAutonomousKernelStore {
     return this.fencedUpdate(proof, async (client, lease) => (await client.query("UPDATE ad_task_lease SET heartbeat_at=now(),expires_at=now()+($2||' seconds')::interval,version=version+1 WHERE id=$1 AND version=$3 RETURNING *", [lease.id, leaseSeconds, proof.expectedVersion])).rows[0]);
   }
 
-  async releaseLease(proof, { attemptStatus = "CANCELLED", taskStatus = "QUEUED" } = {}) {
+  async releaseLease(proof, { attemptStatus = "CANCELLED", taskStatus = "QUEUED", validationResult = {} } = {}) {
     return this.fencedUpdate(proof, async (client, lease) => {
       await client.query("UPDATE ad_task_lease SET status='RELEASED',released_at=now(),version=version+1 WHERE id=$1", [lease.id]);
-      await client.query("UPDATE ad_task_attempt SET status=$2,finished_at=now() WHERE id=$1", [lease.attempt_id, attemptStatus]);
+      await client.query("UPDATE ad_task_attempt SET status=$2,validation_result=$3,finished_at=now() WHERE id=$1", [lease.attempt_id, attemptStatus, validationResult]);
       await client.query("UPDATE ad_task SET status=$2,version=version+1 WHERE id=$1", [lease.task_id, taskStatus]);
       await client.query("UPDATE ad_worker SET active_claims=GREATEST(active_claims-1,0),status=CASE WHEN status='DRAINING' THEN status ELSE 'IDLE' END,version=version+1 WHERE id=$1", [lease.worker_id]);
       return { leaseId: lease.id, status: "RELEASED" };

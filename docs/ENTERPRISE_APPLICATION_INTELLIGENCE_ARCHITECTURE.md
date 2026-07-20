@@ -32,6 +32,8 @@ Application workbenches and the group cockpit expose source-backed operational r
 
 Agent work is controlled through the business work item, never by exposing Kernel lease operations to ordinary users. Work items carry an independent version for CAS. Authorized operators may pause, resume, retry, reassign, cancel, or take over eligible work; every control decision is audited. Pause, reassignment, cancellation, and takeover fail closed while the linked Kernel goal has an unexpired ACTIVE lease. Resume, retry, and Agent reassignment re-enter the same domain workflow through the shared Kernel using a new version-scoped session key, preserving the original business object and validation contract.
 
+Completed Agent work is explainable from the conventional record detail without duplicating orchestration state. A read-only projection joins the business work item's Kernel Goal to authoritative Kernel Tasks, business Skill contracts, Agent assignments, planned and actual Runner/Worker identity, latest Attempt, lease status, and a sanitized Runtime result summary. Runtime completion persists the safe result summary on the Attempt under the same fencing-protected lease release. The business API never returns lease tokens, fencing tokens, raw logs, environment snapshots, or credential values.
+
 ## Application boundaries
 
 | Application | Endpoint | Primary users | Initial conventional objects | First intelligent workflow |
