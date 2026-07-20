@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { assertEnterpriseApplication } from "./enterprise-applications.mjs";
 import { availableBusinessTransitions, getBusinessObjectDefinition, validateBusinessObjectFields } from "./business-object-definitions.mjs";
+import { assertBusinessRelationContract, relationContractsFor } from "./business-relation-definitions.mjs";
 
 const terminal = new Set(["COMPLETED", "CANCELLED", "PAID", "ARCHIVED", "TERMINATED", "WRITTEN_OFF"]);
 const scopeOf = (value = {}) => {
@@ -75,6 +76,11 @@ export class PostgresBusinessApplicationStore {
     };
   }
 
+  presentRelation(row, recordId) {
+    const outgoing=row.source_record_id===recordId,targetId=outgoing?row.target_record_id:row.source_record_id;
+    return {id:row.id,applicationId:row.application_id,relationType:row.relation_type,direction:outgoing?"OUTGOING":"INCOMING",createdBy:row.created_by,createdAt:iso(row.created_at),record:{id:targetId,objectType:outgoing?row.target_object_type:row.source_object_type,displayKey:outgoing?row.target_display_key:row.source_display_key,title:outgoing?row.target_title:row.source_title,status:outgoing?row.target_status:row.source_status,href:`${assertEnterpriseApplication(row.application_id).path}?record=${targetId}`}};
+  }
+
   async listRecords(applicationId, options = {}) {
     assertEnterpriseApplication(applicationId);
     const scope = scopeOf(options);
@@ -95,12 +101,27 @@ export class PostgresBusinessApplicationStore {
   async recordDetail(applicationId, id, actor = {}) {
     const scope = scopeOf(actor), record = await this.getRecord(applicationId, id, scope);
     if (!record) return null;
-    const [work, events, approvals] = await Promise.all([
+    const [work, events, approvals, relations, candidates] = await Promise.all([
       this.pool.query("SELECT * FROM business_work_item WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND business_record_id=$4 ORDER BY updated_at DESC", [scope.organizationId, scope.workspaceId, applicationId, id]),
       this.pool.query("SELECT * FROM business_application_event WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND object_id=$4 ORDER BY sequence DESC", [scope.organizationId, scope.workspaceId, applicationId, id]),
-      this.pool.query("SELECT * FROM business_approval WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND business_record_id=$4 ORDER BY created_at DESC", [scope.organizationId, scope.workspaceId, applicationId, id])
+      this.pool.query("SELECT * FROM business_approval WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND business_record_id=$4 ORDER BY created_at DESC", [scope.organizationId, scope.workspaceId, applicationId, id]),
+      this.pool.query("SELECT x.*,s.object_type source_object_type,s.display_key source_display_key,s.title source_title,s.status source_status,t.object_type target_object_type,t.display_key target_display_key,t.title target_title,t.status target_status FROM business_record_relation x JOIN business_application_record s ON s.id=x.source_record_id JOIN business_application_record t ON t.id=x.target_record_id WHERE x.organization_id=$1 AND x.workspace_id=$2 AND x.application_id=$3 AND (x.source_record_id=$4 OR x.target_record_id=$4) ORDER BY x.created_at DESC",[scope.organizationId,scope.workspaceId,applicationId,id]),
+      this.pool.query("SELECT id,object_type,display_key,title,status FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND id<>$4 ORDER BY updated_at DESC",[scope.organizationId,scope.workspaceId,applicationId,id])
     ]);
-    return { record, workItems: work.rows.map((row) => this.presentWork(row)), approvals: approvals.rows.map((row) => this.presentApproval(row)), timeline: events.rows.map((row) => this.presentEvent(row)) };
+    const contracts=relationContractsFor(applicationId,record.objectType),relatedIds=new Set(relations.rows.flatMap(row=>[row.source_record_id,row.target_record_id]));
+    return { record, workItems: work.rows.map((row) => this.presentWork(row)), approvals: approvals.rows.map((row) => this.presentApproval(row)), relations:relations.rows.map(row=>this.presentRelation(row,id)), relationOptions:contracts.flatMap(contract=>candidates.rows.filter(candidate=>!relatedIds.has(candidate.id)&&((contract.sourceType===record.objectType&&candidate.object_type===contract.targetType)||(contract.targetType===record.objectType&&candidate.object_type===contract.sourceType))).map(candidate=>({contract,direction:contract.sourceType===record.objectType?"OUTGOING":"INCOMING",record:{id:candidate.id,objectType:candidate.object_type,displayKey:candidate.display_key,title:candidate.title,status:candidate.status}}))), timeline: events.rows.map((row) => this.presentEvent(row)) };
+  }
+
+  async createRelation(applicationId,sourceRecordId,input,actor={}){
+    const scope=scopeOf(actor),targetRecordId=String(input.targetRecordId??""),relationType=String(input.relationType??"").toUpperCase(),actorId=String(actor.userId??"unknown");
+    return this.transaction(async client=>{
+      const rows=(await client.query("SELECT * FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND id=ANY($4::uuid[]) FOR SHARE",[scope.organizationId,scope.workspaceId,applicationId,[sourceRecordId,targetRecordId]])).rows,source=rows.find(row=>row.id===sourceRecordId),target=rows.find(row=>row.id===targetRecordId);
+      if(!source||!target)throw Object.assign(new Error("BUSINESS_RELATION_RECORD_NOT_FOUND"),{code:"BUSINESS_RELATION_RECORD_NOT_FOUND"});
+      const contract=assertBusinessRelationContract(applicationId,source.object_type,target.object_type,relationType),id=randomUUID(),now=this.clock();
+      const inserted=(await client.query("INSERT INTO business_record_relation(id,organization_id,workspace_id,application_id,source_record_id,target_record_id,relation_type,created_by,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(organization_id,workspace_id,source_record_id,target_record_id,relation_type) DO NOTHING RETURNING *",[id,scope.organizationId,scope.workspaceId,applicationId,source.id,target.id,contract.relationType,actorId,now])).rows[0],row=inserted??(await client.query("SELECT * FROM business_record_relation WHERE organization_id=$1 AND workspace_id=$2 AND source_record_id=$3 AND target_record_id=$4 AND relation_type=$5",[scope.organizationId,scope.workspaceId,source.id,target.id,contract.relationType])).rows[0];
+      if(inserted)await client.query("INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,actor_id,payload,created_at) VALUES($1,$2,$3,'business.record.related',$4,$5,$6,$7,$8,$9,$10)",[randomUUID(),scope.organizationId,scope.workspaceId,applicationId,source.object_type,source.id,source.version,actorId,{relationId:row.id,relationType:contract.relationType,targetRecordId:target.id,targetDisplayKey:target.display_key},now]);
+      return {...this.presentRelation({...row,source_object_type:source.object_type,source_display_key:source.display_key,source_title:source.title,source_status:source.status,target_object_type:target.object_type,target_display_key:target.display_key,target_title:target.title,target_status:target.status},source.id),label:contract.label};
+    });
   }
 
   async requestApproval(applicationId, recordId, input, actor = {}) {

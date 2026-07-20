@@ -28,15 +28,17 @@
     { "id": "ea-012-business-details-and-approvals", "title": "Domain record details, version-bound approvals, approval inbox and source-backed operational reports", "completed": true },
     { "id": "ea-013-runner-human-control", "title": "Versioned human takeover, pause, resume, reassignment and recovery controls for Agent work", "completed": true },
     { "id": "ea-014-enterprise-acceptance", "title": "Role-by-role business acceptance and production evidence pack", "completed": true },
-    { "id": "ea-015-role-uat", "title": "Authenticated role UAT and deeper business transactions for each independent application", "completed": false }
+    { "id": "ea-015-business-chains", "title": "Typed, scoped and auditable record chains for each independent business application", "completed": true },
+    { "id": "ea-016-role-uat", "title": "Authenticated browser UAT with named business roles", "completed": false }
   ],
   "next_recommended_action": {
-    "title": "Deepen each independent business application and run authenticated role UAT",
-    "reason": "EA-014 now proves six isolated role workflows, tenant scope, restart persistence, My Work, shared-Kernel execution, finance approval replay protection and cockpit aggregation. The next phase must add richer domain transactions and verify the actual browser experience with named authenticated roles.",
+    "title": "Run authenticated browser UAT and continue domain transaction depth",
+    "reason": "EA-015 now persists and renders six typed upstream/downstream business chains with scope isolation, idempotency, audit and PostgreSQL restart evidence. The next release gate is actual browser completion by named roles, followed by deeper application-specific transactions.",
     "target_project": "anksen-agent-studio",
     "target_packages": ["packages/domain-center", "packages/orchestrator-core", "apps/console"],
     "expected_files": [
       "packages/domain-center/lib/business-object-definitions.mjs",
+      "packages/domain-center/lib/business-relation-definitions.mjs",
       "packages/domain-center/lib/postgres-business-application-store.mjs",
       "apps/console/web/render.mjs",
       "apps/console/web/server.mjs",
