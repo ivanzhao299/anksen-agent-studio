@@ -7,12 +7,12 @@ const countBy = (items, key) => items.reduce((result, item) => ({ ...result, [it
 
 export function presentBusinessRecordException(record) {
   const application = assertEnterpriseApplication(record.applicationId);
-  return { id: `record:${record.id}`, type: "BUSINESS_RECORD", applicationId: application.id, applicationName: application.name, objectType: record.objectType, objectId: record.id, displayKey: record.displayKey, title: record.title, status: record.status, reasonCode: `RECORD_${record.status}`, ownerId: record.ownerId, assigneeId: null, agentBlocked: false, href: `${application.path}?record=${record.id}`, updatedAt: record.updatedAt };
+  return { id: `record:${record.id}`, type: "BUSINESS_RECORD", applicationId: application.id, applicationName: application.name, objectType: record.objectType, objectId: record.id, displayKey: record.displayKey, title: record.title, status: record.status, version: record.version, resolutionActions: record.availableTransitions ?? [], reasonCode: `RECORD_${record.status}`, ownerId: record.ownerId, assigneeId: null, agentBlocked: false, href: `${application.path}?record=${record.id}`, updatedAt: record.updatedAt };
 }
 
 export function presentBusinessWorkException(work) {
   const application = assertEnterpriseApplication(work.applicationId), object = work.businessObject;
-  return { id: `work:${work.id}`, type: "WORK_ITEM", applicationId: application.id, applicationName: application.name, objectType: object.objectType, objectId: object.objectId, displayKey: object.displayKey, title: work.title, status: work.status, reasonCode: `WORK_${work.status}`, ownerId: work.delegatedBy, assigneeId: work.assigneeId, assignmentType: work.assignmentType, agentBlocked: work.assignmentType === "AGENT" && work.status === "BLOCKED", href: object.href ?? `${application.path}?record=${object.objectId}`, updatedAt: work.updatedAt };
+  return { id: `work:${work.id}`, type: "WORK_ITEM", workItemId: work.id, applicationId: application.id, applicationName: application.name, objectType: object.objectType, objectId: object.objectId, displayKey: object.displayKey, title: work.title, status: work.status, version: work.version, resolutionActions: work.status === "BLOCKED" ? ["RETRY", ...(work.assignmentType === "AGENT" ? ["TAKE_OVER"] : [])] : [], reasonCode: `WORK_${work.status}`, ownerId: work.delegatedBy, assigneeId: work.assigneeId, assignmentType: work.assignmentType, agentBlocked: work.assignmentType === "AGENT" && work.status === "BLOCKED", href: object.href ?? `${application.path}?record=${object.objectId}`, updatedAt: work.updatedAt };
 }
 
 export function businessExceptionResult(items, generatedAt, source) {

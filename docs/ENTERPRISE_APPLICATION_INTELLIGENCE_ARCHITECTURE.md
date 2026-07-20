@@ -95,6 +95,8 @@ Application operational reports aggregate persisted relationship counts and rela
 
 The API derives its application allowlist from server-side RBAC route access and then applies organization and workspace scope in the store. Clients cannot request visibility into another application or tenant. This projection does not infer severity from task counts, expose Kernel leases or fencing values, or invent commercial and financial outcomes.
 
+Exception resolution reuses the conventional application's declared lifecycle and the shared work-control protocol. The exception contract returns the exact object/work version and only the legal next actions already declared by that object. Users open the authoritative record to correct or advance it; blocked work is retried or taken over through version-CAS work control. Successful resolution writes the normal business audit event and removes the item from the exception projection. There is no generic “close exception” mutation and no parallel exception state machine.
+
 ## Named business roles
 
 Strategy, HR, finance, sales, manufacturing, and Smart Park operators have separate least-privilege roles. Each role can open only its own application and My Work, create and transition its formal records, establish allowed business chains, request approvals, and delegate LOW-risk work to the shared Planner. These conventional MEDIUM-risk lifecycle actions are allowed, but approval decisions, Runtime execution control, development commit, release, deployment, credentials, and access administration remain denied unless separately granted.

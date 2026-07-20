@@ -91,7 +91,7 @@ test("PostgreSQL business store is scoped, transactional, idempotent and restart
     await pool.query("UPDATE business_application_record SET status='REJECTED' WHERE id=$1",[record.id]);
     await pool.query("UPDATE business_work_item SET status='BLOCKED',assignment_type='AGENT' WHERE id=$1",[first.id]);
     const exceptions=await restarted.businessExceptions({...scope,applicationIds:["finance-platform"]});
-    assert.equal(exceptions.summary.total,2);assert.equal(exceptions.summary.records,1);assert.equal(exceptions.summary.workItems,1);assert.equal(exceptions.summary.agentBlocked,1);assert.ok(exceptions.items.every(item=>item.href===`/finance?record=${record.id}`));
+    assert.equal(exceptions.summary.total,2);assert.equal(exceptions.summary.records,1);assert.equal(exceptions.summary.workItems,1);assert.equal(exceptions.summary.agentBlocked,1);assert.ok(exceptions.items.every(item=>item.href===`/finance?record=${record.id}`));assert.deepEqual(exceptions.items.find(item=>item.type==="BUSINESS_RECORD").resolutionActions,["DRAFT"]);assert.deepEqual(exceptions.items.find(item=>item.type==="WORK_ITEM").resolutionActions,["RETRY","TAKE_OVER"]);
     assert.equal((await restarted.businessExceptions({...scope,applicationIds:["smart-park"]})).summary.total,0);
     assert.equal((await restarted.businessExceptions({organizationId:"other-org",workspaceId:scope.workspaceId,applicationIds:["finance-platform"]})).summary.total,0);
   } finally {
