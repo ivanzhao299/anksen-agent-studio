@@ -9,6 +9,8 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "product:readiness": "node packages/orchestrator-core/bin/product-readiness.mjs",
     "software-domain:smoke": "node packages/software-engineering-domain/bin/software-domain-smoke.mjs",
+    "domain-workflow:postgres:smoke": "node packages/domain-center/bin/domain-workflow-postgres-smoke.mjs",
+    "domain-runner:start": "node packages/domain-center/bin/domain-runner.mjs",
     "lint:check": "node packages/orchestrator-core/bin/studio.mjs lint-check",
     "night-shift:smoke": "node packages/orchestrator-core/bin/night-shift-smoke.mjs",
     "night-shift:postgres:smoke": "node packages/orchestrator-core/bin/night-shift-postgres.mjs smoke",

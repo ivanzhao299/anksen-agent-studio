@@ -2,7 +2,7 @@ import { consoleWebRoutes } from "./routes.mjs";
 import { buildConsoleDashboardModel, loadConsoleLocalData } from "./data.mjs";
 import { getConsoleMessages } from "./i18n/index.mjs";
 import { evaluateConsoleRouteAccess, visibleConsoleRouteIds } from "../../../packages/access-center/lib/access-center-utils.mjs";
-import { domainCenterSummary } from "../../../packages/domain-center/lib/domain-center.mjs";
+import { domainCenterSummary, loadDomainRuntimeRegistry } from "../../../packages/domain-center/lib/domain-center.mjs";
 
 const messages = getConsoleMessages();
 
@@ -1683,6 +1683,12 @@ function shell(content, activeId, model, data, auth = {}) {
     .domain-card h3 { margin:18px 0 2px; font-size:20px; }
     .domain-card small { color:#718096; }
     .domain-card p { color:var(--muted); line-height:1.65; }
+    .domain-owner { margin:4px 0 12px; padding:10px 12px; border-radius:9px; background:rgba(255,255,255,.025); }
+    .domain-owner span { display:block; color:#718096; font-size:11px; }
+    .domain-owner strong { display:block; margin-top:3px; color:#c9d2df; font-size:12px; }
+    .domain-bindings { display:grid; gap:5px; }
+    .domain-binding { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:11px; color:#8793a5; }
+    .domain-binding strong { font-size:10px; font-weight:700; }
     .domain-skills { display:flex; flex-wrap:wrap; gap:6px; }
     .domain-skills span { padding:5px 8px; border:1px solid var(--line); border-radius:7px; color:#aab4c4; font-size:11px; }
     .domain-card-foot { margin-top:auto; padding-top:18px; }
@@ -2148,20 +2154,24 @@ function pageDashboard(_model, data) {
   <script>(()=>{const input=document.getElementById('command-goal'),run=document.getElementById('command-run');const openRun=()=>{const goal=input.value.trim();if(!goal){input.focus();return;}const url=new URL('${executionHref}',location.origin);url.searchParams.set('goal',goal);location.href=url.pathname+url.search;};run.addEventListener('click',openRun);input.addEventListener('keydown',event=>{if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();openRun();}});document.querySelectorAll('[data-command-suggestion]').forEach(button=>button.addEventListener('click',()=>{input.value=button.dataset.commandSuggestion;input.focus();}));})();</script>`;
 }
 
-function pageDomains(data) {
+async function pageDomains(data) {
   const center = domainCenterSummary();
+  const runtimeRegistry = await loadDomainRuntimeRegistry();
+  const agents = new Map((runtimeRegistry.agentRegistry.agents ?? []).map(agent=>[agent.agent_id,agent]));
+  const workers = (runtimeRegistry.workerRegistry.workers ?? []).filter(worker=>worker.status==="available");
   const activeProject = data.active_project_id ?? "workspace";
   const cards = center.domains.map(domain => {
-    const tone = domain.maturity === "ACTIVE" ? "pass" : domain.maturity === "FOUNDATION" ? "local" : "pending";
-    const state = domain.maturity === "ACTIVE" ? "可使用" : domain.maturity === "FOUNDATION" ? "基础能力已具备" : "规划中";
+    const tone = domain.maturity === "RUNTIME_BOUND" ? "pass" : "pending";
+    const state = domain.maturity === "RUNTIME_BOUND" ? "运行已绑定" : "部分接线";
     const executionUrl = `${routeHref("/execution",activeProject)}${routeHref("/execution",activeProject).includes("?") ? "&" : "?"}domain=${encodeURIComponent(domain.id)}`;
-    const action = domain.maturity === "ACTIVE" ? `<a class="primary-link" href="${executionUrl}">进入领域</a>` : `<span class="domain-next">${escapeHtml(domain.nextMilestone)}</span>`;
-    return `<article class="domain-card" data-domain="${escapeHtml(domain.id)}"><div class="domain-card-head"><span class="domain-mark">${escapeHtml(domain.icon)}</span><span class="status-label ${tone}">${state}</span></div><h3>${escapeHtml(domain.name)}</h3><small>${escapeHtml(domain.nameEn)}</small><p>${escapeHtml(domain.summary)}</p><div class="domain-skills">${domain.skillTypes.slice(0,3).map(skill=>`<span>${escapeHtml(skill.replaceAll("_"," "))}</span>`).join("")}</div><div class="domain-card-foot">${action}</div></article>`;
+    const action = domain.maturity === "RUNTIME_BOUND" ? `<a class="primary-link" href="${executionUrl}">创建工作流</a>` : `<span class="domain-next">缺口：${escapeHtml(domain.nextMilestone)}</span>`;
+    const agent=agents.get(domain.agentId),bindings=domain.skillTypes.map(skill=>{const worker=workers.find(item=>(item.supported_skills??[]).includes(skill));return`<div class="domain-binding"><span>${escapeHtml(skill.replaceAll("_"," "))}</span><strong class="${worker?"safe":"warn"}">${worker?escapeHtml(worker.worker_id):"BLOCKED"}</strong></div>`;}).join("");
+    return `<article class="domain-card" data-domain="${escapeHtml(domain.id)}"><div class="domain-card-head"><span class="domain-mark">${escapeHtml(domain.icon)}</span><span class="status-label ${tone}">${state}</span></div><h3>${escapeHtml(domain.name)}</h3><small>${escapeHtml(domain.nameEn)}</small><p>${escapeHtml(domain.summary)}</p><div class="domain-owner"><span>责任 Agent</span><strong>${escapeHtml(agent?.agent_id??domain.agentId)} · ${escapeHtml(agent?.display_name??"未注册")}</strong></div><div class="domain-bindings">${bindings}</div><div class="domain-card-foot">${action}</div></article>`;
   }).join("");
-  return `<section class="product-hero domain-hero"><div><span class="eyebrow">Domain Center</span><h2>一个 Studio，覆盖多个专业领域</h2><p>所有领域共享项目、身份、Kernel、Scheduler、Worker、Runtime、审批和报告。领域包只定义专业合同、技能组合和验收标准。</p></div><div class="hero-actions"><a class="primary-link" href="${routeHref("/execution",activeProject)}">新建跨领域目标</a></div></section>
-  <section class="domain-summary"><div><span>领域总数</span><strong>${center.total}</strong></div><div><span>正式可用</span><strong>${center.active}</strong></div><div><span>具备基础</span><strong>${center.foundation}</strong></div><div><span>规划中</span><strong>${center.planned}</strong></div></section>
-  <section><div class="section-head"><div><h2>专业领域</h2><p>直接选择领域，或在首页输入目标让 Studio 自动识别。</p></div><span class="pill">Single control plane</span></div><div class="domain-grid">${cards}</div></section>
-  <section class="panel domain-architecture"><div><span class="eyebrow">统一运行架构</span><h2>Domain Pack 不是独立应用</h2><p>领域选择只改变专业规划和验收方式，不复制底层平台。跨领域 Goal 可以组合多个 Pack，并继续形成一张统一 Task Graph。</p></div><div class="domain-flow"><span>Goal</span><i>→</i><span>Domain Router</span><i>→</i><span>Domain Pack</span><i>→</i><span>Shared Kernel</span><i>→</i><span>Report</span></div></section>`;
+  return `<section class="product-hero domain-hero"><div><span class="eyebrow">Workflow Runtime</span><h2>应用工作流中心</h2><p>这里展示历史中真实定义的 Agent Lane，以及 Skill、Agent、Runtime、Worker 是否已经完成运行绑定。未接通的能力会明确阻塞。</p></div><div class="hero-actions"><a class="primary-link" href="${routeHref("/execution",activeProject)}">新建长期目标</a></div></section>
+  <section class="domain-summary"><div><span>真实 Agent Lane</span><strong>${center.total}</strong></div><div><span>运行已绑定</span><strong>${center.runtimeBound}</strong></div><div><span>已注册 Runner</span><strong>${workers.length}</strong></div><div><span>统一控制平面</span><strong>1</strong></div></section>
+  <section><div class="section-head"><div><h2>应用范围与 Agent 分工</h2><p>Goal 会被编译为多阶段 Workflow，每个 Task 都必须绑定 Skill、Agent、Runtime 和 Worker。</p></div><span class="pill">Registry backed</span></div><div class="domain-grid">${cards}</div></section>
+  <section class="panel domain-architecture"><div><span class="eyebrow">功能驱动内核</span><h2>不是功能清单，而是可执行绑定</h2><p>Workflow Compiler 从真实 Registry 解析 Skill 和 Agent，再按在线能力选择 Worker。完整图进入同一个持久化 Kernel，Scheduler 可持续派发和恢复。</p></div><div class="domain-flow"><span>Goal</span><i>→</i><span>Skills</span><i>→</i><span>Agents</span><i>→</i><span>Workers</span><i>→</i><span>Kernel</span></div></section>`;
 }
 
 function pageProjects(data) {

@@ -1,4 +1,4 @@
-export type DomainMaturity = "ACTIVE" | "FOUNDATION" | "PLANNED";
+export type DomainMaturity = "RUNTIME_BOUND" | "PARTIAL";
 
 export interface StudioDomainDescriptor {
   readonly id: string;

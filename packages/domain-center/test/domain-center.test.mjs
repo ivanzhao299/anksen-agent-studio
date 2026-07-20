@@ -1,32 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { domainCenterSummary, getStudioDomain, routeStudioDomain, studioDomains } from "../lib/domain-center.mjs";
+import { SmokeKernelFixture } from "../../orchestrator-core/lib/night-shift-smoke.mjs";
+import { compileDomainWorkflow, domainCenterSummary, DomainWorkflowService, getStudioDomain, loadDomainRuntimeRegistry, routeStudioDomain, studioDomains } from "../lib/domain-center.mjs";
 import { renderConsolePage } from "../../../apps/console/web/render.mjs";
 import { consoleWebRoutes } from "../../../apps/console/web/routes.mjs";
 
-test("catalog exposes ten unique packs over one control plane without claiming all are implemented", () => {
-  assert.equal(studioDomains.length,10);
-  assert.equal(new Set(studioDomains.map(item=>item.id)).size,10);
-  assert.deepEqual(domainCenterSummary(),{...domainCenterSummary(),schemaVersion:1,total:10,active:1,foundation:7,planned:2,singleControlPlane:true});
-  assert.equal(getStudioDomain("software-engineering").maturity,"ACTIVE");
-});
+const registry=await loadDomainRuntimeRegistry();
 
-test("explicit selection wins and unknown explicit domains fail closed", () => {
-  assert.equal(routeStudioDomain("生成报告",{explicitDomainId:"quality-security"}).domainId,"quality-security");
-  assert.throws(()=>routeStudioDomain("goal",{explicitDomainId:"unknown"}),error=>error.code==="DOMAIN_NOT_FOUND");
-});
-
-test("goal routing is deterministic and reports uncertainty", () => {
-  assert.equal(routeStudioDomain("开发 iOS Swift 移动端应用").domainId,"mobile-engineering");
-  assert.equal(routeStudioDomain("分析 ERP 指标并生成 BI 报表").domainId,"data-analytics");
-  assert.equal(routeStudioDomain("整理一个目标").source,"FALLBACK");
-});
-
-test("one Console exposes the Domain Center and all ten packs", async () => {
-  assert.ok(consoleWebRoutes.some(route=>route.id==="domains"&&route.path==="/domains"));
-  const html=await renderConsolePage("/domains",{authenticated:true,capabilities:["*"],project_allowlist:["*"]});
-  assert.match(html,/一个 Studio，覆盖多个专业领域/);
-  assert.equal((html.match(/class="domain-card"/g)??[]).length,10);
-  assert.match(html,/software-engineering/);
-  assert.match(html,/基础能力已具备/);
-});
+test("catalog restores the five historical Agent lanes instead of inferred industry cards",()=>{assert.equal(studioDomains.length,5);assert.equal(new Set(studioDomains.map(item=>item.agentId)).size,5);assert.equal(domainCenterSummary().sourceOfTruth,"agent-registry");assert.equal(getStudioDomain("iot-operations").agentId,"agent-3");});
+test("explicit selection wins and unknown application workflows fail closed",()=>{assert.equal(routeStudioDomain("生成报告",{explicitDomainId:"validation-finance"}).domainId,"validation-finance");assert.throws(()=>routeStudioDomain("goal",{explicitDomainId:"unknown"}),error=>error.code==="DOMAIN_NOT_FOUND");});
+test("workflow compiler binds every task to a real skill, agent, runtime, and worker",()=>{const workflow=compileDomainWorkflow("优化仪表盘页面并完成测试",registry,{goalId:"ui-goal"});assert.equal(workflow.domain.id,"experience-access");assert.equal(workflow.status,"READY");assert.deepEqual(workflow.assignments.map(item=>item.agentId),["agent-5","agent-4","agent-2","agent-1"]);assert.ok(workflow.assignments.every(item=>item.skillType&&item.runtimeId&&item.workerKey&&item.workerMode==="ON_DEMAND"));assert.equal(workflow.tasks.length,4);assert.equal(workflow.dependencies.length,3);});
+test("missing online skill capacity blocks compilation instead of claiming readiness",()=>{const workflow=compileDomainWorkflow("生成财务 Excel 统计报表",registry,{goalId:"finance-goal"});assert.equal(workflow.primarySkill.skillType,"spreadsheet_analysis");assert.equal(workflow.status,"BLOCKED");assert.ok(workflow.blockedReasons.includes("NO_WORKER_FOR_SKILL:spreadsheet_analysis"));});
+test("workflow submits the bound graph through the existing persistent Kernel port",async()=>{const kernel=new SmokeKernelFixture(),goal={id:"ui-goal",title:"优化仪表盘页面并完成测试"};kernel.createGoal(goal);const result=await new DomainWorkflowService({kernel,registry}).compileAndSubmit(goal.title,{goalId:goal.id});assert.ok(result.submission.id);assert.equal(kernel.goalTasks(goal.id).length,4);assert.ok(kernel.goalTasks(goal.id).every(task=>task.metadata.agentId&&task.metadata.skillType&&task.metadata.workerKey));});
+test("one Console exposes only the recovered executable application lanes",async()=>{assert.ok(consoleWebRoutes.some(route=>route.id==="domains"&&route.path==="/domains"));const html=await renderConsolePage("/domains",{authenticated:true,capabilities:["*"],project_allowlist:["*"]});assert.match(html,/应用工作流中心/);assert.equal((html.match(/class="domain-card"/g)??[]).length,5);assert.doesNotMatch(html,/十个专业领域/);});
