@@ -206,6 +206,54 @@ const definitions = Object.freeze({
       fields: [field("productCode", "产品/物料", "text", { required: true }), field("batch", "批次", "text", { required: true }), field("severity", "严重度", "select", { required: true, options: ["一般", "重大", "关键"] }), field("detectedAt", "发现日期", "date", { required: true }), field("defect", "缺陷描述", "textarea", { required: true })],
       transitions: { DRAFT: ["OPEN"], OPEN: ["CONTAINMENT", "BLOCKED"], CONTAINMENT: ["ROOT_CAUSE"], ROOT_CAUSE: ["WAITING_APPROVAL", "CONTAINMENT"], WAITING_APPROVAL: ["CAPA", "ROOT_CAUSE"], CAPA: ["VERIFICATION"], VERIFICATION: ["COMPLETED", "CAPA"] },
       workflowGoal: (record) => `分析质量事件“${record.title}”的遏制措施、根因、CAPA 和批次影响范围。`
+    }),
+    sales_order: definition({
+      label: "销售订单", workflowDomainId: "manufacturing-sales-crm",
+      fields: [field("orderNo", "订单编号", "text", { required: true }), field("customerName", "客户", "text", { required: true }), field("productCode", "产品编码", "text", { required: true }), field("quantity", "订单数量", "number", { required: true, min: 1 }), field("requestedDate", "客户交期", "date", { required: true }), field("amount", "订单金额", "number", { required: true, min: 0 }), field("currency", "币种", "select", { required: true, options: ["CNY", "USD", "EUR"] })],
+      transitions: { DRAFT: ["VALIDATING"], VALIDATING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "VALIDATING"], APPROVED: ["ACTIVE"], ACTIVE: ["FULFILLED", "CANCELLED"] },
+      workflowGoal: (record) => `检查制造销售订单“${record.title}”的客户需求、产品、数量、交期和履约风险。`
+    }),
+    sop_plan: definition({
+      label: "产销协同计划", workflowDomainId: "sales-operations-planning",
+      fields: [field("planningPeriod", "计划周期", "text", { required: true }), field("productFamily", "产品族", "text", { required: true }), field("demandQuantity", "需求量", "number", { required: true, min: 0 }), field("supplyQuantity", "供应能力", "number", { required: true, min: 0 }), field("inventoryTarget", "库存目标", "number", { required: true, min: 0 }), field("evidenceAsOf", "数据截止日", "date", { required: true }), field("evidenceRef", "供需证据编号", "text", { required: true })],
+      transitions: { DRAFT: ["BALANCING"], BALANCING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "BALANCING"], APPROVED: ["ACTIVE"], ACTIVE: ["COMPLETED", "SUPERSEDED"] },
+      workflowGoal: (record) => `分析产销计划“${record.title}”的需求、供应、库存和产能差距，不自动承诺客户交期。`
+    }),
+    purchase_requisition: definition({
+      label: "采购申请", workflowDomainId: "mrp-procurement",
+      fields: [field("materialCode", "物料编码", "text", { required: true }), field("requiredQuantity", "需求数量", "number", { required: true, min: 0.001 }), field("unit", "单位", "text", { required: true }), field("requiredDate", "需求日期", "date", { required: true }), field("plant", "需求工厂", "text", { required: true }), field("mrpRunRef", "MRP 运算编号", "text", { required: true }), field("budgetRef", "预算编号", "text", { required: true })],
+      transitions: { DRAFT: ["MRP_REVIEW"], MRP_REVIEW: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "MRP_REVIEW"], APPROVED: ["RELEASED"], RELEASED: ["ORDERED", "CANCELLED"], ORDERED: ["RECEIVED"] },
+      workflowGoal: (record) => `审核采购申请“${record.title}”的 MRP 来源、数量、需求日期、预算与库存风险。`
+    }),
+    supplier: definition({
+      label: "供应商", workflowDomainId: "supplier-management",
+      fields: [field("supplierCode", "供应商编码", "text", { required: true }), field("creditCode", "统一社会信用代码", "text", { required: true }), field("category", "供应类别", "text", { required: true }), field("qualityScore", "质量评分", "number", { required: true, min: 0, max: 100 }), field("deliveryScore", "交付评分", "number", { required: true, min: 0, max: 100 }), field("qualificationRef", "资质证据编号", "text", { required: true }), field("validUntil", "资质有效期", "date", { required: true })],
+      transitions: { DRAFT: ["QUALIFYING"], QUALIFYING: ["WAITING_APPROVAL", "REJECTED"], WAITING_APPROVAL: ["APPROVED", "QUALIFYING"], APPROVED: ["ACTIVE"], ACTIVE: ["SUSPENDED", "INACTIVE"], SUSPENDED: ["ACTIVE", "INACTIVE"] },
+      workflowGoal: (record) => `检查供应商“${record.title}”的资质、质量、交付和有效期，形成准入或复审建议。`
+    }),
+    shop_floor_execution: definition({
+      label: "车间执行记录", workflowDomainId: "mes-shop-floor",
+      fields: [field("workOrderRef", "生产工单编号", "text", { required: true }), field("operationCode", "工序编号", "text", { required: true }), field("workCenter", "工作中心", "text", { required: true }), field("plannedQuantity", "计划数量", "number", { required: true, min: 1 }), field("completedQuantity", "完工数量", "number", { required: true, min: 0 }), field("scrapQuantity", "报废数量", "number", { required: true, min: 0 }), field("operatorShift", "班次", "text", { required: true }), field("evidenceRef", "报工证据编号", "text", { required: true })],
+      transitions: { DRAFT: ["RUNNING"], RUNNING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "RUNNING"], APPROVED: ["COMPLETED"] },
+      workflowGoal: (record) => `核验车间执行“${record.title}”的工单、工序、产量、报废和报工证据。`
+    }),
+    maintenance_order: definition({
+      label: "设备维护工单", workflowDomainId: "equipment-maintenance",
+      fields: [field("equipmentCode", "设备编号", "text", { required: true }), field("maintenanceType", "维护类型", "select", { required: true, options: ["点检", "保养", "维修", "校准"] }), field("failureCode", "故障编码", "text"), field("scheduledDate", "计划日期", "date", { required: true }), field("responsibleTeam", "责任团队", "text", { required: true }), field("safetyPermitRef", "安全许可编号", "text", { required: true }), field("completionEvidenceRef", "完工证据编号", "text")],
+      transitions: { DRAFT: ["PLANNED"], PLANNED: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "PLANNED"], APPROVED: ["IN_PROGRESS"], IN_PROGRESS: ["COMPLETED", "BLOCKED"] },
+      workflowGoal: (record) => `检查设备维护“${record.title}”的计划、安全许可、故障与完工证据，不远程控制设备。`
+    }),
+    manufacturing_cost: definition({
+      label: "制造成本核算", workflowDomainId: "manufacturing-costing",
+      fields: [field("costPeriod", "成本期间", "text", { required: true }), field("productCode", "产品编码", "text", { required: true }), field("plant", "工厂", "text", { required: true }), field("materialCost", "材料成本", "number", { required: true, min: 0 }), field("laborCost", "人工成本", "number", { required: true, min: 0 }), field("overheadCost", "制造费用", "number", { required: true, min: 0 }), field("quantity", "完工数量", "number", { required: true, min: 0.001 }), field("ledgerRef", "财务凭证编号", "text", { required: true })],
+      transitions: { DRAFT: ["CALCULATING"], CALCULATING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "CALCULATING"], APPROVED: ["POSTED"], POSTED: ["COMPLETED"] },
+      workflowGoal: (record) => `核对制造成本“${record.title}”的材料、人工、制造费用、产量和财务凭证，不自动过账。`
+    }),
+    traceability_review: definition({
+      label: "生产追溯复盘", workflowDomainId: "manufacturing-traceability-cockpit",
+      fields: [field("batch", "生产批次", "text", { required: true }), field("productCode", "产品编码", "text", { required: true }), field("productionDate", "生产日期", "date", { required: true }), field("materialBatchRefs", "原料批次引用", "textarea", { required: true }), field("workOrderRef", "生产工单编号", "text", { required: true }), field("qualityEvidenceRef", "质量证据编号", "text", { required: true }), field("shipmentRef", "出货编号", "text", { required: true })],
+      transitions: { DRAFT: ["TRACING"], TRACING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["APPROVED", "TRACING"], APPROVED: ["COMPLETED"] },
+      workflowGoal: (record) => `复核生产追溯“${record.title}”从原料、工单、质量到出货的证据链和缺口。`
     })
   }),
   "smart-park-platform": Object.freeze({
