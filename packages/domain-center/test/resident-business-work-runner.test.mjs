@@ -16,6 +16,13 @@ test("resident business runner resumes persisted work and isolates item failures
   await runner.tick();await runner.tick();assert.deepEqual(completed,["work-2"]);assert.deepEqual(errors,[["CONTROLLED_FAILURE","work-1"]]);assert.equal(runner.snapshot().failed,1);assert.equal(runner.snapshot().completed,1);assert.equal(runner.snapshot().active,0);assert.equal(runner.snapshot().deferred,1);
 });
 
+test("resident runner fails closed and honors persistent drain control",async()=>{
+  let desiredState="DRAINING",scans=0,executions=0,stopped=0;const registry={register:async()=>({status:"DRAINING",desiredState,version:1,lastHeartbeatAt:new Date().toISOString()}),heartbeat:async()=>({status:desiredState,desiredState,version:2,lastHeartbeatAt:new Date().toISOString()}),stop:async()=>{stopped+=1;return{status:"OFFLINE",desiredState,version:3};}},store={runnableAgentWorkItems:async()=>{scans+=1;return[{id:"governed-work"}];}};
+  const runner=new ResidentBusinessWorkRunner({store,executeWork:async()=>{executions+=1;},nodeRegistry:registry,nodeKey:"runner:test"});
+  await runner.tick();assert.equal(scans,0);assert.equal(executions,0);assert.equal(runner.snapshot().desiredState,"DRAINING");desiredState="ONLINE";await runner.tick();assert.equal(scans,1);assert.equal(executions,1);await runner.stop();assert.equal(stopped,1);
+  const denied=new ResidentBusinessWorkRunner({store,executeWork:async()=>{executions+=1;},nodeRegistry:{register:async()=>{throw Object.assign(new Error("database unavailable"),{code:"REGISTRY_DOWN"});}},nodeKey:"runner:down"});await denied.tick();assert.equal(scans,1);assert.equal(denied.snapshot().lastError.code,"REGISTRY_DOWN");
+});
+
 test("two resident runners execute one persisted business session exactly once after restart",async()=>{
   await ensurePostgresFixture();const pool=createTestPool(),suffix=randomUUID(),scope={organizationId:`resident-org-${suffix}`,workspaceId:`resident-workspace-${suffix}`,projectId:"resident-project",userId:"finance-user"};
   try{

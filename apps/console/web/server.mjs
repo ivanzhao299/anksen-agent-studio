@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { hostname } from "node:os";
 import { fileURLToPath } from "node:url";
 import {
   createAccessInvite,
@@ -19,6 +20,7 @@ import { migrate } from "../../../packages/orchestrator-core/lib/persistent-nigh
 import { domainCenterSummary, loadDomainRuntimeRegistry } from "../../../packages/domain-center/lib/domain-center.mjs";
 import { PersistentDomainWorkflowService } from "../../../packages/domain-center/lib/persistent-domain-workflow.mjs";
 import { ResidentBusinessWorkRunner } from "../../../packages/domain-center/lib/resident-business-work-runner.mjs";
+import { PostgresBusinessRunnerRegistry } from "../../../packages/domain-center/lib/business-runner-registry.mjs";
 import { PersistentBusinessWorkExecutor } from "../../../packages/domain-center/lib/persistent-business-work-executor.mjs";
 import { AutonomousPortfolioService } from "../../../packages/domain-center/lib/autonomous-portfolio.mjs";
 import { BusinessOutcomeCenter } from "../../../packages/domain-center/lib/business-outcome-center.mjs";
@@ -83,7 +85,9 @@ const enqueueBusinessWork = async ({ app, record, item, actor }) => {
   }finally{if(pool&&ownsPool)await pool.end();}
 };
 const businessWorkExecutor=new PersistentBusinessWorkExecutor({store:businessApplicationStore,registry:portfolioRegistry,acquirePool:acquireWorkflowPool});
-const businessWorkRunner=new ResidentBusinessWorkRunner({store:businessApplicationStore,pool:businessRuntime.pool,executeWork:item=>businessWorkExecutor.execute(item),pollMs:Number(process.env.BUSINESS_RUNNER_POLL_MS??1000),concurrency:Number(process.env.BUSINESS_RUNNER_CONCURRENCY??2),onError:(error,item)=>console.error("Business runner error",item?.id??"unknown",error?.code??error?.message??error)});
+const businessRunnerRegistry=businessRuntime.pool?new PostgresBusinessRunnerRegistry({pool:businessRuntime.pool,offlineAfterMs:Number(process.env.BUSINESS_RUNNER_OFFLINE_AFTER_MS??15000)}):null;
+const businessRunnerNodeKey=process.env.BUSINESS_RUNNER_NODE_KEY??`studio-console:${hostname()}`;
+const businessWorkRunner=new ResidentBusinessWorkRunner({store:businessApplicationStore,pool:businessRuntime.pool,executeWork:item=>businessWorkExecutor.execute(item),pollMs:Number(process.env.BUSINESS_RUNNER_POLL_MS??1000),concurrency:Number(process.env.BUSINESS_RUNNER_CONCURRENCY??2),nodeRegistry:businessRunnerRegistry,nodeKey:businessRunnerNodeKey,onError:(error,item)=>console.error("Business runner error",item?.id??"unknown",error?.code??error?.message??error)});
 const dispatchPortfolioInitiative = async ({ campaign, initiative }) => {
   const { pool, ownsPool } = await acquireWorkflowPool();
   try {
@@ -396,7 +400,8 @@ const server = createServer(async (request, response) => {
     if (request.method === "GET" && pathname === "/api/work") {
       const access=evaluateConsoleRouteAccess("work",accessContext);if(!access.allowed){sendJson(response,403,access);return;}
       const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"},capabilities=accessContext.capabilities??[],canApprove=capabilities.some(value=>value==="*"||value==="proposal.approve"),canControl=capabilities.some(value=>value==="*"||value==="business.work.control"),canManage=capabilities.some(value=>value==="*"||value==="business.manage"),work=await businessApplicationStore.myWork({...scope,userId:accessContext.user?.user_id,includeAll:canManage,applicationId:url.searchParams.get("applicationId")}),visibleApplicationIds=enterpriseApplicationSummary().applications.filter(app=>evaluateConsoleRouteAccess(app.routeId,accessContext).allowed).map(app=>app.id),approvals=canApprove?(await businessApplicationStore.approvalInbox(scope)).filter(item=>visibleApplicationIds.includes(item.applicationId)):[];
-      sendJson(response,200,{...work,items:work.items.map(item=>({...item,execution:item.execution??projectBusinessWorkExecution({workItem:item})})),approvals,canApprove,canControl,canManage,runner:businessWorkRunner.snapshot(),summary:{...work.summary,pendingApprovals:approvals.length},backend:businessRuntime.backend});
+      const runnerFleet=canManage&&businessRunnerRegistry?await businessRunnerRegistry.dashboard():null;
+      sendJson(response,200,{...work,items:work.items.map(item=>({...item,execution:item.execution??projectBusinessWorkExecution({workItem:item})})),approvals,canApprove,canControl,canManage,runner:businessWorkRunner.snapshot(),runnerFleet,summary:{...work.summary,pendingApprovals:approvals.length},backend:businessRuntime.backend});
       return;
     }
     const businessRecords=pathname.match(/^\/api\/business\/applications\/([^/]+)\/records$/);
@@ -426,6 +431,11 @@ const server = createServer(async (request, response) => {
     if(request.method==="POST"&&businessTransition){const applicationId=decodeURIComponent(businessTransition[1]),app=getEnterpriseApplication(applicationId);if(!app){sendJson(response,404,{status:"APPLICATION_NOT_FOUND"});return;}const routeAccess=evaluateConsoleRouteAccess(app.routeId,accessContext);if(!routeAccess.allowed){sendJson(response,403,routeAccess);return;}const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-record-transition",risk:"MEDIUM"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}try{sendJson(response,200,await businessApplicationStore.transitionRecord(app.id,decodeURIComponent(businessTransition[2]),await readJsonBody(request),{organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace",userId:accessContext.user?.user_id}));}catch(error){sendJson(response,409,{status:error.code??"BUSINESS_TRANSITION_FAILED",reason:error.message});}return;}
     const businessWork=pathname.match(/^\/api\/business\/applications\/([^/]+)\/work$/);
     const businessWorkControl=pathname.match(/^\/api\/business\/work\/([^/]+)\/control$/);
+    const businessRunnerControl=pathname.match(/^\/api\/business\/runners\/([^/]+)\/control$/);
+    if(request.method==="GET"&&pathname==="/api/business/runners"){
+      const routeAccess=evaluateConsoleRouteAccess("work",accessContext),capabilities=accessContext.capabilities??[],canManage=capabilities.some(value=>value==="*"||value==="business.manage");if(!routeAccess.allowed||!canManage){sendJson(response,403,{status:"BUSINESS_RUNNER_ACCESS_DENIED"});return;}if(!businessRunnerRegistry){sendJson(response,503,{status:"BUSINESS_RUNNER_REGISTRY_UNAVAILABLE"});return;}sendJson(response,200,await businessRunnerRegistry.dashboard());return;
+    }
+    if(request.method==="POST"&&businessRunnerControl){const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-runner-control",risk:"MEDIUM"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}if(!businessRunnerRegistry){sendJson(response,503,{status:"BUSINESS_RUNNER_REGISTRY_UNAVAILABLE"});return;}try{const body=await readJsonBody(request),nodeKey=decodeURIComponent(businessRunnerControl[1]),node=await businessRunnerRegistry.control(nodeKey,{desiredState:body.desiredState,expectedVersion:body.expectedVersion,actorId:accessContext.user?.user_id});if(nodeKey===businessRunnerNodeKey&&node.desiredState==="ONLINE")businessWorkRunner.wake();sendJson(response,200,{node});}catch(error){sendJson(response,error.code==="BUSINESS_RUNNER_NODE_NOT_FOUND"?404:409,{status:error.code??"BUSINESS_RUNNER_CONTROL_FAILED",reason:error.message});}return;}
     if(request.method==="POST"&&businessWorkControl){const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-work-control",risk:"MEDIUM"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}try{const body=await readJsonBody(request),capabilities=accessContext.capabilities??[],actor={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace",userId:accessContext.user?.user_id,canManageBusiness:capabilities.some(value=>value==="*"||value==="business.manage")},item=await businessApplicationStore.controlWorkItem(decodeURIComponent(businessWorkControl[1]),body,actor);let execution=null;if(item.assignmentType==="AGENT"&&["RESUME","REASSIGN"].includes(String(body.action??"").toUpperCase())){const app=getEnterpriseApplication(item.applicationId),record=app?await businessApplicationStore.getRecord(app.id,item.businessObject.objectId,actor):null;if(!app||!record)throw Object.assign(new Error("BUSINESS_RECORD_NOT_FOUND"),{code:"BUSINESS_RECORD_NOT_FOUND"});execution=await enqueueBusinessWork({app,record,item,actor});businessWorkRunner.wake();}sendJson(response,200,{item,execution});}catch(error){sendJson(response,409,{status:error.code??"BUSINESS_WORK_CONTROL_FAILED",reason:error.message});}return;}
     if(request.method==="POST"&&businessWork){
       const applicationId=decodeURIComponent(businessWork[1]),app=getEnterpriseApplication(applicationId);if(!app){sendJson(response,404,{status:"APPLICATION_NOT_FOUND"});return;}

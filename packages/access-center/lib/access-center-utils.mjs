@@ -55,6 +55,7 @@ const directExecuteActionIds = new Set([
   "business-approval-decision",
   "business-work-assign",
   "business-work-control",
+  "business-runner-control",
   "identity-owner-bootstrap"
 ]);
 const agentRuntimeIds = new Set([
@@ -93,6 +94,7 @@ const consoleActionCatalog = {
   "business-approval-decision": { capabilities: ["console.access", "business.operate", "proposal.approve"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "business-work-assign": { capabilities: ["console.access", "business.operate", "autopilot.plan"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "business-work-control": { capabilities: ["console.access", "business.operate", "business.work.control"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
+  "business-runner-control": { capabilities: ["console.access", "business.manage", "business.work.control"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "workspace-goal": { capabilities: ["console.access", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "project-dispatch": { capabilities: ["console.access", "project.read", "autopilot.plan"], execution_mode: "dry_run_only", projectScoped: true },
   "agent-real-plan": { capabilities: ["console.access", "agent.runtime.readonly"], execution_mode: "direct_execute", projectScoped: true },

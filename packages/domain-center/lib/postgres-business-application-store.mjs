@@ -115,8 +115,8 @@ export class PostgresBusinessApplicationStore {
   async kernelSessionEvidence(sessionIds,scope) {
     const ids=[...new Set(sessionIds.filter(Boolean))];if(!ids.length)return new Map();
     const available=(await this.pool.query("SELECT to_regclass('ad_night_shift_session') session")).rows[0];if(!available.session)return new Map();
-    const rows=(await this.pool.query("SELECT s.id,s.status,s.scheduler_tick_count,s.worker_claim_count,s.runtime_execution_count,s.error_summary,s.started_at,s.finished_at,s.updated_at FROM ad_night_shift_session s JOIN ad_goal g ON g.id=s.goal_id WHERE s.id=ANY($1::uuid[]) AND g.organization_id=$2 AND g.workspace_id=$3",[ids,scope.organizationId,scope.workspaceId])).rows;
-    return new Map(rows.map(row=>[row.id,{status:row.status,schedulerTickCount:row.scheduler_tick_count,workerClaimCount:row.worker_claim_count,runtimeExecutionCount:row.runtime_execution_count,errorSummary:row.error_summary,startedAt:iso(row.started_at),finishedAt:iso(row.finished_at),updatedAt:iso(row.updated_at)}]));
+    const rows=(await this.pool.query("SELECT s.id,s.status,s.scheduler_tick_count,s.worker_claim_count,s.runtime_execution_count,s.error_summary,s.report,s.started_at,s.finished_at,s.updated_at FROM ad_night_shift_session s JOIN ad_goal g ON g.id=s.goal_id WHERE s.id=ANY($1::uuid[]) AND g.organization_id=$2 AND g.workspace_id=$3",[ids,scope.organizationId,scope.workspaceId])).rows;
+    return new Map(rows.map(row=>[row.id,{status:row.status,schedulerTickCount:row.scheduler_tick_count,workerClaimCount:row.worker_claim_count,runtimeExecutionCount:row.runtime_execution_count,errorSummary:row.error_summary,report:row.report,startedAt:iso(row.started_at),finishedAt:iso(row.finished_at),updatedAt:iso(row.updated_at)}]));
   }
 
   async listRecords(applicationId, options = {}) {

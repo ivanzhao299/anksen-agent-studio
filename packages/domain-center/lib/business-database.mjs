@@ -13,6 +13,7 @@ const businessMigration = resolve(fileURLToPath(new URL("../../orchestrator-core
 const businessApprovalMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/005_business_approvals.up.sql", import.meta.url)));
 const businessWorkControlMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/006_business_work_control.up.sql", import.meta.url)));
 const businessRecordRelationsMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/007_business_record_relations.up.sql", import.meta.url)));
+const businessRunnerNodesMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/008_business_runner_nodes.up.sql", import.meta.url)));
 export const defaultBusinessDatabaseUrlFile = "/opt/anksen/business-data/database-url";
 
 export function resolveBusinessDatabaseUrl(env = process.env) {
@@ -46,6 +47,7 @@ export async function createBusinessApplicationRuntime({ repoRoot, env = process
       await databasePool.query(await readFile(businessApprovalMigration, "utf8"));
       await databasePool.query(await readFile(businessWorkControlMigration, "utf8"));
       await databasePool.query(await readFile(businessRecordRelationsMigration, "utf8"));
+      await databasePool.query(await readFile(businessRunnerNodesMigration, "utf8"));
     }
     return { backend: "POSTGRESQL", pool: databasePool, ownsPool: !pool, store: new PostgresBusinessApplicationStore({ pool: databasePool }) };
   } catch (error) {

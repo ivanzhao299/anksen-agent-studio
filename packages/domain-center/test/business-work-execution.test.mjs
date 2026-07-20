@@ -15,3 +15,9 @@ test("business execution projection derives terminal and fallback phases",()=>{
   assert.equal(projectBusinessWorkExecution({workItem:{assignmentType:"HUMAN",status:"OPEN"}}).phase,"MANUAL");
   assert.equal(projectBusinessWorkExecution({workItem:{assignmentType:"AGENT",status:"OPEN"}}).phase,"AWAITING_DISPATCH");
 });
+
+test("business execution projection exposes only aggregated Morning Report evidence",()=>{
+  const execution=projectBusinessWorkExecution({workItem:{...workItem,status:"COMPLETED",resultRef:"report:1"},tasks:[{taskStatus:"SUCCEEDED"}],session:{status:"SUCCEEDED",errorSummary:[],report:{sessionStatus:"SUCCEEDED",goalStatus:"SUCCEEDED",totalTasks:3,succeededTasks:3,failedTasks:0,blockedTasks:0,attemptCount:3,schedulerTickCount:4,workerClaimCount:3,runtimeExecutionCount:3,startedAt:"2026-07-21T00:00:00.000Z",finishedAt:"2026-07-21T00:01:00.000Z",errorSummary:[{message:"private detail"}]}}});
+  assert.deepEqual(execution.morningReport,{sessionStatus:"SUCCEEDED",goalStatus:"SUCCEEDED",totalTasks:3,succeededTasks:3,failedTasks:0,blockedTasks:0,attemptCount:3,schedulerTickCount:4,workerClaimCount:3,runtimeExecutionCount:3,startedAt:"2026-07-21T00:00:00.000Z",finishedAt:"2026-07-21T00:01:00.000Z",errorCount:1});
+  assert.equal(JSON.stringify(execution).includes("private detail"),false);
+});
