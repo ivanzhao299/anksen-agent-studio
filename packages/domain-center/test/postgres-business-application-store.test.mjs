@@ -12,6 +12,7 @@ import { PersistentNightShiftService } from "../../orchestrator-core/lib/persist
 import { buildBusinessDelegationPreview } from "../lib/business-delegation-preview.mjs";
 import { getEnterpriseApplication } from "../lib/enterprise-applications.mjs";
 import { loadDomainRuntimeRegistry } from "../lib/domain-center.mjs";
+import { attachProfessionalBusinessOutcome, buildBusinessWorkResultSummary } from "../lib/business-work-result.mjs";
 
 const expenseFields = { expenseDate: "2026-07-21", department: "运营中心", category: "采购", amount: 2600, currency: "CNY", budgetCode: "OPS-01", description: "运营物资" };
 
@@ -102,6 +103,14 @@ test("PostgreSQL business store is scoped, transactional, idempotent and restart
   } finally {
     await pool.end();
   }
+});
+
+test("professional result center is scoped, persistent and excludes execution-only evidence",async()=>{
+  await ensurePostgresFixture();const pool=createTestPool(),suffix=randomUUID(),scope={organizationId:`result-org-${suffix}`,workspaceId:`result-workspace-${suffix}`,userId:"finance-user"};
+  try{
+    const store=(await createBusinessApplicationRuntime({repoRoot:process.cwd(),pool})).store,record=await store.createRecord("finance-platform",{objectType:"expense",title:"专业结果投影",displayKey:`RESULT-${suffix}`,fields:expenseFields},scope),work=await store.createWorkItem({applicationId:"finance-platform",businessObjectId:record.id,assignmentType:"AGENT",assigneeId:"finance-control-agent"},scope),summary=attachProfessionalBusinessOutcome(buildBusinessWorkResultSummary({report:{sessionStatus:"SUCCEEDED",totalTasks:1,succeededTasks:1},tasks:[{runtime_type:"CONTROLLED_STUB"}]}),{schemaVersion:1,outcomeType:"FINANCE_EXPENSE_BUDGET_CHECK",runnerId:"finance-expense-rule-runner-v1",skillId:"financial_control_validation",agentId:"finance-control-agent",agentRole:"FINANCE_CONTROL_AGENT",decision:"PASS",checks:[],facts:{budgetDisplayKey:"BUD-SAFE"},recommendation:"SUBMIT_FOR_HUMAN_APPROVAL",limitations:[]});await store.completeWorkflow(work.id,{goalId:null,sessionId:null,report:null,resultSummary:summary,workStatus:"WAITING_APPROVAL",expectedWorkVersion:work.version});
+    const restarted=new PostgresBusinessApplicationStore({pool}),visible=await restarted.professionalResults({...scope,applicationIds:["finance-platform"]}),hidden=await restarted.professionalResults({...scope,applicationIds:["smart-park-platform"]}),foreign=await restarted.professionalResults({...scope,organizationId:`foreign-${suffix}`,applicationIds:["finance-platform"]});assert.equal(visible.total,1);assert.equal(visible.items[0].businessObject.displayKey,record.displayKey);assert.equal(visible.items[0].facts.budgetDisplayKey,"BUD-SAFE");assert.equal(hidden.total,0);assert.equal(foreign.total,0);
+  }finally{await pool.end();}
 });
 
 test("PostgreSQL business record update uses scoped version CAS and immutable lifecycle gates",async()=>{

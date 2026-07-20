@@ -9,6 +9,7 @@ import { businessRecordListResult, normalizeBusinessRecordList } from "./busines
 import { businessDelegationAuditPayload, presentBusinessDelegationProjection } from "./business-delegation-preview.mjs";
 import { projectBusinessWorkExecution } from "./business-work-execution.mjs";
 import { presentBusinessWorkResultSummary } from "./business-work-result.mjs";
+import { professionalResultPage } from "./business-professional-results.mjs";
 
 const terminal = new Set(["COMPLETED", "CANCELLED", "PAID", "ARCHIVED", "TERMINATED", "WRITTEN_OFF"]);
 const scopeOf = (value = {}) => {
@@ -308,6 +309,12 @@ export class PostgresBusinessApplicationStore {
     const planRows=items.length?(await this.pool.query("SELECT work_item_id,payload FROM business_application_event WHERE organization_id=$1 AND workspace_id=$2 AND event_type='business.work.delegation-approved' AND work_item_id=ANY($3::uuid[]) ORDER BY sequence DESC",[scope.organizationId,scope.workspaceId,items.map(item=>item.id)])).rows:[];
     const plans=new Map(planRows.map(row=>[row.work_item_id,presentBusinessDelegationProjection(row.payload)])),evidence=await this.kernelExecutionEvidence(items.map(item=>item.kernelGoalId)),sessions=await this.kernelSessionEvidence(items.map(item=>item.sessionId),scope),projected=items.map(item=>{const tasks=evidence.get(item.kernelGoalId)??[];return{...item,delegationPlan:plans.get(item.id)??null,execution:projectBusinessWorkExecution({workItem:item,tasks,session:sessions.get(item.sessionId)??null})};});
     return { items:projected, summary: { total: projected.length, human: projected.filter((item) => item.assignmentType === "HUMAN").length, agent: projected.filter((item) => item.assignmentType === "AGENT").length, blocked: projected.filter((item) => item.status === "BLOCKED").length, waitingApproval: projected.filter((item) => ["WAITING_APPROVAL", "WAITING_REVIEW"].includes(item.status)).length } };
+  }
+
+  async professionalResults(options={}){
+    const scope=scopeOf(options),applicationIds=[...new Set(options.applicationIds??[])];if(!applicationIds.length)return professionalResultPage([],{...options,applicationIds});
+    const rows=(await this.pool.query("SELECT * FROM business_work_item WHERE organization_id=$1 AND workspace_id=$2 AND application_id=ANY($3::text[]) AND result_summary IS NOT NULL ORDER BY updated_at DESC",[scope.organizationId,scope.workspaceId,applicationIds])).rows;
+    return professionalResultPage(rows.map(row=>this.presentWork(row)),{...options,applicationIds});
   }
 
   async approvalInbox(options = {}) {
