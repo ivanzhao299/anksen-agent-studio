@@ -17,6 +17,7 @@ import { renderConsolePage } from "../../../apps/console/web/render.mjs";
 import { consoleWebRoutes } from "../../../apps/console/web/routes.mjs";
 import { validateGraph } from "../../orchestrator-core/lib/autonomous-kernel/domain.mjs";
 import { compileSmartParkProgram } from "../lib/smart-park-program.mjs";
+import { smartParkDomainChecks } from "../lib/smart-park-audit.mjs";
 
 const registry = await loadDomainRuntimeRegistry();
 
@@ -101,4 +102,13 @@ test("Smart Park completion program is a valid gated long-running DAG", () => {
   assert.ok(program.tasks.every((item) => item.metadata.executionRuntime === "CODEX" && item.metadata.controlledStubCompletionForbidden));
   assert.equal(program.tasks.at(-1).taskKey, "SP-260");
   assert.equal(program.runtimePolicy.allowDeploy, false);
+});
+
+test("SP-000 audit covers every restored Smart Park business domain explicitly", () => {
+  assert.equal(smartParkDomainChecks.length, 16);
+  assert.equal(new Set(smartParkDomainChecks.map((item) => item.id)).size, 16);
+  assert.equal(smartParkDomainChecks.find((item) => item.id === "strategy-execution").status, "MISSING");
+  assert.equal(smartParkDomainChecks.find((item) => item.id === "human-resources").status, "FOUNDATION_ONLY");
+  assert.equal(smartParkDomainChecks.find((item) => item.id === "finance-management").status, "PARTIAL");
+  assert.ok(smartParkDomainChecks.every((item) => (item.required?.length ?? 0) + (item.absent?.length ?? 0) > 0));
 });
