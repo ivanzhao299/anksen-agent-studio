@@ -1,6 +1,6 @@
 # ANKSEN Studio Runtime Handoff
 
-Generated at: 2026-07-20T15:35:00+08:00
+Generated at: 2026-07-20T23:43:00+08:00
 
 ## Product North Star
 
@@ -14,6 +14,7 @@ Business records remain authoritative. Agent Tasks advance or analyse those reco
 - architecture: `docs/ENTERPRISE_APPLICATION_INTELLIGENCE_ARCHITECTURE.md`
 - completed foundation: application registry, independent routes, persona capabilities, BusinessTaskBindingV1, conventional record store, My Work, business-to-Kernel workflow bridge
 - verified thin slice: Finance expense → Workflow → four Kernel tasks → Scheduler → Worker claims → controlled Runtime → review-ready business state
+- release evidence: commits `de4763f` and `0e84d1d` deployed through guarded Office 204 run `29756529313`; public login, Cockpit, My Work, all application endpoints, and MCP readiness returned HTTP 200
 - next stage: deepen each application from the shared conventional shell into its first domain-specific record detail, forms, reports, and write-back workflow
 
 ## Application Endpoints

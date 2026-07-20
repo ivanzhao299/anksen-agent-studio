@@ -20,7 +20,7 @@
     { "id": "ea-004-my-work", "title": "Shared conventional My Work center", "completed": true },
     { "id": "ea-005-business-workbenches", "title": "Minimum conventional workbench for six business applications", "completed": true },
     { "id": "ea-006-intelligent-workflow", "title": "First validated workflow with business-object write-back", "completed": true },
-    { "id": "ea-007-production-release", "title": "Tests, push and Office 204 deployment", "completed": false }
+    { "id": "ea-007-production-release", "title": "Tests, push and Office 204 deployment", "completed": true }
   ],
   "next_recommended_action": {
     "title": "Deepen each application with domain-specific records, forms and approval workflows",
