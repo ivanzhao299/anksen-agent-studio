@@ -21,7 +21,9 @@ export const actionLogDir = "autopilot-runs/console-actions";
 export const actionUploadDir = `${actionLogDir}/uploads`;
 const studioScript = "packages/orchestrator-core/bin/studio.mjs";
 const actionRuns = new Map();
-const terminalRunStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED"]);
+const terminalRunStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED", "RECOVERY_REQUIRED"]);
+let actionRunsHydrated = false;
+let actionRunsHydration = null;
 const actionTimeoutMs = 180000;
 const liveCliAgentRuntimeIds = new Set(["codex-cli", "claude-code"]);
 const managedModelGatewayRuntimeIds = new Set(["deepseek-chat", "qwen-plus"]);
@@ -83,6 +85,33 @@ function workerClaimAuditDir(projectId) {
 async function readJsonIfExists(path) {
   if (!existsSync(path)) return null;
   return JSON.parse(await readFile(path, "utf8"));
+}
+
+async function hydrateConversationRuns() {
+  if (actionRunsHydrated) return;
+  if (actionRunsHydration) return actionRunsHydration;
+  actionRunsHydration = (async () => {
+    const absoluteDir = resolve(repoRoot, actionLogDir);
+    if (!existsSync(absoluteDir)) { actionRunsHydrated = true; return; }
+    const entries = await readdir(absoluteDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+      const run = await readJsonIfExists(join(absoluteDir, entry.name));
+      if (run?.kind !== "console_action_conversation_run" || !run.run_id) continue;
+      if (["RUNNING", "QUEUED"].includes(run.status)) {
+        run.status = "RECOVERY_REQUIRED";
+        run.phase = "recovery";
+        run.result = { status: "RECOVERY_REQUIRED", exit_code: null, stdout_summary: run.result?.stdout_summary ?? "", stderr_summary: "Studio 服务在任务运行期间重启。为避免重复副作用，任务未自动重跑，请人工确认后重新提交。" };
+        run.messages = [...(run.messages ?? []), { role: "assistant", content: "检测到服务重启：已恢复运行记录，但不会自动重复执行可能产生副作用的任务。", at: new Date().toISOString(), phase: "recovery" }];
+        run.timeline = runTimeline(run.status, run.result.status);
+        run.updated_at = new Date().toISOString();
+        await writeActionLog(run);
+      }
+      actionRuns.set(run.run_id, run);
+    }
+    actionRunsHydrated = true;
+  })().finally(() => { actionRunsHydration = null; });
+  return actionRunsHydration;
 }
 
 async function readProjectJsonRecords(absoluteDir, projectId) {
@@ -2059,10 +2088,10 @@ function publicRun(run) {
 }
 
 async function persistConversationRun(run) {
+  run.updated_at = new Date().toISOString();
   const logs = await writeActionLog(publicRun(run));
   run.logs = logs;
   run.plan.log_path = logs.json;
-  run.updated_at = new Date().toISOString();
   return logs;
 }
 
@@ -2519,6 +2548,7 @@ async function runConversationCommand(runId, input, command) {
 }
 
 export async function startConversationAction(input, options = {}) {
+  await hydrateConversationRuns();
   const plan = await preparePlan(input, options);
   const command = commandFor(input, plan);
   const run = {
@@ -2574,11 +2604,19 @@ export async function startConversationAction(input, options = {}) {
   return publicRun(run);
 }
 
-export function getConversationAction(runId) {
+export async function getConversationAction(runId) {
+  await hydrateConversationRuns();
   return publicRun(actionRuns.get(runId));
 }
 
+export async function getLatestConversationAction() {
+  await hydrateConversationRuns();
+  const latest = [...actionRuns.values()].sort((left, right) => Date.parse(right.updated_at ?? right.created_at ?? 0) - Date.parse(left.updated_at ?? left.created_at ?? 0))[0];
+  return publicRun(latest);
+}
+
 export async function cancelConversationAction(runId) {
+  await hydrateConversationRuns();
   const run = actionRuns.get(runId);
   if (!run) return null;
   if (terminalRunStatuses.has(run.status)) return publicRun(run);

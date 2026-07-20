@@ -29,6 +29,7 @@ import {
   createActionPlan,
   executeConsoleAction,
   getConversationAction,
+  getLatestConversationAction,
   latestActionLog,
   startConversationAction
 } from "./action-server.mjs";
@@ -350,8 +351,13 @@ const server = createServer(async (request, response) => {
       }));
       return;
     }
+    if (request.method === "GET" && pathname === "/api/actions/latest") {
+      const run = await getLatestConversationAction();
+      sendJson(response, run ? 200 : 404, run ?? { status: "EMPTY" });
+      return;
+    }
     if (request.method === "GET" && actionRunMatch) {
-      const run = getConversationAction(decodeURIComponent(actionRunMatch[1]));
+      const run = await getConversationAction(decodeURIComponent(actionRunMatch[1]));
       sendJson(response, run ? 200 : 404, run ?? { status: "NOT_FOUND", run_id: actionRunMatch[1] });
       return;
     }

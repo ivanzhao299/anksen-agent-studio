@@ -941,12 +941,14 @@ function interactiveScript() {
   const projectConnectType = document.getElementById("project-connect-type");
   const projectConnectDescription = document.getElementById("project-connect-description");
   const draftStatus = document.getElementById("config-draft-status");
+  const requestedGoal = new URLSearchParams(window.location.search).get("goal");
+  if (goal && requestedGoal) goal.value = requestedGoal;
   const currentProjectValue = () => (project ? project.value : "jinhu-smart-park");
   let currentRunId = null;
   let pollTimer = null;
   let selectedAttachments = [];
   const runAttachmentCache = new Map();
-  const terminalStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED"]);
+  const terminalStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED", "RECOVERY_REQUIRED"]);
   const defaultTimeline = ["已理解目标", "选择项目", "Agent/Runtime", "生成计划", "Governance", "执行/审批", "结果报告"];
 
   function setAuthStatus(message, tone = "neutral") {
@@ -1115,6 +1117,7 @@ function interactiveScript() {
     if (record && record.status === "QUEUED") return "生成中";
     if (record && record.status === "RUNNING") return "执行中";
     if (record && record.status === "CANCELLED") return "已取消";
+    if (record && record.status === "RECOVERY_REQUIRED") return "需要恢复确认";
     if (record && record.result && record.result.status === "PASS") return "成功";
     if (record && record.result && record.result.status === "FAIL") return "失败";
     if (record && record.result && record.result.status === "BLOCKED") return "需审批";
@@ -1443,6 +1446,14 @@ function interactiveScript() {
   });
 
   renderAttachmentList();
+  if (conversationStream) {
+    fetch("/api/actions/latest", { cache: "no-store" }).then(async (response) => response.ok ? response.json() : null).then((record) => {
+      if (!record?.run_id || currentRunId) return;
+      currentRunId = record.run_id;
+      renderRun(record);
+      if (!terminalStatuses.has(record.status || "")) schedulePoll();
+    }).catch(() => {});
+  }
 
   authLoginForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -2163,7 +2174,7 @@ function pageDashboard(_model, data) {
   const projectName = data.active_project?.project_name ?? data.active_project?.label ?? data.active_project_id ?? "当前项目";
   const healthy = (data.autopilot.latest_summary?.validation ?? "unknown") === "PASS";
   const goalTitle = data.autopilot.latest_summary?.goal ?? data.autopilot.latest_summary?.title ?? "完善 Runtime 文档";
-  const executionHref = routeHref("/execution", data.active_project_id);
+  const executionHref = routeHref("/actions", data.active_project_id);
   const portfolio = domainCenterSummary();
   const portfolioCards = portfolio.applications.map((application) => `<a class="portfolio-card" data-portfolio-app="${escapeHtml(application.id)}" href="${routeHref("/domains", data.active_project_id)}#${escapeHtml(application.id)}"><div class="portfolio-card-head"><span class="portfolio-icon">${escapeHtml(application.icon)}</span><span class="portfolio-state pending" data-portfolio-state>等待任务数据</span></div><h3>${escapeHtml(application.name)}</h3><p>${escapeHtml(application.summary)}</p><div class="portfolio-progress"><i data-portfolio-progress></i></div><div class="portfolio-meta"><span><strong data-portfolio-done>—</strong> 已完成</span><span><strong>${escapeHtml(application.domains.length)}</strong> 业务域</span><span data-portfolio-result>业务结果待接入</span></div></a>`).join("");
   return `<section class="command-center-hero">
