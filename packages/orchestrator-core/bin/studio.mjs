@@ -9787,24 +9787,24 @@ async function consoleSmoke(args) {
     "jinhu-smart-park"
   ].every((text) => actionsHtml.includes(text));
   const controlTowerPresent = [
-    "统一 AI 开发工作台",
+    "自主工作区",
     "/assets/anksen-logo.svg",
-    "运行环境",
-    "Agent 调度",
-    "认证与凭证",
-    "安全审批",
-    "项目配置",
-    "timeline-strip",
-    "已理解目标",
-    "Agent/Runtime",
-    "Governance",
-    "执行/审批",
-    "结果报告",
-    "读取上下文",
-    "Phoenix ERP"
+    "想让 Studio 完成什么？",
+    "command-center-hero",
+    "command-goal",
+    "command-run",
+    "集团业务驾驶舱",
+    "当前运行",
+    "最近结果",
+    "高级运行信息",
+    "任务与队列",
+    "Runtime",
+    "执行报告"
   ].every((text) => dashboardHtml.includes(text));
   const darkThemePresent = dashboardHtml.includes("color-scheme: dark")
-    && (dashboardHtml.includes("--bg: #06080c") || dashboardHtml.includes("--bg: #0f1825"));
+    && dashboardHtml.includes("--canvas: #070a10")
+    && dashboardHtml.includes("--surface-1:#0d121c")
+    && dashboardHtml.includes("--text:#f7f8fa");
   const configCenterPresent = [
     "项目配置",
     "Runtime 配置",
