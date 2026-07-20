@@ -49,6 +49,41 @@ const growthDomain = ({ id, name, nameEn, icon, summary, keywords, skill, risk =
   ])
 });
 
+const manufacturingDomain = ({ id, name, nameEn, icon, summary, keywords, skill, risk = "HIGH" }) => Object.freeze({
+  id,
+  applicationId: "intelligent-manufacturing-erp",
+  name,
+  nameEn,
+  icon,
+  summary,
+  keywords,
+  riskLevel: risk,
+  skillPack: [`${skill}_planning`, `${skill}_operations`, `${skill}_control`, `${skill}_analytics`],
+  workflow: Object.freeze([
+    stage("PLAN", `规划${name}业务与主数据`, "document_generation", "agent-1", null, `${skill}_planning`),
+    stage("OPERATE", `执行${name}业务闭环`, "code_development", "agent-4", "PLAN", `${skill}_operations`),
+    stage("CONTROL", `校验${name}状态、权限与内控`, "validation_testing", "agent-2", "OPERATE", `${skill}_control`),
+    stage("ANALYZE", `分析${name}效率、质量与成本`, "spreadsheet_analysis", "agent-2", "CONTROL", `${skill}_analytics`)
+  ])
+});
+
+export const intelligentManufacturingDomains = Object.freeze([
+  manufacturingDomain({ id: "manufacturing-master-data", name: "制造主数据", nameEn: "Manufacturing Master Data", icon: "MDM", summary: "统一物料、产品、单位、批次、工厂、车间、产线、工作中心和编码版本。", keywords: ["制造主数据", "物料主数据", "工厂主数据", "工作中心"], skill: "manufacturing_master_data" }),
+  manufacturingDomain({ id: "product-engineering-bom", name: "产品工程与 BOM", nameEn: "Product Engineering & BOM", icon: "BOM", summary: "管理产品结构、设计 BOM、制造 BOM、替代料、版本、变更和生效控制。", keywords: ["bom", "物料清单", "产品结构", "制造bom", "工程变更"], skill: "product_engineering_bom" }),
+  manufacturingDomain({ id: "process-routing-sop", name: "工艺路线与 SOP", nameEn: "Routing & SOP", icon: "SOP", summary: "管理工序、工艺路线、作业指导书、参数、工装、安全要求和版本签审。", keywords: ["sop", "工艺路线", "作业指导书", "工序", "工艺参数"], skill: "process_routing_sop" }),
+  manufacturingDomain({ id: "manufacturing-sales-crm", name: "制造 CRM 与销售订单", nameEn: "Manufacturing CRM & Sales Orders", icon: "CRM", summary: "管理工业客户、询报价、样品、合同、销售订单、交期承诺和订单变更。", keywords: ["制造crm", "工业客户", "销售订单", "样品", "交期承诺"], skill: "manufacturing_sales_crm" }),
+  manufacturingDomain({ id: "sales-operations-planning", name: "产销协同 S&OP", nameEn: "Sales & Operations Planning", icon: "SOPL", summary: "平衡需求预测、销售订单、产能、库存和供应约束，形成滚动产销计划。", keywords: ["s&op", "产销协同", "需求预测", "滚动计划"], skill: "sales_operations_planning" }),
+  manufacturingDomain({ id: "mrp-procurement", name: "MRP 与采购", nameEn: "MRP & Procurement", icon: "MRP", summary: "根据需求、BOM、库存和提前期运行物料计划并驱动采购申请、订单和到货。", keywords: ["mrp", "物料需求计划", "采购申请", "采购订单"], skill: "mrp_procurement" }),
+  manufacturingDomain({ id: "supplier-management", name: "供应商管理", nameEn: "Supplier Management", icon: "SRM", summary: "覆盖供应商准入、资质、询比价、绩效、质量、交付和风险协同。", keywords: ["供应商", "srm", "询比价", "供应商绩效"], skill: "supplier_management" }),
+  manufacturingDomain({ id: "production-planning", name: "生产计划与排程", nameEn: "Production Planning & Scheduling", icon: "APS", summary: "形成主生产计划、生产订单、有限产能排程、齐套检查和派工。", keywords: ["生产计划", "生产排程", "aps", "生产订单", "齐套"], skill: "production_planning" }),
+  manufacturingDomain({ id: "mes-shop-floor", name: "MES 车间执行", nameEn: "MES Shop-floor Execution", icon: "MES", summary: "管理派工、开工、报工、用料、产出、不良、停机、在制品和班组绩效。", keywords: ["mes", "车间执行", "报工", "派工", "在制品"], skill: "mes_shop_floor", risk: "CRITICAL" }),
+  manufacturingDomain({ id: "quality-management", name: "质量管理 QMS", nameEn: "Quality Management", icon: "QMS", summary: "覆盖来料、过程、成品检验，不合格、偏差、CAPA、放行和质量追溯。", keywords: ["qms", "质量管理", "质量检验", "不合格", "capa"], skill: "quality_management", risk: "CRITICAL" }),
+  manufacturingDomain({ id: "wms-logistics", name: "WMS 仓储物流", nameEn: "WMS & Logistics", icon: "WMS", summary: "管理收货、上架、库位、批次、序列号、拣配、发料、退料、盘点和发运。", keywords: ["wms", "仓储", "库位", "入库", "出库", "盘点", "发运"], skill: "wms_logistics", risk: "CRITICAL" }),
+  manufacturingDomain({ id: "equipment-maintenance", name: "设备与维护", nameEn: "Equipment & Maintenance", icon: "EAM", summary: "管理设备台账、点检、保养、故障、维修、备件、OEE 和停机损失。", keywords: ["设备维护", "eam", "点检", "保养", "oee"], skill: "equipment_maintenance" }),
+  manufacturingDomain({ id: "manufacturing-costing", name: "制造成本与财务接口", nameEn: "Manufacturing Costing", icon: "COST", summary: "核算材料、人工、制造费用、在制品、完工和差异，并向集团财务传递受控凭证。", keywords: ["制造成本", "生产成本", "成本核算", "在制品成本", "成本差异"], skill: "manufacturing_costing", risk: "CRITICAL" }),
+  manufacturingDomain({ id: "manufacturing-traceability-cockpit", name: "追溯与经营驾驶舱", nameEn: "Traceability & Operations Cockpit", icon: "OPS", summary: "按订单、批次和序列号贯通供应、生产、质量、库存、交付、成本与经营指标。", keywords: ["生产追溯", "批次追溯", "制造驾驶舱", "生产经营"], skill: "manufacturing_traceability" })
+]);
+
 export const aiGrowthSalesDomains = Object.freeze([
   growthDomain({ id: "product-offer-center", name: "产品与营销资产", nameEn: "Product & Offer Center", icon: "OFR", summary: "接入不同产品、价格、权益、受众、品牌规范、事实证据和转化目标。", keywords: ["产品营销", "产品卖点", "产品文案", "offer", "营销资产"], skill: "product_offer" }),
   growthDomain({ id: "content-generation", name: "智能内容生产", nameEn: "AI Content Generation", icon: "COPY", summary: "生成并审核产品文案、图文、脚本、落地页素材和多语言版本。", keywords: ["自动生成文案", "产品文案", "营销文案", "内容生产", "copywriting"], skill: "content_generation" }),
@@ -136,6 +171,15 @@ export const studioApplications = Object.freeze([
     summary: "面向多产品的智能获客、内容矩阵、客户触达、销售转化、交易交接和售后服务平台。",
     evidence: "USER_CONFIRMED",
     domainIds: aiGrowthSalesDomains.map((domain) => domain.id)
+  },
+  {
+    id: "intelligent-manufacturing-erp",
+    name: "智能制造 ERP 平台",
+    nameEn: "Intelligent Manufacturing ERP",
+    icon: "MFG",
+    summary: "面向自有生产企业，贯通产品工程、计划、采购、生产、质量、仓储、销售订单、成本和追溯。",
+    evidence: "USER_CONFIRMED",
+    domainIds: intelligentManufacturingDomains.map((domain) => domain.id)
   },
   {
     id: "smart-park-platform",
@@ -234,7 +278,8 @@ export const studioDomains = Object.freeze([
     ])
   },
   ...smartParkBusinessDomains,
-  ...aiGrowthSalesDomains
+  ...aiGrowthSalesDomains,
+  ...intelligentManufacturingDomains
 ]);
 
 const normalize = (value) => String(value ?? "").toLowerCase();

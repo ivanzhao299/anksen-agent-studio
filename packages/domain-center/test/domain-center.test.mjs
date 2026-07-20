@@ -18,16 +18,18 @@ import { consoleWebRoutes } from "../../../apps/console/web/routes.mjs";
 import { validateGraph } from "../../orchestrator-core/lib/autonomous-kernel/domain.mjs";
 import { compileSmartParkProgram } from "../lib/smart-park-program.mjs";
 import { compileAiGrowthSalesProgram } from "../lib/ai-growth-sales-program.mjs";
+import { compileManufacturingErpProgram } from "../lib/manufacturing-erp-program.mjs";
 import { smartParkDomainChecks } from "../lib/smart-park-audit.mjs";
 
 const registry = await loadDomainRuntimeRegistry();
 
 test("catalog separates group platforms from the Smart Park business platform", () => {
-  assert.deepEqual(studioApplications.map((item) => item.id), ["software-factory", "video-factory", "enterprise-strategy-platform", "human-resources-platform", "finance-platform", "ai-growth-sales-platform", "smart-park-platform"]);
+  assert.deepEqual(studioApplications.map((item) => item.id), ["software-factory", "video-factory", "enterprise-strategy-platform", "human-resources-platform", "finance-platform", "ai-growth-sales-platform", "intelligent-manufacturing-erp", "smart-park-platform"]);
   assert.equal(getStudioApplication("smart-park-platform").domainIds.length, 13);
   assert.ok(!getStudioApplication("smart-park-platform").domainIds.includes("finance-management"));
   assert.equal(getStudioApplication("ai-growth-sales-platform").domainIds.length, 10);
-  assert.equal(studioDomains.length, 28);
+  assert.equal(getStudioApplication("intelligent-manufacturing-erp").domainIds.length, 14);
+  assert.equal(studioDomains.length, 42);
   assert.equal(getStudioDomain("strategy-execution").applicationId, "enterprise-strategy-platform");
   assert.equal(getStudioDomain("human-resources").applicationId, "human-resources-platform");
   assert.equal(getStudioDomain("finance-management").applicationId, "finance-platform");
@@ -55,6 +57,8 @@ test("goal routing distinguishes finance, HR, strategy, software, and video", ()
   assert.equal(routeStudioDomain("自动生成产品文案并形成短视频矩阵").domainId, "video-matrix");
   assert.equal(routeStudioDomain("获取客户信息并进行线索评分").domainId, "lead-intelligence");
   assert.equal(routeStudioDomain("客户成交后转入交易系统").domainId, "transaction-handoff");
+  assert.equal(routeStudioDomain("根据 BOM 和库存运行 MRP").domainId, "mrp-procurement");
+  assert.equal(routeStudioDomain("完善 WMS 库位批次和盘点").domainId, "wms-logistics");
 });
 
 test("software workflow binds stages to real skills, agents, runtimes, and workers", () => {
@@ -89,18 +93,19 @@ test("workflow submits the business graph through the existing Kernel port", asy
   assert.ok(kernel.goalTasks(goal.id).every((task) => task.metadata.applicationId && task.metadata.domainId && task.metadata.agentId && task.metadata.skillType && task.metadata.workerKey));
 });
 
-test("Console renders seven platforms and twenty-eight business domains, not Agent lanes", async () => {
+test("Console renders eight platforms and forty-two business domains, not Agent lanes", async () => {
   assert.ok(consoleWebRoutes.some((route) => route.id === "domains" && route.path === "/domains"));
   const html = await renderConsolePage("/domains", { authenticated: true, capabilities: ["*"], project_allowlist: ["*"] });
   assert.match(html, /应用与业务领域/);
   assert.match(html, /智慧园区业务平台/);
   assert.match(html, /集团战略执行平台/);
   assert.match(html, /AI 增长与销售平台/);
+  assert.match(html, /智能制造 ERP 平台/);
   assert.match(html, /战略执行/);
   assert.match(html, /人力资源/);
   assert.match(html, /财务管理/);
-  assert.equal((html.match(/class="application-suite"/g) ?? []).length, 7);
-  assert.equal((html.match(/class="domain-card"/g) ?? []).length, 28);
+  assert.equal((html.match(/class="application-suite"/g) ?? []).length, 8);
+  assert.equal((html.match(/class="domain-card"/g) ?? []).length, 42);
   assert.doesNotMatch(html, /真实 Agent Lane|责任 Agent|应用范围与 Agent 分工/);
 });
 
@@ -127,6 +132,15 @@ test("AI Growth and Sales program is an approval-gated end-to-end DAG", () => {
   assert.equal(program.runtimePolicy.externalActionsRequireApproval, true);
   assert.equal(program.runtimePolicy.allowCredentialValues, false);
   assert.equal(program.tasks.at(-1).taskKey, "GS-110");
+});
+
+test("Manufacturing ERP program is a gated order-to-delivery DAG", () => {
+  const program = compileManufacturingErpProgram();
+  assert.equal(program.tasks.length, 16);
+  assert.equal(validateGraph({ tasks: program.tasks.map((item) => ({ ...item, key: item.taskKey })), dependencies: program.dependencies }).valid, true);
+  assert.ok(program.tasks.every((item) => item.metadata.applicationId === "intelligent-manufacturing-erp"));
+  assert.ok(program.tasks.every((item) => item.metadata.activationGateRequired && item.metadata.controlledStubCompletionForbidden));
+  assert.equal(program.tasks.at(-1).taskKey, "ME-150");
 });
 
 test("SP-000 audit treats group platforms as integration boundaries", () => {
