@@ -164,6 +164,14 @@
       "can_manage_access": false
     },
     {
+      "role_id": "strategy_reviewer",
+      "display_name": "战略复盘审批用户",
+      "description": "复核战略指标、经营复盘和纠偏动作，不具备指标改写、Agent Runtime 或平台管理权限。",
+      "capabilities": ["console.access", "work.read", "strategy.read", "business.operate", "proposal.approve"],
+      "direct_execute_max_risk": "MEDIUM",
+      "can_manage_access": false
+    },
+    {
       "role_id": "hr_operator",
       "display_name": "人力资源用户",
       "description": "使用组织、岗位、员工、招聘和入职业务功能。",

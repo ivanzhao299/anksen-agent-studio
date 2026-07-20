@@ -28,22 +28,28 @@ const definitions = Object.freeze({
     kpi: definition({
       label: "关键指标",
       workflowDomainId: "strategy-execution",
-      fields: [field("period", "考核周期", "text", { required: true }), field("baseline", "基准值", "number", { required: true }), field("targetValue", "目标值", "number", { required: true }), field("actualValue", "当前值", "number"), field("unit", "单位", "text", { required: true }), field("ownerDepartment", "责任部门", "text", { required: true })],
+      fields: [field("period", "考核周期", "text", { required: true }), field("baseline", "基准值", "number", { required: true }), field("targetValue", "目标值", "number", { required: true }), field("actualValue", "当前值", "number", { required: true }), field("direction", "指标方向", "select", { required: true, options: ["越高越好", "越低越好"] }), field("unit", "单位", "text", { required: true }), field("ownerDepartment", "责任部门", "text", { required: true }), field("actualAsOf", "数据截止日", "date", { required: true }), field("actualEvidenceRef", "实际值证据编号", "text", { required: true })],
       transitions: { DRAFT: ["ACTIVE"], ACTIVE: ["AT_RISK", "WAITING_REVIEW", "COMPLETED"], AT_RISK: ["ACTIVE", "WAITING_REVIEW"], WAITING_REVIEW: ["ACTIVE", "COMPLETED"] },
       agentReviewStatus: "WAITING_REVIEW",
       workflowGoal: (record) => `分析关键指标“${record.title}”的目标差距、趋势和纠偏行动。`
     }),
     initiative: definition({
       label: "战略举措", workflowDomainId: "strategy-execution",
-      fields: [field("objectiveCode", "关联目标", "text", { required: true }), field("ownerCenter", "责任中心", "text", { required: true }), field("startDate", "开始日期", "date", { required: true }), field("dueDate", "完成日期", "date", { required: true }), field("milestone", "关键里程碑", "textarea", { required: true })],
+      fields: [field("objectiveCode", "关联目标", "text", { required: true }), field("ownerCenter", "责任中心", "text", { required: true }), field("startDate", "开始日期", "date", { required: true }), field("dueDate", "完成日期", "date", { required: true }), field("milestone", "关键里程碑", "textarea", { required: true }), field("progressPercent", "当前进度(%)", "number", { required: true, min: 0, max: 100 }), field("progressAsOf", "进度截止日", "date", { required: true }), field("progressEvidenceRef", "进度证据编号", "text", { required: true })],
       transitions: { DRAFT: ["ACTIVE"], ACTIVE: ["AT_RISK", "WAITING_REVIEW", "COMPLETED"], AT_RISK: ["ACTIVE", "WAITING_REVIEW"], WAITING_REVIEW: ["ACTIVE", "COMPLETED"] }, agentReviewStatus: "WAITING_REVIEW",
       workflowGoal: (record) => `分析战略举措“${record.title}”的责任、里程碑、依赖和执行风险。`
     }),
     strategy_review: definition({
       label: "经营复盘", workflowDomainId: "strategy-execution",
-      fields: [field("period", "复盘周期", "text", { required: true }), field("scope", "复盘范围", "text", { required: true }), field("actualResult", "实际结果", "textarea", { required: true }), field("varianceReason", "偏差原因", "textarea", { required: true })],
+      fields: [field("period", "复盘周期", "text", { required: true }), field("scope", "复盘范围", "text", { required: true }), field("reviewDate", "复盘日期", "date", { required: true }), field("evidenceCutoffDate", "证据截止日", "date", { required: true }), field("actualResult", "实际结果", "textarea", { required: true }), field("varianceReason", "偏差原因", "textarea", { required: true })],
       transitions: { DRAFT: ["ANALYZING"], ANALYZING: ["WAITING_REVIEW", "BLOCKED"], WAITING_REVIEW: ["COMPLETED", "ANALYZING"] }, agentReviewStatus: "WAITING_REVIEW",
       workflowGoal: (record) => `对经营复盘“${record.title}”分析目标偏差、原因、经验和后续纠偏动作。`
+    }),
+    corrective_action: definition({
+      label: "纠偏动作", workflowDomainId: "strategy-execution",
+      fields: [field("actionCode", "动作编号", "text", { required: true }), field("ownerCenter", "责任中心", "text", { required: true }), field("dueDate", "完成期限", "date", { required: true }), field("actionDescription", "纠偏措施", "textarea", { required: true }), field("expectedImpact", "预期影响", "textarea", { required: true }), field("evidenceRequirement", "验收证据要求", "textarea", { required: true })],
+      transitions: { DRAFT: ["ACTIVE"], ACTIVE: ["AT_RISK", "WAITING_REVIEW", "COMPLETED"], AT_RISK: ["ACTIVE", "WAITING_REVIEW"], WAITING_REVIEW: ["ACTIVE", "COMPLETED"] }, agentReviewStatus: "WAITING_REVIEW",
+      workflowGoal: (record) => `检查纠偏动作“${record.title}”的责任、期限、预期影响和验收证据，不自动修改经营指标。`
     })
   }),
   "human-resources-platform": Object.freeze({
