@@ -228,6 +228,14 @@
       "can_manage_access": false
     },
     {
+      "role_id": "manufacturing_reviewer",
+      "display_name": "制造放行审批用户",
+      "description": "复核生产放行、质量、制造成本和追溯证据，不具备设备控制、Runtime 或平台管理权限。",
+      "capabilities": ["console.access", "work.read", "manufacturing.read", "business.operate", "proposal.approve"],
+      "direct_execute_max_risk": "MEDIUM",
+      "can_manage_access": false
+    },
+    {
       "role_id": "smart_park_operator",
       "display_name": "智慧园区用户",
       "description": "使用企业、空间、合同、工单和能源业务功能。",
