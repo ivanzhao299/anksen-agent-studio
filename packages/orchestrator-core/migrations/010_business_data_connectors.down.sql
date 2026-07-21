@@ -1,0 +1,10 @@
+BEGIN;
+DROP INDEX IF EXISTS uq_business_record_connector_source;
+ALTER TABLE business_application_record DROP COLUMN IF EXISTS source_evidence_hash;
+ALTER TABLE business_application_record DROP COLUMN IF EXISTS source_observed_at;
+ALTER TABLE business_application_record DROP COLUMN IF EXISTS source_record_key;
+ALTER TABLE business_application_record DROP COLUMN IF EXISTS source_connector_id;
+DROP TABLE IF EXISTS business_data_sync_item;
+DROP TABLE IF EXISTS business_data_sync_batch;
+DROP TABLE IF EXISTS business_data_connector;
+COMMIT;

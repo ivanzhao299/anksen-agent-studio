@@ -70,6 +70,7 @@ const governedRunManager = new GovernedRunManager({ repoRoot });
 const portfolioRegistry = await loadDomainRuntimeRegistry();
 const businessRuntime = await createBusinessApplicationRuntime({ repoRoot });
 const businessApplicationStore = businessRuntime.store;
+const businessDataConnectorStore = businessRuntime.connectorStore;
 const acquireWorkflowPool = async () => {
   if (businessRuntime.pool) return { pool: businessRuntime.pool, ownsPool: false };
   await ensurePostgresFixture();
@@ -377,6 +378,17 @@ const server = createServer(async (request, response) => {
       sendJson(response, 200, { contracts: businessOutcomeCenter.catalog(), connectors: await businessOutcomeCenter.connectors() });
       return;
     }
+    if (request.method === "GET" && pathname === "/api/business/data-connectors") {
+      if (!businessDataConnectorStore) { sendJson(response, 503, { status: "BUSINESS_DATA_CONNECTORS_REQUIRE_POSTGRESQL" }); return; }
+      const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"};
+      sendJson(response,200,{backend:businessRuntime.backend,connectors:await businessDataConnectorStore.list(scope)});return;
+    }
+    const businessDataConnectorBatches=pathname.match(/^\/api\/business\/data-connectors\/([^/]+)\/batches$/);
+    if(request.method==="GET"&&businessDataConnectorBatches){
+      if(!businessDataConnectorStore){sendJson(response,503,{status:"BUSINESS_DATA_CONNECTORS_REQUIRE_POSTGRESQL"});return;}
+      const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"};
+      sendJson(response,200,{batches:await businessDataConnectorStore.batches(decodeURIComponent(businessDataConnectorBatches[1]),scope)});return;
+    }
     if (request.method === "GET" && pathname === "/api/business/applications") {
       const summary=enterpriseApplicationSummary();
       sendJson(response,200,{...summary,backend:businessRuntime.backend,applications:summary.applications.filter(app=>evaluateConsoleRouteAccess(app.routeId,accessContext).allowed)});
@@ -534,6 +546,15 @@ const server = createServer(async (request, response) => {
       try { sendJson(response, 201, await businessOutcomeCenter.registerConnector(await readJsonBody(request), { userId: accessContext.user?.user_id })); }
       catch (error) { sendJson(response, 400, { status: error?.code ?? "OUTCOME_CONNECTOR_INVALID", reason: error instanceof Error ? error.message : String(error) }); }
       return;
+    }
+    if(request.method==="POST"&&pathname==="/api/business/data-connectors"){
+      const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-data-connector-register",risk:"MEDIUM"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}if(!businessDataConnectorStore){sendJson(response,503,{status:"BUSINESS_DATA_CONNECTORS_REQUIRE_POSTGRESQL"});return;}
+      try{const body=await readJsonBody(request),actor={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace",userId:accessContext.user?.user_id};sendJson(response,201,await businessDataConnectorStore.register(body,actor));}catch(error){sendJson(response,400,{status:error.code??"BUSINESS_CONNECTOR_INVALID",reason:error.message});}return;
+    }
+    const businessDataConnectorIngest=pathname.match(/^\/api\/business\/data-connectors\/([^/]+)\/ingest$/);
+    if(request.method==="POST"&&businessDataConnectorIngest){
+      const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-data-connector-ingest",risk:"MEDIUM"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}if(!businessDataConnectorStore){sendJson(response,503,{status:"BUSINESS_DATA_CONNECTORS_REQUIRE_POSTGRESQL"});return;}
+      try{const body=await readJsonBody(request),actor={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace",userId:accessContext.user?.user_id};sendJson(response,200,await businessDataConnectorStore.ingest(decodeURIComponent(businessDataConnectorIngest[1]),body,actor));}catch(error){sendJson(response,400,{status:error.code??"BUSINESS_SYNC_FAILED",reason:error.message});}return;
     }
     if (request.method === "POST" && pathname === "/api/outcomes/snapshots") {
       const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "outcome-snapshot-ingest", risk: "MEDIUM" }, { user_context: accessContext });

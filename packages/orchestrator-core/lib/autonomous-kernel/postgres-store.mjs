@@ -73,7 +73,7 @@ export class PostgresAutonomousKernelStore {
 
   async schedulerTick({ dryRun = true, limit = 100 } = {}) {
     return this.transaction(async (client) => {
-      const candidates = (await client.query("SELECT t.* FROM ad_task t JOIN ad_goal g ON g.id=t.goal_id WHERE t.status IN ('PENDING','BLOCKED','READY') AND g.status IN ('PLANNED','RUNNING') ORDER BY t.created_at,t.task_key FOR UPDATE OF t SKIP LOCKED LIMIT $1", [limit])).rows;
+      const candidates = (await client.query("SELECT t.* FROM ad_task t JOIN ad_goal g ON g.id=t.goal_id WHERE (t.status IN ('PENDING','READY') OR (t.status='BLOCKED' AND NOT EXISTS(SELECT 1 FROM ad_task_dependency d JOIN ad_task p ON p.id=d.depends_on_task_id WHERE d.task_id=t.id AND d.dependency_type<>'OPTIONAL' AND p.status<>'SUCCEEDED'))) AND g.status IN ('PLANNED','RUNNING') ORDER BY CASE t.status WHEN 'READY' THEN 0 WHEN 'PENDING' THEN 1 ELSE 2 END,t.created_at,t.task_key FOR UPDATE OF t SKIP LOCKED LIMIT $1", [limit])).rows;
       if (dryRun) return { dryRun: true, candidates, changed: [] };
       const changed = [];
       for (const task of candidates) {

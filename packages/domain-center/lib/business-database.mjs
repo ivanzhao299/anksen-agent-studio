@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { BusinessApplicationStore } from "./business-application-store.mjs";
 import { PostgresBusinessApplicationStore } from "./postgres-business-application-store.mjs";
+import { PostgresBusinessDataConnectorStore } from "./postgres-business-data-connector.mjs";
 import { migrate } from "../../orchestrator-core/lib/persistent-night-shift.mjs";
 
 const { Pool } = pg;
@@ -15,6 +16,7 @@ const businessWorkControlMigration = resolve(fileURLToPath(new URL("../../orches
 const businessRecordRelationsMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/007_business_record_relations.up.sql", import.meta.url)));
 const businessRunnerNodesMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/008_business_runner_nodes.up.sql", import.meta.url)));
 const businessWorkResultsMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/009_business_work_results.up.sql", import.meta.url)));
+const businessDataConnectorsMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/010_business_data_connectors.up.sql", import.meta.url)));
 export const defaultBusinessDatabaseUrlFile = "/opt/anksen/business-data/database-url";
 
 export function resolveBusinessDatabaseUrl(env = process.env) {
@@ -37,7 +39,7 @@ export async function createBusinessApplicationRuntime({ repoRoot, env = process
   const configuredUrl = pool ? null : resolveBusinessDatabaseUrl(env);
   if (!pool && !configuredUrl) {
     if (requirePostgres) throw new Error("BUSINESS_DATABASE_REQUIRED");
-    return { backend: "FILE_FALLBACK", pool: null, ownsPool: false, store: new BusinessApplicationStore({ repoRoot }) };
+    return { backend: "FILE_FALLBACK", pool: null, ownsPool: false, store: new BusinessApplicationStore({ repoRoot }), connectorStore: null };
   }
   const databasePool = pool ?? new Pool({ connectionString: assertBusinessDatabaseUrl(configuredUrl, { allowRemote: env.BUSINESS_DATABASE_ALLOW_REMOTE === "true" }), max: Number(env.BUSINESS_DATABASE_POOL_MAX ?? 10), application_name: "anksen-studio-business" });
   try {
@@ -50,8 +52,9 @@ export async function createBusinessApplicationRuntime({ repoRoot, env = process
       await databasePool.query(await readFile(businessRecordRelationsMigration, "utf8"));
       await databasePool.query(await readFile(businessRunnerNodesMigration, "utf8"));
       await databasePool.query(await readFile(businessWorkResultsMigration, "utf8"));
+      await databasePool.query(await readFile(businessDataConnectorsMigration, "utf8"));
     }
-    return { backend: "POSTGRESQL", pool: databasePool, ownsPool: !pool, store: new PostgresBusinessApplicationStore({ pool: databasePool }) };
+    return { backend: "POSTGRESQL", pool: databasePool, ownsPool: !pool, store: new PostgresBusinessApplicationStore({ pool: databasePool }), connectorStore: new PostgresBusinessDataConnectorStore({ pool: databasePool }) };
   } catch (error) {
     if (!pool) await databasePool.end().catch(() => {});
     throw error;

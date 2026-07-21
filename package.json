@@ -12,6 +12,7 @@
     "domain-workflow:postgres:smoke": "node packages/domain-center/bin/domain-workflow-postgres-smoke.mjs",
     "enterprise-business:acceptance": "node packages/domain-center/bin/enterprise-business-acceptance.mjs",
     "enterprise-foundation:check": "node packages/domain-center/bin/enterprise-foundation-readiness.mjs",
+    "enterprise-business:pilot": "node packages/domain-center/bin/enterprise-business-pilot.mjs",
     "business-database:migrate": "node packages/domain-center/bin/business-database-migrate.mjs",
     "smart-park:program:submit": "node packages/domain-center/bin/smart-park-program-submit.mjs",
     "smart-park:audit": "node packages/domain-center/bin/smart-park-audit.mjs",
