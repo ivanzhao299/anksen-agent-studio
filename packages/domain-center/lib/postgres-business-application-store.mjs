@@ -10,6 +10,7 @@ import { businessDelegationAuditPayload, presentBusinessDelegationProjection } f
 import { projectBusinessWorkExecution } from "./business-work-execution.mjs";
 import { presentBusinessWorkResultSummary } from "./business-work-result.mjs";
 import { professionalResultPage } from "./business-professional-results.mjs";
+import { projectFinanceControlReport } from "./finance-control-report.mjs";
 
 const terminal = new Set(["COMPLETED", "CANCELLED", "PAID", "ARCHIVED", "TERMINATED", "WRITTEN_OFF"]);
 const scopeOf = (value = {}) => {
@@ -374,6 +375,14 @@ export class PostgresBusinessApplicationStore {
     const sum = (rows) => rows.reduce((total, row) => total + row.count, 0), group = (rows, key) => Object.fromEntries(rows.map((row) => [row[key], row.count]));
     const attentionStatuses = new Set(["BLOCKED", "OVERDUE", "REJECTED", "SHORTAGE", "FAULT", "ESCALATED"]), attention = records.rows.filter((row) => attentionStatuses.has(row.status)).reduce((total, row) => total + row.count, 0);
     return { generatedAt: this.clock().toISOString(), source: "POSTGRESQL_BUSINESS_APPLICATION_STORE", application: { id: application.id, name: application.name, path: application.path }, totalRecords: sum(records.rows), byStatus: group(records.rows, "status"), byObjectType: records.rows.reduce((result, row) => ({ ...result, [row.object_type]: (result[row.object_type] ?? 0) + row.count }), {}), businessChains:{total:sum(relations.rows),byType:group(relations.rows,"relation_type")}, work: { total: sum(work.rows), human: work.rows.filter((row) => row.assignment_type === "HUMAN").reduce((total, row) => total + row.count, 0), agent: work.rows.filter((row) => row.assignment_type === "AGENT").reduce((total, row) => total + row.count, 0), blocked: work.rows.filter((row) => row.status === "BLOCKED").reduce((total, row) => total + row.count, 0) }, approvals: group(approvals.rows, "status"), pendingApprovals: approvals.rows.find((row) => row.status === "PENDING")?.count ?? 0, attention, recentRecords: recent.map((record) => ({ id: record.id, displayKey: record.displayKey, title: record.title, objectType: record.objectType, status: record.status, updatedAt: record.updatedAt, href: `${application.path}?record=${record.id}` })) };
+  }
+
+  async financeControlReport(options = {}) {
+    const scope=scopeOf(options),params=[scope.organizationId,scope.workspaceId,"finance-platform"],[recordRows,relationRows]=await Promise.all([
+      this.pool.query("SELECT * FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 ORDER BY updated_at DESC",params),
+      this.pool.query("SELECT * FROM business_record_relation WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 AND relation_type='CONTROLS'",params)
+    ]),records=recordRows.rows.map(row=>this.presentRecord(row)),relations=relationRows.rows.map(row=>({id:row.id,organizationId:row.organization_id,workspaceId:row.workspace_id,applicationId:row.application_id,sourceRecordId:row.source_record_id,targetRecordId:row.target_record_id,relationType:row.relation_type}));
+    return projectFinanceControlReport({records,relations,generatedAt:this.clock().toISOString(),source:"POSTGRESQL_BUSINESS_APPLICATION_STORE"});
   }
 
   async runnableAgentWorkItems({limit=20}={}) {
