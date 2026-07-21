@@ -13,6 +13,8 @@
     "enterprise-business:acceptance": "node packages/domain-center/bin/enterprise-business-acceptance.mjs",
     "enterprise-foundation:check": "node packages/domain-center/bin/enterprise-foundation-readiness.mjs",
     "enterprise-business:pilot": "node packages/domain-center/bin/enterprise-business-pilot.mjs",
+    "smart-park-source:readiness": "node packages/domain-center/bin/smart-park-source.mjs",
+    "smart-park-source:sync": "node packages/domain-center/bin/smart-park-source.mjs --apply",
     "business-database:migrate": "node packages/domain-center/bin/business-database-migrate.mjs",
     "smart-park:program:submit": "node packages/domain-center/bin/smart-park-program-submit.mjs",
     "smart-park:audit": "node packages/domain-center/bin/smart-park-audit.mjs",

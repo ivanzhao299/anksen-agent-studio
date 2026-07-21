@@ -71,6 +71,7 @@ const portfolioRegistry = await loadDomainRuntimeRegistry();
 const businessRuntime = await createBusinessApplicationRuntime({ repoRoot });
 const businessApplicationStore = businessRuntime.store;
 const businessDataConnectorStore = businessRuntime.connectorStore;
+const businessSourceGovernance = businessRuntime.sourceGovernance;
 const acquireWorkflowPool = async () => {
   if (businessRuntime.pool) return { pool: businessRuntime.pool, ownsPool: false };
   await ensurePostgresFixture();
@@ -381,7 +382,8 @@ const server = createServer(async (request, response) => {
     if (request.method === "GET" && pathname === "/api/business/data-connectors") {
       if (!businessDataConnectorStore) { sendJson(response, 503, { status: "BUSINESS_DATA_CONNECTORS_REQUIRE_POSTGRESQL" }); return; }
       const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"};
-      sendJson(response,200,{backend:businessRuntime.backend,connectors:await businessDataConnectorStore.list(scope)});return;
+      const connectors=await businessDataConnectorStore.list(scope),governed=await Promise.all(connectors.map(async connector=>({...connector,readiness:businessSourceGovernance?await businessSourceGovernance.readiness(connector.id,scope):null})));
+      sendJson(response,200,{backend:businessRuntime.backend,connectors:governed});return;
     }
     const businessDataConnectorBatches=pathname.match(/^\/api\/business\/data-connectors\/([^/]+)\/batches$/);
     if(request.method==="GET"&&businessDataConnectorBatches){
@@ -556,6 +558,10 @@ const server = createServer(async (request, response) => {
       const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-data-connector-ingest",risk:"MEDIUM"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}if(!businessDataConnectorStore){sendJson(response,503,{status:"BUSINESS_DATA_CONNECTORS_REQUIRE_POSTGRESQL"});return;}
       try{const body=await readJsonBody(request),actor={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace",userId:accessContext.user?.user_id};sendJson(response,200,await businessDataConnectorStore.ingest(decodeURIComponent(businessDataConnectorIngest[1]),body,actor));}catch(error){sendJson(response,400,{status:error.code??"BUSINESS_SYNC_FAILED",reason:error.message});}return;
     }
+    const businessSourceApprovalRequest=pathname.match(/^\/api\/business\/data-connectors\/([^/]+)\/approvals$/);
+    if(request.method==="POST"&&businessSourceApprovalRequest){const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-data-source-approval-request",risk:"MEDIUM"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}if(!businessSourceGovernance){sendJson(response,503,{status:"BUSINESS_SOURCE_GOVERNANCE_REQUIRES_POSTGRESQL"});return;}try{const body=await readJsonBody(request),actor={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace",userId:accessContext.user?.user_id};sendJson(response,201,await businessSourceGovernance.request(decodeURIComponent(businessSourceApprovalRequest[1]),body,actor));}catch(error){sendJson(response,400,{status:error.code??"BUSINESS_SOURCE_APPROVAL_FAILED",reason:error.message});}return;}
+    const businessSourceApprovalDecision=pathname.match(/^\/api\/business\/data-source-approvals\/([^/]+)\/decision$/);
+    if(request.method==="POST"&&businessSourceApprovalDecision){const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-data-source-approval-decision",risk:"MEDIUM"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}if(!businessSourceGovernance){sendJson(response,503,{status:"BUSINESS_SOURCE_GOVERNANCE_REQUIRES_POSTGRESQL"});return;}try{const body=await readJsonBody(request),actor={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace",userId:accessContext.user?.user_id};sendJson(response,200,await businessSourceGovernance.decide(decodeURIComponent(businessSourceApprovalDecision[1]),body,actor));}catch(error){sendJson(response,409,{status:error.code??"BUSINESS_SOURCE_APPROVAL_CONFLICT",reason:error.message});}return;}
     if (request.method === "POST" && pathname === "/api/outcomes/snapshots") {
       const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "outcome-snapshot-ingest", risk: "MEDIUM" }, { user_context: accessContext });
       if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
