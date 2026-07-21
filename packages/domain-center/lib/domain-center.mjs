@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { professionalBusinessSkillContracts } from "./professional-business-skill-runner.mjs";
+import { ProfessionalRunnerCapabilityRegistry } from "../../skill-router/lib/professional-runner-capabilities.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(packageRoot, "../..");
@@ -220,14 +221,15 @@ export const studioDomains = Object.freeze([
     name: "视频生产",
     nameEn: "Video Production",
     icon: "MEDIA",
-    summary: "编排脚本、视觉素材、剪辑渲染和多渠道交付；媒体专用 Runner 尚未接入。",
-    skillPack: ["media_briefing", "script_storyboard", "visual_asset_generation", "media_delivery_reporting"],
+    summary: "编排脚本、视觉素材、受控生成、剪辑、媒体验收和交付；专业 Runner 必须通过实时能力门禁。",
+    skillPack: ["media_briefing", "script_storyboard", "video_generation", "media_validation", "media_delivery_reporting"],
     keywords: ["视频", "素材", "剪辑", "配音", "字幕", "封面", "video", "media", "subtitle"],
     workflow: Object.freeze([
       stage("PLAN", "分析素材与成片目标", "document_generation", "agent-1", null, "media_briefing"),
       stage("SCRIPT", "生成脚本与镜头表", "document_generation", "agent-1", "PLAN", "script_storyboard"),
-      stage("VISUAL", "生成视觉与封面资产", "image_generation", "agent-4", "SCRIPT", "visual_asset_generation"),
-      stage("REPORT", "生成媒体交付报告", "document_generation", "agent-1", "VISUAL", "media_delivery_reporting")
+      stage("GENERATE", "生成可审计视频构图与成片", "video_generation", "agent-media-generator", "SCRIPT", "video_generation"),
+      stage("VALIDATE", "验证编码、尺寸、时长、音轨和文件完整性", "media_validation", "agent-media-qa", "GENERATE", "media_validation"),
+      stage("REPORT", "生成媒体交付报告", "document_generation", "agent-1", "VALIDATE", "media_delivery_reporting")
     ])
   },
   {
@@ -319,10 +321,13 @@ export function routeStudioDomain(goal, { explicitDomainId = null } = {}) {
 }
 
 export async function loadDomainRuntimeRegistry() {
-  const [skillRegistry, skillRules, agentRegistry, workerRegistry] = await Promise.all([
-    readJson(paths.skills), readJson(paths.skillRules), readJson(paths.agents), readJson(paths.workers)
+  const professionalRegistry = new ProfessionalRunnerCapabilityRegistry({ credentialReferenceIds: String(process.env.STUDIO_PROFESSIONAL_CREDENTIAL_REFERENCES ?? "").split(",").map(value => value.trim()).filter(Boolean) });
+  const [skillRegistry, skillRules, agentRegistry, workerRegistry, professionalCapabilities] = await Promise.all([
+    readJson(paths.skills), readJson(paths.skillRules), readJson(paths.agents), readJson(paths.workers), professionalRegistry.inventory()
   ]);
-  return { skillRegistry, skillRules, agentRegistry, workerRegistry, paths };
+  const profileStatus = new Map(professionalCapabilities.profiles.map(profile => [profile.profile_id, profile.readiness]));
+  workerRegistry.workers = workerRegistry.workers.map(worker => worker.professional_profile_id ? { ...worker, status: profileStatus.get(worker.professional_profile_id) === "READY" ? "available" : "unavailable" } : worker);
+  return { skillRegistry, skillRules, agentRegistry, workerRegistry, professionalCapabilities, paths };
 }
 
 export function routeSkill(text, registry) {

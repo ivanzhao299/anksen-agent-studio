@@ -455,6 +455,72 @@
       "selected_agent": "evolution-center",
       "confidence_boost": 15,
       "reason": "Evolution/failure-pattern tasks should use Resident Observer."
+    },
+    {
+      "rule_id": "RULE-VIDEO-EDITING",
+      "skill_type": "video_editing",
+      "task_type": "footage_editing",
+      "keywords": ["视频剪辑", "真人素材", "混剪", "去口头语", "剪掉空白", "video edit", "footage", "talking head"],
+      "expected_output_type": "edited mp4 + edit decision list",
+      "runtime": "media-footage-video-use",
+      "selected_agent": "agent-media-editor",
+      "confidence_boost": 45,
+      "reason": "Authorized real-footage editing must use the isolated footage editor and media QA chain."
+    },
+    {
+      "rule_id": "RULE-VIDEO-MATRIX",
+      "skill_type": "video_matrix_generation",
+      "task_type": "video_matrix_generation",
+      "keywords": ["视频矩阵", "批量视频", "渠道变体", "短视频矩阵", "video matrix", "batch video"],
+      "expected_output_type": "variant manifest + channel media artifacts",
+      "runtime": "media-generative-hyperframes",
+      "selected_agent": "agent-media-generator",
+      "confidence_boost": 50,
+      "reason": "Video matrix tasks use deterministic template generation and never imply channel publishing."
+    },
+    {
+      "rule_id": "RULE-MOTION-GRAPHICS",
+      "skill_type": "motion_graphics",
+      "task_type": "motion_graphics",
+      "keywords": ["动效", "动画", "动态图表", "技术动画", "manim", "motion graphics", "片头"],
+      "expected_output_type": "animation source + mp4",
+      "runtime": "media-generative-hyperframes",
+      "selected_agent": "agent-media-generator",
+      "confidence_boost": 40,
+      "reason": "Motion work routes to a deterministic animation runner with media QA."
+    },
+    {
+      "rule_id": "RULE-TECHNICAL-ANIMATION",
+      "skill_type": "technical_animation",
+      "task_type": "technical_animation",
+      "keywords": ["数学动画", "科普动画", "公式动画", "流程演示动画", "manim", "technical animation"],
+      "expected_output_type": "manim source + mp4 + render manifest",
+      "runtime": "media-technical-manim",
+      "selected_agent": "agent-media-generator",
+      "confidence_boost": 50,
+      "reason": "Mathematical and technical animation routes to the dedicated Manim Runner."
+    },
+    {
+      "rule_id": "RULE-VIDEO-GENERATION",
+      "skill_type": "video_generation",
+      "task_type": "video_generation",
+      "keywords": ["生成视频", "图文转视频", "产品视频", "宣传视频", "视频制作", "hyperframes", "remotion", "generate video"],
+      "expected_output_type": "composition + mp4 + render manifest",
+      "runtime": "media-generative-hyperframes",
+      "selected_agent": "agent-media-generator",
+      "confidence_boost": 35,
+      "reason": "Generated video work routes to the governed generative-video profile."
+    },
+    {
+      "rule_id": "RULE-MEDIA-VALIDATION",
+      "skill_type": "media_validation",
+      "task_type": "media_validation",
+      "keywords": ["视频质检", "媒体验收", "码率", "分辨率", "响度", "ffprobe", "media qa"],
+      "expected_output_type": "media QA report",
+      "runtime": "media-quality-control",
+      "selected_agent": "agent-media-qa",
+      "confidence_boost": 45,
+      "reason": "Media validation is an isolated read-only QA responsibility."
     }
   ]
 }

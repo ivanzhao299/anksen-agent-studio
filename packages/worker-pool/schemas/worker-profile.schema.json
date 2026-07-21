@@ -17,9 +17,10 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "professional_profile_id": { "type": "string", "minLength": 1 },
     "capability_tags": {
       "type": "array",
-      "items": { "type": "string", "enum": ["codex", "mobile-ios", "mobile-android", "web", "backend", "discovery", "production-dry-run"] },
+      "items": { "type": "string", "enum": ["codex", "mobile-ios", "mobile-android", "web", "backend", "discovery", "production-dry-run", "media-generation", "media-editing", "media-qa"] },
       "minItems": 1,
       "uniqueItems": true
     },

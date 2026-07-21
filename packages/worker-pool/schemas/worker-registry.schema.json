@@ -15,7 +15,7 @@
     },
     "required_capability_tags": {
       "type": "array",
-      "items": { "type": "string", "enum": ["codex", "mobile-ios", "mobile-android", "web", "backend", "discovery", "production-dry-run"] },
+      "items": { "type": "string", "enum": ["codex", "mobile-ios", "mobile-android", "web", "backend", "discovery", "production-dry-run", "media-generation", "media-editing", "media-qa"] },
       "uniqueItems": true
     },
     "future_worker_classes": {

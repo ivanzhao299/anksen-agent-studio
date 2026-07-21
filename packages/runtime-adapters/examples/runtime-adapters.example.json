@@ -185,6 +185,21 @@
         "no_managed_project_write"
       ],
       "notes": "Deterministic local adapter. MVP still plans only."
+    },
+    {
+      "adapter_id": "professional-media-runner",
+      "runtime_id": "professional-media-runner",
+      "provider": "local-media-runtime",
+      "invoke_mode": "local",
+      "supported_skills": ["video_generation", "video_editing", "motion_graphics", "technical_animation", "video_matrix_generation", "media_validation"],
+      "credential_reference_required": false,
+      "network_required": false,
+      "workspace_required": true,
+      "max_parallel_tasks": 2,
+      "health_status": "unknown",
+      "risk_baseline": "MEDIUM",
+      "guardrails": ["professional_capability_probe_required", "artifact_root_only", "no_publish", "no_deploy", "no_production_operation", "credential_reference_only", "human_approval_for_footage"],
+      "notes": "Execution is fail-closed until the selected professional profile passes Skill, tool and credential-reference probes."
     }
   ]
 }

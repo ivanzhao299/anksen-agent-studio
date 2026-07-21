@@ -310,6 +310,57 @@
       ],
       "preferred_runtime": "codex-cli",
       "fallback_runtime": "resident-observer"
+    },
+    {
+      "agent_id": "agent-media-generator",
+      "display_name": "Media Agent - Generative Video",
+      "role": "Build approved video compositions, motion graphics and channel variants without publication access.",
+      "domains": ["video-production", "video-matrix"],
+      "keywords": ["视频生成", "视频矩阵", "动效", "hyperframes", "remotion", "manim"],
+      "allowed_paths": ["runtime/artifacts/media/**"],
+      "forbidden_paths": [".env", ".env.*", ".git/**", "database/**", "migrations/**", "deploy/**", "infra/**"],
+      "max_parallel_tasks": 1,
+      "risk_limit": "MEDIUM",
+      "status": "ACTIVE",
+      "priority": 10,
+      "fallback_order": 1,
+      "supported_skills": ["video_generation", "motion_graphics", "technical_animation", "video_matrix_generation"],
+      "preferred_runtime": "media-generative-hyperframes",
+      "fallback_runtime": "media-programmatic-remotion"
+    },
+    {
+      "agent_id": "agent-media-editor",
+      "display_name": "Media Agent - Footage Editor",
+      "role": "Edit explicitly authorized footage and captions in an isolated artifact workspace.",
+      "domains": ["video-production"],
+      "keywords": ["视频剪辑", "真人素材", "字幕", "video-use", "ffmpeg"],
+      "allowed_paths": ["runtime/artifacts/media/**"],
+      "forbidden_paths": [".env", ".env.*", ".git/**", "database/**", "migrations/**", "deploy/**", "infra/**"],
+      "max_parallel_tasks": 1,
+      "risk_limit": "HIGH",
+      "status": "ACTIVE",
+      "priority": 10,
+      "fallback_order": 1,
+      "supported_skills": ["video_editing", "caption_rendering", "audio_transcription"],
+      "preferred_runtime": "media-footage-video-use",
+      "fallback_runtime": null
+    },
+    {
+      "agent_id": "agent-media-qa",
+      "display_name": "Media Agent - Quality Control",
+      "role": "Perform read-only media integrity, codec, stream, duration and delivery-spec validation.",
+      "domains": ["video-production", "video-matrix"],
+      "keywords": ["视频质检", "媒体验收", "ffprobe", "media qa"],
+      "allowed_paths": ["runtime/artifacts/media/**"],
+      "forbidden_paths": [".env", ".env.*", ".git/**", "database/**", "migrations/**", "deploy/**", "infra/**"],
+      "max_parallel_tasks": 2,
+      "risk_limit": "LOW",
+      "status": "ACTIVE",
+      "priority": 10,
+      "fallback_order": 1,
+      "supported_skills": ["media_validation"],
+      "preferred_runtime": "media-quality-control",
+      "fallback_runtime": null
     }
   ]
 }

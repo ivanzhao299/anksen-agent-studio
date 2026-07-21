@@ -73,6 +73,15 @@
       "capabilities": ["code_development", "validation_testing", "evolution_observer"],
       "health_status": "healthy",
       "notes": "Local scripts, deterministic adapters, and offline tools."
+    },
+    {
+      "provider_id": "local-media-runtime",
+      "provider_name": "Local Professional Media Runtime",
+      "provider_type": "cli",
+      "auth_modes": ["none"],
+      "capabilities": ["video_generation", "video_editing", "motion_graphics", "video_matrix_generation", "media_validation"],
+      "health_status": "unknown",
+      "notes": "Health is derived from installed Skill manifests, CLI dependencies and reference-only credentials on the actual Runner node."
     }
   ]
 }

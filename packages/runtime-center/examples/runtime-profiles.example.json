@@ -137,6 +137,71 @@
       "health_status": "healthy",
       "preferred_projects": ["jinhu-smart-park"],
       "notes": "Deterministic local scripts and read-only analyzers."
+    },
+    {
+      "runtime_id": "media-generative-hyperframes",
+      "adapter_id": "professional-media-runner",
+      "provider": "local-media-runtime",
+      "invoke_mode": "local",
+      "supported_skills": ["video_generation", "motion_graphics", "video_matrix_generation"],
+      "max_parallel_tasks": 1,
+      "default_budget": {"max_minutes": 30, "max_usd": 0, "max_tokens": 0},
+      "region": "local",
+      "health_status": "unknown",
+      "preferred_projects": ["video-factory"],
+      "notes": "Requires professional capability probe; registry presence is not execution readiness."
+    },
+    {
+      "runtime_id": "media-programmatic-remotion",
+      "adapter_id": "professional-media-runner",
+      "provider": "local-media-runtime",
+      "invoke_mode": "local",
+      "supported_skills": ["video_generation", "programmatic_video", "caption_rendering"],
+      "max_parallel_tasks": 1,
+      "default_budget": {"max_minutes": 30, "max_usd": 0, "max_tokens": 0},
+      "region": "local",
+      "health_status": "unknown",
+      "preferred_projects": ["video-factory"],
+      "notes": "Project-local Remotion dependencies only."
+    },
+    {
+      "runtime_id": "media-footage-video-use",
+      "adapter_id": "professional-media-runner",
+      "provider": "local-media-runtime",
+      "invoke_mode": "local",
+      "supported_skills": ["video_editing", "caption_rendering", "audio_transcription"],
+      "max_parallel_tasks": 1,
+      "default_budget": {"max_minutes": 60, "max_usd": 0, "max_tokens": 0},
+      "region": "local",
+      "health_status": "unknown",
+      "preferred_projects": ["video-factory"],
+      "notes": "Credential reference and footage-rights approval are mandatory for transcription."
+    },
+    {
+      "runtime_id": "media-quality-control",
+      "adapter_id": "professional-media-runner",
+      "provider": "local-media-runtime",
+      "invoke_mode": "local",
+      "supported_skills": ["media_validation"],
+      "max_parallel_tasks": 2,
+      "default_budget": {"max_minutes": 10, "max_usd": 0, "max_tokens": 0},
+      "region": "local",
+      "health_status": "unknown",
+      "preferred_projects": ["video-factory"],
+      "notes": "Read-only FFmpeg/FFprobe media validation."
+    },
+    {
+      "runtime_id": "media-technical-manim",
+      "adapter_id": "professional-media-runner",
+      "provider": "local-media-runtime",
+      "invoke_mode": "local",
+      "supported_skills": ["technical_animation", "motion_graphics"],
+      "max_parallel_tasks": 1,
+      "default_budget": {"max_minutes": 30, "max_usd": 0, "max_tokens": 0},
+      "region": "local",
+      "health_status": "unknown",
+      "preferred_projects": ["video-factory"],
+      "notes": "Local Manim technical animation with artifact-only output."
     }
   ]
 }

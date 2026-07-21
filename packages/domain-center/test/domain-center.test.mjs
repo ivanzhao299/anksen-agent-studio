@@ -83,6 +83,17 @@ test("professional spreadsheet workflow resolves to declared online Runner capac
   assert.ok(workflow.assignments.every((item) => item.workerKey));
 });
 
+test("video workflow resolves distinct generation and QA runners from live capability probes", () => {
+  const workflow = compileDomainWorkflow("生成产品宣传视频", registry, { goalId: "media-goal", explicitDomainId: "video-production" });
+  assert.equal(workflow.status, "READY");
+  assert.equal(workflow.assignments.find(item => item.key === "GENERATE").workerKey, "local-media-hyperframes-1");
+  assert.equal(workflow.assignments.find(item => item.key === "GENERATE").agentId, "agent-media-generator");
+  assert.equal(workflow.assignments.find(item => item.key === "VALIDATE").workerKey, "local-media-qa-1");
+  assert.equal(workflow.assignments.find(item => item.key === "VALIDATE").agentId, "agent-media-qa");
+  assert.equal(registry.professionalCapabilities.summary.ready, 4);
+  assert.ok(registry.professionalCapabilities.profiles.find(item => item.profile_id === "media-footage-video-use").blocked_reasons.includes("CREDENTIAL_REFERENCE_MISSING:media-transcription-provider-ref"));
+});
+
 test("business task binding propagates through every workflow stage without replacing the object", () => {
   const binding = { schemaVersion: 1, taskKind: "BUSINESS", scope: { organizationId: "org", workspaceId: "workspace", projectId: "project", applicationId: "finance-platform", domainId: "finance-management", userId: "finance-user" }, businessObject: { systemId: "finance-platform", objectType: "expense", objectId: "expense-1", version: 1, displayKey: "EXP-1", href: "/finance?record=expense-1" }, relations: [], workflow: { definitionId: "expense-review", definitionVersion: "1", instanceId: "workflow-1", stageId: "PLAN" }, skill: { businessSkillId: "finance_scope_control", skillId: "document-generation", skillType: "document_generation", contractVersion: "1", requiredCapabilities: ["document_generation"], riskLevel: "LOW", approvalPolicy: "RISK_BASED", idempotencyKey: "expense-1:workflow-1" }, execution: { preferredRuntimeId: "controlled-stub", preferredWorkerKey: null, assignmentPolicy: "CAPABILITY", runnerClass: null, memoryScopeKey: "finance:expense:expense-1" }, writeback: { operation: "TRANSITION", expectedObjectVersion: 1, resultSchemaRef: null, eventType: "finance.expense.review-ready" } };
   const workflow = compileDomainWorkflow("审核差旅费用", registry, { goalId: "expense-goal", explicitDomainId: "finance-management", businessTaskBinding: binding });

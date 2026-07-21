@@ -493,6 +493,84 @@
         "node ops/agent-orchestrator/scripts/orchestratorctl.mjs evolve --dry-run"
       ],
       "risk_level": "LOW"
+    },
+    {
+      "skill_id": "skill-video-generation",
+      "skill_type": "video_generation",
+      "display_name": "Generative Video Production",
+      "purpose": "Generate governed video compositions and rendered media artifacts from an approved brief and storyboard.",
+      "default_runtime": "media-generative-hyperframes",
+      "fallback_runtime": "media-programmatic-remotion",
+      "default_agent": "agent-media-generator",
+      "expected_output_types": ["video composition", "mp4", "render manifest"],
+      "required_inputs": ["approved brief", "storyboard", "brand assets", "output specification", "artifact root"],
+      "validation_commands": ["hyperframes check", "ffprobe artifact"],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-video-editing",
+      "skill_type": "video_editing",
+      "display_name": "Footage Editing",
+      "purpose": "Edit authorized source footage, captions and audio into a controlled media artifact without publishing it.",
+      "default_runtime": "media-footage-video-use",
+      "fallback_runtime": null,
+      "default_agent": "agent-media-editor",
+      "expected_output_types": ["edited mp4", "edit decision list", "caption file"],
+      "required_inputs": ["authorized footage", "edit brief", "consent and rights evidence", "artifact root"],
+      "validation_commands": ["ffprobe artifact", "media quality control"],
+      "risk_level": "HIGH"
+    },
+    {
+      "skill_id": "skill-motion-graphics",
+      "skill_type": "motion_graphics",
+      "display_name": "Motion Graphics",
+      "purpose": "Create short motion graphics and technical animation artifacts using HyperFrames, Remotion or Manim.",
+      "default_runtime": "media-generative-hyperframes",
+      "fallback_runtime": "media-technical-manim",
+      "default_agent": "agent-media-generator",
+      "expected_output_types": ["motion graphic", "animation source", "mp4"],
+      "required_inputs": ["visual brief", "duration", "dimensions", "brand constraints"],
+      "validation_commands": ["ffprobe artifact"],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-media-validation",
+      "skill_type": "media_validation",
+      "display_name": "Media Quality Control",
+      "purpose": "Validate duration, codec, dimensions, frame rate, audio streams and artifact integrity before approval or publication.",
+      "default_runtime": "media-quality-control",
+      "fallback_runtime": null,
+      "default_agent": "agent-media-qa",
+      "expected_output_types": ["media QA report", "artifact manifest"],
+      "required_inputs": ["rendered artifact", "delivery specification"],
+      "validation_commands": ["ffprobe artifact", "ffmpeg decode check"],
+      "risk_level": "LOW"
+    },
+    {
+      "skill_id": "skill-technical-animation",
+      "skill_type": "technical_animation",
+      "display_name": "Technical Animation",
+      "purpose": "Create evidence-backed mathematical, scientific, process and architecture animations using the governed Manim Runner.",
+      "default_runtime": "media-technical-manim",
+      "fallback_runtime": "media-generative-hyperframes",
+      "default_agent": "agent-media-generator",
+      "expected_output_types": ["manim source", "technical animation mp4", "render manifest"],
+      "required_inputs": ["technical script", "verified facts", "scene plan", "output specification"],
+      "validation_commands": ["manim render", "ffprobe artifact"],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-video-matrix-generation",
+      "skill_type": "video_matrix_generation",
+      "display_name": "Video Matrix Generation",
+      "purpose": "Produce governed channel variants from one approved master composition without publishing or accessing channel credentials.",
+      "default_runtime": "media-generative-hyperframes",
+      "fallback_runtime": "media-programmatic-remotion",
+      "default_agent": "agent-media-generator",
+      "expected_output_types": ["variant manifest", "channel-ready mp4 assets"],
+      "required_inputs": ["approved master", "channel specifications", "variant policy", "artifact root"],
+      "validation_commands": ["media quality control"],
+      "risk_level": "MEDIUM"
     }
   ]
 }

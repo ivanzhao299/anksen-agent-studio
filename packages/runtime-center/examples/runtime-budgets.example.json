@@ -49,6 +49,46 @@
       "max_minutes_per_task": 30,
       "max_parallel_tasks": 5,
       "notes": "Deterministic local scripts and offline validators."
+    },
+    {
+      "runtime_id": "media-generative-hyperframes",
+      "budget_status": "within_budget",
+      "max_usd_per_task": 0,
+      "max_minutes_per_task": 30,
+      "max_parallel_tasks": 1,
+      "notes": "Local artifact render budget."
+    },
+    {
+      "runtime_id": "media-programmatic-remotion",
+      "budget_status": "within_budget",
+      "max_usd_per_task": 0,
+      "max_minutes_per_task": 30,
+      "max_parallel_tasks": 1,
+      "notes": "Local artifact render budget."
+    },
+    {
+      "runtime_id": "media-footage-video-use",
+      "budget_status": "limited",
+      "max_usd_per_task": 0,
+      "max_minutes_per_task": 60,
+      "max_parallel_tasks": 1,
+      "notes": "Provider usage is governed separately by credential reference policy."
+    },
+    {
+      "runtime_id": "media-quality-control",
+      "budget_status": "within_budget",
+      "max_usd_per_task": 0,
+      "max_minutes_per_task": 10,
+      "max_parallel_tasks": 2,
+      "notes": "Read-only local QA budget."
+    },
+    {
+      "runtime_id": "media-technical-manim",
+      "budget_status": "within_budget",
+      "max_usd_per_task": 0,
+      "max_minutes_per_task": 30,
+      "max_parallel_tasks": 1,
+      "notes": "Local technical animation budget."
     }
   ]
 }
