@@ -14,6 +14,7 @@ import { projectFinanceControlReport } from "./finance-control-report.mjs";
 import { projectHrWorkforcePipeline } from "./hr-workforce-pipeline.mjs";
 import { projectManufacturingFulfillmentReport } from "./manufacturing-fulfillment-report.mjs";
 import { projectSmartParkOperationsReport } from "./smart-park-operations-report.mjs";
+import { projectGrowthSalesFunnelReport } from "./growth-sales-funnel-report.mjs";
 
 const terminal = new Set(["COMPLETED", "CANCELLED", "PAID", "ARCHIVED", "TERMINATED", "WRITTEN_OFF"]);
 const scopeOf = (value = {}) => {
@@ -398,6 +399,10 @@ export class PostgresBusinessApplicationStore {
 
   async smartParkOperationsReport(options = {}) {
     const scope=scopeOf(options),params=[scope.organizationId,scope.workspaceId,"smart-park-platform"],[recordRows,relationRows]=await Promise.all([this.pool.query("SELECT * FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 ORDER BY updated_at DESC",params),this.pool.query("SELECT * FROM business_record_relation WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3",params)]),records=recordRows.rows.map(row=>this.presentRecord(row)),relations=relationRows.rows.map(row=>({id:row.id,organizationId:row.organization_id,workspaceId:row.workspace_id,applicationId:row.application_id,sourceRecordId:row.source_record_id,targetRecordId:row.target_record_id,relationType:row.relation_type}));return projectSmartParkOperationsReport({records,relations,generatedAt:this.clock().toISOString(),source:"POSTGRESQL_BUSINESS_APPLICATION_STORE"});
+  }
+
+  async growthSalesFunnelReport(options = {}) {
+    const scope=scopeOf(options),params=[scope.organizationId,scope.workspaceId,"ai-growth-sales-platform"],[recordRows,relationRows]=await Promise.all([this.pool.query("SELECT * FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3 ORDER BY updated_at DESC",params),this.pool.query("SELECT * FROM business_record_relation WHERE organization_id=$1 AND workspace_id=$2 AND application_id=$3",params)]),records=recordRows.rows.map(row=>this.presentRecord(row)),relations=relationRows.rows.map(row=>({id:row.id,organizationId:row.organization_id,workspaceId:row.workspace_id,applicationId:row.application_id,sourceRecordId:row.source_record_id,targetRecordId:row.target_record_id,relationType:row.relation_type}));return projectGrowthSalesFunnelReport({records,relations,generatedAt:this.clock().toISOString(),source:"POSTGRESQL_BUSINESS_APPLICATION_STORE"});
   }
 
   async runnableAgentWorkItems({limit=20}={}) {
