@@ -39,6 +39,7 @@ import { createBusinessTaskBinding } from "../../../packages/orchestrator-core/l
 import { CadAgentSdk } from "../../../packages/engineering-cad-center/lib/index.mjs";
 import { ProfessionalRunnerCapabilityRegistry } from "../../../packages/skill-router/lib/professional-runner-capabilities.mjs";
 import { implementedProfessionalAdapterIds } from "../../../packages/skill-router/lib/professional-media-adapters.mjs";
+import { projectProfessionalArtifacts } from "../../../packages/skill-router/lib/professional-artifact-projection.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
 import { createStudioMcpRequestHandler } from "../../../packages/orchestrator-core/lib/studio-mcp-server.mjs";
@@ -448,8 +449,8 @@ const server = createServer(async (request, response) => {
     if (request.method === "GET" && pathname === "/api/work") {
       const access=evaluateConsoleRouteAccess("work",accessContext);if(!access.allowed){sendJson(response,403,access);return;}
       const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"},capabilities=accessContext.capabilities??[],canApprove=capabilities.some(value=>value==="*"||value==="proposal.approve"),canControl=capabilities.some(value=>value==="*"||value==="business.work.control"),canManage=capabilities.some(value=>value==="*"||value==="business.manage"),work=await businessApplicationStore.myWork({...scope,userId:accessContext.user?.user_id,includeAll:canManage,applicationId:url.searchParams.get("applicationId")}),visibleApplicationIds=enterpriseApplicationSummary().applications.filter(app=>evaluateConsoleRouteAccess(app.routeId,accessContext).allowed).map(app=>app.id),approvals=canApprove?(await businessApplicationStore.approvalInbox(scope)).filter(item=>visibleApplicationIds.includes(item.applicationId)):[];
-      const runnerFleet=canManage&&businessRunnerRegistry?await businessRunnerRegistry.dashboard():null,runnerCapabilities=canManage?portfolioRegistry.professionalCapabilities:null;
-      sendJson(response,200,{...work,items:work.items.map(item=>({...item,execution:item.execution??projectBusinessWorkExecution({workItem:item})})),approvals,canApprove,canControl,canManage,runner:businessWorkRunner.snapshot(),runnerFleet,runnerCapabilities,summary:{...work.summary,pendingApprovals:approvals.length},backend:businessRuntime.backend});
+      const runnerFleet=canManage&&businessRunnerRegistry?await businessRunnerRegistry.dashboard():null,runnerCapabilities=canManage?portfolioRegistry.professionalCapabilities:null,professionalArtifacts=canManage?await projectProfessionalArtifacts({repoRoot}):null;
+      sendJson(response,200,{...work,items:work.items.map(item=>({...item,execution:item.execution??projectBusinessWorkExecution({workItem:item})})),approvals,canApprove,canControl,canManage,runner:businessWorkRunner.snapshot(),runnerFleet,runnerCapabilities,professionalArtifacts,summary:{...work.summary,pendingApprovals:approvals.length},backend:businessRuntime.backend});
       return;
     }
     if(request.method==="GET"&&pathname==="/api/portfolio/work-report"){

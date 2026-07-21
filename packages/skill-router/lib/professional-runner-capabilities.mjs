@@ -4,12 +4,14 @@ import { homedir } from "node:os";
 import { delimiter, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 
 const defaultRegistryPath = new URL("../registry/professional-runner-capabilities.json", import.meta.url);
 const defaultRulesPath = new URL("../registry/skill-router-rules.json", import.meta.url);
 const unique = values => [...new Set(values)];
 const safeVersion = output => String(output ?? "").split(/\r?\n/, 1)[0].slice(0, 160);
 const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const require=createRequire(import.meta.url);
 const versionTuple=value=>(String(value).match(/\d+(?:\.\d+){0,2}/)?.[0]??"0").split(".").map(Number);
 const versionAtLeast=(actual,minimum)=>{const a=versionTuple(actual),b=versionTuple(minimum);for(let i=0;i<3;i++){if((a[i]??0)>(b[i]??0))return true;if((a[i]??0)<(b[i]??0))return false;}return true;};
 
@@ -49,20 +51,24 @@ export class ProfessionalRunnerCapabilityRegistry {
     return { skill, status: existsSync(path) ? "PASS" : "MISSING", reference: existsSync(path) ? `skill://${skill}` : null };
   }
 
+  probePackage(dependency){try{const manifest=require(`${dependency.name}/package.json`),version=manifest.version??null,status=dependency.minimum_version&&!versionAtLeast(version,dependency.minimum_version)?"VERSION_UNSUPPORTED":"PASS";return{name:dependency.name,status,version,minimum_version:dependency.minimum_version??null};}catch{return{name:dependency.name,status:"MISSING",version:null,minimum_version:dependency.minimum_version??null};}}
+
   async inventory() {
     const registry = await this.load();
     const profiles = registry.profiles.map(profile => {
       const tools = profile.tool_dependencies.map(item => this.probeTool(item));
       const skills = profile.skill_packages.map(item => this.probeSkill(item));
+      const packages=(profile.package_dependencies??[]).map(item=>this.probePackage(item));
       const credentials = profile.credential_references.map(referenceId => ({ referenceId, status: this.credentialReferenceIds.has(referenceId) ? "REFERENCE_CONFIGURED" : "MISSING_REFERENCE" }));
       const blockedReasons = [
         ...tools.filter(item => item.status !== "PASS").map(item => `TOOL_${item.status}:${item.command}`),
         ...skills.filter(item => item.status !== "PASS").map(item => `SKILL_${item.status}:${item.skill}`),
+        ...packages.filter(item=>item.status!=="PASS").map(item=>`PACKAGE_${item.status}:${item.name}`),
         ...credentials.filter(item => item.status !== "REFERENCE_CONFIGURED").map(item => `CREDENTIAL_REFERENCE_MISSING:${item.referenceId}`)
       ];
       const installationReadiness=blockedReasons.length?"NOT_READY":"READY",activationVariable=profile.activation?.environment_variable??null,activated=profile.activation?.required===false||Boolean(activationVariable&&this.env[activationVariable]==="true"),adapterRegistered=Boolean(profile.adapter_id&&this.registeredAdapterIds.has(profile.adapter_id)),executionBlocked=[...blockedReasons,...(activated?[]:[`RUNNER_NOT_ACTIVATED:${profile.profile_id}`]),...(adapterRegistered?[]:[`RUNTIME_ADAPTER_NOT_REGISTERED:${profile.adapter_id??profile.profile_id}`])];
-      const evidence={profile_id:profile.profile_id,capability_version:profile.capability_version??"unversioned",tools,skills,credentials,installation_readiness:installationReadiness,activated,adapterRegistered};
-      return { ...profile, tools, skills, credentials, readiness: installationReadiness, installation_readiness:installationReadiness, execution_readiness:executionBlocked.length?"NOT_EXECUTABLE":"EXECUTABLE", activated, adapter_registered:adapterRegistered, evidence_hash:hash(evidence), blocked_reasons: unique(blockedReasons), execution_blocked_reasons:unique(executionBlocked) };
+      const evidence={profile_id:profile.profile_id,capability_version:profile.capability_version??"unversioned",tools,skills,packages,credentials,installation_readiness:installationReadiness,activated,adapterRegistered};
+      return { ...profile, tools, skills, packages, credentials, readiness: installationReadiness, installation_readiness:installationReadiness, execution_readiness:executionBlocked.length?"NOT_EXECUTABLE":"EXECUTABLE", activated, adapter_registered:adapterRegistered, evidence_hash:hash(evidence), blocked_reasons: unique(blockedReasons), execution_blocked_reasons:unique(executionBlocked) };
     });
     return { schema_version: registry.schema_version, registry_id: registry.registry_id, checked_at: new Date().toISOString(), profiles, summary: { total: profiles.length, ready: profiles.filter(item => item.readiness === "READY").length, not_ready: profiles.filter(item => item.readiness !== "READY").length, executable:profiles.filter(item=>item.execution_readiness==="EXECUTABLE").length, not_activated:profiles.filter(item=>item.installation_readiness==="READY"&&item.execution_readiness!=="EXECUTABLE").length } };
   }
