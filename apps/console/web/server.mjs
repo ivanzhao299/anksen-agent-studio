@@ -36,6 +36,7 @@ import { projectBusinessWorkExecution } from "../../../packages/domain-center/li
 import { projectPortfolioWork } from "../../../packages/domain-center/lib/portfolio-work-projection.mjs";
 import { projectPortfolioCockpit } from "../../../packages/domain-center/lib/portfolio-cockpit-projection.mjs";
 import { createBusinessTaskBinding } from "../../../packages/orchestrator-core/lib/business-task-binding.mjs";
+import { CadAgentSdk } from "../../../packages/engineering-cad-center/lib/index.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
 import { createStudioMcpRequestHandler } from "../../../packages/orchestrator-core/lib/studio-mcp-server.mjs";
@@ -66,6 +67,7 @@ const staticAssets = new Map([
   ["/assets/business-work-execution.js", { path: join(assetsDir, "business-work-execution.js"), type: "text/javascript; charset=utf-8" }]
 ]);
 const autonomousExecutionCenter = new AutonomousExecutionCenter();
+const cadAgentSdk = new CadAgentSdk();
 const governedRunManager = new GovernedRunManager({ repoRoot });
 const portfolioRegistry = await loadDomainRuntimeRegistry();
 const businessRuntime = await createBusinessApplicationRuntime({ repoRoot });
@@ -486,6 +488,11 @@ const server = createServer(async (request, response) => {
     }
     if(request.method==="GET"&&pathname==="/api/business/runner-capabilities"){
       const routeAccess=evaluateConsoleRouteAccess("work",accessContext),capabilities=accessContext.capabilities??[],canManage=capabilities.some(value=>value==="*"||value==="business.manage");if(!routeAccess.allowed||!canManage){sendJson(response,403,{status:"BUSINESS_RUNNER_ACCESS_DENIED"});return;}sendJson(response,200,portfolioRegistry.professionalCapabilities);return;
+    }
+    if(request.method==="POST"&&pathname==="/api/cad/analyze"){
+      const routeAccess=evaluateConsoleRouteAccess("cad",accessContext);if(!routeAccess.allowed){sendJson(response,403,routeAccess);return;}
+      const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"cad-document-analyze",risk:"LOW"},{user_context:accessContext});if(access.status!=="ALLOW"&&!(accessContext.capabilities??[]).includes("*")){sendJson(response,403,access);return;}
+      try{const body=await readJsonBody(request),filename=String(body.filename??""),content=Buffer.from(String(body.contentBase64??""),"base64"),document=cadAgentSdk.parseDocument({filename,content});sendJson(response,200,{status:"PASS",document,previewSvg:cadAgentSdk.preview(document),report:cadAgentSdk.generateReport(document)});}catch(error){sendJson(response,400,{status:error.code??"CAD_ANALYSIS_FAILED",reason:error.message,details:error.details??{}});}return;
     }
     if(request.method==="POST"&&businessRunnerControl){const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-runner-control",risk:"MEDIUM"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}if(!businessRunnerRegistry){sendJson(response,503,{status:"BUSINESS_RUNNER_REGISTRY_UNAVAILABLE"});return;}try{const body=await readJsonBody(request),nodeKey=decodeURIComponent(businessRunnerControl[1]),node=await businessRunnerRegistry.control(nodeKey,{desiredState:body.desiredState,expectedVersion:body.expectedVersion,actorId:accessContext.user?.user_id});if(nodeKey===businessRunnerNodeKey&&node.desiredState==="ONLINE")businessWorkRunner.wake();sendJson(response,200,{node});}catch(error){sendJson(response,error.code==="BUSINESS_RUNNER_NODE_NOT_FOUND"?404:409,{status:error.code??"BUSINESS_RUNNER_CONTROL_FAILED",reason:error.message});}return;}
     if(request.method==="POST"&&businessWorkControl){const access=await evaluateConsoleActionAccess(accessBundle,{action_id:"business-work-control",risk:"MEDIUM"},{user_context:accessContext});if(access.status!=="ALLOW"){sendJson(response,403,access);return;}try{const body=await readJsonBody(request),capabilities=accessContext.capabilities??[],actor={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace",userId:accessContext.user?.user_id,canManageBusiness:capabilities.some(value=>value==="*"||value==="business.manage")},item=await businessApplicationStore.controlWorkItem(decodeURIComponent(businessWorkControl[1]),body,actor);let execution=null;if(item.assignmentType==="AGENT"&&["RESUME","REASSIGN"].includes(String(body.action??"").toUpperCase())){const app=getEnterpriseApplication(item.applicationId),record=app?await businessApplicationStore.getRecord(app.id,item.businessObject.objectId,actor):null;if(!app||!record)throw Object.assign(new Error("BUSINESS_RECORD_NOT_FOUND"),{code:"BUSINESS_RECORD_NOT_FOUND"});execution=await enqueueBusinessWork({app,record,item,actor});businessWorkRunner.wake();}sendJson(response,200,{item,execution});}catch(error){sendJson(response,409,{status:error.code??"BUSINESS_WORK_CONTROL_FAILED",reason:error.message});}return;}

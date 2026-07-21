@@ -32,6 +32,7 @@ function navIcon(id) {
     portfolio: '<path d="M3 5h14v11H3z"/><path d="M7 5V3h6v2M3 9h14M8 9v2h4V9"/>',
     outcomes: '<path d="M3 17V9m5 8V4m5 13v-6m4 6V7"/><path d="m3 7 5-4 5 5 4-3"/>',
     domains: '<path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z"/>',
+    cad: '<path d="M3 3h14v14H3zM6 14l3-8 3 8m-5-3h4M14 6v8"/>',
     projects: '<path d="M2.5 6.5h6l1.5 2h7.5v7a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2z"/><path d="M2.5 8.5v-3a2 2 0 0 1 2-2h3l1.5 2h4"/>',
     autopilot: '<path d="M3 17V9m5 8V5m5 12v-6m5 6V3"/>',
     actions: '<rect x="3" y="3" width="5" height="5" rx="1"/><rect x="12" y="3" width="5" height="5" rx="1"/><rect x="3" y="12" width="5" height="5" rx="1"/><path d="M12 14.5h5m-2.5-2.5v5"/>',
@@ -42,7 +43,7 @@ function navIcon(id) {
 
 function nav(activeId, auth = {}, activeProjectId = "") {
   const visibleRoutes = new Set(visibleConsoleRouteIds(auth));
-  const primaryIds = ["cockpit", "work", "strategy", "hr", "finance", "growthSales", "manufacturing", "smartPark", "video"];
+  const primaryIds = ["cockpit", "work", "strategy", "hr", "finance", "growthSales", "manufacturing", "smartPark", "video", "cad"];
   const renderLinks = (ids) => ids.map((id) => consoleWebRoutes.find((route) => route.id === id)).filter((route) => route && visibleRoutes.has(route.id)).map((route) => {
     const active = route.id === activeId ? "active" : "";
     return `<a class="${active}" href="${routeHref(route.navPath, activeProjectId)}" title="${escapeHtml(route.label)}"><span class="nav-icon">${navIcon(route.id)}</span><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
@@ -3181,6 +3182,14 @@ function normalizeRenderAuth(auth, data) {
   };
 }
 
+function pageCadCenter() {
+  return `<section class="hero"><div><span class="eyebrow">Engineering CAD Center · CAD-001</span><h1>工程图纸分析中心</h1><p>安全读取 ASCII DXF，将图层、实体、几何和统计转换为统一 CAD JSON。当前为只读分析，不编辑图纸。</p></div><span class="status-label pass">DXF Foundation READY</span></section>
+  <section><div class="section-head"><div><h2>图纸预览</h2><p class="help">文件仅发送到当前 Studio 进程分析；单次上限 10MB，不接受任意服务器路径。</p></div><span class="pill">DWG / IFC / PDF 适配器尚未启用</span></div>
+  <div class="kanban-grid"><div class="panel"><label for="cad-file">选择 ASCII DXF</label><input id="cad-file" type="file" accept=".dxf"><div class="button-row" style="margin-top:12px"><button id="cad-analyze" type="button">分析图纸</button></div><p id="cad-message" class="help">等待选择文件</p><div id="cad-stats" class="summary-grid"></div></div><div class="panel"><div id="cad-preview" style="min-height:320px;display:grid;place-items:center;overflow:auto;color:var(--accent)"><span class="help">预览将在这里显示</span></div></div></div>
+  <div class="panel" style="margin-top:12px"><div class="section-head"><h3>Unified CAD JSON</h3><span class="status-label local">只读结果</span></div><pre id="cad-json" style="max-height:420px;overflow:auto">{}</pre></div></section>
+  <script>(()=>{const file=document.getElementById('cad-file'),button=document.getElementById('cad-analyze'),message=document.getElementById('cad-message'),stats=document.getElementById('cad-stats'),preview=document.getElementById('cad-preview'),output=document.getElementById('cad-json'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));button.onclick=async()=>{if(!file.files[0]){message.textContent='请先选择 DXF 文件。';return;}button.disabled=true;message.textContent='正在安全解析…';try{const bytes=new Uint8Array(await file.files[0].arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));const response=await fetch('/api/cad/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({filename:file.files[0].name,contentBase64:btoa(binary)})}),body=await response.json();if(!response.ok)throw new Error(body.status+': '+body.reason);const s=body.document.statistics;stats.innerHTML=[['实体',s.entityCount],['图层',Object.keys(s.byLayer).length],['总长度',s.totalLength.toFixed(3)],['总面积',s.totalArea.toFixed(3)]].map(x=>'<div class="summary-card"><span>'+x[0]+'</span><strong>'+esc(x[1])+'</strong></div>').join('');preview.innerHTML=body.previewSvg;output.textContent=JSON.stringify(body.document,null,2);message.textContent='分析完成 · '+esc(body.document.metadata.parser);}catch(error){message.textContent=error.message;stats.innerHTML='';preview.innerHTML='<span class="help">无法生成预览</span>';}finally{button.disabled=false;}};})();</script>`;
+}
+
 export async function renderConsolePage(pathname = "/", auth = null, options = {}) {
   const data = await loadConsoleLocalData(options);
   const resolvedAuth = normalizeRenderAuth(auth, data);
@@ -3201,6 +3210,7 @@ export async function renderConsolePage(pathname = "/", auth = null, options = {
     manufacturing: () => pageBusinessApplication(getEnterpriseApplication("intelligent-manufacturing-erp"),data),
     smartPark: () => pageBusinessApplication(getEnterpriseApplication("smart-park-platform"),data),
     video: () => pageBusinessApplication(getEnterpriseApplication("video-factory"),data),
+    cad: () => pageCadCenter(),
     development: () => pageDevelopment(data),
     execution: () => pageExecution(),
     portfolio: () => pagePortfolio(data),

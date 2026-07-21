@@ -13,6 +13,7 @@ export const consoleWebRoutes = [
   { id: "manufacturing", label: "制造 ERP", path: "/manufacturing", navPath: "/manufacturing" },
   { id: "smartPark", label: "智慧园区", path: "/smart-park", navPath: "/smart-park" },
   { id: "video", label: "视频工厂", path: "/video", navPath: "/video" },
+  { id: "cad", label: "工程 CAD", path: "/cad", navPath: "/cad" },
   { id: "execution", label: "运行", path: "/execution", navPath: "/execution" },
   { id: "development", label: "自主开发", path: "/development", navPath: "/development" },
   { id: "domains", label: "领域中心", path: "/domains", navPath: "/domains" },

@@ -4,6 +4,24 @@
   "updated_at": "2026-06-24T00:00:00.000+08:00",
   "workers": [
     {
+      "worker_id": "local-cad-dxf-1",
+      "display_name": "Local Engineering CAD DXF Worker",
+      "worker_kind": "local",
+      "worker_os": "macOS",
+      "runtime_id": "cad-dxf-foundation",
+      "adapter_id": "professional-cad-runner",
+      "professional_profile_id": "cad-dxf-foundation",
+      "status": "unavailable",
+      "supported_skills": ["cad_document_load", "cad_dxf_parse", "cad_geometry_analysis", "cad_preview", "cad_statistics"],
+      "capability_tags": ["engineering-cad", "dxf-read", "geometry-analysis"],
+      "max_parallel_tasks": 2,
+      "risk": "LOW",
+      "execution_mode": "local_artifact_execute",
+      "isolation_policy_id": "cad-artifact-worker-isolation",
+      "process_probe": {"label": "cad_dxf_capability_probe", "match_any": ["packages/engineering-cad-center", "cad-dxf-foundation"], "on_demand_ok": true},
+      "notes": "Availability is hydrated from the professional capability registry. CAD-001 parses ASCII DXF only; DWG, IFC, PDF and drawing mutation remain unavailable."
+    },
+    {
       "worker_id": "local-codex-1",
       "display_name": "Local Codex Worker 1",
       "worker_kind": "local",
@@ -191,7 +209,7 @@
       "notes": "Technical animation worker hydrated from the installed Manim Skill and CLI probe."
     }
   ],
-  "required_capability_tags": ["codex", "mobile-ios", "mobile-android", "web", "backend", "discovery", "production-dry-run", "media-generation", "media-editing", "media-qa"],
+  "required_capability_tags": ["codex", "mobile-ios", "mobile-android", "web", "backend", "discovery", "production-dry-run", "media-generation", "media-editing", "media-qa", "engineering-cad"],
   "future_worker_classes": [
     {
       "worker_kind": "local",

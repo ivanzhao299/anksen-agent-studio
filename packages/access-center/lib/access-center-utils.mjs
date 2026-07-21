@@ -61,6 +61,7 @@ const directExecuteActionIds = new Set([
   "business-work-assign",
   "business-work-control",
   "business-runner-control",
+  "cad-document-analyze",
   "identity-owner-bootstrap"
 ]);
 const agentRuntimeIds = new Set([
@@ -77,6 +78,7 @@ const agentRuntimeIds = new Set([
 ]);
 
 const consoleActionCatalog = {
+  "cad-document-analyze": { capabilities: ["console.access"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "identity-owner-bootstrap": { capabilities: ["console.access", "access.manage"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "aec-goal": { capabilities: ["console.access", "autopilot.execute.local"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "portfolio-create": { capabilities: ["console.access", "autopilot.plan", "proposal.create"], execution_mode: "direct_execute", projectScoped: true, risk: "LOW" },
@@ -143,6 +145,7 @@ const consoleRouteCatalog = {
   manufacturing: ["console.access", "manufacturing.read"],
   smartPark: ["console.access", "smart_park.workspace"],
   video: ["console.access", "media.read"],
+  cad: ["console.access"],
   execution: ["console.access", "autopilot.plan"],
   domains: ["console.access"],
   portfolio: ["console.access", "autopilot.plan"],

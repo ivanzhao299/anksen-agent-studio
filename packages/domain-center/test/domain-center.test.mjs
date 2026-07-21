@@ -24,12 +24,12 @@ import { smartParkDomainChecks } from "../lib/smart-park-audit.mjs";
 const registry = await loadDomainRuntimeRegistry();
 
 test("catalog separates group platforms from the Smart Park business platform", () => {
-  assert.deepEqual(studioApplications.map((item) => item.id), ["software-factory", "video-factory", "enterprise-strategy-platform", "human-resources-platform", "finance-platform", "ai-growth-sales-platform", "intelligent-manufacturing-erp", "smart-park-platform"]);
+  assert.deepEqual(studioApplications.map((item) => item.id), ["engineering-cad-center", "software-factory", "video-factory", "enterprise-strategy-platform", "human-resources-platform", "finance-platform", "ai-growth-sales-platform", "intelligent-manufacturing-erp", "smart-park-platform"]);
   assert.equal(getStudioApplication("smart-park-platform").domainIds.length, 13);
   assert.ok(!getStudioApplication("smart-park-platform").domainIds.includes("finance-management"));
   assert.equal(getStudioApplication("ai-growth-sales-platform").domainIds.length, 10);
   assert.equal(getStudioApplication("intelligent-manufacturing-erp").domainIds.length, 14);
-  assert.equal(studioDomains.length, 42);
+  assert.equal(studioDomains.length, 43);
   assert.equal(getStudioDomain("strategy-execution").applicationId, "enterprise-strategy-platform");
   assert.equal(getStudioDomain("human-resources").applicationId, "human-resources-platform");
   assert.equal(getStudioDomain("finance-management").applicationId, "finance-platform");
@@ -90,7 +90,7 @@ test("video workflow resolves distinct generation and QA runners from live capab
   assert.equal(workflow.assignments.find(item => item.key === "GENERATE").agentId, "agent-media-generator");
   assert.equal(workflow.assignments.find(item => item.key === "VALIDATE").workerKey, "local-media-qa-1");
   assert.equal(workflow.assignments.find(item => item.key === "VALIDATE").agentId, "agent-media-qa");
-  assert.equal(registry.professionalCapabilities.summary.ready, 4);
+  assert.equal(registry.professionalCapabilities.summary.ready, 5);
   assert.ok(registry.professionalCapabilities.profiles.find(item => item.profile_id === "media-footage-video-use").blocked_reasons.includes("CREDENTIAL_REFERENCE_MISSING:media-transcription-provider-ref"));
 });
 
@@ -111,7 +111,7 @@ test("workflow submits the business graph through the existing Kernel port", asy
   assert.ok(kernel.goalTasks(goal.id).every((task) => task.metadata.applicationId && task.metadata.domainId && task.metadata.agentId && task.metadata.skillType && task.metadata.workerKey));
 });
 
-test("Console renders eight platforms and forty-two business domains, not Agent lanes", async () => {
+test("Console renders nine platforms and forty-three business domains, not Agent lanes", async () => {
   assert.ok(consoleWebRoutes.some((route) => route.id === "domains" && route.path === "/domains"));
   const html = await renderConsolePage("/domains", { authenticated: true, capabilities: ["*"], project_allowlist: ["*"] });
   assert.match(html, /应用与业务领域/);
@@ -122,15 +122,15 @@ test("Console renders eight platforms and forty-two business domains, not Agent 
   assert.match(html, /战略执行/);
   assert.match(html, /人力资源/);
   assert.match(html, /财务管理/);
-  assert.equal((html.match(/class="application-suite"/g) ?? []).length, 8);
-  assert.equal((html.match(/class="domain-card"/g) ?? []).length, 42);
+  assert.equal((html.match(/class="application-suite"/g) ?? []).length, 9);
+  assert.equal((html.match(/class="domain-card"/g) ?? []).length, 43);
   assert.doesNotMatch(html, /真实 Agent Lane|责任 Agent|应用范围与 Agent 分工/);
 });
 
 test("Console home renders the unified portfolio cockpit without fabricated outcomes", async () => {
   const html = await renderConsolePage("/", { authenticated: true, capabilities: ["*"], project_allowlist: ["*"] });
   assert.match(html, /集团业务驾驶舱/);
-  assert.equal((html.match(/<a class="portfolio-card" data-portfolio-app=/g) ?? []).length, 8);
+  assert.equal((html.match(/<a class="portfolio-card" data-portfolio-app=/g) ?? []).length, 9);
   assert.match(html, /业务结果待接入/);
   assert.match(html, /\/api\/portfolio\/dashboard/);
   assert.match(html, /\/api\/business\/reports/);

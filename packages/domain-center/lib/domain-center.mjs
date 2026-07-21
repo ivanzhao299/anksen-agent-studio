@@ -121,6 +121,15 @@ export const smartParkBusinessDomains = Object.freeze([
  */
 export const studioApplications = Object.freeze([
   {
+    id: "engineering-cad-center",
+    name: "工程 CAD 中心",
+    nameEn: "Engineering CAD Center",
+    icon: "CAD",
+    summary: "AI 原生工程图纸读取、解析、几何分析、预览与统计中心；不承担 CAD 编辑器职责。",
+    evidence: "CAD_001_IMPLEMENTED",
+    domainIds: ["engineering-cad"]
+  },
+  {
     id: "software-factory",
     name: "软件工厂",
     nameEn: "Software Factory",
@@ -199,6 +208,22 @@ export const studioApplications = Object.freeze([
  * Agent and Worker assignments are resolved later from the runtime registries.
  */
 export const studioDomains = Object.freeze([
+  {
+    id: "engineering-cad",
+    applicationId: "engineering-cad-center",
+    name: "工程 CAD 分析",
+    nameEn: "Engineering CAD Analysis",
+    icon: "CAD",
+    summary: "将工程图纸转为统一 CAD JSON，提供只读几何、图层、实体、标注、面积、长度、统计与预览。",
+    skillPack: ["cad_document_load", "cad_dxf_parse", "cad_geometry_analysis", "cad_preview", "cad_statistics"],
+    keywords: ["cad", "dxf", "dwg", "ifc", "工程图", "图纸", "几何", "面积", "长度"],
+    workflow: Object.freeze([
+      stage("LOAD", "安全加载并识别工程图纸", "cad_document_load", "agent-engineering-cad"),
+      stage("PARSE", "解析图层、实体、块、文字和标注", "cad_dxf_parse", "agent-engineering-cad", "LOAD"),
+      stage("ANALYZE", "计算几何、面积、长度和统计", "cad_geometry_analysis", "agent-engineering-cad", "PARSE"),
+      stage("PREVIEW", "生成安全的只读图纸预览", "cad_preview", "agent-engineering-cad", "ANALYZE")
+    ])
+  },
   {
     id: "software-engineering",
     applicationId: "software-factory",

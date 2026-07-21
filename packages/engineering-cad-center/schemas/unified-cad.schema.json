@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.example/schemas/unified-cad.schema.json",
+  "title": "ANKSEN Unified CAD Document",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "format", "metadata", "layers", "blocks", "entities", "dimensions", "statistics", "bounds"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "format": { "enum": ["DXF", "DWG", "IFC", "PDF"] },
+    "metadata": { "type": "object" },
+    "layers": { "type": "array", "items": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } } },
+    "blocks": { "type": "array", "items": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } } },
+    "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" } },
+    "dimensions": { "type": "array", "items": { "$ref": "#/$defs/entity" } },
+    "statistics": { "type": "object", "required": ["entityCount", "byType", "byLayer", "totalLength", "totalArea"] },
+    "bounds": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/bounds" }] }
+  },
+  "$defs": {
+    "point": { "type": "object", "required": ["x", "y"], "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" } } },
+    "bounds": { "type": "object", "required": ["min", "max", "width", "height"], "properties": { "min": { "$ref": "#/$defs/point" }, "max": { "$ref": "#/$defs/point" }, "width": { "type": "number", "minimum": 0 }, "height": { "type": "number", "minimum": 0 } } },
+    "entity": { "type": "object", "required": ["id", "type", "layer", "geometry"], "properties": { "id": { "type": "string" }, "type": { "type": "string" }, "layer": { "type": "string" }, "geometry": { "type": "object" }, "text": { "type": "string" }, "blockName": { "type": "string" }, "unsupported": { "type": "boolean" } } }
+  }
+}

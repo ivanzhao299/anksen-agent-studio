@@ -1,0 +1,6 @@
+const esc = value => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+export function renderCadSvg(document, { width=960, height=640 } = {}) {
+  const b=document.bounds??{min:{x:0,y:0},max:{x:1,y:1},width:1,height:1}; const sx=(width-40)/(b.width||1), sy=(height-40)/(b.height||1), scale=Math.min(sx,sy); const p=point=>({x:20+(point.x-b.min.x)*scale,y:height-20-(point.y-b.min.y)*scale}); const shapes=[];
+  for(const e of document.entities){const g=e.geometry??{},layer=esc(e.layer); if(e.type==="LINE"){const a=p(g.start),z=p(g.end);shapes.push(`<line x1="${a.x}" y1="${a.y}" x2="${z.x}" y2="${z.y}" data-layer="${layer}"/>`);} else if(e.type==="CIRCLE"){const c=p(g.center);shapes.push(`<circle cx="${c.x}" cy="${c.y}" r="${Math.abs(g.radius*scale)}" data-layer="${layer}"/>`);} else if(e.type==="LWPOLYLINE"){const pts=g.points.map(q=>{const z=p(q);return `${z.x},${z.y}`}).join(" ");shapes.push(`<polyline points="${pts}" ${g.closed?'data-closed="true"':''} data-layer="${layer}"/>`);} }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="CAD preview"><g fill="none" stroke="currentColor" stroke-width="1.5">${shapes.join("")}</g></svg>`;
+}

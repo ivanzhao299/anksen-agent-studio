@@ -3,6 +3,23 @@
   "updated_at": "2026-06-23T00:00:00.000Z",
   "agents": [
     {
+      "agent_id": "agent-engineering-cad",
+      "display_name": "Engineering CAD Analysis Agent",
+      "role": "Read-only CAD document loading, DXF parsing, geometry analysis, preview and statistics.",
+      "domains": ["engineering-cad"],
+      "keywords": ["cad", "dxf", "dwg", "ifc", "drawing", "geometry", "图纸", "工程图", "几何"],
+      "allowed_paths": ["packages/engineering-cad-center/**", "runtime/artifacts/cad/**"],
+      "forbidden_paths": [".env", ".env.*", "infra/**", "deploy/**", "database/**"],
+      "max_parallel_tasks": 2,
+      "risk_limit": "LOW",
+      "status": "ACTIVE",
+      "priority": 25,
+      "fallback_order": 1,
+      "supported_skills": ["cad_document_load", "cad_dxf_parse", "cad_geometry_analysis", "cad_preview", "cad_statistics"],
+      "preferred_runtime": "cad-dxf-foundation",
+      "fallback_runtime": null
+    },
+    {
       "agent_id": "agent-1",
       "display_name": "Agent 1 - Runtime Docs and Portal",
       "role": "Assets, documentation, portal/UI assistance, Runtime documentation index.",

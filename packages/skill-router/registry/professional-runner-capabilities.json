@@ -4,6 +4,24 @@
   "updated_at": "2026-07-21T00:00:00.000Z",
   "profiles": [
     {
+      "profile_id": "cad-dxf-foundation",
+      "display_name": "Engineering CAD DXF Foundation Runner",
+      "runner_class": "ENGINEERING_CAD",
+      "skill_types": ["cad_document_load", "cad_dxf_parse", "cad_geometry_analysis", "cad_preview", "cad_statistics"],
+      "skill_packages": [],
+      "tool_dependencies": [{"command": "node", "version_args": ["--version"]}],
+      "credential_references": [],
+      "allowed_commands": ["node packages/engineering-cad-center/bin/cad-foundation-smoke.mjs"],
+      "blocked_commands": ["git push", "git merge", "curl", "ssh", "scp", "docker", "kubectl", "terraform"],
+      "allowed_output_roots": ["runtime/artifacts/cad"],
+      "network_policy": "DENY",
+      "side_effect_policy": "ARTIFACT_WRITE_ONLY",
+      "max_runtime_seconds": 600,
+      "max_parallel_tasks": 2,
+      "risk_level": "LOW",
+      "format_readiness": {"DXF_ASCII": "READY", "DXF_BINARY": "NOT_READY", "DWG": "NOT_READY", "IFC": "NOT_READY", "PDF": "NOT_READY"}
+    },
+    {
       "profile_id": "media-generative-hyperframes",
       "display_name": "HyperFrames Generative Video Runner",
       "runner_class": "GENERATIVE_VIDEO",
