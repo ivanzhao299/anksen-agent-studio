@@ -156,8 +156,8 @@ async function readJsonBody(request) {
   for await (const chunk of request) chunks.push(chunk);
   for (const chunk of chunks) {
     total += chunk.length;
-    if (total > 12 * 1024 * 1024) {
-      throw new Error("Console request body exceeds 12MB limit.");
+    if (total > 16 * 1024 * 1024) {
+      throw new Error("Console request body exceeds 16MB limit.");
     }
   }
   const text = Buffer.concat(chunks).toString("utf8");
