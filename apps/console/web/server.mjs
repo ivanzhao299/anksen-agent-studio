@@ -34,6 +34,7 @@ import { buildBusinessCapabilityProtocol } from "../../../packages/domain-center
 import { EnterpriseProgramPlanner } from "../../../packages/domain-center/lib/enterprise-program-planner.mjs";
 import { projectBusinessWorkExecution } from "../../../packages/domain-center/lib/business-work-execution.mjs";
 import { projectPortfolioWork } from "../../../packages/domain-center/lib/portfolio-work-projection.mjs";
+import { projectPortfolioCockpit } from "../../../packages/domain-center/lib/portfolio-cockpit-projection.mjs";
 import { createBusinessTaskBinding } from "../../../packages/orchestrator-core/lib/business-task-binding.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
@@ -346,20 +347,26 @@ const server = createServer(async (request, response) => {
       return;
     }
     if (request.method === "GET" && pathname === "/api/portfolio/dashboard") {
-      const progress = await autonomousExecutionCenter.getPortfolioProgress();
+      const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"};
+      const visibleApplications=domainCenterSummary().applications.map(application=>({application,app:getEnterpriseApplication(application.id)})).filter(({app})=>app&&evaluateConsoleRouteAccess(app.routeId,accessContext).allowed);
+      const applicationIds=visibleApplications.map(({application})=>application.id);
+      const [progress,outcomes,campaigns,exceptions,professionalResults] = await Promise.all([
+        autonomousExecutionCenter.getPortfolioProgress(),
+        businessOutcomeCenter.dashboard(),
+        autonomousPortfolio.list(scope),
+        businessApplicationStore.businessExceptions({...scope,applicationIds,limit:100}),
+        businessApplicationStore.professionalResults({...scope,applicationIds,limit:100})
+      ]);
       const byApplication = new Map(progress.applications.map((item) => [item.application_id, item]));
-      const outcomes = await businessOutcomeCenter.dashboard();
       const outcomesByApplication = new Map(outcomes.applications.map((item) => [item.applicationId, item]));
+      const portfolioWork=projectPortfolioWork(campaigns,{applicationIds});
+      const applications=projectPortfolioCockpit({applications:visibleApplications.map(({application,app})=>({id:application.id,name:application.name,nameEn:application.nameEn,icon:application.icon,summary:application.summary,domainCount:application.domains.length,path:app.path})),portfolioWork,exceptions:exceptions.items,professionalResults:professionalResults.items});
       sendJson(response, 200, {
         generatedAt: progress.generatedAt,
         source: progress.source,
-        applications: domainCenterSummary().applications.map((application) => ({
-          id: application.id,
-          name: application.name,
-          nameEn: application.nameEn,
-          icon: application.icon,
-          summary: application.summary,
-          domainCount: application.domains.length,
+        workSummary:portfolioWork.summary,
+        applications: applications.map((application) => ({
+          ...application,
           progress: byApplication.get(application.id) ?? null,
           businessResults: outcomesByApplication.get(application.id) ?? { status: "AWAITING_CONNECTOR", metrics: [], latest: null }
         }))
