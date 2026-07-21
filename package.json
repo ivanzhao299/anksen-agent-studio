@@ -17,6 +17,7 @@
     "smart-park-source:sync": "node packages/domain-center/bin/smart-park-source.mjs --apply",
     "runner-capabilities:check": "node packages/skill-router/bin/professional-runner-capabilities.mjs",
     "media:hyperframes:smoke": "node packages/skill-router/bin/media-hyperframes-smoke.mjs",
+    "media:multi-runner:smoke": "node packages/skill-router/bin/media-multi-runner-smoke.mjs",
     "cad:foundation:smoke": "node packages/engineering-cad-center/bin/cad-foundation-smoke.mjs",
     "business-database:migrate": "node packages/domain-center/bin/business-database-migrate.mjs",
     "smart-park:program:submit": "node packages/domain-center/bin/smart-park-program-submit.mjs",
@@ -53,7 +54,11 @@
     "studio:doctor": "node packages/orchestrator-core/bin/studio.mjs doctor --project examples/jinhu-smart-park/project.config.example.json --dry-run"
   },
   "devDependencies": {
+    "@remotion/cli": "4.0.495",
     "hyperframes": "0.7.65",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "remotion": "4.0.495",
     "typescript": "^5.5.4"
   }
 }

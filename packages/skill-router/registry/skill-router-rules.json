@@ -468,6 +468,28 @@
       "reason": "Authorized real-footage editing must use the isolated footage editor and media QA chain."
     },
     {
+      "rule_id": "RULE-MEDIA-TRANSCRIPTION",
+      "skill_type": "audio_transcription",
+      "task_type": "audio_transcription",
+      "keywords": ["视频转写", "音频转写", "语音识别", "transcription", "transcribe", "scribe"],
+      "expected_output_type": "word-level transcript",
+      "runtime": "media-transcription-video-use",
+      "selected_agent": "agent-media-editor",
+      "confidence_boost": 55,
+      "reason": "Speech transcription is credential-scoped and must not be conflated with offline footage editing."
+    },
+    {
+      "rule_id": "RULE-REMOTION-PROGRAMMATIC",
+      "skill_type": "programmatic_video",
+      "task_type": "programmatic_video",
+      "keywords": ["remotion", "react 视频", "程序化视频", "programmatic video", "react composition"],
+      "expected_output_type": "Remotion source + mp4 + render manifest",
+      "runtime": "media-programmatic-remotion",
+      "selected_agent": "agent-media-generator",
+      "confidence_boost": 60,
+      "reason": "Explicit React and Remotion compositions route to the version-pinned Remotion Runner."
+    },
+    {
       "rule_id": "RULE-VIDEO-MATRIX",
       "skill_type": "video_matrix_generation",
       "task_type": "video_matrix_generation",

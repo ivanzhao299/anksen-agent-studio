@@ -90,8 +90,9 @@ test("video workflow resolves distinct generation and QA runners from live capab
   assert.equal(workflow.assignments.find(item => item.key === "GENERATE").agentId, "agent-media-generator");
   assert.equal(workflow.assignments.find(item => item.key === "VALIDATE").workerKey, "local-media-qa-1");
   assert.equal(workflow.assignments.find(item => item.key === "VALIDATE").agentId, "agent-media-qa");
-  assert.equal(registry.professionalCapabilities.summary.ready, 5);
-  assert.ok(registry.professionalCapabilities.profiles.find(item => item.profile_id === "media-footage-video-use").blocked_reasons.includes("CREDENTIAL_REFERENCE_MISSING:media-transcription-provider-ref"));
+  assert.equal(registry.professionalCapabilities.summary.ready, 6);
+  assert.equal(registry.professionalCapabilities.profiles.find(item => item.profile_id === "media-footage-video-use").readiness, "READY");
+  assert.ok(registry.professionalCapabilities.profiles.find(item => item.profile_id === "media-transcription-video-use").blocked_reasons.includes("CREDENTIAL_REFERENCE_MISSING:media-transcription-provider-ref"));
 });
 
 test("business task binding propagates through every workflow stage without replacing the object", () => {
