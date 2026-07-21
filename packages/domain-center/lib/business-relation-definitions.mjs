@@ -42,7 +42,12 @@ export const businessRelationContracts=Object.freeze([
   contract("smart-park-platform","enterprise","service_order","REQUESTS","入园企业发起服务",["ADMITTED","ACTIVE"]),
   contract("smart-park-platform","enterprise","lease_contract","SIGNS","入园企业签订租约",["ADMITTED","ACTIVE"]),
   contract("smart-park-platform","space","lease_contract","ALLOCATED_BY","空间形成租约",["RESERVED","OCCUPIED"]),
-  contract("smart-park-platform","lease_contract","meter","METERED_BY","租约绑定能源表计",["SIGNED","ACTIVE","RENEWED"])
+  contract("smart-park-platform","lease_contract","meter","METERED_BY","租约绑定能源表计",["SIGNED","ACTIVE","RENEWED"]),
+  contract("smart-park-platform","lease_contract","settlement_bill","BILLED_BY","有效租约形成园区结算单",["ACTIVE","EXPIRING","RENEWED"]),
+  contract("smart-park-platform","meter","settlement_bill","CONTRIBUTES_TO","有效表计进入能源费用结算",["ACTIVE"]),
+  contract("smart-park-platform","service_order","settlement_bill","CHARGED_BY","已完成服务工单进入服务费用结算",["COMPLETED"]),
+  contract("smart-park-platform","settlement_bill","operating_review","SUMMARIZED_IN","已出具结算进入园区经营复盘",["ISSUED","PAID","OVERDUE"]),
+  contract("smart-park-platform","service_order","operating_review","ASSESSED_IN","已关闭服务工单进入服务质量复盘",["RESOLVED","COMPLETED"])
 ]);
 
 export function relationContractsFor(applicationId,objectType){return businessRelationContracts.filter(item=>item.applicationId===applicationId&&(item.sourceType===objectType||item.targetType===objectType));}
