@@ -32,6 +32,34 @@ OpenMontage is not registered as an embedded Runner. It is an AGPL-3.0 complete 
 - `GET /api/business/runner-capabilities` for authorized workspace managers
 - My Work → Professional Runner Capabilities
 
-## Next long task
+## Governed execution closure
 
-`MEDIA-001 Governed Media Artifact Execution` should add the actual isolated media job workspace, a versioned Media Brief and Artifact manifest, HyperFrames/Remotion execution adapters, FFprobe QA, Attempt artifact references, cancellation/timeouts, approval before any footage or provider use, and a smoke video that never publishes. Until that task is accepted, `READY` means the node has the declared tools and Skills; it does not claim that Studio has already rendered or published a production video.
+The registry now reports two independent states:
+
+- `installation_readiness`: Skill manifests, minimum tool versions and Credential Reference identifiers are healthy on this node.
+- `execution_readiness`: installation is healthy and the exact profile has been explicitly activated for this node.
+
+All media profiles default to not activated. Production deployment therefore reports installed tools honestly but cannot execute them until an operator separately enables the profile-specific environment variable. No activation flag is committed by this change.
+
+Before an adapter can run, `preflight` verifies the profile and capability version, task/attempt/fencing presence, Skill match, exact command allowlist, artifact-root containment, required credential references and HIGH-risk approval. The execution service fails closed when an adapter is absent. Successful adapters write only under the declared artifact root and produce a SHA-256 artifact manifest plus a hash-chained audit record; fencing values and credential values are never copied into either output.
+
+Operator interfaces:
+
+- `pnpm runner-capabilities:check` — installation and activation inventory.
+- `pnpm runner-capabilities:check -- --require-ready video_generation` — installation gate only.
+- `pnpm runner-capabilities:check -- --require-executable video_generation` — activated execution gate.
+- `POST /api/business/runner-capabilities/preflight` — authenticated manager preflight.
+
+`INSTALLED` or an installation `READY` is not a production execution claim. Real media execution additionally requires a registered runtime adapter, a valid Kernel Task/Attempt/Lease fencing context, node activation and any task-specific approval.
+
+## Adapter implementation truth
+
+| Profile | Registration | Adapter implementation | Production activation |
+| --- | --- | --- | --- |
+| HyperFrames | Skill, route, Agent, Worker and Runtime profile registered | `CONTRACT_ONLY`; authoring requires a confirmed `BRIEF.md` and workflow-specific project state | OFF |
+| Remotion | Skill, route, Agent, Worker and Runtime profile registered | `CONTRACT_ONLY`; rendering requires a project-local Remotion composition and render contract | OFF |
+| video-use | Skill, route, Agent, Worker and Runtime profile registered | `CONTRACT_ONLY`; editing requires strategy confirmation, authorized footage and transcription Credential Reference | OFF |
+| Manim | Skill, route, Agent, Worker and Runtime profile registered | `CONTRACT_ONLY`; execution requires `plan.md`, scene source and project-local render inputs | OFF |
+| FFmpeg / FFprobe QA | Skill route, QA Agent, Worker and Runtime profile registered | Implemented read-only adapter; accepts only real paths below `runtime/artifacts/media`, runs fixed `ffprobe` arguments and emits sanitized QA JSON | OFF |
+
+This distinction follows each installed Skill's own workflow contract. Studio does not invoke a creative tool from an underspecified Task merely because its CLI exists. The read-only FFprobe adapter is the first real professional adapter and proves the Gate → Adapter → Artifact Manifest → Audit chain without rendering, publishing or production side effects.

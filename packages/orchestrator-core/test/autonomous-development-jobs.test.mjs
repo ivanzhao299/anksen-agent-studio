@@ -43,7 +43,7 @@ test("worker heartbeat is evidence-backed and becomes offline", async () => {
 });
 
 test("worker routes implementation through the governed runtime and four real roles", async () => {
-  const source = await import("node:fs/promises").then(fs => fs.readFile(resolve(process.cwd(), "packages/orchestrator-core/bin/autonomous-development-worker.mjs"), "utf8"));
+  const source = await import("node:fs/promises").then(fs => fs.readFile(new URL("../bin/autonomous-development-worker.mjs", import.meta.url), "utf8"));
   for (const role of ["PLANNER", "IMPLEMENTER", "VALIDATOR", "REVIEWER"]) assert.match(source, new RegExp(`role[:=]\"?${role}|\"${role}\"`));
   assert.match(source, /governed-codex-run\.mjs/);
   assert.match(source, /policySafeInstruction/);

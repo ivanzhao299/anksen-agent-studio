@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { professionalBusinessSkillContracts } from "./professional-business-skill-runner.mjs";
 import { ProfessionalRunnerCapabilityRegistry } from "../../skill-router/lib/professional-runner-capabilities.mjs";
+import { implementedProfessionalAdapterIds } from "../../skill-router/lib/professional-media-adapters.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(packageRoot, "../..");
@@ -346,7 +347,7 @@ export function routeStudioDomain(goal, { explicitDomainId = null } = {}) {
 }
 
 export async function loadDomainRuntimeRegistry() {
-  const professionalRegistry = new ProfessionalRunnerCapabilityRegistry({ credentialReferenceIds: String(process.env.STUDIO_PROFESSIONAL_CREDENTIAL_REFERENCES ?? "").split(",").map(value => value.trim()).filter(Boolean) });
+  const professionalRegistry = new ProfessionalRunnerCapabilityRegistry({ credentialReferenceIds: String(process.env.STUDIO_PROFESSIONAL_CREDENTIAL_REFERENCES ?? "").split(",").map(value => value.trim()).filter(Boolean), registeredAdapterIds:implementedProfessionalAdapterIds });
   const [skillRegistry, skillRules, agentRegistry, workerRegistry, professionalCapabilities] = await Promise.all([
     readJson(paths.skills), readJson(paths.skillRules), readJson(paths.agents), readJson(paths.workers), professionalRegistry.inventory()
   ]);

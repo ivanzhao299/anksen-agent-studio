@@ -37,6 +37,8 @@ import { projectPortfolioWork } from "../../../packages/domain-center/lib/portfo
 import { projectPortfolioCockpit } from "../../../packages/domain-center/lib/portfolio-cockpit-projection.mjs";
 import { createBusinessTaskBinding } from "../../../packages/orchestrator-core/lib/business-task-binding.mjs";
 import { CadAgentSdk } from "../../../packages/engineering-cad-center/lib/index.mjs";
+import { ProfessionalRunnerCapabilityRegistry } from "../../../packages/skill-router/lib/professional-runner-capabilities.mjs";
+import { implementedProfessionalAdapterIds } from "../../../packages/skill-router/lib/professional-media-adapters.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
 import { createStudioMcpRequestHandler } from "../../../packages/orchestrator-core/lib/studio-mcp-server.mjs";
@@ -488,6 +490,9 @@ const server = createServer(async (request, response) => {
     }
     if(request.method==="GET"&&pathname==="/api/business/runner-capabilities"){
       const routeAccess=evaluateConsoleRouteAccess("work",accessContext),capabilities=accessContext.capabilities??[],canManage=capabilities.some(value=>value==="*"||value==="business.manage");if(!routeAccess.allowed||!canManage){sendJson(response,403,{status:"BUSINESS_RUNNER_ACCESS_DENIED"});return;}sendJson(response,200,portfolioRegistry.professionalCapabilities);return;
+    }
+    if(request.method==="POST"&&pathname==="/api/business/runner-capabilities/preflight"){
+      const routeAccess=evaluateConsoleRouteAccess("work",accessContext),capabilities=accessContext.capabilities??[],canManage=capabilities.some(value=>value==="*"||value==="business.manage");if(!routeAccess.allowed||!canManage){sendJson(response,403,{status:"BUSINESS_RUNNER_ACCESS_DENIED"});return;}const body=await readJsonBody(request);sendJson(response,200,await new ProfessionalRunnerCapabilityRegistry({credentialReferenceIds:String(process.env.STUDIO_PROFESSIONAL_CREDENTIAL_REFERENCES??"").split(",").filter(Boolean),registeredAdapterIds:implementedProfessionalAdapterIds}).preflight(body));return;
     }
     if(request.method==="POST"&&pathname==="/api/cad/analyze"){
       const routeAccess=evaluateConsoleRouteAccess("cad",accessContext);if(!routeAccess.allowed){sendJson(response,403,routeAccess);return;}
