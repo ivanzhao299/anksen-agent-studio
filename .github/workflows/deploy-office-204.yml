@@ -79,7 +79,7 @@ jobs:
             -o ServerAliveInterval=15 \
             -o ServerAliveCountMax=4 \
             root@123.57.220.65 \
-            "deploy ${COMMIT_SHA}"
+            "cd /opt/anksen/agent-studio && dirty=\$(git status --porcelain --untracked-files=no) && if [ \"\$dirty\" = ' M pnpm-lock.yaml' ]; then git restore -- pnpm-lock.yaml; elif [ -n \"\$dirty\" ]; then printf '%s\\n' 'Deployment stopped: non-lockfile tracked changes exist.' >&2; git status --short; exit 1; fi && deploy ${COMMIT_SHA}"
 
       - name: Verify public Studio endpoint
         run: |
