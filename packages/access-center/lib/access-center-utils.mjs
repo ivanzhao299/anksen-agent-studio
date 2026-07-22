@@ -1,6 +1,6 @@
 import { randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -22,6 +22,7 @@ const runtimePaths = {
   memberships: resolve(repoRoot, "runtime/global/access-memberships.json"),
   invites: resolve(repoRoot, "runtime/global/access-invites.json")
 };
+const accessSecurityAuditPath = resolve(repoRoot, "runtime/local-services/access-security-audit.jsonl");
 
 const riskOrder = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const directExecuteActionIds = new Set([
@@ -136,6 +137,7 @@ const consoleActionCatalog = {
 };
 
 const consoleRouteCatalog = {
+  account: ["console.access"],
   cockpit: ["console.access"],
   work: ["console.access", "work.read"],
   strategy: ["console.access", "strategy.read"],
@@ -164,6 +166,22 @@ const consoleRouteCatalog = {
   memory: ["context.read"],
   pilotStatus: ["console.access"]
 };
+
+export function evaluateStudioPassword(password, username = "") {
+  const value = String(password ?? "");
+  const normalizedUsername = String(username ?? "").trim().toLowerCase();
+  const checks = {
+    minimum_length: value.length >= 12,
+    uppercase: /[A-Z]/.test(value),
+    lowercase: /[a-z]/.test(value),
+    number: /\d/.test(value),
+    symbol: /[^A-Za-z0-9\s]/.test(value),
+    no_whitespace: !/\s/.test(value),
+    excludes_username: !normalizedUsername || !value.toLowerCase().includes(normalizedUsername),
+    not_common: !/(password|12345678|qwerty|studiopilot)/i.test(value)
+  };
+  return { valid: Object.values(checks).every(Boolean), checks };
+}
 
 function unique(values) {
   return [...new Set((values ?? []).filter(Boolean))];
@@ -1088,6 +1106,83 @@ export async function resetStudioUserPassword(bundle, userOrUsername, nextPasswo
   return {
     user: sanitizeUser(nextUser),
     written_path: writtenPath
+  };
+}
+
+async function appendAccessSecurityAudit(event) {
+  await mkdir(dirname(accessSecurityAuditPath), { recursive: true });
+  await appendFile(accessSecurityAuditPath, `${JSON.stringify({
+    schema_version: 1,
+    event_id: `access-security-${randomUUID()}`,
+    occurred_at: new Date().toISOString(),
+    ...event
+  })}\n`, { encoding: "utf8", mode: 0o600 });
+}
+
+async function recentAccessSecurityEvents(userId, limit = 10) {
+  try {
+    const content = await readFile(accessSecurityAuditPath, "utf8");
+    return content.split("\n").filter(Boolean).flatMap((line) => {
+      try { return [JSON.parse(line)]; } catch { return []; }
+    }).filter((event) => event.user_id === userId).slice(-Math.max(1, Math.min(Number(limit) || 10, 20))).reverse();
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+export async function changeOwnStudioPassword(bundle, input = {}) {
+  const user = bundle.indexes.usersById.get(String(input.user_id ?? "")) ?? null;
+  if (!user || user.status !== "ACTIVE") throw Object.assign(new Error("当前账号不可用于密码更新。"), { code: "ACCOUNT_NOT_ACTIVE" });
+  if (!verifyPassword(user.password_hash, String(input.current_password ?? ""))) {
+    await appendAccessSecurityAudit({ event_type: "PASSWORD_CHANGE_REJECTED", user_id: user.user_id, reason: "CURRENT_PASSWORD_INVALID" }).catch(() => {});
+    throw Object.assign(new Error("当前密码不正确。"), { code: "CURRENT_PASSWORD_INVALID" });
+  }
+  const nextPassword = String(input.new_password ?? "");
+  if (verifyPassword(user.password_hash, nextPassword)) throw Object.assign(new Error("新密码不能与当前密码相同。"), { code: "PASSWORD_REUSE_DENIED" });
+  const policy = evaluateStudioPassword(nextPassword, user.username);
+  if (!policy.valid) throw Object.assign(new Error("新密码未满足安全要求。"), { code: "PASSWORD_POLICY_FAILED", details: policy.checks });
+  await appendAccessSecurityAudit({ event_type: "PASSWORD_CHANGE_AUTHORIZED", user_id: user.user_id, actor_user_id: user.user_id });
+
+  const document = ensureUserDocument(bundle);
+  const index = document.users.findIndex((item) => item.user_id === user.user_id);
+  const salt = `anksen-${slugifySegment(user.username, "user")}-${Date.now().toString(36)}`;
+  document.users[index] = { ...document.users[index], password_hash: passwordHash(nextPassword, salt) };
+  await persistUsersDocument(document);
+
+  const { data } = await readSessionStore(bundle);
+  const revokedSessionCount = (data.sessions ?? []).filter((session) => session.user_id === user.user_id).length;
+  await writeSessionStore(bundle, (data.sessions ?? []).filter((session) => session.user_id !== user.user_id));
+  const refreshedBundle = await loadAccessCenter();
+  const context = buildProfile(refreshedBundle, refreshedBundle.indexes.usersById.get(user.user_id));
+  const created = await createLocalSession(refreshedBundle, context, { user_agent: input.user_agent ?? "unknown" });
+  let auditStatus = "PASS";
+  await appendAccessSecurityAudit({
+    event_type: "PASSWORD_CHANGED",
+    user_id: user.user_id,
+    actor_user_id: user.user_id,
+    revoked_session_count: revokedSessionCount,
+    session_id: created.session.session_id
+  }).catch(() => { auditStatus = "PARTIAL"; });
+  return { status: "PASS", token: created.token, session: created.session, revoked_session_count: revokedSessionCount, password_policy: policy, audit_status: auditStatus };
+}
+
+export async function accessSecuritySummary(bundle, userId, session = null) {
+  const user = bundle.indexes.usersById.get(String(userId ?? "")) ?? null;
+  if (!user) throw Object.assign(new Error("Studio user not found."), { code: "ACCOUNT_NOT_FOUND" });
+  return {
+    status: "PASS",
+    account: sanitizeUser(user),
+    auth_mode: bundle.policy.auth_mode,
+    session,
+    requirements: { minimum_length: 12, uppercase: true, lowercase: true, number: true, symbol: true, whitespace_allowed: false, username_allowed: false },
+    recent_events: (await recentAccessSecurityEvents(user.user_id)).filter((event) => ["PASSWORD_CHANGED", "PASSWORD_CHANGE_REJECTED"].includes(event.event_type)).map((event) => ({
+      event_id: event.event_id,
+      event_type: event.event_type,
+      occurred_at: event.occurred_at,
+      revoked_session_count: event.revoked_session_count ?? 0,
+      reason: event.reason ?? null
+    }))
   };
 }
 

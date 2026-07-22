@@ -109,6 +109,17 @@
 4. 会话只保存在本机 `runtime/local-services/access-sessions.json`。
 5. Console 仍只监听 `127.0.0.1`。
 
+## 账户与安全
+
+登录后可从左侧“账户与安全”或点击侧栏底部当前账号进入 `/account`。当前用户可验证现有密码并自行轮换 Studio 本地登录密码。
+
+- 新密码至少 12 位，并同时包含大小写字母、数字和特殊符号；不得包含空格、用户名或常见弱密码片段。
+- 服务端仅保存新的 scrypt 哈希，不把当前密码、新密码或哈希写入响应、日志、Goal、Task 或 Credential Reference。
+- 修改接口要求有效登录会话、当前密码和同源请求；15 分钟内连续验证失败 5 次将临时限流。
+- 成功后撤销该账号原有会话，并为当前浏览器签发新的 `HttpOnly`、`SameSite=Strict` 会话；HTTPS 环境同时设置 `Secure`。
+- 安全事件写入忽略提交的 `runtime/local-services/access-security-audit.jsonl`，前端仅显示当前账号的脱敏事件。
+- 此功能只维护 Studio 本地 Access Center 账号。Keycloak MCP/OAuth 身份和 Runtime Credential Reference 仍分别维护。
+
 ## 系统管理员登录方式
 
 当前默认系统管理员入口：

@@ -5,6 +5,8 @@ import { dirname, join, resolve } from "node:path";
 import { hostname } from "node:os";
 import { fileURLToPath } from "node:url";
 import {
+  accessSecuritySummary,
+  changeOwnStudioPassword,
   createAccessInvite,
   currentSessionSummary,
   evaluateConsoleActionAccess,
@@ -77,6 +79,9 @@ const businessRuntime = await createBusinessApplicationRuntime({ repoRoot });
 const businessApplicationStore = businessRuntime.store;
 const businessDataConnectorStore = businessRuntime.connectorStore;
 const businessSourceGovernance = businessRuntime.sourceGovernance;
+const passwordChangeFailures = new Map();
+const passwordChangeWindowMs = 15 * 60 * 1000;
+const passwordChangeAttemptLimit = 5;
 const acquireWorkflowPool = async () => {
   if (businessRuntime.pool) return { pool: businessRuntime.pool, ownsPool: false };
   await ensurePostgresFixture();
@@ -182,8 +187,8 @@ function sessionTokenFromRequest(request) {
   return parseCookies(request).anksen_session ?? "";
 }
 
-function sessionCookie(token, ttlHours) {
-  return `anksen_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${Math.max(60, Number(ttlHours ?? 12) * 60 * 60)}`;
+function sessionCookie(token, ttlHours, secure = false) {
+  return `anksen_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict${secure ? "; Secure" : ""}; Max-Age=${Math.max(60, Number(ttlHours ?? 12) * 60 * 60)}`;
 }
 
 function clearSessionCookie() {
@@ -259,7 +264,7 @@ const server = createServer(async (request, response) => {
         return;
       }
       sendJson(response, 200, result, {
-        "set-cookie": sessionCookie(result.token, accessBundle.policy.session_ttl_hours)
+        "set-cookie": sessionCookie(result.token, accessBundle.policy.session_ttl_hours, Boolean(identityRuntime) || String(request.headers["x-forwarded-proto"] ?? "") === "https")
       });
       return;
     }
@@ -315,6 +320,39 @@ const server = createServer(async (request, response) => {
         status: "AUTH_REQUIRED",
         reason: "Console Action Server requires a local Studio login before invoking actions."
       });
+      return;
+    }
+    if (pathname === "/api/access/security") {
+      if (request.method === "GET") {
+        sendJson(response, 200, await accessSecuritySummary(accessBundle, accessContext.user.user_id, accessContext.session));
+        return;
+      }
+      if (request.method === "POST") {
+        const attemptKey = accessContext.user.user_id;
+        const previousAttempt = passwordChangeFailures.get(attemptKey);
+        const activeAttempt = previousAttempt && Date.now() - previousAttempt.startedAt < passwordChangeWindowMs ? previousAttempt : { count: 0, startedAt: Date.now() };
+        if (activeAttempt.count >= passwordChangeAttemptLimit) { sendJson(response, 429, { status: "PASSWORD_CHANGE_RATE_LIMITED", reason: "密码验证失败次数过多，请 15 分钟后重试。" }); return; }
+        const expectedOrigin = identityRuntime ? new URL(identityRuntime.publicUrl).origin : `http://${request.headers.host ?? "localhost"}`;
+        if (String(request.headers.origin ?? "") !== expectedOrigin) { sendJson(response, 403, { status: "BLOCKED", reason: "Same-origin confirmation is required." }); return; }
+        const body = await readJsonBody(request);
+        try {
+          const result = await changeOwnStudioPassword(accessBundle, {
+            user_id: accessContext.user.user_id,
+            current_password: body.currentPassword,
+            new_password: body.newPassword,
+            user_agent: request.headers["user-agent"] ?? "unknown"
+          });
+          passwordChangeFailures.delete(attemptKey);
+          sendJson(response, 200, { status: result.status, session: result.session, revoked_session_count: result.revoked_session_count, audit_status: result.audit_status }, {
+            "set-cookie": sessionCookie(result.token, accessBundle.policy.session_ttl_hours, Boolean(identityRuntime) || String(request.headers["x-forwarded-proto"] ?? "") === "https")
+          });
+        } catch (error) {
+          if (error?.code === "CURRENT_PASSWORD_INVALID") passwordChangeFailures.set(attemptKey, { count: activeAttempt.count + 1, startedAt: activeAttempt.startedAt });
+          sendJson(response, error?.code === "CURRENT_PASSWORD_INVALID" ? 401 : 400, { status: "PASSWORD_CHANGE_FAILED", code: error?.code ?? "PASSWORD_CHANGE_FAILED", reason: error instanceof Error ? error.message : String(error), details: error?.details ?? null });
+        }
+        return;
+      }
+      sendJson(response, 405, { status: "METHOD_NOT_ALLOWED" }, { allow: "GET, POST" });
       return;
     }
     if (pathname === "/identity-bootstrap" || pathname === "/api/identity/owner-bootstrap") {
