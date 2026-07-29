@@ -29,9 +29,13 @@ importers:
 
   apps/console: {}
 
+  packages/3d-modeling-domain: {}
+
   packages/access-center: {}
 
   packages/credential-vault: {}
+
+  packages/digital-human-pipeline: {}
 
   packages/discovery-engine: {}
 
