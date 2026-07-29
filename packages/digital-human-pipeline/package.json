@@ -30,6 +30,7 @@
     "orbit:fit": "node bin/digital-human-pipeline.mjs fit-orbit-parameters",
     "gauge:calibrate": "node bin/digital-human-pipeline.mjs build-gauge-calibration",
     "gauge:depth-transfer": "node bin/digital-human-pipeline.mjs build-gauge-depth-transfer",
+    "gauge:part-candidate": "node bin/digital-human-pipeline.mjs build-semantic-part-candidate",
     "orbit:evaluate": "node bin/digital-human-pipeline.mjs evaluate-orbit-candidate",
     "fidelity:evaluate": "node bin/digital-human-pipeline.mjs evaluate-render-fidelity",
     "fidelity:promote": "node bin/digital-human-pipeline.mjs promote-render-fidelity",

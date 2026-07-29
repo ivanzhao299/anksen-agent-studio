@@ -694,6 +694,91 @@ async function buildGaugeDepthTransfer(options) {
   };
 }
 
+async function buildSemanticPartCandidate(options) {
+  if (!options.config) throw fail("GAUGE_CALIBRATION_CONFIG_REQUIRED");
+  if (!options.part) throw fail("SEMANTIC_PART_REQUIRED");
+  if (options.part !== "helmet-shell") {
+    throw fail("SEMANTIC_PART_NOT_SUPPORTED", { part: options.part });
+  }
+  const repoRoot = resolve(packageRoot, "../..");
+  const configPath = resolve(options.config);
+  const config = await readJson(configPath);
+  if (
+    config.schemaVersion !== 1 ||
+    config.domain !== "3D_MODELING" ||
+    config.calibrationMode !== "GAUGE_DRIVEN_MULTIVIEW_GEOMETRY"
+  ) {
+    throw fail("GAUGE_CALIBRATION_CONFIG_INVALID");
+  }
+  const baselineBlend = resolve(
+    options["baseline-blend"] ?? resolve(repoRoot, config.baselineBlend)
+  );
+  const gaugeProposal = resolve(
+    options["gauge-proposal"] ??
+      resolve(repoRoot, config.outputRoot, "semantic-anchor-proposal.json")
+  );
+  const depthReport = resolve(
+    options["depth-report"] ??
+      resolve(
+        repoRoot,
+        config.outputRoot,
+        "v15-depth-transfer",
+        "v15-depth-transfer-report.json"
+      )
+  );
+  const outputRoot = resolve(
+    options.output ??
+      resolve(repoRoot, config.outputRoot, "semantic-parts", `${options.part}-v1`)
+  );
+  const blender = await existingBinary(["blender"]);
+  if (!blender) throw fail("BLENDER_NOT_INSTALLED");
+  await Promise.all([
+    access(baselineBlend),
+    access(gaugeProposal),
+    access(depthReport),
+    access(resolve(dirname(gaugeProposal), "local-patch-work-order.json")),
+    mkdir(outputRoot, { recursive: true })
+  ]);
+  await run(
+    blender,
+    [
+      "--background",
+      baselineBlend,
+      "--python",
+      resolve(packageRoot, "blender/build_semantic_helmet_candidate.py"),
+      "--",
+      "--baseline-blend",
+      baselineBlend,
+      "--gauge-proposal",
+      gaugeProposal,
+      "--depth-report",
+      depthReport,
+      "--output-dir",
+      outputRoot,
+      "--part",
+      options.part
+    ],
+    { cwd: repoRoot, stream: Boolean(options.stream) }
+  );
+  const report = await readJson(resolve(outputRoot, "helmet-geometry-report.json"));
+  return {
+    schemaVersion: 1,
+    status: report.status,
+    assetId: report.assetId,
+    partId: report.partId,
+    method: report.method,
+    baselinePreserved: report.baselinePreserved,
+    outputRoot,
+    geometryAuthority: report.geometryAuthority,
+    topology: report.topology,
+    interface: report.interface,
+    nextGate: report.nextGate,
+    artifacts: report.artifacts,
+    externalModelCalled: false,
+    credentialValueRead: false
+  };
+}
+
 async function evaluateOrbitCandidate(options) {
   if (!options.baseline) throw fail("ORBIT_BASELINE_REPORT_REQUIRED");
   if (!options.candidate) throw fail("ORBIT_CANDIDATE_REPORT_REQUIRED");
@@ -2111,6 +2196,9 @@ async function main() {
   else if (command === "build-gauge-calibration") result = await buildGaugeCalibration(options);
   else if (command === "build-gauge-depth-transfer") {
     result = await buildGaugeDepthTransfer(options);
+  }
+  else if (command === "build-semantic-part-candidate") {
+    result = await buildSemanticPartCandidate(options);
   }
   else if (command === "evaluate-orbit-candidate") result = await evaluateOrbitCandidate(options);
   else if (command === "evaluate-render-fidelity") result = await evaluateRenderFidelity(options);

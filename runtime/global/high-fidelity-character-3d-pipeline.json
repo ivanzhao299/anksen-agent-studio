@@ -245,7 +245,12 @@
         "v15_depth_transfer_report": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/v15-depth-transfer/v15-depth-transfer-report.json",
         "v15_depth_transfer_blend": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/v15-depth-transfer/v15-gauge-depth-transfer.blend",
         "v15_depth_front": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/v15-depth-transfer/v15-depth-front.png",
-        "v15_depth_right": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/v15-depth-transfer/v15-depth-right.png"
+        "v15_depth_right": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/v15-depth-transfer/v15-depth-right.png",
+        "helmet_candidate_report": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/semantic-parts/helmet-shell-v1/helmet-geometry-report.json",
+        "helmet_candidate_blend": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/semantic-parts/helmet-shell-v1/helmet-shell-v1.blend",
+        "helmet_candidate_glb": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/semantic-parts/helmet-shell-v1/helmet-shell-v1.glb",
+        "helmet_candidate_front": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/semantic-parts/helmet-shell-v1/helmet-front.png",
+        "helmet_candidate_right": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/semantic-parts/helmet-shell-v1/helmet-right.png"
       },
       "actual": {
         "semantic_probes": 9,
@@ -256,11 +261,17 @@
         "v15_baseline_preserved": true,
         "v15_provider_base_vertices": 482216,
         "v15_assembly_status": "FUSED_PROVIDER_MESH_DETECTED",
+        "helmet_candidate_profile_sections": 41,
+        "helmet_candidate_crown_vertices": 3937,
+        "helmet_candidate_crown_polygons": 3936,
+        "helmet_candidate_brim_closed": true,
+        "helmet_candidate_parts_remain_separate": true,
+        "helmet_candidate_interface_tolerance_mm": 0.4,
         "interfaces": 7,
         "interfaces_on_hold": 7
       },
-      "finding": "正面部件级量针已消除整块 body 轮廓作为唯一拟合依据的问题；V15 深度射线转移进一步确认主体、头盔和肢体仍融合在同一个 48 万顶点 ProviderBase 中。29 个深度值仅为 V15 现状参照，真实侧后深度未锁定前，不允许布尔焊接或覆盖 V15。",
-      "next_action": "先由模型负责人查看 V15 正面和右侧深度标尺，选定一个语义部件执行参数化分件重建；并补充同姿态、同尺度、可度量的正侧后正交参考，锁定真实 Y 轴深度。"
+      "finding": "正面部件级量针已消除整块 body 轮廓作为唯一拟合依据的问题；V15 深度射线转移进一步确认主体、头盔和肢体仍融合在同一个 48 万顶点 ProviderBase 中。头盔基础壳体现已按正面毫米量规独立重建，冠体和闭合帽檐保持独立，未进行全局平滑、体素重构、焊接或主模型覆盖。真实侧后深度仍未锁定。",
+      "next_action": "审阅头盔正面、右侧和 0.4 mm 装配边界；通过后分别重建头盔加强筋、品牌牌和壳体厚度，再补充同姿态、同尺度、可度量的正侧后正交参考以锁定真实 Y 轴深度。"
     },
     {
       "stage": "DCC_CLOSURE",
@@ -317,9 +328,10 @@
     "gauge_calibration_plan": "packages/3d-modeling-domain/examples/huihui-v15-gauge-calibration.example.json",
     "gauge_calibration_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs build-gauge-calibration --config packages/3d-modeling-domain/examples/huihui-v15-gauge-calibration.example.json --output runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1",
     "gauge_depth_transfer_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs build-gauge-depth-transfer --config packages/3d-modeling-domain/examples/huihui-v15-gauge-calibration.example.json --output runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/v15-depth-transfer",
+    "semantic_helmet_candidate_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs build-semantic-part-candidate --config packages/3d-modeling-domain/examples/huihui-v15-gauge-calibration.example.json --part helmet-shell --output runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/semantic-parts/helmet-shell-v1",
     "status_command": "pnpm media:printable:status -- --package runtime/artifacts/media/huihui-printable-v3/refined-v21-feature-balanced/printable-asset-package.json",
     "release_evidence_template": "packages/digital-human-pipeline/examples/printable-release-evidence.example.json",
     "meshy_plan": "runtime/artifacts/media/huihui-printable-v3/meshy-plan/ai-3d-reconstruction-plan.json",
-    "next_action": "冻结 V15；审阅 gauge-calibration-v1/v15-depth-transfer 的前视和右视标尺，从身体壳体或头盔中选择一个语义部件进行参数化分件重建，同时补充可度量侧后参考，不再进行全局平滑。"
+    "next_action": "冻结 V15；审阅 semantic-parts/helmet-shell-v1 的正面、右侧和装配边界，通过后按加强筋、品牌牌、壳体厚度三个独立部位递进精修，同时补充可度量侧后参考。"
   }
 }

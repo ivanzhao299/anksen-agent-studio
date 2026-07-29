@@ -131,6 +131,40 @@ test("requires an explicit gauge config before transferring v15 depth", () => {
   assert.equal(report.code, "GAUGE_CALIBRATION_CONFIG_REQUIRED");
 });
 
+test("requires an explicit semantic part before building a candidate", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      resolve(packageRoot, "bin/digital-human-pipeline.mjs"),
+      "build-semantic-part-candidate",
+      "--config",
+      gaugeCalibrationConfig
+    ],
+    { encoding: "utf8" }
+  );
+  assert.notEqual(result.status, 0);
+  const report = JSON.parse(result.stderr);
+  assert.equal(report.code, "SEMANTIC_PART_REQUIRED");
+});
+
+test("rejects unsupported semantic parts before opening Blender", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      resolve(packageRoot, "bin/digital-human-pipeline.mjs"),
+      "build-semantic-part-candidate",
+      "--config",
+      gaugeCalibrationConfig,
+      "--part",
+      "unknown-part"
+    ],
+    { encoding: "utf8" }
+  );
+  assert.notEqual(result.status, 0);
+  const report = JSON.parse(result.stderr);
+  assert.equal(report.code, "SEMANTIC_PART_NOT_SUPPORTED");
+});
+
 test("generates pinyin-driven viseme tracks", () => {
   const result = spawnSync(
     process.execPath,
