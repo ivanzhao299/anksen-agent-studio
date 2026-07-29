@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "domain": "3D_MODELING",
+  "workflowId": "huihui-printable-v21",
+  "assetId": "huihui-printable-v3",
+  "sourceMesh": "runtime/artifacts/media/huihui-printable-v3/meshy-plan/provider-candidate.glb",
+  "referenceManifest": "runtime/workspaces/media/huihui-printable-v3/multiview-manifest.json",
+  "outputRoot": "runtime/artifacts/media/huihui-printable-v3/refined-v21-feature-balanced",
+  "targetHeightMm": 180,
+  "surfaceSubdivisionLevel": 2,
+  "surfaceMethod": "voxel",
+  "surfaceProfile": "feature-preserving",
+  "featureAngleDegrees": 60,
+  "featureProtectionRings": 1,
+  "semanticRegions": [
+    {
+      "id": "body-and-helmet-shells",
+      "semanticClass": "ORGANIC_SHELL",
+      "treatment": "FAIR",
+      "ownerReviewRequired": true
+    },
+    {
+      "id": "helmet-brim-face-rim-ear-caps-boot-soles",
+      "semanticClass": "HARD_SURFACE",
+      "treatment": "PRESERVE",
+      "ownerReviewRequired": true
+    },
+    {
+      "id": "shoulder-wrist-ankle-interfaces",
+      "semanticClass": "JOINT_INTERFACE",
+      "treatment": "SEPARATE",
+      "ownerReviewRequired": true
+    },
+    {
+      "id": "helmet-and-chest-brand-marks",
+      "semanticClass": "RELIEF",
+      "treatment": "REBUILD",
+      "ownerReviewRequired": true
+    }
+  ],
+  "riskLevel": "MEDIUM",
+  "constraints": [
+    "Do not modify the provider source mesh in place.",
+    "Do not store provider credential values.",
+    "Do not mark the asset released without visual, slicer and physical proof."
+  ],
+  "acceptanceCriteria": [
+    "Base mesh is watertight and volume-valid.",
+    "Primary curved surfaces use continuity reconstruction and measured vertex fairing rather than smooth normals only.",
+    "Loose provider fragments are removed and the printable base is one connected body.",
+    "Face screen, helmet plate and chest medallion conform to the local parent curvature.",
+    "Organic continuity and hard-feature retention are measured as separate gates.",
+    "Joint interfaces remain HOLD until semantic part separation is proven.",
+    "Silhouette gate does not regress below the configured threshold."
+  ]
+}

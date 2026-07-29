@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "domain": "3D_MODELING",
+  "workflowId": "huihui-geometry-first-v1",
+  "assetId": "huihui-parametric-v1",
+  "constructionMode": "GEOMETRY_FIRST",
+  "referenceManifest": "runtime/workspaces/media/huihui-printable-v3/multiview-manifest.json",
+  "outputRoot": "runtime/artifacts/media/huihui-printable-v3/parametric-v1-geometry-first",
+  "targetHeightMm": 180,
+  "geometrySpec": {
+    "unit": "MILLIMETER",
+    "coordinateSystem": "BLENDER_Z_UP_FRONT_NEGATIVE_Y",
+    "body": {
+      "shapeFamily": "ELLIPSOID",
+      "center": [0, 1, 91.5],
+      "scale": [62.5, 47, 58.5]
+    },
+    "face": {
+      "shapeFamily": "ROUNDED_PRISM",
+      "center": [0, -45, 114.5],
+      "dimensions": [83, 6.2, 49],
+      "radius": 14
+    },
+    "helmet": {
+      "shapeFamily": "COMPOSITE",
+      "center": [0, 1.5, 146],
+      "dimensions": [117, 88, 61]
+    },
+    "ears": {
+      "shapeFamily": "CYLINDER",
+      "center": [0, 0, 111],
+      "dimensions": [142, 18, 23]
+    },
+    "arms": {
+      "shapeFamily": "CAPSULE",
+      "center": [0, -3, 104],
+      "dimensions": [150, 18, 66]
+    },
+    "hands": {
+      "shapeFamily": "COMPOSITE",
+      "center": [0, -5, 104],
+      "dimensions": [154, 22, 81]
+    },
+    "legs": {
+      "shapeFamily": "CYLINDER",
+      "center": [0, 1, 36.5],
+      "dimensions": [61, 18, 18]
+    },
+    "boots": {
+      "shapeFamily": "COMPOSITE",
+      "center": [0, -8, 17],
+      "dimensions": [92, 56, 34]
+    },
+    "branding": {
+      "shapeFamily": "RELIEF",
+      "center": [0, -49, 68],
+      "dimensions": [42, 3, 30]
+    }
+  },
+  "parts": [
+    { "id": "body", "semanticRole": "BODY", "shapeFamily": "ELLIPSOID", "materialClass": "cast-concrete", "parent": null, "joinPolicy": "KEEP_SEPARATE", "hardEdgePolicy": "SMOOTH_ORGANIC" },
+    { "id": "face", "semanticRole": "FACE", "shapeFamily": "ROUNDED_PRISM", "materialClass": "display-glass", "parent": "body", "joinPolicy": "CONTROLLED_OVERLAP", "hardEdgePolicy": "CONTROLLED_FILLET" },
+    { "id": "helmet", "semanticRole": "HELMET", "shapeFamily": "COMPOSITE", "materialClass": "safety-yellow", "parent": "body", "joinPolicy": "CONTROLLED_OVERLAP", "hardEdgePolicy": "PRESERVE" },
+    { "id": "ears", "semanticRole": "EAR", "shapeFamily": "CYLINDER", "materialClass": "rubber-and-yellow", "parent": "body", "joinPolicy": "CONTROLLED_OVERLAP", "hardEdgePolicy": "PRESERVE" },
+    { "id": "arms", "semanticRole": "ARM", "shapeFamily": "CAPSULE", "materialClass": "rubber", "parent": "body", "joinPolicy": "EXACT_BOOLEAN_UNION", "hardEdgePolicy": "SMOOTH_ORGANIC" },
+    { "id": "hands", "semanticRole": "HAND", "shapeFamily": "COMPOSITE", "materialClass": "safety-yellow", "parent": "arms", "joinPolicy": "EXACT_BOOLEAN_UNION", "hardEdgePolicy": "CONTROLLED_FILLET" },
+    { "id": "legs", "semanticRole": "LEG", "shapeFamily": "CYLINDER", "materialClass": "rubber", "parent": "body", "joinPolicy": "EXACT_BOOLEAN_UNION", "hardEdgePolicy": "SMOOTH_ORGANIC" },
+    { "id": "boots", "semanticRole": "BOOT", "shapeFamily": "COMPOSITE", "materialClass": "safety-yellow-and-rubber", "parent": "legs", "joinPolicy": "EXACT_BOOLEAN_UNION", "hardEdgePolicy": "PRESERVE" },
+    { "id": "branding", "semanticRole": "BRANDING", "shapeFamily": "RELIEF", "materialClass": "brand-color", "parent": "body", "joinPolicy": "RELIEF_ATTACH", "hardEdgePolicy": "PRESERVE" }
+  ],
+  "assembly": {
+    "masterMode": "SEMANTIC_PART_ASSEMBLY",
+    "manufacturingUnion": "DEFERRED",
+    "forbidGlobalVoxelMaster": true,
+    "minimumJointOverlapMm": 1.2,
+    "booleanToleranceMm": 0.02
+  },
+  "qualityGates": {
+    "multiviewSilhouette": "REQUIRED",
+    "semanticPartSeparation": "REQUIRED",
+    "jointOverlap": "REQUIRED",
+    "hardFeatureRetention": "REQUIRED",
+    "watertightManufacturingUnion": "REQUIRED_FOR_PRINT_RELEASE",
+    "physicalProof": "REQUIRED_FOR_PRINT_RELEASE"
+  },
+  "riskLevel": "MEDIUM",
+  "constraints": [
+    "Authoritative front reference controls identity and proportions",
+    "AI-derived hidden views are non-metric references",
+    "Global voxel remesh may only be emitted as a preview",
+    "No provider candidate can replace the semantic master assembly"
+  ],
+  "acceptanceCriteria": [
+    "Each major body component remains a named semantic part",
+    "Hard edges and controlled fillets remain measurable",
+    "Assembly manifest records every part and join policy",
+    "Manufacturing union remains HOLD until exact union and physical proof pass"
+  ]
+}

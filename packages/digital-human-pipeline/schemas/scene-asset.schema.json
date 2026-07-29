@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/digital-human-scene-asset.schema.json",
+  "title": "Digital Human Scene Asset",
+  "type": "object",
+  "required": ["schemaVersion", "sceneId", "displayName", "environment", "layout"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "sceneId": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "displayName": { "type": "string", "minLength": 1 },
+    "environment": { "enum": ["cement-factory", "industrial-park", "interior", "custom"] },
+    "layout": {
+      "type": "object",
+      "required": ["width", "depth"],
+      "properties": {
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "depth": { "type": "number", "exclusiveMinimum": 0 },
+        "siloCount": { "type": "integer", "minimum": 0 },
+        "buildingCount": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "referenceFootage": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "reconstruction": {
+      "type": "object",
+      "required": ["mode", "referenceFrame", "depthMap"],
+      "properties": {
+        "mode": { "enum": ["depth-plate", "photogrammetry", "procedural"] },
+        "referenceFrame": { "type": "string", "minLength": 1 },
+        "depthMap": { "type": "string", "minLength": 1 },
+        "sourceVideo": { "type": "string" },
+        "sourceTimestamp": { "type": "number", "minimum": 0 },
+        "cameraMotionLimit": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

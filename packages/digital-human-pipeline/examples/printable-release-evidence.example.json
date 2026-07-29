@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "assetId": "huihui-printable-v3",
+  "visualOwnerReview": {
+    "status": "NOT_REVIEWED",
+    "reviewedBy": null,
+    "reviewedAt": null,
+    "notes": ""
+  },
+  "slicerReview": {
+    "status": "NOT_REVIEWED",
+    "reviewedBy": null,
+    "reviewedAt": null,
+    "notes": "",
+    "minimumWallMm": 0,
+    "selfIntersectionCheck": "NOT_REVIEWED",
+    "supportReview": "NOT_REVIEWED",
+    "reportPath": null
+  },
+  "physical60mmProof": {
+    "status": "NOT_REVIEWED",
+    "reviewedBy": null,
+    "reviewedAt": null,
+    "notes": "",
+    "printedHeightMm": 0,
+    "photoPaths": []
+  }
+}

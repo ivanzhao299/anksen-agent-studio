@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "domainId": "3d-modeling",
+  "displayName": "3D Modeling",
+  "contractSchema": "../schemas/modeling-workflow.schema.json",
+  "existingSkillType": "character_3d_print_refinement",
+  "existingRuntimeTypes": ["BLENDER_LOCAL", "MESHY_PROVIDER_REFERENCE"],
+  "defaultRuntime": "BLENDER_LOCAL",
+  "capabilities": [
+    "REFERENCE_LOCK",
+    "PROVIDER_RECONSTRUCTION",
+    "CURVED_SURFACE_REFINEMENT",
+    "DETAIL_SURFACE_CONFORMANCE",
+    "SURFACE_QUALITY_ANALYSIS",
+    "HIGH_RESOLUTION_INVERSE_RENDER_ALIGNMENT",
+    "SEMANTIC_REGION_FIDELITY_GATING",
+    "TOPOLOGY_AND_PRINT_QA",
+    "RELEASE_EVIDENCE"
+  ],
+  "qualityGrades": [
+    "REWORK_REQUIRED",
+    "REFINED_PROTOTYPE",
+    "FINE_ASSET"
+  ],
+  "createsPlanner": false,
+  "createsScheduler": false,
+  "createsWorker": false,
+  "createsStateMachine": false,
+  "safety": {
+    "sourceAssetsImmutable": true,
+    "realProviderCredentialsReferenceOnly": true,
+    "fineAssetCurvatureGateRequired": true,
+    "physicalReleaseEvidenceRequired": true,
+    "allowPush": false,
+    "allowDeploy": false
+  }
+}

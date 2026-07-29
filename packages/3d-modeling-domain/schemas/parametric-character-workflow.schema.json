@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://studio.anksen.dev/schemas/parametric-character-workflow.schema.json",
+  "title": "ANKSEN Geometry-First Parametric Character Workflow",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "domain",
+    "workflowId",
+    "assetId",
+    "constructionMode",
+    "referenceManifest",
+    "outputRoot",
+    "targetHeightMm",
+    "geometrySpec",
+    "parts",
+    "assembly",
+    "qualityGates",
+    "riskLevel",
+    "constraints",
+    "acceptanceCriteria"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "domain": { "const": "3D_MODELING" },
+    "workflowId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+    "assetId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+    "constructionMode": { "const": "GEOMETRY_FIRST" },
+    "referenceManifest": { "type": "string", "minLength": 1 },
+    "outputRoot": { "type": "string", "minLength": 1 },
+    "targetHeightMm": { "type": "number", "minimum": 20, "maximum": 1000 },
+    "geometrySpec": { "$ref": "#/$defs/geometrySpec" },
+    "parts": {
+      "type": "array",
+      "minItems": 8,
+      "items": { "$ref": "#/$defs/part" }
+    },
+    "assembly": { "$ref": "#/$defs/assembly" },
+    "qualityGates": { "$ref": "#/$defs/qualityGates" },
+    "riskLevel": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    "constraints": { "$ref": "#/$defs/nonEmptyStrings" },
+    "acceptanceCriteria": { "$ref": "#/$defs/nonEmptyStrings" }
+  },
+  "$defs": {
+    "vector3": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "partGeometry": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["shapeFamily"],
+      "properties": {
+        "shapeFamily": {
+          "enum": [
+            "ELLIPSOID",
+            "ROUNDED_PRISM",
+            "DOME",
+            "CYLINDER",
+            "CAPSULE",
+            "CURVE_TUBE",
+            "RELIEF",
+            "COMPOSITE"
+          ]
+        },
+        "center": { "$ref": "#/$defs/vector3" },
+        "dimensions": { "$ref": "#/$defs/vector3" },
+        "scale": { "$ref": "#/$defs/vector3" },
+        "radius": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "geometrySpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "coordinateSystem", "body", "face", "helmet", "ears", "arms", "hands", "legs", "boots", "branding"],
+      "properties": {
+        "unit": { "const": "MILLIMETER" },
+        "coordinateSystem": { "const": "BLENDER_Z_UP_FRONT_NEGATIVE_Y" },
+        "body": { "$ref": "#/$defs/partGeometry" },
+        "face": { "$ref": "#/$defs/partGeometry" },
+        "helmet": { "$ref": "#/$defs/partGeometry" },
+        "ears": { "$ref": "#/$defs/partGeometry" },
+        "arms": { "$ref": "#/$defs/partGeometry" },
+        "hands": { "$ref": "#/$defs/partGeometry" },
+        "legs": { "$ref": "#/$defs/partGeometry" },
+        "boots": { "$ref": "#/$defs/partGeometry" },
+        "branding": { "$ref": "#/$defs/partGeometry" }
+      }
+    },
+    "part": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "semanticRole",
+        "shapeFamily",
+        "materialClass",
+        "parent",
+        "joinPolicy",
+        "hardEdgePolicy"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$" },
+        "semanticRole": {
+          "enum": [
+            "BODY",
+            "FACE",
+            "HELMET",
+            "EAR",
+            "ARM",
+            "HAND",
+            "LEG",
+            "BOOT",
+            "BRANDING",
+            "BASE"
+          ]
+        },
+        "shapeFamily": {
+          "enum": [
+            "ELLIPSOID",
+            "ROUNDED_PRISM",
+            "DOME",
+            "CYLINDER",
+            "CAPSULE",
+            "CURVE_TUBE",
+            "RELIEF",
+            "COMPOSITE"
+          ]
+        },
+        "materialClass": { "type": "string", "minLength": 1 },
+        "parent": { "type": ["string", "null"] },
+        "joinPolicy": {
+          "enum": ["KEEP_SEPARATE", "CONTROLLED_OVERLAP", "EXACT_BOOLEAN_UNION", "RELIEF_ATTACH"]
+        },
+        "hardEdgePolicy": { "enum": ["PRESERVE", "CONTROLLED_FILLET", "SMOOTH_ORGANIC"] }
+      }
+    },
+    "assembly": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "masterMode",
+        "manufacturingUnion",
+        "forbidGlobalVoxelMaster",
+        "minimumJointOverlapMm",
+        "booleanToleranceMm"
+      ],
+      "properties": {
+        "masterMode": { "const": "SEMANTIC_PART_ASSEMBLY" },
+        "manufacturingUnion": { "enum": ["DEFERRED", "EXACT_BOOLEAN", "CONTROLLED_HYBRID"] },
+        "forbidGlobalVoxelMaster": { "const": true },
+        "minimumJointOverlapMm": { "type": "number", "minimum": 0.2, "maximum": 10 },
+        "booleanToleranceMm": { "type": "number", "minimum": 0.001, "maximum": 1 }
+      }
+    },
+    "qualityGates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "multiviewSilhouette",
+        "semanticPartSeparation",
+        "jointOverlap",
+        "hardFeatureRetention",
+        "watertightManufacturingUnion",
+        "physicalProof"
+      ],
+      "properties": {
+        "multiviewSilhouette": { "const": "REQUIRED" },
+        "semanticPartSeparation": { "const": "REQUIRED" },
+        "jointOverlap": { "const": "REQUIRED" },
+        "hardFeatureRetention": { "const": "REQUIRED" },
+        "watertightManufacturingUnion": { "const": "REQUIRED_FOR_PRINT_RELEASE" },
+        "physicalProof": { "const": "REQUIRED_FOR_PRINT_RELEASE" }
+      }
+    },
+    "nonEmptyStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

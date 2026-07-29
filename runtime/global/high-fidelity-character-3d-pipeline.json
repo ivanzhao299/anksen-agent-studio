@@ -1,0 +1,325 @@
+{
+  "schema_version": 1,
+  "pipeline_id": "high-fidelity-character-3d-print-pipeline-v1",
+  "name": "高保真角色数字资产与3D打印流水线",
+  "status": "READY_FOR_VISUAL_AND_PHYSICAL_PROOF",
+  "current_asset": "huihui-printable-v3",
+  "objective": "以锁定的角色正面形象和多视角约束生成高保真候选网格，经量化筛选、专业精修和打印验证形成可复用数字资产。",
+  "authoritative_inputs": {
+    "identity_master": "runtime/workspaces/media/huihui-printable-v3/references/normalized/huihui-angle-000-front.png",
+    "multiview_manifest": "runtime/workspaces/media/huihui-printable-v3/multiview-manifest.json",
+    "depth_manifest": "runtime/workspaces/media/huihui-printable-v3/depth-manifest.json",
+    "provider_cardinal_views": [0, 90, 180, 270],
+    "validation_views": [0, 45, 90, 135, 180, 225, 270, 315],
+    "generated_hidden_views_are_metric": false
+  },
+  "stages": [
+    {
+      "stage": "REFERENCE_LOCK",
+      "status": "PASS",
+      "outputs": [
+        "identity master",
+        "normalized eight-view references",
+        "silhouette masks",
+        "relative depth maps"
+      ]
+    },
+    {
+      "stage": "LOCAL_GEOMETRY_SCAFFOLD",
+      "status": "PASS_WITH_LIMITATIONS",
+      "provider": "visual-hull-local",
+      "purpose": "仅用于轮廓、尺度、水密性和重投影验证，不得作为最终模型。"
+    },
+    {
+      "stage": "AI_ORBIT_REFERENCE_CALIBRATION",
+      "status": "REJECTED_KEEP_BASELINE",
+      "purpose": "以高精正面主图生成固定姿态环绕参考，在三维角度坐标中跟踪语义部件端点并拟合参数化几何；生成帧仅作方向证据，不作度量真值。",
+      "authority": {
+        "front_identity_master": "runtime/workspaces/media/huihui-printable-v3/references/source/huihui-brand-front-master.png",
+        "generated_orbit_is_metric": false,
+        "automatic_master_overwrite": false
+      },
+      "evidence": {
+        "observation_report": "runtime/artifacts/media/huihui-printable-v3/orbit-calibration-v1/orbit-frame-observations.json",
+        "parameter_proposal": "runtime/artifacts/media/huihui-printable-v3/orbit-calibration-v1/geometry-parameter-proposal.json",
+        "candidate_promotion_report": "runtime/artifacts/media/huihui-printable-v3/orbit-calibration-v1/candidate-promotion-report.json",
+        "baseline_mean_iou": 0.752019,
+        "candidate_mean_iou": 0.744337,
+        "mean_iou_delta": -0.007682
+      },
+      "next_action": "保留现有基线，补齐手臂、手套、腿、双鞋和关节锚点语义跟踪；重建脸屏与四肢的参考特定几何后再生成候选。"
+    },
+    {
+      "stage": "PROVIDER_GEOMETRY_BAKEOFF",
+      "status": "READY",
+      "candidates": [
+        {
+          "provider": "meshy-multi-image",
+          "model": "meshy-6",
+          "priority": 1,
+          "status": "PASS_WITH_CONDITIONS",
+          "candidate_artifact": "runtime/artifacts/media/huihui-printable-v3/meshy-plan/provider-candidate.glb",
+          "quality_gate": "runtime/artifacts/media/huihui-printable-v3/meshy-plan/candidate-quality-gate.json",
+          "maximum_input_views": 4,
+          "first_pass": {
+            "should_texture": false,
+            "enable_pbr": false,
+            "should_remesh": false,
+            "image_enhancement": false,
+            "target_formats": ["glb", "obj", "stl"]
+          },
+          "credential_reference": "meshy-api-key-ref",
+          "cost_approval_required": true
+        },
+        {
+          "provider": "tripo-multiview",
+          "model": "v3.1",
+          "priority": 2,
+          "maximum_input_views": 4,
+          "first_pass": {
+            "texture": false,
+            "detailed_geometry": true
+          },
+          "credential_reference": "tripo-api-key-ref",
+          "cost_approval_required": true,
+          "integration_status": "ADAPTER_REQUIRED"
+        },
+        {
+          "provider": "hunyuan3d-2.1-worker",
+          "priority": 3,
+          "execution_mode": "governed_nvidia_worker",
+          "integration_status": "BLOCKED_BY_NVIDIA_WORKER"
+        }
+      ]
+    },
+    {
+      "stage": "AUTOMATED_CANDIDATE_QA",
+      "status": "PASS_WITH_CONDITIONS",
+      "checks": [
+        "eight-view silhouette reprojection",
+        "landmark and body proportion error",
+        "front identity preservation",
+        "short limb and oversized boot preservation",
+        "symmetry and hidden-geometry review",
+        "watertight and manifold topology",
+        "self-intersection and minimum wall thickness",
+        "minimum printable feature size"
+      ],
+      "thresholds": {
+        "dcc_front_silhouette_iou_minimum": 0.76,
+        "dcc_mean_silhouette_iou_minimum": 0.72,
+        "dcc_minimum_view_iou": 0.58,
+        "final_identity_front_iou_target": 0.96,
+        "keypoint_error_maximum_frame_ratio": 0.02,
+        "minimum_wall_mm": 1.6,
+        "minimum_feature_mm": 0.8
+      },
+      "actual": {
+        "front_silhouette_iou": 0.868616,
+        "mean_silhouette_iou": 0.782131,
+        "minimum_view_iou": 0.603016,
+        "watertight": true,
+        "connected_body_count": 1,
+        "removed_loose_components": 7,
+        "surface_refinement": "voxel continuity reconstruction plus source-feature protection and semantic regional fairing",
+        "target_height_mm": 180,
+        "height_error_mm": 0
+      }
+    },
+    {
+      "stage": "SURFACE_QUALITY",
+      "status": "PASS_WITH_CONDITIONS",
+      "grade": "REFINED_PROTOTYPE",
+      "report": "runtime/artifacts/media/huihui-printable-v3/refined-v21-feature-balanced/surface-quality-feature-aware-report.json",
+      "gates": {
+        "prototype_surface_continuity": "PASS",
+        "fine_asset_curvature": "HOLD",
+        "hard_feature_retention": "PASS",
+        "semantic_part_separation": "HOLD"
+      },
+      "actual": {
+        "organic_dihedral_p95_degrees": 6.905244,
+        "organic_dihedral_p99_degrees": 13.095311,
+        "organic_adjacency_above_10_degrees_ratio": 0.021539,
+        "feature_zone_dihedral_p90_degrees": 23.176606,
+        "feature_zone_adjacency_above_10_degrees_ratio": 0.289777,
+        "triangle_quality_p01": 0.514131
+      },
+      "fine_asset_thresholds": {
+        "dihedral_p95_max_degrees": 4.5,
+        "dihedral_p99_max_degrees": 9,
+        "adjacency_above_10_degrees_max_ratio": 0.01,
+        "triangle_quality_p01_min": 0.55
+      },
+      "next_action": "对头身、肩腕踝接口和硬表面建立可编辑语义分件与控制网格，完成局部重拓扑后重新检查精细资产闸门。"
+    },
+    {
+      "stage": "HIGH_RESOLUTION_INVERSE_RENDER_ALIGNMENT",
+      "status": "BASELINE_CAPTURED_GAPS_REMAIN",
+      "baseline": "runtime/artifacts/media/huihui-printable-v3/refined-v15-modeling-domain",
+      "report": "runtime/artifacts/media/huihui-printable-v3/refined-v15-modeling-domain/inverse-render-fidelity/high-resolution-fidelity-report.json",
+      "contact_sheet": "runtime/artifacts/media/huihui-printable-v3/refined-v15-modeling-domain/inverse-render-fidelity/inverse-render-contact-sheet.jpg",
+      "authority": {
+        "front_reference": "AUTHORITATIVE",
+        "generated_hidden_views": "NON_METRIC_LOW_WEIGHT",
+        "automatic_master_overwrite": false
+      },
+      "actual": {
+        "mean_silhouette_iou": 0.782298,
+        "front_silhouette_iou": 0.866048,
+        "front_edge_similarity": 0.421265,
+        "front_structural_similarity": 0.104306,
+        "front_material_color_similarity": 0.380358,
+        "front_composite_score": 0.491563,
+        "weighted_semantic_score": 0.19738,
+        "minimum_semantic_score": 0.103507
+      },
+      "semantic_priority": [
+        "branding",
+        "left-arm-hand",
+        "right-arm-hand",
+        "helmet",
+        "torso-shell",
+        "boots",
+        "face-screen"
+      ],
+      "promotion_targets": {
+        "mean_silhouette_iou_minimum": 0.82,
+        "front_silhouette_iou_minimum": 0.9,
+        "front_edge_similarity_minimum": 0.72,
+        "front_structural_similarity_minimum": 0.72,
+        "front_material_color_similarity_minimum": 0.8,
+        "front_composite_score_minimum": 0.78,
+        "minimum_required_semantic_score": 0.65
+      },
+      "next_action": "冻结 V15 作为受保护基线；V16 依次重建品牌、手臂手套、帽檐与脸屏接口、鞋靴和材质类别，每一区域单独通过反向渲染比较，不再进行全局平滑。"
+    },
+    {
+      "stage": "MESHY_TEXT_ASSEMBLY_PROBE",
+      "status": "REJECTED_KEEP_V15",
+      "purpose": "验证从高清参考图提炼的结构提示词能否消除粘连和包膜感，并产生真正可编辑的装配结构。",
+      "provider": {
+        "provider_id": "meshy-text-to-3d",
+        "model": "meshy-6",
+        "task_id": "019fab28-28fe-7cfe-8e2a-296f5dd34644",
+        "credential_value_persisted": false
+      },
+      "evidence": {
+        "candidate": "runtime/artifacts/media/huihui-printable-v3/meshy-text-assembly-v1/meshy-text-assembly-candidate.glb",
+        "fidelity_report": "runtime/artifacts/media/huihui-printable-v3/meshy-text-assembly-v1/inverse-render-fidelity/high-resolution-fidelity-report.json",
+        "assembly_report": "runtime/artifacts/media/huihui-printable-v3/meshy-text-assembly-v1/mesh-assembly-report.json",
+        "experiment_report": "docs/autonomous-development/MEDIA-009-MESHY-TEXT-ASSEMBLY-EXPERIMENT.md"
+      },
+      "actual": {
+        "mean_silhouette_iou": 0.647367,
+        "front_silhouette_iou": 0.626928,
+        "front_edge_similarity": 0.298821,
+        "front_structural_similarity": 0.074556,
+        "front_material_color_similarity": 0.163413,
+        "front_composite_score": 0.337281,
+        "mesh_objects": 1,
+        "connected_shells": 3,
+        "material_slots": 0,
+        "assembly_interpretation": "ONE_OBJECT_MULTIPLE_SHELLS"
+      },
+      "finding": "结构提示词改善了视觉分缝，但没有保留小灰灰身份，也没有生成产品级独立装配对象；候选不得覆盖 V15。",
+      "next_action": "把提示词转为头盔、脸屏、耳罩、肩腕踝、手套、鞋靴和品牌的语义分区约束，在 V15 上进行局部分件、局部重拓扑和特征保留精修，同时通过反向渲染与装配检查双闸门。"
+    },
+    {
+      "stage": "GAUGE_DRIVEN_MULTIVIEW_GEOMETRY_CALIBRATION",
+      "status": "HOLD_OWNER_REVIEW",
+      "purpose": "以配钥匙式标尺方法锁定毫米坐标、部件测点、几何剖面和装配接口，替代提示词猜测与全局平滑。",
+      "baseline": "refined-v15-modeling-domain",
+      "authority": {
+        "front_reference": "METRIC_IDENTITY_AND_XZ_GAUGE",
+        "generated_side_rear_views": "NON_METRIC_DEPTH_PRIOR",
+        "automatic_master_overwrite": false
+      },
+      "evidence": {
+        "config": "packages/3d-modeling-domain/examples/huihui-v15-gauge-calibration.example.json",
+        "report": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/calibration-report.json",
+        "coordinate_system": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/gauge-coordinate-system.json",
+        "anchor_proposal": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/semantic-anchor-proposal.json",
+        "patch_work_order": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/local-patch-work-order.json",
+        "front_overlay": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/front-gauge-overlay.png",
+        "v15_depth_transfer_report": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/v15-depth-transfer/v15-depth-transfer-report.json",
+        "v15_depth_transfer_blend": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/v15-depth-transfer/v15-gauge-depth-transfer.blend",
+        "v15_depth_front": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/v15-depth-transfer/v15-depth-front.png",
+        "v15_depth_right": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/v15-depth-transfer/v15-depth-right.png"
+      },
+      "actual": {
+        "semantic_probes": 9,
+        "front_pixel_gauges_resolved": 40,
+        "metric_depth_probes": 0,
+        "v15_provisional_depth_transfers": 29,
+        "v15_depth_misses": 11,
+        "v15_baseline_preserved": true,
+        "v15_provider_base_vertices": 482216,
+        "v15_assembly_status": "FUSED_PROVIDER_MESH_DETECTED",
+        "interfaces": 7,
+        "interfaces_on_hold": 7
+      },
+      "finding": "正面部件级量针已消除整块 body 轮廓作为唯一拟合依据的问题；V15 深度射线转移进一步确认主体、头盔和肢体仍融合在同一个 48 万顶点 ProviderBase 中。29 个深度值仅为 V15 现状参照，真实侧后深度未锁定前，不允许布尔焊接或覆盖 V15。",
+      "next_action": "先由模型负责人查看 V15 正面和右侧深度标尺，选定一个语义部件执行参数化分件重建；并补充同姿态、同尺度、可度量的正侧后正交参考，锁定真实 Y 轴深度。"
+    },
+    {
+      "stage": "DCC_CLOSURE",
+      "status": "PASS_WITH_CONDITIONS",
+      "tools": ["Blender", "ZBrush-compatible sculpt workflow"],
+      "output": "runtime/artifacts/media/huihui-printable-v3/refined-v21-feature-balanced",
+      "required_work": [
+        "保持胖短身体比例，同时区分有机壳体与设计硬边",
+        "以控制网格重拓扑帽檐、手套、短关节、鞋底和脸屏边界",
+        "继续把文字和品牌标识作为矢量或独立几何制作",
+        "拆分头身、肩腕踝接口并设置装配公差",
+        "完成水密、壁厚和非流形修复"
+      ]
+    },
+    {
+      "stage": "MATERIAL_AND_TEXTURE",
+      "status": "DCC_MATERIAL_REVIEW_READY",
+      "rule": "当前本地 DCC 材质用于视觉评审；不需要再次购买供应商纹理。"
+    },
+    {
+      "stage": "PRINT_VALIDATION",
+      "status": "READY_FOR_PHYSICAL_PROOF",
+      "target_height_mm": 180,
+      "outputs": ["STL base", "STL assembly", "GLB master", "Blender master", "turntable review", "test print report"],
+      "remaining_gates": [
+        "visual owner review",
+        "slicer wall thickness and support review",
+        "60 mm physical proof"
+      ]
+    }
+  ],
+  "governance": {
+    "external_provider_risk": "MEDIUM",
+    "credential_storage": "reference_only",
+    "plaintext_secret_persistence": "forbidden",
+    "automatic_paid_submission": false,
+    "apply_flag_required": true,
+    "cost_approval_required": true,
+    "provider_output_is_candidate_only": true
+  },
+  "resume": {
+    "context_command": "node packages/orchestrator-core/bin/studio.mjs context summary",
+    "provider_status_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs reconstruction-providers",
+    "meshy_credential_status_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs meshy-credential-status",
+    "refine_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs refine-printable --mesh runtime/artifacts/media/huihui-printable-v3/meshy-plan/provider-candidate.glb --manifest runtime/workspaces/media/huihui-printable-v3/multiview-manifest.json --asset-id huihui-printable-v3 --target-height-mm 180 --surface-method voxel --surface-profile feature-preserving --feature-angle-degrees 60 --feature-protection-rings 1 --surface-subdivision-level 2 --output runtime/artifacts/media/huihui-printable-v3/refined-v21-feature-balanced",
+    "surface_quality_command": "pnpm modeling3d:surface-quality -- --mesh runtime/artifacts/media/huihui-printable-v3/refined-v21-feature-balanced/huihui-printable-v3-base.stl --source-mesh runtime/artifacts/media/huihui-printable-v3/meshy-plan/provider-candidate.glb --feature-angle-degrees 60 --output runtime/artifacts/media/huihui-printable-v3/refined-v21-feature-balanced/surface-quality-feature-aware-report.json",
+    "orbit_prepare_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs prepare-orbit-reference --config packages/3d-modeling-domain/examples/huihui-ai-orbit-calibration.example.json --output runtime/artifacts/media/huihui-printable-v3/orbit-calibration-v1",
+    "orbit_observe_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs observe-orbit-reference --config packages/3d-modeling-domain/examples/huihui-ai-orbit-calibration.example.json --manifest runtime/workspaces/media/huihui-printable-v3/multiview-manifest.json --output runtime/artifacts/media/huihui-printable-v3/orbit-calibration-v1/orbit-frame-observations.json",
+    "orbit_evaluate_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs evaluate-orbit-candidate --baseline runtime/artifacts/media/huihui-printable-v3/parametric-v1-geometry-first/silhouette-report.json --candidate runtime/artifacts/media/huihui-printable-v3/orbit-calibration-v1/geometry-review-candidate/silhouette-report.json --proposal runtime/artifacts/media/huihui-printable-v3/orbit-calibration-v1/geometry-parameter-proposal.json --output runtime/artifacts/media/huihui-printable-v3/orbit-calibration-v1/candidate-promotion-report.json",
+    "inverse_render_baseline_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs evaluate-render-fidelity --config packages/3d-modeling-domain/examples/huihui-v15-inverse-render-fidelity.example.json --output runtime/artifacts/media/huihui-printable-v3/refined-v15-modeling-domain/inverse-render-fidelity --size 640",
+    "inverse_render_promotion_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs promote-render-fidelity --baseline runtime/artifacts/media/huihui-printable-v3/refined-v15-modeling-domain/inverse-render-fidelity/high-resolution-fidelity-report.json --candidate <candidate-high-resolution-fidelity-report.json> --output <candidate-promotion-report.json>",
+    "assembly_inspection_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs inspect-mesh-assembly --mesh <candidate.glb> --output <mesh-assembly-report.json>",
+    "meshy_text_probe_plan": "packages/3d-modeling-domain/examples/huihui-meshy6-assembly-prompt.example.json",
+    "gauge_calibration_plan": "packages/3d-modeling-domain/examples/huihui-v15-gauge-calibration.example.json",
+    "gauge_calibration_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs build-gauge-calibration --config packages/3d-modeling-domain/examples/huihui-v15-gauge-calibration.example.json --output runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1",
+    "gauge_depth_transfer_command": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs build-gauge-depth-transfer --config packages/3d-modeling-domain/examples/huihui-v15-gauge-calibration.example.json --output runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1/v15-depth-transfer",
+    "status_command": "pnpm media:printable:status -- --package runtime/artifacts/media/huihui-printable-v3/refined-v21-feature-balanced/printable-asset-package.json",
+    "release_evidence_template": "packages/digital-human-pipeline/examples/printable-release-evidence.example.json",
+    "meshy_plan": "runtime/artifacts/media/huihui-printable-v3/meshy-plan/ai-3d-reconstruction-plan.json",
+    "next_action": "冻结 V15；审阅 gauge-calibration-v1/v15-depth-transfer 的前视和右视标尺，从身体壳体或头盔中选择一个语义部件进行参数化分件重建，同时补充可度量侧后参考，不再进行全局平滑。"
+  }
+}

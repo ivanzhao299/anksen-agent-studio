@@ -534,6 +534,45 @@
       "risk_level": "MEDIUM"
     },
     {
+      "skill_id": "skill-digital-human-animation",
+      "skill_type": "digital_human_animation",
+      "display_name": "Digital Human Character and Scene Animation",
+      "purpose": "Build reusable 3D character identities, scene assets, performance animation, camera language and script-driven Chinese lip sync.",
+      "default_runtime": "media-digital-human-blender",
+      "fallback_runtime": "media-generative-hyperframes",
+      "default_agent": "agent-media-generator",
+      "expected_output_types": ["Blender master", "character GLB", "scene GLB", "turntable contact sheet", "lip-synced mp4"],
+      "required_inputs": ["character manifests", "scene manifest", "story performance", "approved voice tracks", "artifact root"],
+      "validation_commands": ["digital-human validate", "ffprobe artifact", "ffmpeg decode check"],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-character-3d-print-refinement",
+      "skill_type": "character_3d_print_refinement",
+      "display_name": "Character 3D Print Refinement",
+      "purpose": "Refine a governed provider mesh into reversible DCC, printable mesh and multi-view QA artifacts without accepting provider output as a final master.",
+      "default_runtime": "media-digital-human-blender",
+      "fallback_runtime": null,
+      "default_agent": "agent-media-generator",
+      "expected_output_types": ["Blender master", "refined GLB", "base STL", "assembly STL", "turntable contact sheets", "printability report"],
+      "required_inputs": ["provider candidate mesh", "locked multiview manifest", "target print height", "artifact root"],
+      "validation_commands": ["digital-human refine-printable", "printability gate", "silhouette gate"],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-ai-video-generation",
+      "skill_type": "ai_video_generation",
+      "display_name": "Governed External AI Video Generation",
+      "purpose": "Submit approved character-locked start/end frames to an external AI video provider and retain a sanitized task and artifact audit.",
+      "default_runtime": "media-ai-video-kling",
+      "fallback_runtime": null,
+      "default_agent": "agent-media-generator",
+      "expected_output_types": ["provider task audit", "mp4"],
+      "required_inputs": ["approved start frame", "approved end frame", "prompt", "credential reference", "cost approval"],
+      "validation_commands": ["kling preview", "ffprobe artifact", "ffmpeg decode check"],
+      "risk_level": "MEDIUM"
+    },
+    {
       "skill_id": "skill-media-validation",
       "skill_type": "media_validation",
       "display_name": "Media Quality Control",

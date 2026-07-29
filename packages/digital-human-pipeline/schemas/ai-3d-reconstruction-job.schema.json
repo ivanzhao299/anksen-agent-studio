@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/ai-3d-reconstruction-job.schema.json",
+  "title": "AI 3D Reconstruction Job",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "jobId",
+    "assetId",
+    "status",
+    "provider",
+    "input",
+    "qualityGate",
+    "governance",
+    "output"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "jobId": { "type": "string", "minLength": 1 },
+    "assetId": { "type": "string", "minLength": 1 },
+    "status": {
+      "enum": [
+        "SCAFFOLD_READY",
+        "BLOCKED_RUNTIME_REQUIREMENTS",
+        "AWAITING_APPROVAL_AND_CREDENTIAL_REFERENCE",
+        "AWAITING_COST_APPROVAL",
+        "SUBMITTED",
+        "PROCESSING",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCELLED"
+      ]
+    },
+    "provider": {
+      "type": "object",
+      "required": ["providerId", "displayName", "executionMode", "fidelity"]
+    },
+    "credentialReference": {
+      "type": ["object", "null"]
+    },
+    "input": {
+      "type": "object",
+      "required": ["manifestPath", "authoritativeViewAngle", "views", "identityConstraints", "printTarget"],
+      "properties": {
+        "views": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8
+        }
+      }
+    },
+    "providerRequestMapping": { "type": ["object", "null"] },
+    "qualityGate": { "type": "object" },
+    "governance": { "type": "object" },
+    "output": { "type": "object" },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "domain": "3D_MODELING",
+  "evaluationMode": "HIGH_RESOLUTION_INVERSE_RENDER_ALIGNMENT",
+  "workflowId": "huihui-meshy-text-assembly-fidelity",
+  "assetId": "huihui-printable-v3",
+  "baselineVersion": "meshy-text-assembly-v1",
+  "referenceManifest": "runtime/workspaces/media/huihui-printable-v3/multiview-manifest.json",
+  "candidateRenderRoot": "runtime/artifacts/media/huihui-printable-v3/meshy-text-assembly-v1/turntable",
+  "candidateSilhouetteRoot": "runtime/artifacts/media/huihui-printable-v3/meshy-text-assembly-v1/silhouettes",
+  "outputRoot": "runtime/artifacts/media/huihui-printable-v3/meshy-text-assembly-v1/inverse-render-fidelity",
+  "viewAuthority": {
+    "authoritativeFrontWeight": 4,
+    "generatedViewWeight": 0.25,
+    "generatedViewsAreMetric": false
+  },
+  "metrics": {
+    "silhouetteIou": true,
+    "edgeChamferSimilarity": true,
+    "multiscaleStructuralSimilarity": true,
+    "colorMaterialSimilarity": true
+  },
+  "semanticRegions": [
+    { "id": "helmet", "box": [0.16, 0.0, 0.84, 0.29], "weight": 1.2 },
+    { "id": "face-screen", "box": [0.16, 0.18, 0.84, 0.5], "weight": 1.5 },
+    { "id": "torso-shell", "box": [0.18, 0.38, 0.82, 0.76], "weight": 1.2 },
+    { "id": "left-arm-hand", "box": [0.0, 0.28, 0.3, 0.72], "weight": 1 },
+    { "id": "right-arm-hand", "box": [0.72, 0.24, 1.0, 0.58], "weight": 1 },
+    { "id": "boots", "box": [0.16, 0.74, 0.84, 1.0], "weight": 1.1 },
+    { "id": "branding", "box": [0.36, 0.48, 0.68, 0.73], "weight": 1.5 }
+  ],
+  "promotion": {
+    "automaticMasterOverwrite": false,
+    "requireNoAuthoritativeFrontRegression": true,
+    "requireAllSemanticRegions": true,
+    "targets": {
+      "meanSilhouetteIou": 0.82,
+      "frontSilhouetteIou": 0.9,
+      "frontEdgeChamferSimilarity": 0.72,
+      "frontStructuralSimilarity": 0.72,
+      "frontColorMaterialSimilarity": 0.8,
+      "minimumSemanticComposite": 0.65,
+      "frontComposite": 0.78
+    }
+  },
+  "riskLevel": "LOW",
+  "constraints": [
+    "This text-derived model is an assembly-structure probe and cannot replace the image-locked v15 baseline.",
+    "The authoritative front controls identity, proportions and branding.",
+    "A clearer seam does not compensate for identity or silhouette regression."
+  ],
+  "acceptanceCriteria": [
+    "Distinct components remain readable without a membrane or melted seam.",
+    "The authoritative front preserves Huihui's wide concrete body, short limbs and face identity.",
+    "The candidate passes every v15 promotion threshold before it can become a master."
+  ]
+}

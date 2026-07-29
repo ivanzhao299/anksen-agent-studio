@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/digital-human-character-asset.schema.json",
+  "title": "Digital Human Character Asset",
+  "type": "object",
+  "required": ["schemaVersion", "assetId", "displayName", "archetype", "palette", "proportions"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "assetId": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "displayName": { "type": "string", "minLength": 1 },
+    "archetype": {
+      "enum": ["robot", "boy", "mixer", "water-tower"]
+    },
+    "palette": {
+      "type": "object",
+      "required": ["primary", "secondary", "accent", "face"],
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^#[0-9A-Fa-f]{6}$"
+      }
+    },
+    "proportions": {
+      "type": "object",
+      "required": ["height", "headScale", "bodyScale"],
+      "properties": {
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "headScale": { "type": "number", "exclusiveMinimum": 0 },
+        "bodyScale": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "voiceAsset": { "type": ["string", "null"] },
+    "referenceImage": { "type": ["string", "null"] },
+    "identityNotes": { "type": "array", "items": { "type": "string" } },
+    "referenceAssets": {
+      "type": "object",
+      "required": ["identitySheet"],
+      "properties": {
+        "identitySheet": { "type": "string", "minLength": 1 },
+        "frontView": { "type": ["string", "null"] },
+        "sideView": { "type": ["string", "null"] },
+        "backView": { "type": ["string", "null"] },
+        "referenceLockedCutout": { "type": ["string", "null"] },
+        "referenceBundle": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "identityFeatures": {
+      "type": "array",
+      "minItems": 5,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "domain": "3D_MODELING",
+  "workflowId": "huihui-v15-gauge-calibration-v1",
+  "assetId": "huihui-printable-v3",
+  "calibrationMode": "GAUGE_DRIVEN_MULTIVIEW_GEOMETRY",
+  "baselineVersion": "refined-v15-modeling-domain",
+  "baselineMesh": "runtime/artifacts/media/huihui-printable-v3/refined-v15-modeling-domain/huihui-printable-v3-refined.glb",
+  "baselineBlend": "runtime/artifacts/media/huihui-printable-v3/refined-v15-modeling-domain/huihui-printable-v3-refined.blend",
+  "authoritativeFront": "runtime/workspaces/media/huihui-printable-v3/references/source/huihui-brand-front-master.png",
+  "referenceManifest": "runtime/workspaces/media/huihui-printable-v3/multiview-manifest.json",
+  "observationReport": "runtime/artifacts/media/huihui-printable-v3/orbit-calibration-v1/orbit-frame-observations.json",
+  "parametricSpec": "packages/3d-modeling-domain/examples/huihui-parametric-character.example.json",
+  "outputRoot": "runtime/artifacts/media/huihui-printable-v3/gauge-calibration-v1",
+  "targetHeightMm": 180,
+  "coordinateSystem": "BLENDER_Z_UP_FRONT_NEGATIVE_Y",
+  "datums": {
+    "unit": "MILLIMETER",
+    "groundPlane": "Z=0",
+    "centerPlane": "X=0",
+    "frontPlane": "Y=0",
+    "lockGround": true,
+    "lockCenterline": true,
+    "lockScale": true
+  },
+  "viewAuthority": {
+    "authoritativeFront": "METRIC_IDENTITY_AND_XZ_GAUGE",
+    "generatedViewsAreMetric": false,
+    "requiredAngles": [0, 90, 180, 270],
+    "minimumDepthConfidence": 0.55
+  },
+  "gaugeProfiles": [
+    {
+      "id": "body-front-profile",
+      "semanticPart": "body",
+      "levels": [0.28, 0.36, 0.44, 0.52, 0.6]
+    },
+    {
+      "id": "helmet-front-profile",
+      "semanticPart": "helmet",
+      "levels": [0.01, 0.08, 0.15, 0.22, 0.29]
+    }
+  ],
+  "semanticProbes": [
+    {
+      "id": "body-shell",
+      "semanticRole": "BODY",
+      "observationPart": "body",
+      "primitiveFamily": "SUPERELLIPSOID",
+      "anchorNames": ["top", "bottom", "left", "right", "center"],
+      "requiredViews": ["front", "right", "back", "left"],
+      "frontAnchorPixels": {
+        "top": [625, 316],
+        "bottom": [625, 892],
+        "left": [309, 610],
+        "right": [875, 610],
+        "center": [625, 610]
+      },
+      "curveControlPoints": true,
+      "ownerReviewRequired": true
+    },
+    {
+      "id": "face-screen",
+      "semanticRole": "FACE",
+      "observationPart": "face",
+      "primitiveFamily": "ROUNDED_PRISM",
+      "anchorNames": ["top", "bottom", "left", "right", "center"],
+      "requiredViews": ["front", "right"],
+      "frontAnchorPixels": {
+        "top": [572, 263],
+        "bottom": [572, 612],
+        "left": [286, 438],
+        "right": [858, 438],
+        "center": [572, 438]
+      },
+      "curveControlPoints": true,
+      "ownerReviewRequired": true
+    },
+    {
+      "id": "helmet-shell",
+      "semanticRole": "HELMET",
+      "observationPart": "helmet",
+      "primitiveFamily": "DOME",
+      "anchorNames": ["crown", "brim-left", "brim-right", "brim-front", "brim-back"],
+      "requiredViews": ["front", "right", "back", "left"],
+      "frontAnchorPixels": {
+        "crown": [574, 52],
+        "brim-left": [268, 372],
+        "brim-right": [879, 372],
+        "brim-front": [574, 372],
+        "brim-back": null
+      },
+      "curveControlPoints": true,
+      "ownerReviewRequired": true
+    },
+    {
+      "id": "ear-pods",
+      "semanticRole": "EAR",
+      "observationPart": "ears",
+      "primitiveFamily": "CYLINDER",
+      "anchorNames": ["left-center", "right-center", "left-radius", "right-radius"],
+      "requiredViews": ["front", "right", "left"],
+      "frontAnchorPixels": {
+        "left-center": [251, 459],
+        "right-center": [891, 459],
+        "left-radius": [211, 459],
+        "right-radius": [931, 459]
+      },
+      "curveControlPoints": false,
+      "ownerReviewRequired": true
+    },
+    {
+      "id": "arm-rig",
+      "semanticRole": "ARM",
+      "observationPart": "arms",
+      "primitiveFamily": "CAPSULE",
+      "anchorNames": ["left-shoulder", "left-elbow", "left-wrist", "right-shoulder", "right-elbow", "right-wrist"],
+      "requiredViews": ["front", "right", "left"],
+      "frontAnchorPixels": {
+        "left-shoulder": [312, 530],
+        "left-elbow": [235, 650],
+        "left-wrist": [210, 747],
+        "right-shoulder": [875, 510],
+        "right-elbow": [963, 473],
+        "right-wrist": [999, 456]
+      },
+      "curveControlPoints": true,
+      "ownerReviewRequired": true
+    },
+    {
+      "id": "hand-rig",
+      "semanticRole": "HAND",
+      "observationPart": "hands",
+      "primitiveFamily": "COMPOSITE",
+      "anchorNames": ["left-palm", "left-fingertip", "right-palm", "right-fingertip"],
+      "requiredViews": ["front", "right", "left"],
+      "frontAnchorPixels": {
+        "left-palm": [222, 787],
+        "left-fingertip": [159, 848],
+        "right-palm": [1020, 450],
+        "right-fingertip": [1057, 353]
+      },
+      "curveControlPoints": true,
+      "ownerReviewRequired": true
+    },
+    {
+      "id": "leg-rig",
+      "semanticRole": "LEG",
+      "observationPart": "legs",
+      "primitiveFamily": "CYLINDER",
+      "anchorNames": ["left-hip", "left-ankle", "right-hip", "right-ankle"],
+      "requiredViews": ["front", "right", "left"],
+      "frontAnchorPixels": {
+        "left-hip": [470, 846],
+        "left-ankle": [470, 928],
+        "right-hip": [690, 846],
+        "right-ankle": [690, 928]
+      },
+      "curveControlPoints": false,
+      "ownerReviewRequired": true
+    },
+    {
+      "id": "boot-pair",
+      "semanticRole": "BOOT",
+      "observationPart": "boots",
+      "primitiveFamily": "COMPOSITE",
+      "anchorNames": ["left-toe", "left-heel", "left-sole", "right-toe", "right-heel", "right-sole"],
+      "requiredViews": ["front", "right", "back", "left"],
+      "frontAnchorPixels": {
+        "left-toe": [312, 1087],
+        "left-heel": [549, 1073],
+        "left-sole": [430, 1125],
+        "right-toe": [892, 1063],
+        "right-heel": [621, 1070],
+        "right-sole": [756, 1120]
+      },
+      "curveControlPoints": true,
+      "ownerReviewRequired": true
+    },
+    {
+      "id": "branding-relief",
+      "semanticRole": "BRANDING",
+      "observationPart": "branding",
+      "primitiveFamily": "COMPOSITE",
+      "anchorNames": ["helmet-label-center", "chest-label-center", "chest-relief-depth"],
+      "requiredViews": ["front", "right"],
+      "frontAnchorPixels": {
+        "helmet-label-center": [625, 177],
+        "chest-label-center": [666, 706],
+        "chest-relief-depth": null
+      },
+      "curveControlPoints": false,
+      "ownerReviewRequired": true
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "helmet-body-interface",
+      "parentPart": "body-shell",
+      "childPart": "helmet-shell",
+      "operation": "KEEP_SEPARATE",
+      "toleranceMm": 0.4,
+      "preserveBoundary": true
+    },
+    {
+      "id": "face-body-interface",
+      "parentPart": "body-shell",
+      "childPart": "face-screen",
+      "operation": "CONTROLLED_OVERLAP",
+      "toleranceMm": 0.3,
+      "preserveBoundary": true
+    },
+    {
+      "id": "ear-body-interface",
+      "parentPart": "body-shell",
+      "childPart": "ear-pods",
+      "operation": "CONTROLLED_OVERLAP",
+      "toleranceMm": 0.35,
+      "preserveBoundary": true
+    },
+    {
+      "id": "arm-body-interface",
+      "parentPart": "body-shell",
+      "childPart": "arm-rig",
+      "operation": "LOCAL_BLEND_PATCH",
+      "toleranceMm": 0.45,
+      "preserveBoundary": true
+    },
+    {
+      "id": "hand-arm-interface",
+      "parentPart": "arm-rig",
+      "childPart": "hand-rig",
+      "operation": "KEEP_SEPARATE",
+      "toleranceMm": 0.3,
+      "preserveBoundary": true
+    },
+    {
+      "id": "leg-body-interface",
+      "parentPart": "body-shell",
+      "childPart": "leg-rig",
+      "operation": "CONTROLLED_OVERLAP",
+      "toleranceMm": 0.45,
+      "preserveBoundary": true
+    },
+    {
+      "id": "boot-leg-interface",
+      "parentPart": "leg-rig",
+      "childPart": "boot-pair",
+      "operation": "KEEP_SEPARATE",
+      "toleranceMm": 0.3,
+      "preserveBoundary": true
+    }
+  ],
+  "fitting": {
+    "geometryAuthority": "SEMANTIC_PARAMETRIC_ASSEMBLY",
+    "profileMethod": "PRIMITIVE_PLUS_BEZIER_GAUGE_FIT",
+    "preserveSemanticParts": true,
+    "forbidGlobalVoxelMaster": true,
+    "automaticMasterOverwrite": false,
+    "manufacturingUnion": "DEFERRED"
+  },
+  "riskLevel": "MEDIUM",
+  "constraints": [
+    "V15 remains the immutable geometry baseline",
+    "The front image controls scale, identity and XZ coordinates",
+    "AI-generated side and rear views are non-metric depth priors until owner-approved",
+    "Every geometric correction is scoped to one semantic part or one named interface",
+    "Global smoothing, global voxel remeshing and automatic master overwrite are forbidden"
+  ],
+  "acceptanceCriteria": [
+    "The target height, ground plane, center plane and front plane are locked in millimeters",
+    "Every semantic probe reports metric, provisional or hold authority",
+    "Body and helmet profiles produce explicit Bezier or superellipsoid gauge points",
+    "Every assembly interface has a named operation and tolerance",
+    "Missing depth evidence produces HOLD rather than guessed geometry",
+    "The result is a local patch work order and never an automatic replacement of V15"
+  ]
+}

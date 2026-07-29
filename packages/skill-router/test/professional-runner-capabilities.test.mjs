@@ -7,6 +7,8 @@ import { ProfessionalRunnerCapabilityRegistry } from "../lib/professional-runner
 import { ProfessionalRunnerExecutionService } from "../lib/professional-runner-execution.mjs";
 import { createProfessionalMediaAdapters, implementedProfessionalAdapterIds } from "../lib/professional-media-adapters.mjs";
 import { createHyperframesArtifactAdapter } from "../lib/hyperframes-artifact-adapter.mjs";
+import { createKlingAiVideoAdapter } from "../lib/kling-ai-video-adapter.mjs";
+import { createBlenderDigitalHumanAdapter } from "../lib/blender-digital-human-adapter.mjs";
 import { ProfessionalRunnerKernelBridge } from "../lib/professional-runner-kernel-bridge.mjs";
 import { projectProfessionalArtifacts } from "../lib/professional-artifact-projection.mjs";
 
@@ -36,7 +38,82 @@ test("media task routing selects the specific registered Skill and never upgrade
 
 test("routing distinguishes Remotion composition, Manim animation and credential transcription",async()=>{const registry=new ProfessionalRunnerCapabilityRegistry(),remotion=await registry.matchTask({id:"r",title:"用 Remotion 生成 React 程序化视频"}),manim=await registry.matchTask({id:"m",title:"用 Manim 制作数学动画"}),transcription=await registry.matchTask({id:"t",title:"对音频进行逐词 transcription"});assert.equal(remotion.rule.rule_id,"RULE-REMOTION-PROGRAMMATIC");assert.equal(remotion.capability.profile_id,"media-programmatic-remotion");assert.equal(manim.rule.rule_id,"RULE-TECHNICAL-ANIMATION");assert.equal(manim.capability.profile_id,"media-technical-manim");assert.equal(transcription.rule.rule_id,"RULE-MEDIA-TRANSCRIPTION");assert.equal(transcription.status,"BLOCKED");});
 
-test("implemented FFprobe adapter accepts only isolated media inputs and returns sanitized QA evidence",async()=>{const root=await mkdtemp(join(tmpdir(),"media-adapter-")),media=join(root,"runtime/artifacts/media");await mkdir(media,{recursive:true});await writeFile(join(media,"input.mp4"),"fixture");const calls=[],adapters=createProfessionalMediaAdapters({repoRoot:root,run:(command,args)=>{calls.push({command,args});return{status:0,stdout:JSON.stringify({format:{format_name:"mp4",duration:"1.0"},streams:[{index:0,codec_type:"video",codec_name:"h264",width:1920,height:1080,secret:"drop"}]})};}}),result=await adapters["media-quality-control"]({request:{inputPath:"runtime/artifacts/media/input.mp4"}});assert.deepEqual(implementedProfessionalAdapterIds,["hyperframes-artifact-adapter-v1","remotion-artifact-adapter-v1","video-use-artifact-adapter-v1","manim-artifact-adapter-v1","ffmpeg-quality-adapter-v1"]);assert.equal(calls[0].command,"ffprobe");assert.match(result.artifacts[0].content,/"codecName": "h264"/);assert.doesNotMatch(result.artifacts[0].content,/secret/);await writeFile(join(root,"outside.mp4"),"fixture");await assert.rejects(()=>adapters["media-quality-control"]({request:{inputPath:"outside.mp4"}}),error=>error.code==="MEDIA_INPUT_PATH_BLOCKED");});
+test("implemented FFprobe adapter accepts only isolated media inputs and returns sanitized QA evidence",async()=>{const root=await mkdtemp(join(tmpdir(),"media-adapter-")),media=join(root,"runtime/artifacts/media");await mkdir(media,{recursive:true});await writeFile(join(media,"input.mp4"),"fixture");const calls=[],adapters=createProfessionalMediaAdapters({repoRoot:root,run:(command,args)=>{calls.push({command,args});return{status:0,stdout:JSON.stringify({format:{format_name:"mp4",duration:"1.0"},streams:[{index:0,codec_type:"video",codec_name:"h264",width:1920,height:1080,secret:"drop"}]})};}}),result=await adapters["media-quality-control"]({request:{inputPath:"runtime/artifacts/media/input.mp4"}});assert.deepEqual(implementedProfessionalAdapterIds,["hyperframes-artifact-adapter-v1","remotion-artifact-adapter-v1","video-use-artifact-adapter-v1","manim-artifact-adapter-v1","blender-digital-human-adapter-v1","kling-ai-video-adapter-v1","ffmpeg-quality-adapter-v1"]);assert.equal(calls[0].command,"ffprobe");assert.match(result.artifacts[0].content,/"codecName": "h264"/);assert.doesNotMatch(result.artifacts[0].content,/secret/);await writeFile(join(root,"outside.mp4"),"fixture");await assert.rejects(()=>adapters["media-quality-control"]({request:{inputPath:"outside.mp4"}}),error=>error.code==="MEDIA_INPUT_PATH_BLOCKED");});
+
+test("Kling route resolves only through its credential-scoped provider profile",async()=>{const registry=new ProfessionalRunnerCapabilityRegistry({credentialReferenceIds:["kling-api-key-ref"],registeredAdapterIds:implementedProfessionalAdapterIds}),result=await registry.matchTask({id:"kling-1",title:"使用海外版 Kling 可灵首尾帧生成视频"});assert.equal(result.rule.rule_id,"RULE-KLING-AI-VIDEO");assert.equal(result.capability.profile_id,"media-ai-video-kling");assert.equal(result.capability.execution_readiness,"NOT_EXECUTABLE");assert.ok(result.capability.blocked_reasons.includes("RUNNER_NOT_ACTIVATED:media-ai-video-kling"));});
+
+test("Kling adapter exposes an offline preview and blocks plans outside media artifacts",async()=>{const root=await mkdtemp(join(tmpdir(),"kling-adapter-")),media=join(root,"runtime/artifacts/media"),output=join(media,"execution");await mkdir(output,{recursive:true});const plan=join(media,"plan.json");await writeFile(plan,"{}");const calls=[],adapter=createKlingAiVideoAdapter({repoRoot:root,run:async(command,args,options)=>{calls.push({command,args,options});return{code:0,stdout:'{\"status\":\"DRY_RUN\",\"credentialValueRead\":false}',stderr:""};}}),result=await adapter({request:{operation:"CHECK",planPath:"runtime/artifacts/media/plan.json"},outputRoot:output});assert.equal(result.status,"CHECKED_AWAITING_PROVIDER_APPROVAL");assert.equal(calls[0].args.includes("--dry-run"),true);assert.equal(JSON.parse(result.artifacts[0].content).credentialValueRead,false);const outside=join(root,"outside-plan.json");await writeFile(outside,"{}");await assert.rejects(()=>adapter({request:{operation:"CHECK",planPath:"outside-plan.json"},outputRoot:output}),error=>error.code==="KLING_PLAN_PATH_BLOCKED");});
+
+test("Blender digital-human adapter exposes governed printable refinement without external credentials",async()=>{
+  const root=await mkdtemp(join(tmpdir(),"printable-adapter-"));
+  const media=join(root,"runtime/artifacts/media");
+  const workspace=join(root,"runtime/workspaces/media/character");
+  const output=join(media,"execution");
+  await mkdir(workspace,{recursive:true});
+  await mkdir(output,{recursive:true});
+  const mesh=join(media,"candidate.glb");
+  const manifest=join(workspace,"multiview.json");
+  await writeFile(mesh,"mesh");
+  await writeFile(manifest,"{}");
+  const calls=[];
+  const adapter=createBlenderDigitalHumanAdapter({
+    repoRoot:root,
+    run:async(_command,args)=>{
+      calls.push(args);
+      const outputIndex=args.indexOf("--output");
+      const target=args[outputIndex+1];
+      const files=["asset-refined.glb","asset-base.stl","asset-assembly.stl","asset-refined.blend","color.jpg","clay.jpg","silhouette.jpg","printability.json","silhouette.json","package.json"];
+      await Promise.all(files.map(name=>writeFile(join(target,name),name)));
+      return{
+        code:0,
+        stderr:"",
+        stdout:JSON.stringify({
+          status:"REVIEW_READY",
+          gates:{geometry:"PASS_WITH_CONDITIONS",silhouette:"PASS",physicalPrintProof:"REQUIRED_BEFORE_FINAL_RELEASE"},
+          metrics:{frontIou:0.86},
+          packageManifest:join(target,"package.json"),
+          artifacts:{
+            refinedGlb:join(target,"asset-refined.glb"),
+            baseStl:join(target,"asset-base.stl"),
+            assemblyStl:join(target,"asset-assembly.stl"),
+            blenderSource:join(target,"asset-refined.blend"),
+            colorTurntableContactSheet:join(target,"color.jpg"),
+            clayTurntableContactSheet:join(target,"clay.jpg"),
+            silhouetteContactSheet:join(target,"silhouette.jpg"),
+            printabilityReport:join(target,"printability.json"),
+            silhouetteReport:join(target,"silhouette.json")
+          }
+        })
+      };
+    }
+  });
+  const result=await adapter({
+    request:{
+      operation:"REFINE_PRINTABLE",
+      meshPath:"runtime/artifacts/media/candidate.glb",
+      manifestPath:"runtime/workspaces/media/character/multiview.json",
+      assetId:"asset",
+      surfaceMethod:"voxel",
+      surfaceSubdivisionLevel:2
+    },
+    outputRoot:output
+  });
+  assert.equal(result.status,"REVIEW_READY");
+  assert.equal(result.externalModelCalled,false);
+  assert.equal(result.credentialValueRead,false);
+  assert.equal(result.artifacts.length,10);
+  assert.equal(calls[0].includes("refine-printable"),true);
+  assert.deepEqual(
+    calls[0].slice(calls[0].indexOf("--surface-subdivision-level"),calls[0].indexOf("--surface-subdivision-level")+4),
+    ["--surface-subdivision-level","2","--surface-method","voxel"]
+  );
+  const outside=join(root,"outside.glb");
+  await writeFile(outside,"mesh");
+  await assert.rejects(()=>adapter({
+    request:{operation:"REFINE_PRINTABLE",meshPath:"outside.glb",manifestPath:"runtime/workspaces/media/character/multiview.json"},
+    outputRoot:output
+  }),error=>error.code==="PRINTABLE_MESH_PATH_BLOCKED");
+});
 
 test("offline footage editing and credential-scoped transcription have independent readiness",async()=>{const registry=new ProfessionalRunnerCapabilityRegistry({registeredAdapterIds:implementedProfessionalAdapterIds}),inventory=await registry.inventory(),editing=inventory.profiles.find(item=>item.profile_id==="media-footage-video-use"),transcription=inventory.profiles.find(item=>item.profile_id==="media-transcription-video-use");assert.equal(editing.installation_readiness,"READY");assert.ok(!editing.blocked_reasons.some(reason=>reason.startsWith("CREDENTIAL_REFERENCE_MISSING")));assert.equal(transcription.installation_readiness,"NOT_READY");assert.ok(transcription.blocked_reasons.includes("CREDENTIAL_REFERENCE_MISSING:media-transcription-provider-ref"));});
 

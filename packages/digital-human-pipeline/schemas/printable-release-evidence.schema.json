@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/printable-release-evidence.schema.json",
+  "title": "Printable Release Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "assetId",
+    "visualOwnerReview",
+    "slicerReview",
+    "physical60mmProof"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "assetId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "visualOwnerReview": {
+      "$ref": "#/$defs/reviewGate"
+    },
+    "slicerReview": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reviewGate"
+        },
+        {
+          "type": "object",
+          "required": [
+            "minimumWallMm",
+            "selfIntersectionCheck",
+            "supportReview"
+          ],
+          "properties": {
+            "minimumWallMm": {
+              "type": "number",
+              "minimum": 0
+            },
+            "selfIntersectionCheck": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "NOT_REVIEWED"
+              ]
+            },
+            "supportReview": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "NOT_REVIEWED"
+              ]
+            },
+            "reportPath": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "physical60mmProof": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/reviewGate"
+        },
+        {
+          "type": "object",
+          "required": [
+            "printedHeightMm",
+            "photoPaths"
+          ],
+          "properties": {
+            "printedHeightMm": {
+              "type": "number",
+              "minimum": 0
+            },
+            "photoPaths": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "reviewGate": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "status",
+        "reviewedBy",
+        "reviewedAt",
+        "notes"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NOT_REVIEWED"
+          ]
+        },
+        "reviewedBy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

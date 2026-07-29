@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/ai-video-job.schema.json",
+  "title": "AI Video Dispatch Job",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "jobId",
+    "status",
+    "executionMode",
+    "provider",
+    "credentialReference",
+    "input",
+    "governance",
+    "output"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "jobId": { "type": "string", "minLength": 1 },
+    "status": {
+      "enum": [
+        "AWAITING_APPROVAL_AND_CREDENTIAL_REFERENCE",
+        "READY_FOR_PROVIDER_SUBMISSION",
+        "SUBMITTED",
+        "PROCESSING",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCELLED"
+      ]
+    },
+    "executionMode": { "const": "external_provider" },
+    "provider": {
+      "type": "object",
+      "required": ["providerId", "displayName", "modelFamily", "capability", "officialDocs"]
+    },
+    "credentialReference": {
+      "type": "object",
+      "required": ["type", "reference", "valueRead", "status"],
+      "properties": {
+        "type": { "enum": ["vault_path", "env_ref", "keychain_ref", "external_vault_ref"] },
+        "reference": { "type": "string", "minLength": 1 },
+        "environmentVariable": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "valueRead": { "const": false },
+        "status": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "input": {
+      "type": "object",
+      "required": [
+        "projectRoot",
+        "startFrame",
+        "endFrame",
+        "elementReferences",
+        "prompt",
+        "negativePrompt",
+        "durationSeconds",
+        "resolution",
+        "nativeAudio"
+      ]
+    },
+    "providerRequestMapping": { "type": "object" },
+    "governance": {
+      "type": "object",
+      "required": [
+        "risk",
+        "externalModelCall",
+        "requiresCostApproval",
+        "requiresCredentialReference",
+        "automaticSubmissionAllowed"
+      ]
+    },
+    "output": {
+      "type": "object",
+      "required": ["artifactRoot", "expectedVideo", "auditRecord"]
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

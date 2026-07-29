@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/gauge-driven-multiview-calibration.schema.json",
+  "title": "Gauge-Driven Multiview Geometry Calibration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "domain",
+    "workflowId",
+    "assetId",
+    "calibrationMode",
+    "baselineVersion",
+    "baselineMesh",
+    "baselineBlend",
+    "authoritativeFront",
+    "referenceManifest",
+    "observationReport",
+    "parametricSpec",
+    "outputRoot",
+    "targetHeightMm",
+    "coordinateSystem",
+    "datums",
+    "viewAuthority",
+    "gaugeProfiles",
+    "semanticProbes",
+    "interfaces",
+    "fitting",
+    "riskLevel",
+    "constraints",
+    "acceptanceCriteria"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "domain": { "const": "3D_MODELING" },
+    "workflowId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]+$"
+    },
+    "assetId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]+$"
+    },
+    "calibrationMode": { "const": "GAUGE_DRIVEN_MULTIVIEW_GEOMETRY" },
+    "baselineVersion": { "type": "string", "minLength": 1 },
+    "baselineMesh": { "type": "string", "minLength": 1 },
+    "baselineBlend": { "type": "string", "minLength": 1 },
+    "authoritativeFront": { "type": "string", "minLength": 1 },
+    "referenceManifest": { "type": "string", "minLength": 1 },
+    "observationReport": { "type": "string", "minLength": 1 },
+    "parametricSpec": { "type": "string", "minLength": 1 },
+    "outputRoot": { "type": "string", "minLength": 1 },
+    "targetHeightMm": { "type": "number", "minimum": 20, "maximum": 1000 },
+    "coordinateSystem": { "const": "BLENDER_Z_UP_FRONT_NEGATIVE_Y" },
+    "datums": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "groundPlane",
+        "centerPlane",
+        "frontPlane",
+        "lockGround",
+        "lockCenterline",
+        "lockScale"
+      ],
+      "properties": {
+        "unit": { "const": "MILLIMETER" },
+        "groundPlane": { "const": "Z=0" },
+        "centerPlane": { "const": "X=0" },
+        "frontPlane": { "const": "Y=0" },
+        "lockGround": { "const": true },
+        "lockCenterline": { "const": true },
+        "lockScale": { "const": true }
+      }
+    },
+    "viewAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authoritativeFront",
+        "generatedViewsAreMetric",
+        "requiredAngles",
+        "minimumDepthConfidence"
+      ],
+      "properties": {
+        "authoritativeFront": { "const": "METRIC_IDENTITY_AND_XZ_GAUGE" },
+        "generatedViewsAreMetric": { "const": false },
+        "requiredAngles": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 0, "maximum": 359 }
+        },
+        "minimumDepthConfidence": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "gaugeProfiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "semanticPart", "levels"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "semanticPart": { "type": "string", "minLength": 1 },
+          "levels": {
+            "type": "array",
+            "minItems": 3,
+            "items": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "semanticProbes": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "semanticRole",
+          "observationPart",
+          "primitiveFamily",
+          "anchorNames",
+          "requiredViews",
+          "curveControlPoints",
+          "ownerReviewRequired"
+        ],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "semanticRole": {
+            "enum": [
+              "BODY",
+              "FACE",
+              "HELMET",
+              "EAR",
+              "ARM",
+              "HAND",
+              "LEG",
+              "BOOT",
+              "BRANDING",
+              "BASE"
+            ]
+          },
+          "observationPart": { "type": "string", "minLength": 1 },
+          "primitiveFamily": {
+            "enum": [
+              "SUPERELLIPSOID",
+              "BEZIER_PROFILE",
+              "ROUNDED_PRISM",
+              "DOME",
+              "CYLINDER",
+              "CAPSULE",
+              "COMPOSITE"
+            ]
+          },
+          "anchorNames": {
+            "type": "array",
+            "minItems": 3,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "requiredViews": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "enum": ["front", "right", "back", "left"] }
+          },
+          "frontAnchorPixels": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "prefixItems": [
+                    { "type": "number", "minimum": 0 },
+                    { "type": "number", "minimum": 0 }
+                  ],
+                  "items": false
+                },
+                { "type": "null" }
+              ]
+            }
+          },
+          "curveControlPoints": { "type": "boolean" },
+          "ownerReviewRequired": { "type": "boolean" }
+        }
+      }
+    },
+    "interfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "parentPart",
+          "childPart",
+          "operation",
+          "toleranceMm",
+          "preserveBoundary"
+        ],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "parentPart": { "type": "string", "minLength": 1 },
+          "childPart": { "type": "string", "minLength": 1 },
+          "operation": {
+            "enum": [
+              "KEEP_SEPARATE",
+              "CONTROLLED_OVERLAP",
+              "EXACT_BOOLEAN_UNION",
+              "LOCAL_BLEND_PATCH",
+              "CONTROLLED_FILLET"
+            ]
+          },
+          "toleranceMm": { "type": "number", "exclusiveMinimum": 0 },
+          "preserveBoundary": { "const": true }
+        }
+      }
+    },
+    "fitting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "geometryAuthority",
+        "profileMethod",
+        "preserveSemanticParts",
+        "forbidGlobalVoxelMaster",
+        "automaticMasterOverwrite",
+        "manufacturingUnion"
+      ],
+      "properties": {
+        "geometryAuthority": { "const": "SEMANTIC_PARAMETRIC_ASSEMBLY" },
+        "profileMethod": { "const": "PRIMITIVE_PLUS_BEZIER_GAUGE_FIT" },
+        "preserveSemanticParts": { "const": true },
+        "forbidGlobalVoxelMaster": { "const": true },
+        "automaticMasterOverwrite": { "const": false },
+        "manufacturingUnion": { "const": "DEFERRED" }
+      }
+    },
+    "riskLevel": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    "constraints": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

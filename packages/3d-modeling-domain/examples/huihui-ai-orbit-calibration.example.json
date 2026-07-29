@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "domain": "3D_MODELING",
+  "workflowId": "huihui-ai-orbit-calibration-v1",
+  "assetId": "huihui-parametric-v1",
+  "calibrationMode": "AI_ORBIT_REFERENCE_CALIBRATION",
+  "authoritativeFront": "runtime/workspaces/media/huihui-printable-v3/references/source/huihui-brand-front-master.png",
+  "referenceManifest": "runtime/workspaces/media/huihui-printable-v3/multiview-manifest.json",
+  "parametricSpec": "packages/3d-modeling-domain/examples/huihui-parametric-character.example.json",
+  "outputRoot": "runtime/artifacts/media/huihui-printable-v3/orbit-calibration-v1",
+  "provider": "kling-ai",
+  "orbit": {
+    "durationSeconds": 10,
+    "expectedDegrees": 360,
+    "sampleAngles": [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330],
+    "fixedCamera": true,
+    "neutralPose": true,
+    "orthographicPreferred": true
+  },
+  "frameAcceptance": {
+    "minimumForegroundRatio": 0.12,
+    "maximumForegroundRatio": 0.78,
+    "maximumHeightDriftRatio": 0.08,
+    "rejectIdentityDrift": true,
+    "rejectBrandingMutation": true,
+    "rejectAnatomyMutation": true
+  },
+  "fitting": {
+    "geometryAuthority": "PARAMETRIC_SEMANTIC_ASSEMBLY",
+    "authoritativeFrontWeight": 8,
+    "generatedFrameWeight": 0.35,
+    "objective": "CONFIDENCE_WEIGHTED_MULTI_VIEW_REPROJECTION",
+    "materialTrackingAfterGeometryLock": true,
+    "automaticMasterOverwrite": false
+  },
+  "riskLevel": "MEDIUM",
+  "constraints": [
+    "The authoritative front controls identity, frontal proportions and branding",
+    "AI orbit frames are non-metric pseudo-multiview observations",
+    "Frames with identity, anatomy or branding drift must be rejected",
+    "Geometry fitting precedes detail assembly and material tracking",
+    "No proposal may overwrite the semantic Blender master without owner review"
+  ],
+  "acceptanceCriteria": [
+    "Every sampled angle has a frame observation and confidence score",
+    "Rejected frames include machine-readable reasons",
+    "Coarse silhouette landmarks and feature tracks remain reproducible",
+    "The fitter writes a parameter proposal rather than mutating the master specification",
+    "Provider submission remains cost and credential gated"
+  ]
+}

@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/orbit-reference-calibration.schema.json",
+  "title": "AI Orbit Reference Calibration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "domain",
+    "workflowId",
+    "assetId",
+    "calibrationMode",
+    "authoritativeFront",
+    "referenceManifest",
+    "parametricSpec",
+    "outputRoot",
+    "provider",
+    "orbit",
+    "frameAcceptance",
+    "fitting",
+    "riskLevel",
+    "constraints",
+    "acceptanceCriteria"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "domain": { "const": "3D_MODELING" },
+    "workflowId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]+$" },
+    "assetId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]+$" },
+    "calibrationMode": { "const": "AI_ORBIT_REFERENCE_CALIBRATION" },
+    "authoritativeFront": { "type": "string", "minLength": 1 },
+    "referenceManifest": { "type": "string", "minLength": 1 },
+    "parametricSpec": { "type": "string", "minLength": 1 },
+    "outputRoot": { "type": "string", "minLength": 1 },
+    "provider": { "const": "kling-ai" },
+    "orbit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "durationSeconds",
+        "expectedDegrees",
+        "sampleAngles",
+        "fixedCamera",
+        "neutralPose",
+        "orthographicPreferred"
+      ],
+      "properties": {
+        "durationSeconds": { "enum": [5, 10] },
+        "expectedDegrees": { "const": 360 },
+        "sampleAngles": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 0, "maximum": 359 }
+        },
+        "fixedCamera": { "const": true },
+        "neutralPose": { "const": true },
+        "orthographicPreferred": { "const": true }
+      }
+    },
+    "frameAcceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimumForegroundRatio",
+        "maximumForegroundRatio",
+        "maximumHeightDriftRatio",
+        "rejectIdentityDrift",
+        "rejectBrandingMutation",
+        "rejectAnatomyMutation"
+      ],
+      "properties": {
+        "minimumForegroundRatio": { "type": "number", "minimum": 0.05, "maximum": 0.8 },
+        "maximumForegroundRatio": { "type": "number", "minimum": 0.1, "maximum": 0.95 },
+        "maximumHeightDriftRatio": { "type": "number", "minimum": 0.01, "maximum": 0.25 },
+        "rejectIdentityDrift": { "const": true },
+        "rejectBrandingMutation": { "const": true },
+        "rejectAnatomyMutation": { "const": true }
+      }
+    },
+    "fitting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "geometryAuthority",
+        "authoritativeFrontWeight",
+        "generatedFrameWeight",
+        "objective",
+        "materialTrackingAfterGeometryLock",
+        "automaticMasterOverwrite"
+      ],
+      "properties": {
+        "geometryAuthority": { "const": "PARAMETRIC_SEMANTIC_ASSEMBLY" },
+        "authoritativeFrontWeight": { "type": "number", "minimum": 1, "maximum": 20 },
+        "generatedFrameWeight": { "type": "number", "minimum": 0.05, "maximum": 1 },
+        "objective": { "const": "CONFIDENCE_WEIGHTED_MULTI_VIEW_REPROJECTION" },
+        "materialTrackingAfterGeometryLock": { "const": true },
+        "automaticMasterOverwrite": { "const": false }
+      }
+    },
+    "riskLevel": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    "constraints": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

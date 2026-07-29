@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/digital-human-story-performance.schema.json",
+  "title": "Digital Human Story Performance",
+  "type": "object",
+  "required": ["schemaVersion", "storyId", "fps", "resolution", "duration", "shots", "dialogue"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "storyId": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "fps": { "type": "integer", "minimum": 12, "maximum": 60 },
+    "resolution": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 640 },
+        "height": { "type": "integer", "minimum": 360 }
+      },
+      "additionalProperties": false
+    },
+    "duration": { "type": "number", "exclusiveMinimum": 0 },
+    "fidelity": { "enum": ["prototype", "high"] },
+    "shots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["shotId", "start", "end", "camera", "actors"],
+        "properties": {
+          "shotId": { "type": "string" },
+          "start": { "type": "number", "minimum": 0 },
+          "end": { "type": "number", "exclusiveMinimum": 0 },
+          "camera": { "enum": ["wide", "medium", "close", "tracking", "orbit"] },
+          "actors": { "type": "array", "items": { "type": "string" } },
+          "action": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "dialogue": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["speaker", "text", "audio", "start"],
+        "properties": {
+          "speaker": { "type": "string" },
+          "text": { "type": "string", "minLength": 1 },
+          "audio": { "type": "string" },
+          "start": { "type": "number", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -67,6 +67,36 @@
       "title": "Deploy Studio only through the reviewed Office 204 release workflow",
       "decision": "Agents and business Runners may not invoke arbitrary deployment commands. An explicitly authorized Studio release may deploy main only through the guarded GitHub Actions to Aliyun jump host to Office 204 workflow, with validation, commit pinning, health checks, and no interactive production shell.",
       "source": "docs/release/GITHUB_ACTIONS_OFFICE_DEPLOYMENT.md"
+    },
+    {
+      "date": "2026-07-28",
+      "title": "Use a governed multi-provider bakeoff for high-fidelity character reconstruction",
+      "decision": "Generate geometry-only candidates with Meshy-6 and Tripo v3.1 before purchasing textures, score candidates against the locked eight-view references, then complete proportions, branding, topology, materials and print preparation in a DCC closure stage. No provider output is accepted directly as the printable master.",
+      "source": "docs/autonomous-development/MEDIA-005-HIGH-FIDELITY-CHARACTER-3D-PRINT-PIPELINE.md"
+    },
+    {
+      "date": "2026-07-28",
+      "title": "Treat production 3D modeling as an independent governed domain",
+      "decision": "Keep high-fidelity reconstruction, curved-surface refinement, detail conformance, topology QA and print-release evidence reusable outside the video workflow. Delegate execution to the existing Skill Router and Blender adapter instead of creating duplicate orchestration primitives.",
+      "source": "docs/autonomous-development/MEDIA-006-3D-MODELING-DOMAIN.md"
+    },
+    {
+      "date": "2026-07-29",
+      "title": "Use Meshy text-to-3D only as an assembly semantics probe",
+      "decision": "The real Meshy-6 text candidate improved visible seams but failed identity, silhouette, materials and authorable part hierarchy. Keep V15 as the protected baseline; translate prompt semantics into explicit part masks and local feature-aware retopology, and require inverse-render fidelity plus assembly inspection before promotion.",
+      "source": "docs/autonomous-development/MEDIA-009-MESHY-TEXT-ASSEMBLY-EXPERIMENT.md"
+    },
+    {
+      "date": "2026-07-29",
+      "title": "Use gauge-driven semantic geometry instead of prompt-only reconstruction",
+      "decision": "Keep V15 immutable and calibrate named semantic parts with millimeter datums, owner-reviewable front pixel probes, primitive and Bezier profiles, and explicit interface tolerances. AI-generated hidden views remain non-metric depth priors; missing depth must HOLD local patch execution rather than guess geometry or apply global smoothing.",
+      "source": "docs/autonomous-development/MEDIA-010-GAUGE-DRIVEN-MULTIVIEW-GEOMETRY.md"
+    },
+    {
+      "date": "2026-07-29",
+      "title": "Transfer V15 depth as provisional gauge evidence",
+      "decision": "Raycast authoritative front X/Z gauges through an immutable, hash-protected V15 Blender baseline and store the resulting Y extents only as provisional evidence. Use the transfer to expose fused provider geometry and select a semantic part for reconstruction; never treat V15 depth as owner-approved metric truth or overwrite the master.",
+      "source": "docs/autonomous-development/MEDIA-010-GAUGE-DRIVEN-MULTIVIEW-GEOMETRY.md"
     }
   ]
 }

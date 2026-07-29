@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/meshy-text-geometry-candidate.schema.json",
+  "title": "Meshy Text Geometry Candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "jobId",
+    "assetId",
+    "provider",
+    "mode",
+    "prompt",
+    "referenceAnalysis",
+    "generation",
+    "credentialReference",
+    "governance",
+    "output"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "jobId": { "type": "string", "minLength": 1 },
+    "assetId": { "type": "string", "minLength": 1 },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["providerId", "displayName"],
+      "properties": {
+        "providerId": { "const": "meshy-text-to-3d" },
+        "displayName": { "type": "string", "minLength": 1 }
+      }
+    },
+    "mode": { "const": "preview" },
+    "prompt": { "type": "string", "minLength": 20, "maxLength": 600 },
+    "referenceAnalysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authoritativeImage", "identityFeatures", "assemblyFeatures", "forbiddenFailureModes"],
+      "properties": {
+        "authoritativeImage": { "type": "string", "minLength": 1 },
+        "identityFeatures": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "assemblyFeatures": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "forbiddenFailureModes": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modelType", "aiModel", "shouldRemesh", "poseMode", "targetFormats", "alphaThumbnail", "autoSize", "originAt"],
+      "properties": {
+        "modelType": { "const": "standard" },
+        "aiModel": { "enum": ["meshy-6", "latest"] },
+        "shouldRemesh": { "const": false },
+        "poseMode": { "const": "" },
+        "targetFormats": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["glb", "obj", "fbx", "stl", "usdz", "3mf"] }
+        },
+        "alphaThumbnail": { "const": true },
+        "autoSize": { "const": true },
+        "originAt": { "const": "bottom" }
+      }
+    },
+    "credentialReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "reference", "valueRead"],
+      "properties": {
+        "type": { "const": "keychain_ref" },
+        "reference": { "const": "meshy-api-key-ref" },
+        "valueRead": { "const": false }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["risk", "requiresCostApproval", "requiresCredentialReference", "automaticSubmissionAllowed", "secretPersistence"],
+      "properties": {
+        "risk": { "const": "MEDIUM" },
+        "requiresCostApproval": { "const": true },
+        "requiresCredentialReference": { "const": true },
+        "automaticSubmissionAllowed": { "const": false },
+        "secretPersistence": { "const": "forbidden" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifactRoot", "expectedModel", "auditRecord"],
+      "properties": {
+        "artifactRoot": { "type": "string", "minLength": 1 },
+        "expectedModel": { "type": "string", "minLength": 1 },
+        "auditRecord": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

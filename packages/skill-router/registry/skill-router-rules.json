@@ -534,6 +534,39 @@
       "reason": "Generated video work routes to the governed generative-video profile."
     },
     {
+      "rule_id": "RULE-DIGITAL-HUMAN-ANIMATION",
+      "skill_type": "digital_human_animation",
+      "task_type": "digital_human_animation",
+      "keywords": ["数字人", "角色动画", "人物口型", "中文口型", "三维场景", "多角度角色", "digital human", "lip sync", "blender character"],
+      "expected_output_type": "reusable character assets + scene assets + lip-synced mp4",
+      "runtime": "media-digital-human-blender",
+      "selected_agent": "agent-media-generator",
+      "confidence_boost": 70,
+      "reason": "Reusable character identity, 3D scene placement and lip sync require the governed Blender digital-human runner."
+    },
+    {
+      "rule_id": "RULE-CHARACTER-3D-PRINT-REFINEMENT",
+      "skill_type": "character_3d_print_refinement",
+      "task_type": "character_3d_print_refinement",
+      "keywords": ["3d打印角色", "可打印模型", "stl精修", "角色建模精修", "printable character", "printable mesh", "3d print refinement"],
+      "expected_output_type": "reversible Blender master + refined GLB + STL + QA reports",
+      "runtime": "media-digital-human-blender",
+      "selected_agent": "agent-media-generator",
+      "confidence_boost": 90,
+      "reason": "Provider candidates require governed local DCC refinement, multi-view review and physical-proof gates before release."
+    },
+    {
+      "rule_id": "RULE-KLING-AI-VIDEO",
+      "skill_type": "ai_video_generation",
+      "task_type": "ai_video_generation",
+      "keywords": ["可灵", "kling", "首尾帧视频", "图生视频", "ai video provider", "start end frame video"],
+      "expected_output_type": "provider task audit + downloaded mp4",
+      "runtime": "media-ai-video-kling",
+      "selected_agent": "agent-media-generator",
+      "confidence_boost": 85,
+      "reason": "Approved start/end-frame video work routes to the credential-scoped KLING overseas provider adapter."
+    },
+    {
       "rule_id": "RULE-MEDIA-VALIDATION",
       "skill_type": "media_validation",
       "task_type": "media_validation",

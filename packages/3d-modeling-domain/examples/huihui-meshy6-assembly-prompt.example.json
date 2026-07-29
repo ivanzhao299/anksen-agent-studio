@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "jobId": "huihui-printable-v3-meshy6-text-assembly-v1",
+  "assetId": "huihui-printable-v3",
+  "provider": {
+    "providerId": "meshy-text-to-3d",
+    "displayName": "Meshy 6 Text to 3D"
+  },
+  "mode": "preview",
+  "prompt": "Squat chibi industrial mascot robot matching the reference. Very wide egg-shaped exposed concrete body, extremely short segmented black arms and legs, oversized yellow work boots. Clearly assembled separate parts with crisp seams: yellow hardhat with brim and bolted nameplate, recessed glossy black rounded face screen with metal rim, side ear pods, yellow gloves with separate fingers, boot cuffs and separate black soles, right hand waving. Keep hard-surface edges sharp and concrete shell smoothly curved. No fused parts, melted joints, membrane, blob, global smoothing or rounded seams.",
+  "referenceAnalysis": {
+    "authoritativeImage": "runtime/workspaces/media/huihui-printable-v3/references/normalized/huihui-angle-000-front.png",
+    "identityFeatures": [
+      "胖短、宽体、蛋形混凝土躯干",
+      "极短四肢和明显偏大的黄色工装鞋",
+      "圆角黑色脸屏、白色椭圆眼和微笑",
+      "右手举起挥手、左手自然下垂"
+    ],
+    "assemblyFeatures": [
+      "安全帽、帽檐、铭牌为独立硬表面层级",
+      "脸屏嵌入躯干并保留独立金属边框",
+      "耳罩、肩腕踝关节、手套、鞋帮和鞋底接缝清晰",
+      "混凝土壳体圆润但硬边和构件接口不得圆化"
+    ],
+    "forbiddenFailureModes": [
+      "构件粘连",
+      "整体覆膜",
+      "接缝融化",
+      "全局圆角",
+      "细节浮雕糊成一团",
+      "通用人形机器人比例"
+    ]
+  },
+  "generation": {
+    "modelType": "standard",
+    "aiModel": "meshy-6",
+    "shouldRemesh": false,
+    "poseMode": "",
+    "targetFormats": ["glb", "obj", "stl"],
+    "alphaThumbnail": true,
+    "autoSize": true,
+    "originAt": "bottom"
+  },
+  "credentialReference": {
+    "type": "keychain_ref",
+    "reference": "meshy-api-key-ref",
+    "valueRead": false
+  },
+  "governance": {
+    "risk": "MEDIUM",
+    "requiresCostApproval": true,
+    "requiresCredentialReference": true,
+    "automaticSubmissionAllowed": false,
+    "secretPersistence": "forbidden"
+  },
+  "output": {
+    "artifactRoot": "runtime/artifacts/media/huihui-printable-v3/meshy-text-assembly-v1",
+    "expectedModel": "meshy-text-assembly-candidate.glb",
+    "auditRecord": "provider-submission-audit.json"
+  }
+}

@@ -20,3 +20,7 @@ runtime/governed-codex-runs/
 runtime/business-outcomes/
 runtime/autonomous-development/
 runtime/business-applications/
+packages/digital-human-pipeline/.venv-reconstruction/
+packages/3d-modeling-domain/.venv/
+__pycache__/
+*.pyc

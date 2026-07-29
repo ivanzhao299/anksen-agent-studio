@@ -1,0 +1,43 @@
+{
+  "name": "@anksen/digital-human-pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "studio-digital-human": "bin/digital-human-pipeline.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "doctor": "node bin/digital-human-pipeline.mjs doctor",
+    "validate": "node bin/digital-human-pipeline.mjs validate",
+    "reconstruct": "node bin/digital-human-pipeline.mjs reconstruct",
+    "extract:references": "node bin/digital-human-pipeline.mjs extract-reference-assets",
+    "reconstruction:providers": "node bin/digital-human-pipeline.mjs reconstruction-providers",
+    "prepare:ai-3d": "node bin/digital-human-pipeline.mjs prepare-ai-3d",
+    "meshy:submit": "node bin/digital-human-pipeline.mjs meshy-3d-submit",
+    "meshy:status": "node bin/digital-human-pipeline.mjs meshy-3d-status",
+    "meshy:poll": "node bin/digital-human-pipeline.mjs meshy-3d-poll",
+    "meshy:text:submit": "node bin/digital-human-pipeline.mjs meshy-text-3d-submit",
+    "meshy:text:status": "node bin/digital-human-pipeline.mjs meshy-text-3d-status",
+    "meshy:text:poll": "node bin/digital-human-pipeline.mjs meshy-text-3d-poll",
+    "printable:parametric": "node bin/digital-human-pipeline.mjs build-parametric-printable",
+    "printable:refine": "node bin/digital-human-pipeline.mjs refine-printable",
+    "printable:status": "node bin/digital-human-pipeline.mjs printable-status",
+    "prepare:ai-video": "node bin/digital-human-pipeline.mjs prepare-ai-video",
+    "orbit:prepare": "node bin/digital-human-pipeline.mjs prepare-orbit-reference",
+    "orbit:extract": "node bin/digital-human-pipeline.mjs extract-orbit-frames",
+    "orbit:observe": "node bin/digital-human-pipeline.mjs observe-orbit-reference",
+    "orbit:fit": "node bin/digital-human-pipeline.mjs fit-orbit-parameters",
+    "gauge:calibrate": "node bin/digital-human-pipeline.mjs build-gauge-calibration",
+    "gauge:depth-transfer": "node bin/digital-human-pipeline.mjs build-gauge-depth-transfer",
+    "orbit:evaluate": "node bin/digital-human-pipeline.mjs evaluate-orbit-candidate",
+    "fidelity:evaluate": "node bin/digital-human-pipeline.mjs evaluate-render-fidelity",
+    "fidelity:promote": "node bin/digital-human-pipeline.mjs promote-render-fidelity",
+    "mesh:inspect": "node bin/digital-human-pipeline.mjs inspect-mesh-assembly",
+    "kling:submit": "node bin/digital-human-pipeline.mjs kling-submit",
+    "kling:status": "node bin/digital-human-pipeline.mjs kling-status",
+    "kling:poll": "node bin/digital-human-pipeline.mjs kling-poll",
+    "render:fidelity": "node bin/digital-human-pipeline.mjs render-fidelity",
+    "render:reference-lock": "node bin/digital-human-pipeline.mjs render-reference-lock"
+  }
+}

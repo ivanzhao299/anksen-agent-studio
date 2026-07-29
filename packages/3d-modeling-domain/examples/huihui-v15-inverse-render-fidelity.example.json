@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "domain": "3D_MODELING",
+  "evaluationMode": "HIGH_RESOLUTION_INVERSE_RENDER_ALIGNMENT",
+  "workflowId": "huihui-v15-inverse-render-fidelity",
+  "assetId": "huihui-printable-v3",
+  "baselineVersion": "refined-v15-modeling-domain",
+  "referenceManifest": "runtime/workspaces/media/huihui-printable-v3/multiview-manifest.json",
+  "candidateRenderRoot": "runtime/artifacts/media/huihui-printable-v3/refined-v15-modeling-domain/turntable",
+  "candidateSilhouetteRoot": "runtime/artifacts/media/huihui-printable-v3/refined-v15-modeling-domain/silhouettes",
+  "outputRoot": "runtime/artifacts/media/huihui-printable-v3/refined-v15-modeling-domain/inverse-render-fidelity",
+  "viewAuthority": {
+    "authoritativeFrontWeight": 4,
+    "generatedViewWeight": 0.25,
+    "generatedViewsAreMetric": false
+  },
+  "metrics": {
+    "silhouetteIou": true,
+    "edgeChamferSimilarity": true,
+    "multiscaleStructuralSimilarity": true,
+    "colorMaterialSimilarity": true
+  },
+  "semanticRegions": [
+    { "id": "helmet", "box": [0.16, 0.0, 0.84, 0.29], "weight": 1.2 },
+    { "id": "face-screen", "box": [0.16, 0.18, 0.84, 0.5], "weight": 1.5 },
+    { "id": "torso-shell", "box": [0.18, 0.38, 0.82, 0.76], "weight": 1.2 },
+    { "id": "left-arm-hand", "box": [0.0, 0.28, 0.3, 0.72], "weight": 1 },
+    { "id": "right-arm-hand", "box": [0.72, 0.24, 1.0, 0.58], "weight": 1 },
+    { "id": "boots", "box": [0.16, 0.74, 0.84, 1.0], "weight": 1.1 },
+    { "id": "branding", "box": [0.36, 0.48, 0.68, 0.73], "weight": 1.5 }
+  ],
+  "promotion": {
+    "automaticMasterOverwrite": false,
+    "requireNoAuthoritativeFrontRegression": true,
+    "requireAllSemanticRegions": true,
+    "targets": {
+      "meanSilhouetteIou": 0.82,
+      "frontSilhouetteIou": 0.9,
+      "frontEdgeChamferSimilarity": 0.72,
+      "frontStructuralSimilarity": 0.72,
+      "frontColorMaterialSimilarity": 0.8,
+      "minimumSemanticComposite": 0.65,
+      "frontComposite": 0.78
+    }
+  },
+  "riskLevel": "LOW",
+  "constraints": [
+    "The v15 provider-derived geometry remains the baseline until a candidate passes every promotion gate.",
+    "AI-derived hidden views are diagnostic observations and cannot override the authoritative front.",
+    "No external model call or credential value read is required for evaluation."
+  ],
+  "acceptanceCriteria": [
+    "The authoritative front aligns in silhouette, internal edges, material regions and semantic crops.",
+    "Every semantic region reaches the minimum composite target.",
+    "A candidate cannot be promoted when the authoritative front regresses."
+  ]
+}
