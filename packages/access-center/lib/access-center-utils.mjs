@@ -158,6 +158,7 @@ const consoleRouteCatalog = {
   workers: ["worker.read"],
   actions: ["console.access", "autopilot.plan"],
   autopilot: ["autopilot.plan"],
+  agentAdmin: ["agent.manage", "runtime.read", "worker.read", "credential.read"],
   config: ["access.manage"],
   runtime: ["runtime.read"],
   credentials: ["credential.read"],

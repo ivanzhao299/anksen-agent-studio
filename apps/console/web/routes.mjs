@@ -23,6 +23,7 @@ export const consoleWebRoutes = [
   { id: "workers", label: messages.nav.workers, path: "/workers", navPath: "/workers", showInNav: false },
   { id: "actions", label: messages.nav.actions, path: "/actions", navPath: "/actions" },
   { id: "autopilot", label: messages.nav.autopilot, path: "/autopilot", navPath: "/autopilot" },
+  { id: "agentAdmin", label: "Agent 管理", path: "/agent-admin", navPath: "/agent-admin" },
   { id: "config", label: messages.nav.config, path: "/config", navPath: "/config" },
   { id: "account", label: "账户与安全", path: "/account", navPath: "/account", showInNav: false },
   { id: "runtime", label: messages.nav.runtime, path: "/runtime", navPath: "/runtime", showInNav: false },
