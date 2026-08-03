@@ -1,6 +1,6 @@
 # ANKSEN Agent Studio — ChatGPT Context
 
-> Last Updated: 2026-07-21
+> Last Updated: 2026-08-03
 >
 > This document is the permanent handoff context for Codex. Every new Codex session must read it before implementing any task.
 
@@ -10,7 +10,7 @@ This repository is **ANKSEN Agent Studio**. It is not Smart Park, ERP, Video Fac
 
 Studio is the Enterprise AI Operating System and AI Control Plane. Business systems connect to Studio instead of embedding platform code.
 
-- Repository: `/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/anksen-agent-studio`
+- Repository: `/Users/mac/Documents/jinhu-smart-park/anksen-agent-studio`
 - GitHub: `https://github.com/ivanzhao299/anksen-agent-studio.git`
 
 ## 2. Long-term Architecture
@@ -50,7 +50,9 @@ The Autonomous Development platform has completed these major stages:
 - Persistent Night Shift Kernel
 - Real Codex Activation Gate
 
-The current Runtime is `CONTROLLED_STUB`. Real `CODEX` remains disabled because the Feature Flag must remain off until all production conditions are satisfied.
+The default and production Runtime remains `CONTROLLED_STUB`. The governed autonomous-development path reached `AUTONOMOUS_DEVELOPMENT_READY` (6/6) on 2026-08-03 after one approved, isolated, non-production four-role run completed Planner, Implementer, Validator, and Reviewer with validation evidence. Real `CODEX` is enabled only inside a one-shot Activation Gate after project, path, command, duration, credential-reference, approval, lease, and fencing checks pass; the Feature Flag is restored to off after the attempt.
+
+The Resident Development Worker is installed and can run continuously. Automatic commit, push, merge, deploy, production changes, and secret-value access remain disabled. A successful proof run establishes controlled autonomy, not authorization for production autonomy.
 
 ## 5. Night Shift Principle
 

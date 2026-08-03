@@ -1,5 +1,21 @@
-import test from"node:test";import assert from"node:assert/strict";import{readFile}from"node:fs/promises";import{assertTestDatabaseUrl,fixture}from"../lib/postgres-fixture.mjs";
-test("PostgreSQL fixture rejects production and remote URLs",()=>{assert.equal(assertTestDatabaseUrl(fixture.url),fixture.url);for(const url of ["postgresql://localhost/production","postgresql://db.example.com/night_shift_test",""])assert.throws(()=>assertTestDatabaseUrl(url),/(UNSAFE|REQUIRED)/);});
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { assertTestDatabaseUrl, fixture } from "../lib/postgres-fixture.mjs";
+
+test("PostgreSQL fixture rejects production and remote URLs", () => {
+  assert.equal(assertTestDatabaseUrl(fixture.url), fixture.url);
+  for (const url of ["postgresql://localhost/production", "postgresql://db.example.com/night_shift_test", ""]) {
+    assert.throws(() => assertTestDatabaseUrl(url), /(UNSAFE|REQUIRED)/);
+  }
+});
+
+test("PostgreSQL fixture retains a loopback-only local fallback", async () => {
+  const source = await readFile(new URL("../lib/postgres-fixture.mjs", import.meta.url), "utf8");
+  assert.match(source, /if \(!dockerFixture\(\)\) localFixture\(\)/);
+  assert.match(source, /-h 127\.0\.0\.1 -p/);
+  assert.match(source, /POSTGRES_FIXTURE_UNAVAILABLE/);
+});
 test("persistent migration is reversible and covers every session fact",async()=>{const up=await readFile(new URL("../migrations/002_persistent_night_shift.up.sql",import.meta.url),"utf8"),down=await readFile(new URL("../migrations/002_persistent_night_shift.down.sql",import.meta.url),"utf8");for(const table of ["ad_night_shift_session","ad_scheduler_tick","ad_worker_claim","ad_session_error"])assert.match(up,new RegExp(`CREATE TABLE ${table}`));assert.match(up,/report jsonb/);assert.match(down,/DROP TABLE IF EXISTS ad_night_shift_session/);});
 test("activation migration enforces replay and dangerous-operation boundaries",async()=>{const up=await readFile(new URL("../migrations/003_codex_activation_gate.up.sql",import.meta.url),"utf8"),down=await readFile(new URL("../migrations/003_codex_activation_gate.down.sql",import.meta.url),"utf8");for(const table of ["ad_project_runtime_policy","ad_runtime_approval","ad_credential_reference_binding","ad_outbox_consumption","ad_session_projection"])assert.match(up,new RegExp(`CREATE TABLE ${table}`));assert.match(up,/CHECK\(allow_push=false\)/);assert.match(up,/CHECK\(used_count<=max_uses\)/);assert.match(down,/DROP TABLE IF EXISTS ad_project_runtime_policy/);assert.notEqual(process.env.AUTONOMOUS_RUNTIME_CODEX_ENABLED,"true");});
 test("business application migration persists scoped records, work and audit",async()=>{const up=await readFile(new URL("../migrations/004_business_applications.up.sql",import.meta.url),"utf8"),down=await readFile(new URL("../migrations/004_business_applications.down.sql",import.meta.url),"utf8");for(const table of ["business_application_record","business_work_item","business_application_event"])assert.match(up,new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));assert.match(up,/organization_id text NOT NULL/);assert.match(up,/workspace_id text NOT NULL/);assert.match(up,/idempotency_key text NOT NULL/);assert.match(up,/version integer NOT NULL/);assert.match(down,/DROP TABLE IF EXISTS business_application_record/);});
