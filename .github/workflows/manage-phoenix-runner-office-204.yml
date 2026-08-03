@@ -1,0 +1,54 @@
+name: Manage Phoenix Runner on Office 204
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        options: [probe, deploy]
+        default: probe
+      phoenix_sha:
+        description: Full phoenix-erp-v3 main commit SHA (required for deploy)
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phoenix-runner-office-204
+  cancel-in-progress: false
+
+jobs:
+  manage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - name: Validate request
+        env:
+          ACTION: ${{ inputs.action }}
+          SHA: ${{ inputs.phoenix_sha }}
+        run: |
+          if [ "$ACTION" = deploy ]; then printf '%s' "$SHA" | grep -Eq '^[0-9a-f]{40}$'; fi
+      - name: Configure jump identity
+        env:
+          KEY: ${{ secrets.STUDIO_DEPLOY_JUMP_SSH_KEY }}
+          HOSTS: ${{ secrets.STUDIO_DEPLOY_JUMP_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$KEY" > "$HOME/.ssh/jump"
+          printf '%s\n' "$HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/jump" "$HOME/.ssh/known_hosts"
+      - name: Run guarded Phoenix command
+        env:
+          ACTION: ${{ inputs.action }}
+          SHA: ${{ inputs.phoenix_sha }}
+          RUNNER_ENV_B64: ${{ secrets.PHOENIX_ERP_RUNNER_ENV_B64 }}
+        run: |
+          SSH=(ssh -i "$HOME/.ssh/jump" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes root@123.57.220.65)
+          if [ "$ACTION" = probe ]; then
+            "${SSH[@]}" "phoenix-runner probe"
+          else
+            test -n "$RUNNER_ENV_B64"
+            printf '%s' "$RUNNER_ENV_B64" | "${SSH[@]}" "phoenix-runner deploy $SHA"
+          fi
