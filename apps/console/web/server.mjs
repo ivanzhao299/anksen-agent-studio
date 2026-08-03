@@ -52,6 +52,7 @@ import { IdentityOwnerBootstrap, renderIdentityOwnerBootstrapPage } from "./iden
 import { renderConsolePage } from "./render.mjs";
 import { consoleWebRoutes } from "./routes.mjs";
 import { GovernedRunManager } from "./governed-run-manager.mjs";
+import { AgentAdminService } from "./agent-admin-service.mjs";
 import { loadProjectRegistrySync } from "./project-registry.mjs";
 import {
   cancelConversationAction,
@@ -76,6 +77,7 @@ const staticAssets = new Map([
 const autonomousExecutionCenter = new AutonomousExecutionCenter();
 const cadAgentSdk = new CadAgentSdk();
 const governedRunManager = new GovernedRunManager({ repoRoot });
+const agentAdminService = new AgentAdminService({ repoRoot });
 const portfolioRegistry = await loadDomainRuntimeRegistry();
 const businessRuntime = await createBusinessApplicationRuntime({ repoRoot });
 const businessApplicationStore = businessRuntime.store;
@@ -323,6 +325,33 @@ const server = createServer(async (request, response) => {
         status: "AUTH_REQUIRED",
         reason: "Console Action Server requires a local Studio login before invoking actions."
       });
+      return;
+    }
+    if (pathname === "/api/admin/agents" || pathname === "/api/admin/agents/audit" || pathname.startsWith("/api/admin/agents/")) {
+      const routeAccess = evaluateConsoleRouteAccess("agentAdmin", accessContext);
+      if (!routeAccess.allowed) { sendJson(response, 403, { status: "AGENT_ADMIN_ACCESS_DENIED", ...routeAccess }); return; }
+      if (request.method === "GET" && pathname === "/api/admin/agents") {
+        sendJson(response, 200, await agentAdminService.dashboard());
+        return;
+      }
+      if (request.method === "GET" && pathname === "/api/admin/agents/audit") {
+        sendJson(response, 200, { status: "READY", audits: await agentAdminService.audits(url.searchParams.get("limit")) });
+        return;
+      }
+      const agentMatch = pathname.match(/^\/api\/admin\/agents\/([^/]+)$/);
+      if ((request.method === "PUT" || request.method === "PATCH") && agentMatch) {
+        const expectedOrigin = `http://${request.headers.host ?? "localhost"}`;
+        const forwardedOrigin = `${String(request.headers["x-forwarded-proto"] ?? "http").split(",")[0].trim()}://${String(request.headers["x-forwarded-host"] ?? request.headers.host ?? "localhost").split(",")[0].trim()}`;
+        const requestOrigin = String(request.headers.origin ?? "");
+        if (requestOrigin && requestOrigin !== expectedOrigin && requestOrigin !== forwardedOrigin) { sendJson(response, 403, { status: "BLOCKED", reason: "Same-origin confirmation is required." }); return; }
+        try {
+          sendJson(response, 200, await agentAdminService.updateAgent(decodeURIComponent(agentMatch[1]), await readJsonBody(request), accessContext.user));
+        } catch (error) {
+          sendJson(response, error?.code?.endsWith("NOT_FOUND") ? 404 : 400, { status: error?.code ?? "AGENT_CONFIGURATION_INVALID", reason: error instanceof Error ? error.message : String(error) });
+        }
+        return;
+      }
+      sendJson(response, 405, { status: "METHOD_NOT_ALLOWED" }, { allow: "GET, PUT, PATCH" });
       return;
     }
     if (pathname === "/api/access/security") {

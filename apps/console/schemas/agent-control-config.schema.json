@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anksen.local/schemas/agent-control-config.schema.json",
+  "title": "Agent Control Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "agents"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "updated_at": { "type": ["string", "null"], "format": "date-time" },
+    "agents": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["enabled", "priority", "max_parallel_tasks", "credential_reference_id", "allowed_plan_ids", "monthly_budget", "currency", "billing_unit", "unit_cost"],
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "priority": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "max_parallel_tasks": { "type": "integer", "minimum": 1, "maximum": 64 },
+          "credential_reference_id": { "type": ["string", "null"] },
+          "allowed_plan_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "monthly_budget": { "type": "number", "minimum": 0 },
+          "currency": { "enum": ["CNY", "USD"] },
+          "billing_unit": { "enum": ["request", "task", "minute", "million_tokens"] },
+          "unit_cost": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

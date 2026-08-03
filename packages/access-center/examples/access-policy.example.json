@@ -72,7 +72,8 @@
         "smart_park.workspace",
         "business.operate",
         "business.work.control",
-        "business.manage"
+        "business.manage",
+        "agent.manage"
       ],
       "direct_execute_max_risk": "MEDIUM",
       "can_manage_access": false

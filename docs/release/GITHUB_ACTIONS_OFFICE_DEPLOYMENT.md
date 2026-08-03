@@ -12,10 +12,22 @@ The runner only receives the dedicated Aliyun jump-host key. That key is bound t
 
 The forced-command implementation is versioned at `infrastructure/deployment/aliyun-studio-jump-deploy.sh`. During the first deployment only, an external bootstrap copy of `scripts/deploy.sh` is used on the office server; subsequent runs use the script from the checked-out repository.
 
+The same forced-command boundary also permits `phoenix-runner probe` and
+`phoenix-runner deploy <40-character SHA>`. These commands install the Phoenix
+ERP bug-intake runner under `/opt/phoenix-runner`; they never overwrite the
+Agent Studio checkout. The runner environment is delivered through stdin from
+the encrypted `PHOENIX_ERP_RUNNER_ENV_B64` repository secret.
+The manually dispatched workflow is the human approval gate and is bound to
+the `production` GitHub Environment. Deployments reject dirty state, pin the
+Phoenix checkout to an exact `main` SHA, restart the service, and fail unless
+systemd reports it active. Keep `PHOENIX_ERP_RUNNER_AUTO_RELEASE=false` for the
+first acceptance run; enable it only after the probe and read-only run pass.
+
 ## Required Repository Secrets
 
 - `STUDIO_DEPLOY_JUMP_SSH_KEY`: dedicated private key for GitHub Actions to access the Aliyun jump host.
 - `STUDIO_DEPLOY_JUMP_KNOWN_HOSTS`: pinned SSH host-key entry for `123.57.220.65`.
+- `PHOENIX_ERP_RUNNER_ENV_B64`: base64-encoded Linux runner environment.
 
 Neither secret is stored in the repository or deployment logs.
 

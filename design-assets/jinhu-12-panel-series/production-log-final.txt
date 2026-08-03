@@ -1,0 +1,26 @@
+JINHU SCIENCE AND INNOVATION INDUSTRIAL PARK - 12 PANEL FINAL PRODUCTION
+Document: 640x1440mm @ 150ppi
+PSD: 3780x8504px, CMYK, 8-bit/channel
+Preview: 1707x3840px, RGB PNG
+
+PASS 01 brand-opening
+PASS 02 park-positioning
+PASS 03 innovation-ecosystem
+PASS 04 smart-manufacturing
+PASS 05 tech-incubation
+PASS 06 industry-collaboration
+PASS 07 enterprise-service
+PASS 08 talent-community
+PASS 09 green-development
+PASS 10 smart-park
+PASS 11 open-cooperation
+PASS 12 future-closing
+
+VISUAL REVIEW PASS
+FILE SIGNATURE REVIEW PASS
+PHOTOSHOP EDITABLE TEXT REVIEW PASS
+PLUGIN TESTS 11/11 PASS
+PLUGIN BUILD PASS
+
+FINAL OUTPUT
+/Users/mac/Documents/Jinhu-Science-Innovation-Park-12-Panel-Final

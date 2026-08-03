@@ -1,0 +1,34 @@
+"use strict";
+
+// Machine-local acceptance harness. Run from Photoshop: File > Scripts > Browse.
+// It exercises the same validated job, layout and executor used by the panel.
+const { validateJob } = require("../src/job-contract.cjs");
+const { createLayout, sampleJob } = require("../src/jinhu-template.cjs");
+const { renderPoster, saveDocument } = require("../src/photoshop-executor.cjs");
+const { storage } = require("uxp");
+
+async function run() {
+  const job = validateJob(sampleJob());
+  const logoEntry = await storage.localFileSystem.getFileForOpening({
+    types: ["jpg", "jpeg", "png"]
+  });
+  if (!logoEntry) throw new Error("Logo selection is required for the acceptance run.");
+
+  const document = await renderPoster(job, createLayout(job), {
+    approved: true,
+    logoEntry
+  });
+  const psd = await saveDocument(document, "psd");
+  if (!psd) throw new Error("PSD save is required for the acceptance run.");
+  const png = await saveDocument(document, "png");
+  if (!png) throw new Error("PNG export is required for the acceptance run.");
+
+  await require("photoshop").app.showAlert(
+    `ANKSEN Photoshop acceptance passed.\nPSD: ${psd.name}\nPNG: ${png.name}`
+  );
+}
+
+run().catch(async error => {
+  await require("photoshop").app.showAlert(`ANKSEN Photoshop acceptance failed:\n${error.message}`);
+  throw error;
+});

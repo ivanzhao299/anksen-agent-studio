@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const libDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(libDir, "..");
+const repoRoot = resolve(packageRoot, "../..");
 
 const paths = {
   providers: resolve(packageRoot, "examples/runtime-providers.example.json"),
@@ -13,7 +14,8 @@ const paths = {
   credentialVault: resolve(packageRoot, "../credential-vault/examples/credential-references.example.json"),
   adapters: resolve(packageRoot, "../runtime-adapters/examples/runtime-adapters.example.json"),
   budgets: resolve(packageRoot, "examples/runtime-budgets.example.json"),
-  selection: resolve(packageRoot, "examples/runtime-selection-rules.example.json")
+  selection: resolve(packageRoot, "examples/runtime-selection-rules.example.json"),
+  agentControl: resolve(repoRoot, "runtime/global/agent-control-config.json")
 };
 
 async function readJson(path) {
@@ -27,13 +29,14 @@ function byId(items, idField) {
 export async function loadRuntimeCenter() {
   const credentialPath = existsSync(paths.credentialVault) ? paths.credentialVault : paths.credentials;
   const adapterPath = paths.adapters;
-  const [providers, profiles, credentials, adapters, budgets, selection] = await Promise.all([
+  const [providers, profiles, credentials, adapters, budgets, selection, agentControl] = await Promise.all([
     readJson(paths.providers),
     readJson(paths.profiles),
     readJson(credentialPath),
     existsSync(adapterPath) ? readJson(adapterPath) : Promise.resolve({ adapters: [] }),
     readJson(paths.budgets),
-    readJson(paths.selection)
+    readJson(paths.selection),
+    existsSync(paths.agentControl) ? readJson(paths.agentControl) : Promise.resolve({ schema_version: "1.0.0", agents: {} })
   ]);
   return {
     providers,
@@ -44,12 +47,15 @@ export async function loadRuntimeCenter() {
     adapter_source: adapterPath,
     budgets,
     selection,
+    agent_control: agentControl,
+    agent_control_source: paths.agentControl,
     indexes: {
       providers: byId(providers.providers, "provider_id"),
       profiles: byId(profiles.profiles, "runtime_id"),
       credentialsByProvider: byId(credentials.credential_references, "provider"),
       adaptersById: byId(adapters.adapters, "adapter_id"),
-      budgets: byId(budgets.budgets, "runtime_id")
+      budgets: byId(budgets.budgets, "runtime_id"),
+      agentControl: new Map(Object.entries(agentControl.agents ?? {}))
     }
   };
 }
@@ -81,10 +87,16 @@ function profileAdapter(center, profile) {
   return center.indexes.adaptersById.get(profile?.adapter_id ?? profile?.runtime_id ?? "");
 }
 
+function profileAgentControl(center, profile) {
+  const adapterId = profile?.adapter_id ?? profile?.runtime_id ?? "";
+  return center.indexes.agentControl?.get(adapterId) ?? center.indexes.agentControl?.get(profile?.runtime_id ?? "") ?? null;
+}
+
 export function buildRuntimeHealth(center, dryRun = true) {
   const results = (center.profiles.profiles ?? []).map((profile) => {
     const provider = center.indexes.providers.get(profile.provider);
     const adapter = profileAdapter(center, profile);
+    const control = profileAgentControl(center, profile);
     return {
       provider: profile.provider,
       runtime: profile.runtime_id,
@@ -93,6 +105,8 @@ export function buildRuntimeHealth(center, dryRun = true) {
       status: runtimeStatus(provider, profile),
       latency_ms: null,
       auth_status: providerAuthStatus(center, provider),
+      admin_enabled: control?.enabled ?? true,
+      admin_priority: control?.priority ?? null,
       available_skills: profile.supported_skills ?? [],
       notes: dryRun
         ? `Dry-run registry health only. Credential source: ${center.credential_source}. Adapter source: ${center.adapter_source}. No external service, browser, CLI login, env value, keychain item, vault secret, credential value, model, webhook, or remote worker was accessed.`
@@ -156,13 +170,17 @@ export function selectRuntime(center, options) {
   const candidates = (center.profiles.profiles ?? []).map((profile) => {
     const provider = center.indexes.providers.get(profile.provider);
     const adapter = profileAdapter(center, profile);
+    const control = profileAgentControl(center, profile);
     const budget = center.indexes.budgets.get(profile.runtime_id);
     const status = runtimeStatus(provider, profile);
     const authStatus = providerAuthStatus(center, provider);
     const supportsSkill = (profile.supported_skills ?? []).includes(skillType);
     const providerSupportsCapability = (provider?.capabilities ?? []).includes(capability);
     const regionMatches = profile.region === region || profile.region === "local" || region === "any";
+    const adminEnabled = control?.enabled !== false;
     const scoreParts = {
+      admin: adminEnabled ? 0 : -1000,
+      admin_priority: control ? Math.max(0, 25 - Number(control.priority ?? 100) / 4) : 0,
       skill: supportsSkill ? 40 : -1000,
       capability: providerSupportsCapability ? 20 : 0,
       region: regionMatches ? 10 : -10,
@@ -181,10 +199,13 @@ export function selectRuntime(center, options) {
       region: profile.region,
       status,
       auth_status: authStatus,
+      admin_enabled: adminEnabled,
+      admin_priority: control?.priority ?? null,
       supported_skills: profile.supported_skills ?? [],
       max_parallel_tasks: Math.min(
         Number(profile.max_parallel_tasks ?? 1),
-        Number(budget?.max_parallel_tasks ?? profile.max_parallel_tasks ?? 1)
+        Number(budget?.max_parallel_tasks ?? profile.max_parallel_tasks ?? 1),
+        Number(control?.max_parallel_tasks ?? profile.max_parallel_tasks ?? 1)
       ),
       budget_status: budget?.budget_status ?? "unknown",
       max_usd_per_task: budget?.max_usd_per_task ?? profile.default_budget?.max_usd ?? 0,
@@ -192,6 +213,7 @@ export function selectRuntime(center, options) {
       score_parts: scoreParts,
       eligible: score > 0,
       reason: [
+        adminEnabled ? `admin enabled${control ? ` priority=${control.priority ?? "default"}` : ""}` : "admin disabled",
         supportsSkill ? `supports skill ${skillType}` : `does not support skill ${skillType}`,
         adapter ? `adapter=${adapter.adapter_id}` : "adapter missing",
         providerSupportsCapability ? `provider supports ${capability}` : `provider capability ${capability} not declared`,
@@ -228,6 +250,7 @@ export function runtimeInventory(center) {
     const provider = center.indexes.providers.get(profile.provider);
     const budget = center.indexes.budgets.get(profile.runtime_id);
     const adapter = profileAdapter(center, profile);
+    const control = profileAgentControl(center, profile);
     return {
       runtime_id: profile.runtime_id,
       adapter_id: profile.adapter_id ?? profile.runtime_id,
@@ -239,8 +262,10 @@ export function runtimeInventory(center) {
       region: profile.region,
       health_status: runtimeStatus(provider, profile),
       auth_status: providerAuthStatus(center, provider),
+      admin_enabled: control?.enabled ?? true,
+      admin_priority: control?.priority ?? null,
       supported_skills: profile.supported_skills ?? [],
-      max_parallel_tasks: profile.max_parallel_tasks,
+      max_parallel_tasks: Math.min(Number(profile.max_parallel_tasks ?? 1), Number(control?.max_parallel_tasks ?? profile.max_parallel_tasks ?? 1)),
       budget_status: budget?.budget_status ?? "unknown",
       max_usd_per_task: budget?.max_usd_per_task ?? profile.default_budget?.max_usd ?? 0
     };

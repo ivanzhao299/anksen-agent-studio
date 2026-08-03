@@ -1,0 +1,20 @@
+:root { color: var(--uxp-host-text-color, #e8e8e8); background: var(--uxp-host-background-color, #2b2b2b); font-family: Arial, "Microsoft YaHei", sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+.panel { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-mark { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; background: linear-gradient(135deg, #57b7ff, #1557d4); }
+h1 { margin: 0; font-size: 17px; }
+h2 { margin: 0 0 8px; font-size: 13px; }
+p { margin: 4px 0 0; font-size: 12px; line-height: 1.5; opacity: .82; }
+.status-card, .summary { border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 10px 12px; background: rgba(255,255,255,.04); }
+.status-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 12px; }
+.status-row strong { color: #7fc1ff; text-align: right; }
+.actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.primary-actions { grid-template-columns: 1fr 1fr; }
+button { min-height: 34px; border-radius: 5px; border: 1px solid rgba(255,255,255,.2); color: inherit; background: rgba(255,255,255,.08); }
+button.primary { background: #1769e8; border-color: #3180f7; color: white; }
+button:disabled { opacity: .4; }
+.approval { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.4; }
+details { font-size: 12px; }
+pre { white-space: pre-wrap; max-height: 180px; overflow: auto; padding: 8px; background: rgba(0,0,0,.22); border-radius: 6px; font-size: 10px; line-height: 1.45; }
