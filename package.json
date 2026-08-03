@@ -36,6 +36,7 @@
     "autonomous-development-worker:service:start": "node packages/orchestrator-core/bin/autonomous-development-worker-service.mjs start",
     "autonomous-development-worker:service:stop": "node packages/orchestrator-core/bin/autonomous-development-worker-service.mjs stop",
     "autonomous-development-worker:service:status": "node packages/orchestrator-core/bin/autonomous-development-worker-service.mjs status",
+    "autonomous-development:readiness": "node packages/orchestrator-core/bin/autonomous-development-readiness.mjs",
     "lint:check": "node packages/orchestrator-core/bin/studio.mjs lint-check",
     "night-shift:smoke": "node packages/orchestrator-core/bin/night-shift-smoke.mjs",
     "night-shift:postgres:smoke": "node packages/orchestrator-core/bin/night-shift-postgres.mjs smoke",

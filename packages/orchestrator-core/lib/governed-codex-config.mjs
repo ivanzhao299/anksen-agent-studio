@@ -61,6 +61,11 @@ export function validateGovernedCodexConfig(input) {
   config.policyVersion = requireString(config.policyVersion ?? `${config.runKey}-v1`, "policyVersion");
   config.credentialReferenceId = requireString(config.credentialReferenceId ?? "codex-local-session-ref", "credentialReferenceId");
   config.codexPath = config.codexPath ?? "/Applications/ChatGPT.app/Contents/Resources/codex";
+  if (config.expectedBaselineDigest != null && !/^[0-9a-f]{64}$/.test(String(config.expectedBaselineDigest))) {
+    throw new GovernedCodexConfigError("BASELINE_DIGEST_INVALID");
+  }
+  config.expectedBaselineDigest = config.expectedBaselineDigest ? String(config.expectedBaselineDigest) : null;
+  config.attemptKind = config.attemptKind === "REPAIR" ? "REPAIR" : "IMPLEMENT";
   return Object.freeze(config);
 }
 

@@ -27,6 +27,7 @@ import { PersistentBusinessWorkExecutor } from "../../../packages/domain-center/
 import { AutonomousPortfolioService } from "../../../packages/domain-center/lib/autonomous-portfolio.mjs";
 import { BusinessOutcomeCenter } from "../../../packages/domain-center/lib/business-outcome-center.mjs";
 import { AutonomousDevelopmentJobs } from "../../../packages/orchestrator-core/lib/autonomous-development-jobs.mjs";
+import { assessAutonomousDevelopmentReadiness } from "../../../packages/orchestrator-core/lib/autonomous-development-readiness.mjs";
 import { createBusinessApplicationRuntime } from "../../../packages/domain-center/lib/business-database.mjs";
 import { enterpriseApplicationSummary, getEnterpriseApplication } from "../../../packages/domain-center/lib/enterprise-applications.mjs";
 import { businessApprovalAccepted, businessWorkflowGoal } from "../../../packages/domain-center/lib/business-object-definitions.mjs";
@@ -558,7 +559,7 @@ const server = createServer(async (request, response) => {
       return;
     }
     if (request.method === "GET" && pathname === "/api/development/jobs") {
-      sendJson(response, 200, { jobs: await autonomousDevelopmentJobs.list(), worker: await autonomousDevelopmentJobs.workerStatus() });
+      sendJson(response, 200, { jobs: await autonomousDevelopmentJobs.list(), worker: await autonomousDevelopmentJobs.workerStatus(), readiness: await assessAutonomousDevelopmentReadiness({ root: repoRoot }) });
       return;
     }
     const developmentJob = pathname.match(/^\/api\/development\/jobs\/([^/]+)$/);

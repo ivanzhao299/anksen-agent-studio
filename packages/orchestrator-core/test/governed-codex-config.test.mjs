@@ -19,7 +19,15 @@ const valid = {
 test("governed Codex config accepts a bounded repository policy", () => {
   const config = validateGovernedCodexConfig(valid);
   assert.equal(config.maxRuntimeSeconds, 1800);
+  assert.equal(config.expectedBaselineDigest, null);
+  assert.equal(config.attemptKind, "IMPLEMENT");
   assert.deepEqual(governedCodexSafety, { maxAttempts: 1, allowCommit: false, allowPush: false, allowMerge: false, allowDeploy: false });
+});
+
+test("governed config accepts only a valid repair baseline digest", () => {
+  const repair = validateGovernedCodexConfig({ ...valid, runKey: "repair-run", expectedBaselineDigest: "a".repeat(64), attemptKind: "REPAIR" });
+  assert.equal(repair.attemptKind, "REPAIR");
+  assert.throws(() => validateGovernedCodexConfig({ ...valid, runKey: "bad-repair", expectedBaselineDigest: "unsafe" }), /BASELINE_DIGEST_INVALID/);
 });
 
 test("governed Codex config rejects traversal, secrets, and arbitrary checks", () => {

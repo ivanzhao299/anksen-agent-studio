@@ -15,6 +15,7 @@ import {
 import { ActivationGateService, SessionProjectionConsumer } from "../lib/activation-gate.mjs";
 import { PostgresAutonomousKernelStore } from "../lib/autonomous-kernel/postgres-store.mjs";
 import { governedCodexSafety, loadGovernedCodexConfig } from "../lib/governed-codex-config.mjs";
+import { assertWorkspaceWithinScope, captureGitWorkspace } from "../lib/autonomous-development-policy.mjs";
 import { createTestPool, ensurePostgresFixture } from "../lib/postgres-fixture.mjs";
 import { migrate } from "../lib/persistent-night-shift.mjs";
 
@@ -126,7 +127,13 @@ function runAcceptance(config) {
 async function main() {
   const config = await loadGovernedCodexConfig(resolve(configPath));
   assert(git(config.projectRoot, ["rev-parse", "--show-toplevel"]).stdout.trim() === config.projectRoot, "PROJECT_ROOT_MISMATCH");
-  assert(changedPaths(config.projectRoot).length === 0, "PROJECT_BASELINE_DIRTY");
+  const baseline = captureGitWorkspace(config.projectRoot);
+  if (config.expectedBaselineDigest) {
+    assertWorkspaceWithinScope(baseline, config.allowedPaths);
+    assert(baseline.digest === config.expectedBaselineDigest, "PROJECT_BASELINE_CHANGED");
+  } else {
+    assert(baseline.paths.length === 0, "PROJECT_BASELINE_DIRTY");
+  }
   assert(git(config.projectRoot, ["remote"]).status === 0, "GIT_REMOTE_CHECK_FAILED");
 
   await ensurePostgresFixture();
@@ -223,7 +230,7 @@ async function main() {
     const report = { sessionId: session.id, sessionKey, sessionStatus: "SUCCEEDED", goalId: goal.id, goalStatus: "SUCCEEDED", totalTasks: counts.total, succeededTasks: counts.succeeded, failedTasks: counts.failed, blockedTasks: counts.blocked, attemptCount: facts.length, schedulerTickCount: persisted.scheduler_tick_count, workerClaimCount: persisted.worker_claim_count, runtimeExecutionCount: persisted.runtime_execution_count, codexExecutionCount: 1, startedAt: new Date(persisted.started_at).toISOString(), finishedAt: new Date().toISOString(), changedPaths: changed, acceptance: acceptance.map(({ command, status }) => ({ command, status })), errorSummary: [] };
     await pool.query("UPDATE ad_night_shift_session SET status='SUCCEEDED',finished_at=$2,report=$3,updated_at=now() WHERE id=$1", [session.id, report.finishedAt, report]);
     await new SessionProjectionConsumer(pool, `governed-projection-${session.id}`).replay();
-    return { conclusion: "SUCCEEDED", runKey: config.runKey, projectRoot: config.projectRoot, featureFlag: false, goal: { id: goal.id, status: "SUCCEEDED" }, policy: { version: config.policyVersion, allowedPaths: config.allowedPaths, blockedPaths: config.blockedPaths, ...governedCodexSafety }, approval, codexEvidence, facts, morningReport: report };
+    return { conclusion: "SUCCEEDED", runKey: config.runKey, attemptKind: config.attemptKind, projectRoot: config.projectRoot, baselineDigest: baseline.digest, featureFlag: false, goal: { id: goal.id, status: "SUCCEEDED" }, policy: { version: config.policyVersion, allowedPaths: config.allowedPaths, blockedPaths: config.blockedPaths, ...governedCodexSafety }, approval, codexEvidence, facts, morningReport: report };
   } catch (error) {
     if (session) {
       await pool.query("INSERT INTO ad_session_error(session_id,code,message,metadata) VALUES($1,$2,$3,$4)", [session.id, error.code ?? error.message, "Governed Codex execution stopped", { featureFlagRestored: true }]).catch(() => {});
