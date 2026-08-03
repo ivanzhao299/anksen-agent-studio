@@ -14,7 +14,7 @@ export interface RuntimeCapabilities { runtimeType:RuntimeType; configured:boole
 export interface RuntimeAdapterContract { runtimeType:RuntimeType; validateRequest(request:RuntimeRequest,context:RuntimeContext):void; getCapabilities():RuntimeCapabilities; healthCheck():Promise<RuntimeHealth>; prepare(request:RuntimeRequest,context:RuntimeContext):Promise<void>; start(request:RuntimeRequest,context:RuntimeContext):Promise<RuntimeExecution>; streamLogs(executionId:string):AsyncIterable<RuntimeLogEvent>; cancel(executionId:string,cancellation:RuntimeCancellation):Promise<void>; forceTerminate(executionId:string):Promise<void>; collectResult(executionId:string):Promise<RuntimeResult>; cleanup(executionId:string):Promise<void>; }
 export interface RuntimeFencingPort { assertCurrent(input:{taskId:string;attemptId:string;leaseId:string;fencingToken:number}):Promise<void>; }
 export interface RuntimeLogStore { appendBatch(events:RuntimeLogEvent[]):Promise<void>; list(executionId:string):Promise<RuntimeLogEvent[]>; }
-export const runtimeAdapterMarketplaceVersion = "0.2.0";
+export const runtimeAdapterMarketplaceVersion = "0.3.0";
 
 // Existing marketplace planning contracts remain source-compatible.
 export type RuntimeAdapterInvokeMode = "cli"|"api"|"browser"|"remote-worker"|"webhook";

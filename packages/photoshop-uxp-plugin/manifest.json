@@ -1,0 +1,44 @@
+{
+  "manifestVersion": 5,
+  "id": "com.anksen.studio.photoshop",
+  "name": "ANKSEN Studio for Photoshop",
+  "version": "0.1.0",
+  "main": "index.html",
+  "icons": [],
+  "host": {
+    "app": "PS",
+    "minVersion": "24.4.0",
+    "data": {
+      "apiVersion": 2
+    }
+  },
+  "requiredPermissions": {
+    "localFileSystem": "request"
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "anksenStudioPanel",
+      "icons": [],
+      "minimumSize": {
+        "width": 230,
+        "height": 200
+      },
+      "maximumSize": {
+        "width": 2000,
+        "height": 2000
+      },
+      "preferredDockedSize": {
+        "width": 320,
+        "height": 600
+      },
+      "preferredFloatingSize": {
+        "width": 360,
+        "height": 640
+      },
+      "label": {
+        "default": "ANKSEN Studio for Photoshop"
+      }
+    }
+  ]
+}

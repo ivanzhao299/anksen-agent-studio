@@ -1,0 +1,28 @@
+{
+  "seriesId": "jinhu-exhibition-12-panel-v1",
+  "brand": "金湖科创产业园",
+  "sizeMm": {"width": 640, "height": 1440},
+  "creativeStage": "AI_VISUAL_CONCEPT",
+  "productionStage": "PHOTOSHOP_APPROVED_FOR_PRODUCTION",
+  "sharedStyle": {
+    "palette": ["#102F5D", "#1453A6", "#F7F5F0", "#B17A22"],
+    "visualMotif": "single restrained blue-gold connection path",
+    "copyArea": "upper 35 percent",
+    "typePolicy": "real Photoshop text layers only",
+    "forbidden": ["AI generated text", "fake statistics", "microcopy", "neon overload", "circuit-board cliché", "decorative horizontal rules"]
+  },
+  "pages": [
+    {"page":1,"file":"01-brand-opening.png","layout":"RIGHT","headline":"金湖科创产业园","tagline":"让创新发生，让产业生长","body":"汇聚创新要素，链接产业未来"},
+    {"page":2,"file":"02-park-positioning.png","layout":"LEFT","headline":"科创驱动 · 产业共生","tagline":"以创新连接产业，以空间承载未来","body":"构建开放、协同、可持续的产业发展场域"},
+    {"page":3,"file":"03-innovation-ecosystem.png","layout":"RIGHT","headline":"让创新要素高效连接","tagline":"技术、资本、人才、场景在这里相遇","body":"从创意萌发到价值实现，形成协同创新生态"},
+    {"page":4,"file":"04-smart-manufacturing.png","layout":"LEFT","headline":"智造升级 · 向新而行","tagline":"让先进技术走进真实生产","body":"以数字化、自动化推动制造能力持续进化"},
+    {"page":5,"file":"05-tech-incubation.png","layout":"RIGHT","headline":"从一个想法，到一项产业","tagline":"为创新提供生长的空间","body":"连接研发、验证、转化与应用场景"},
+    {"page":6,"file":"06-industry-collaboration.png","layout":"LEFT","headline":"产业链在这里彼此成就","tagline":"上下游协同，释放集群价值","body":"让企业在连接中找到伙伴、资源与机会"},
+    {"page":7,"file":"07-enterprise-service.png","layout":"RIGHT","headline":"服务企业的每一步成长","tagline":"专业服务，让发展更从容","body":"围绕企业全周期需求提供高效支持"},
+    {"page":8,"file":"08-talent-community.png","layout":"LEFT","headline":"与优秀的人共同创造","tagline":"让人才与产业双向奔赴","body":"营造开放、多元、有活力的创新社区"},
+    {"page":9,"file":"09-green-development.png","layout":"RIGHT","headline":"让产业与生态共同生长","tagline":"绿色不是点缀，而是发展方式","body":"以低碳理念塑造可持续产业空间"},
+    {"page":10,"file":"10-smart-park.png","layout":"LEFT","headline":"看得见的智慧，感受得到的效率","tagline":"让园区运行更敏捷、更可靠","body":"以数字能力连接空间、设备与服务"},
+    {"page":11,"file":"11-open-cooperation.png","layout":"RIGHT","headline":"与伙伴共建产业新未来","tagline":"开放合作，共享发展机遇","body":"面向优质企业与创新伙伴，拓展合作边界"},
+    {"page":12,"file":"12-future-closing.png","layout":"LEFT","headline":"向新而聚 · 向未来生长","tagline":"金湖科创产业园，与时代共进","body":"在这里，下一段产业故事正在发生"}
+  ]
+}

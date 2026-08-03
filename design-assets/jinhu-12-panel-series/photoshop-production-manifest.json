@@ -1,0 +1,53 @@
+{
+  "seriesId": "jinhu-exhibition-12-panel-v2",
+  "brand": "金湖科创产业园",
+  "theme": "创新在这里发生，产业在这里生长",
+  "sourceDirectory": "design-assets/jinhu-12-panel-series",
+  "outputDirectory": "/Users/mac/Documents/Jinhu-Science-Innovation-Park-12-Panel-Final",
+  "document": {
+    "widthMm": 640,
+    "heightMm": 1440,
+    "resolution": 150,
+    "workingMode": "RGB",
+    "printMode": "CMYK",
+    "preferredPrintProfile": "Coated FOGRA39 (ISO 12647-2:2004)",
+    "safeMarginMm": 18,
+    "bottomStandExclusionMm": 100,
+    "previewHeightPx": 3840
+  },
+  "typography": {
+    "family": "PingFang SC",
+    "headlinePostScriptName": "PingFangSC-Semibold",
+    "taglinePostScriptName": "PingFangSC-Medium",
+    "bodyPostScriptName": "PingFangSC-Regular",
+    "brandPostScriptName": "PingFangSC-Semibold",
+    "brandSizePt": 28,
+    "headlineSizePt": 102,
+    "headlineLongSizePt": 78,
+    "taglineSizePt": 50,
+    "bodySizePt": 32,
+    "minimumBodySizePt": 32,
+    "horizontalScalePercent": 100,
+    "verticalScalePercent": 100
+  },
+  "palette": {
+    "navy": "071A3D",
+    "cobalt": "165DFF",
+    "warmWhite": "F7F5F0",
+    "champagneGold": "D8B56A"
+  },
+  "pages": [
+    {"page":1,"slug":"brand-opening","file":"01-brand-opening.png","align":"left","tone":"dark","section":"品牌开篇","headline":"金湖科创产业园","tagline":"让创新发生，让产业生长","body":"汇聚创新要素，链接产业未来"},
+    {"page":2,"slug":"park-positioning","file":"02-park-positioning.png","align":"right","tone":"dark","section":"园区定位","headline":"科创驱动 · 产业共生","tagline":"以创新连接产业，以空间承载未来","body":"构建开放、协同、可持续的产业发展场域"},
+    {"page":3,"slug":"innovation-ecosystem","file":"03-innovation-ecosystem.png","align":"left","tone":"dark","section":"创新生态","headline":"让创新要素\n高效连接","tagline":"技术、资本、人才、场景在这里相遇","body":"从创意萌发到价值实现，形成协同创新生态"},
+    {"page":4,"slug":"smart-manufacturing","file":"04-smart-manufacturing.png","align":"right","tone":"dark","section":"智能制造","headline":"智造升级 · 向新而行","tagline":"让先进技术走进真实生产","body":"以数字化、自动化推动制造能力持续进化"},
+    {"page":5,"slug":"tech-incubation","file":"05-tech-incubation.png","align":"left","tone":"dark","section":"科技孵化","headline":"从一个想法\n到一项产业","tagline":"为创新提供生长的空间","body":"连接研发、验证、转化与应用场景"},
+    {"page":6,"slug":"industry-collaboration","file":"06-industry-collaboration.png","align":"right","tone":"dark","section":"产业协同","headline":"产业链在这里\n彼此成就","tagline":"上下游协同，释放集群价值","body":"让企业在连接中找到伙伴、资源与机会"},
+    {"page":7,"slug":"enterprise-service","file":"07-enterprise-service.png","align":"left","tone":"dark","section":"企业服务","headline":"服务企业的\n每一步成长","tagline":"专业服务，让发展更从容","body":"围绕企业全周期需求提供高效支持"},
+    {"page":8,"slug":"talent-community","file":"08-talent-community.png","align":"right","tone":"dark","section":"人才活力","headline":"与优秀的人\n共同创造","tagline":"让人才与产业双向奔赴","body":"营造开放、多元、有活力的创新社区"},
+    {"page":9,"slug":"green-development","file":"09-green-development.png","align":"left","tone":"light","section":"绿色发展","headline":"让产业与生态\n共同生长","tagline":"绿色不是点缀，而是发展方式","body":"以低碳理念塑造可持续产业空间"},
+    {"page":10,"slug":"smart-park","file":"10-smart-park.png","align":"right","tone":"dark","section":"智慧园区","headline":"看得见的智慧\n感受得到的效率","tagline":"让园区运行更敏捷、更可靠","body":"以数字能力连接空间、设备与服务"},
+    {"page":11,"slug":"open-cooperation","file":"11-open-cooperation.png","align":"left","tone":"light","section":"开放合作","headline":"与伙伴共建\n产业新未来","tagline":"开放合作，共享发展机遇","body":"面向优质企业与创新伙伴，拓展合作边界"},
+    {"page":12,"slug":"future-closing","file":"12-future-closing.png","align":"right","tone":"light","section":"未来收束","headline":"向新而聚\n向未来生长","tagline":"金湖科创产业园，与时代共进","body":"在这里，下一段产业故事正在发生"}
+  ]
+}
