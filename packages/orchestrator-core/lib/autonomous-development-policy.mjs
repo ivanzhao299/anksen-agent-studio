@@ -45,6 +45,9 @@ export function approvalScopeDigest(scope) {
     acceptanceCommands: [...scope.acceptanceCommands],
     maxRuntimeSeconds: Number(scope.maxRuntimeSeconds),
     maxRepairAttempts: Number(scope.maxRepairAttempts),
+    queuePolicy: scope.queuePolicy,
+    resourceBudget: scope.resourceBudget,
+    acceptanceEvidence: scope.acceptanceEvidence,
     commit: false,
     push: false,
     merge: false,
@@ -72,7 +75,7 @@ export function deliveryReport(job) {
   if (validation.status !== "PASS") riskFindings.push("VALIDATION_NOT_PASSING");
   if ((job.repairAttemptsUsed ?? 0) > 0) riskFindings.push("REPAIR_ATTEMPTS_USED");
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     jobId: job.id,
     goal: job.goal,
     status: job.status,
@@ -81,6 +84,9 @@ export function deliveryReport(job) {
     changedPaths: [...(job.changedPaths ?? [])],
     validation,
     repairBudget: { used: job.repairAttemptsUsed ?? 0, maximum: job.maxRepairAttempts ?? 0 },
+    resourceBudget: job.resourceBudget,
+    runtimeUsageSeconds: job.runtimeUsageSeconds ?? 0,
+    acceptanceEvidence: job.acceptanceEvidence,
     riskFindings,
     suggestedCommitMessage: `feat(autonomous): ${String(job.goal).slice(0, 60)}`,
     automaticActions: { commit: false, push: false, merge: false, deploy: false },

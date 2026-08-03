@@ -41,6 +41,7 @@ import { projectPortfolioCockpit } from "../../../packages/domain-center/lib/por
 import { createBusinessTaskBinding } from "../../../packages/orchestrator-core/lib/business-task-binding.mjs";
 import { CadAgentSdk } from "../../../packages/engineering-cad-center/lib/index.mjs";
 import { ProfessionalRunnerCapabilityRegistry } from "../../../packages/skill-router/lib/professional-runner-capabilities.mjs";
+import { CapabilityResourceRegistry } from "../../../packages/skill-router/lib/capability-resource-registry.mjs";
 import { implementedProfessionalAdapterIds } from "../../../packages/skill-router/lib/professional-media-adapters.mjs";
 import { projectProfessionalArtifacts } from "../../../packages/skill-router/lib/professional-artifact-projection.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
@@ -115,6 +116,7 @@ const autonomousPortfolio = new AutonomousPortfolioService({ repoRoot, registry:
 const enterpriseProgramPlanner=new EnterpriseProgramPlanner({registry:portfolioRegistry});
 const businessOutcomeCenter = new BusinessOutcomeCenter({ repoRoot });
 const autonomousDevelopmentJobs = new AutonomousDevelopmentJobs({ repoRoot });
+const capabilityResourceRegistry=new CapabilityResourceRegistry({repoRoot});
 setInterval(() => autonomousPortfolio.tick().catch((error) => console.error("portfolio tick failed", error?.code ?? error?.message ?? error)), 30000).unref();
 const identityRuntime = await loadIdentityRuntimeConfig();
 const identityOwnerBootstrap = identityRuntime ? new IdentityOwnerBootstrap({ upstreamOrigin: identityRuntime.upstreamOrigin }) : null;
@@ -481,7 +483,7 @@ const server = createServer(async (request, response) => {
     }
     if(request.method==="GET"&&pathname==="/api/business/capabilities"){
       const access=evaluateConsoleRouteAccess("work",accessContext);if(!access.allowed){sendJson(response,403,access);return;}const catalog=domainCenterSummary(),visibleApplications=catalog.applications.filter(item=>{const app=getEnterpriseApplication(item.id);return app&&evaluateConsoleRouteAccess(app.routeId,accessContext).allowed;}),protocols=visibleApplications.flatMap(item=>{const app=getEnterpriseApplication(item.id);return item.domains.map(domain=>buildBusinessCapabilityProtocol({application:app,domain,registry:portfolioRegistry}));}),professional=protocols.filter(item=>item.professionalStage);
-      sendJson(response,200,{schemaVersion:1,generatedAt:new Date().toISOString(),protocols,summary:{applications:visibleApplications.length,workflows:protocols.length,ready:protocols.filter(item=>item.status==="READY").length,blocked:protocols.filter(item=>item.status==="BLOCKED").length,professionalRunners:professional.length,executionOnly:protocols.filter(item=>item.outcomeMode==="EXECUTION_EVIDENCE_ONLY").length}});return;
+      const knowledgeResources=await capabilityResourceRegistry.inventory();sendJson(response,200,{schemaVersion:2,generatedAt:new Date().toISOString(),protocols,knowledgeResources,summary:{applications:visibleApplications.length,workflows:protocols.length,ready:protocols.filter(item=>item.status==="READY").length,blocked:protocols.filter(item=>item.status==="BLOCKED").length,professionalRunners:professional.length,knowledgeResources:knowledgeResources.summary.ready,designPresets:knowledgeResources.summary.items,executionOnly:protocols.filter(item=>item.outcomeMode==="EXECUTION_EVIDENCE_ONLY").length}});return;
     }
     const businessApplicationReport=pathname.match(/^\/api\/business\/applications\/([^/]+)\/report$/);
     if(request.method==="GET"&&businessApplicationReport){const applicationId=decodeURIComponent(businessApplicationReport[1]),app=getEnterpriseApplication(applicationId);if(!app){sendJson(response,404,{status:"APPLICATION_NOT_FOUND"});return;}const routeAccess=evaluateConsoleRouteAccess(app.routeId,accessContext);if(!routeAccess.allowed){sendJson(response,403,routeAccess);return;}sendJson(response,200,{backend:businessRuntime.backend,report:await businessApplicationStore.applicationReport(app.id,{organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"})});return;}
@@ -559,9 +561,10 @@ const server = createServer(async (request, response) => {
       return;
     }
     if (request.method === "GET" && pathname === "/api/development/jobs") {
-      sendJson(response, 200, { jobs: await autonomousDevelopmentJobs.list(), worker: await autonomousDevelopmentJobs.workerStatus(), readiness: await assessAutonomousDevelopmentReadiness({ root: repoRoot }) });
+      sendJson(response, 200, { jobs: await autonomousDevelopmentJobs.list(), worker: await autonomousDevelopmentJobs.workerStatus(), readiness: await assessAutonomousDevelopmentReadiness({ root: repoRoot }),operations:await autonomousDevelopmentJobs.operations() });
       return;
     }
+    if(request.method==="GET"&&pathname==="/api/development/audit-export"){sendJson(response,200,await autonomousDevelopmentJobs.auditExport());return;}
     const developmentJob = pathname.match(/^\/api\/development\/jobs\/([^/]+)$/);
     if (request.method === "GET" && developmentJob) {
       const job = await autonomousDevelopmentJobs.get(decodeURIComponent(developmentJob[1]));

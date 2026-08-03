@@ -25,7 +25,7 @@ test("runtime identity and token usage expose references without secret values",
   const codex = result.runtimes.find((item) => item.runtimeId === "codex-cli");
   assert.ok(codex);
   assert.equal(codex.credentialReferenceId, "codex-local-session-ref");
-  assert.equal(codex.credentialReferenceLocation, "user-session://codex-cli/current-user");
+  assert.equal(codex.credentialReferenceLocation, "cli-session-store://codex-cli/current-user");
   assert.equal(codex.secretValuesExposed, false);
   assert.equal(result.safety.secretValuesRead, false);
   assert.equal(result.safety.secretValuesReturned, false);

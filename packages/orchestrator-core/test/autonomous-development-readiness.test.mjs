@@ -12,6 +12,7 @@ test("readiness stays truthful when repository evidence exists but runtime proof
   assert.equal(report.maturity.codexRuntime, "NOT_READY");
   assert.equal(report.maturity.autonomousDevelopment, "NOT_READY");
   assert.equal(report.safety.automaticPush, false);
+  assert.equal(report.maturity.productionAutonomy,"DISABLED");
   assert.equal(report.checks.find((item) => item.id === "bounded-repair").status, "BLOCKED");
 });
 

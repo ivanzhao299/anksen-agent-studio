@@ -20,6 +20,7 @@ runtime/governed-codex-runs/
 runtime/business-outcomes/
 runtime/autonomous-development/
 runtime/postgres-fixture/
+runtime/capability-resources/
 runtime/business-applications/
 packages/digital-human-pipeline/.venv-reconstruction/
 packages/3d-modeling-domain/.venv/

@@ -4,6 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { AutonomousDevelopmentJobs } from "../lib/autonomous-development-jobs.mjs";
 import { approvalScopeDigest, assertWorkspaceWithinScope, captureGitWorkspace, repairDecision } from "../lib/autonomous-development-policy.mjs";
+import { resourceBudgetDecision } from "../lib/autonomous-development-operations.mjs";
 
 const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
 const jobs = new AutonomousDevelopmentJobs({ repoRoot });
@@ -22,6 +23,7 @@ function parseStopped(text) { const match=String(text).match(/\{\s*"conclusion"\
 function usageAdd(target,source={}) { target.inputTokens+=Number(source.input_tokens||0);target.cachedInputTokens+=Number(source.cached_input_tokens||0);target.outputTokens+=Number(source.output_tokens||0);target.reasoningOutputTokens+=Number(source.reasoning_output_tokens||0); }
 function policySafeInstruction(value) { return String(value).replace(/[`;&|]/g," ").replace(/\$\(/g,"("); }
 function git(job,args) { return spawnSync("git",["-C",job.projectRoot,...args],{encoding:"utf8"}); }
+async function budgetCheckpoint(job,stage){const decision=resourceBudgetDecision(job,await jobs.list(),new Date());await jobs.event(job,"RESOURCE_BUDGET_CHECK",{stage,...decision});if(decision.action==="STOP")throw Object.assign(new Error(decision.reasons.join(",")),{code:"RESOURCE_BUDGET_EXHAUSTED",reasons:decision.reasons});return decision;}
 
 async function runProcess(command,args,{cwd,timeoutMs,onChunk,jobId}={}) {
   return new Promise((resolvePromise,reject)=>{
@@ -37,6 +39,7 @@ async function runProcess(command,args,{cwd,timeoutMs,onChunk,jobId}={}) {
 }
 
 async function role(job,roleName,prompt) {
+  await budgetCheckpoint(job,roleName);
   job.stage=roleName==="PLANNER"?"PLANNING":roleName;
   const instance={id:`${job.id}-${roleName.toLowerCase()}-${job.agentInstances.filter((item)=>item.role===roleName).length+1}`,role:roleName,status:"RUNNING",runtimeType:"CODEX",model:"codex-default",skillPack:{PLANNER:["repository_analysis","solution_planning"],VALIDATOR:["quality_validation"],REVIEWER:["security_review","delivery_reporting"]}[roleName]??["software_delivery"],startedAt:new Date().toISOString(),finishedAt:null,pid:null,tokenUsage:null};
   job.agentInstances.push(instance);await jobs.event(job,"AGENT_STARTED",{agentInstanceId:instance.id,role:roleName});
@@ -59,6 +62,7 @@ async function runAcceptance(job) {
 }
 
 async function governedAttempt(job,{instruction,attemptKind,expectedBaselineDigest=null,index=0}) {
+  await budgetCheckpoint(job,attemptKind);
   job.stage=attemptKind==="REPAIR"?"REPAIRING":"IMPLEMENTING";
   const roleName=attemptKind==="REPAIR"?"REPAIRER":"IMPLEMENTER";
   const instance={id:`${job.id}-${roleName.toLowerCase()}-${index+1}`,role:roleName,status:"RUNNING",runtimeType:"CODEX",model:"codex-default",skillPack:["software_delivery"],startedAt:new Date().toISOString(),finishedAt:null,pid:null,supervisorPid:null,tokenUsage:null};job.agentInstances.push(instance);await jobs.event(job,"AGENT_STARTED",{agentInstanceId:instance.id,role:roleName,attemptKind,index});
@@ -66,7 +70,7 @@ async function governedAttempt(job,{instruction,attemptKind,expectedBaselineDige
   const configPath=resolve(jobs.artifactDir(job.id),`governed-config-${attemptKind.toLowerCase()}-${index+1}.json`);await writeFile(configPath,`${JSON.stringify(config,null,2)}\n`,"utf8");
   const result=await runProcess(process.execPath,[resolve(repoRoot,"packages/orchestrator-core/bin/governed-codex-run.mjs"),configPath],{cwd:repoRoot,jobId:job.id,timeoutMs:(job.maxRuntimeSeconds+180)*1000,onChunk:async(stream,value,pid)=>{instance.supervisorPid=pid;await jobs.heartbeat(worker,job.id);await jobs.event(job,"AGENT_LOG",{agentInstanceId:instance.id,stream,message:value.slice(0,2000)});}});
   const parsed=parseCodex(result.stdout);instance.status=result.code===0?"SUCCEEDED":result.cancelled?"CANCELLED":"FAILED";instance.finishedAt=new Date().toISOString();instance.pid=parsed.report?.codexEvidence?.pid??instance.supervisorPid;instance.tokenUsage=parsed.usage;usageAdd(job.tokenUsage,parsed.usage);await jobs.artifact(job,`${roleName.toLowerCase()}-output`,result.stdout||result.stderr,{agentInstanceId:instance.id,attemptKind,index});await jobs.event(job,"AGENT_FINISHED",{agentInstanceId:instance.id,role:roleName,status:instance.status,exitCode:result.code,pid:instance.pid,usage:instance.tokenUsage});
-  return {...result,parsed,stopped:parseStopped(result.stderr)};
+  const summary={attemptKind,index,status:instance.status,startedAt:instance.startedAt,finishedAt:instance.finishedAt,baselineDigest:expectedBaselineDigest,tokenUsage:instance.tokenUsage,changedPaths:captureGitWorkspace(job.projectRoot).paths};job.attemptSummaries.push(summary);await jobs.save(job);return {...result,parsed,stopped:parseStopped(result.stderr)};
 }
 
 async function execute(job) {
@@ -74,7 +78,7 @@ async function execute(job) {
     if(job.approvalScopeDigest!==approvalScopeDigest(job.approvalScope))throw Object.assign(new Error("APPROVAL_SCOPE_CHANGED"),{code:"APPROVAL_SCOPE_CHANGED"});
     if(!job.approvalExpiresAt||new Date(job.approvalExpiresAt).getTime()<=Date.now())throw Object.assign(new Error("JOB_APPROVAL_EXPIRED"),{code:"JOB_APPROVAL_EXPIRED"});
     assertWorkspaceWithinScope(captureGitWorkspace(job.projectRoot),job.allowedPaths);
-    const plannerPrompt=`You are the PLANNER agent in an autonomous development pipeline. Inspect the repository read-only. Produce a concise implementation plan for this goal. Do not modify files. Goal: ${job.goal}\nAllowed paths: ${job.allowedPaths.join(", ")}\nAcceptance criteria: ${job.acceptanceCriteria.join("; ")}\nClarification: ${job.clarification.answer||"none"}`;
+    const plannerPrompt=`You are the PLANNER agent in an autonomous development pipeline. Inspect the repository read-only. Produce a concise implementation plan for this goal. Do not modify files. Goal: ${job.goal}\nAllowed paths: ${job.allowedPaths.join(", ")}\nAcceptance criteria and evidence: ${JSON.stringify(job.acceptanceEvidence)}\nClarification: ${job.clarification.answer||"none"}`;
     const plan=await role(job,"PLANNER",plannerPrompt);
     const implementationInstruction=`Implement the approved goal. Follow this planner artifact:\n${plan}\nAcceptance criteria:\n- ${job.acceptanceCriteria.join("\n- ")}\nModify only allowed paths: ${job.allowedPaths.join(", ")}`;
     let attempt=await governedAttempt(job,{instruction:implementationInstruction,attemptKind:"IMPLEMENT",index:0});
@@ -86,8 +90,9 @@ async function execute(job) {
       const validation=await runAcceptance(job);const decision=repairDecision({validation,previousFingerprints:fingerprints,repairsUsed:job.repairAttemptsUsed,maxRepairAttempts:job.maxRepairAttempts});await jobs.event(job,"REPAIR_DECISION",decision);
       if(decision.action!=="REPAIR"){job.status="NEEDS_REWORK";job.review={decision:"REWORK_REQUIRED",summary:decision.reason};await jobs.recordDelivery(job);await jobs.event(job,"JOB_EXECUTION_FINISHED",{status:job.status,reviewDecision:job.review.decision});return;}
       fingerprints.push(decision.fingerprint);job.repairAttemptsUsed+=1;const snapshot=assertWorkspaceWithinScope(captureGitWorkspace(job.projectRoot),job.allowedPaths);
-      const failures=validation.checks.filter((check)=>check.status!==0).map((check)=>`${check.command}\n${check.output}`).join("\n\n");
-      const repairInstruction=`Repair the existing approved implementation without reverting valid work. Stay inside the approved paths. Goal: ${job.goal}\nAcceptance criteria:\n- ${job.acceptanceCriteria.join("\n- ")}\nFailing validation evidence:\n${failures.slice(0,30000)}`;
+      const failedChecks=validation.checks.filter((check)=>check.status!==0),failures=failedChecks.map((check)=>`${check.command}\n${check.output}`).join("\n\n"),errorClass=failedChecks.some(check=>/typecheck/i.test(check.command))?"TYPE_ERROR":failedChecks.some(check=>/lint/i.test(check.command))?"LINT_ERROR":failedChecks.some(check=>/security|audit/i.test(check.command))?"SECURITY_ERROR":"TEST_FAILURE";
+      const repairInstruction=`Repair the existing approved implementation without reverting valid work. Error class: ${errorClass}. Form one concise repair hypothesis before editing. Stay inside the approved paths. Goal: ${job.goal}\nAcceptance criteria:\n- ${job.acceptanceCriteria.join("\n- ")}\nFailing validation evidence:\n${failures.slice(0,30000)}`;
+      await jobs.artifact(job,"repair-hypothesis",JSON.stringify({attempt:job.repairAttemptsUsed,errorClass,failedCommands:failedChecks.map(check=>check.command)},null,2));
       attempt=await governedAttempt(job,{instruction:repairInstruction,attemptKind:"REPAIR",expectedBaselineDigest:snapshot.digest,index:job.repairAttemptsUsed});
     }
     const diff=await diffArtifact(job);const validation=await runAcceptance(job);

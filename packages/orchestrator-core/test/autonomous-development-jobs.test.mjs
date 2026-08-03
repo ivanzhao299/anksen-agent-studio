@@ -40,7 +40,7 @@ test("development jobs reject an unbounded repair budget", async () => {
   git(project, ["init"]);
   const manager = new AutonomousDevelopmentJobs({ repoRoot: root, storeDir: resolve(root, "runtime") });
   await assert.rejects(
-    manager.create({ projectId: "fixture", projectRoot: project, goal: "Implement a bounded fixture change", allowedPaths: ["src"], acceptanceCriteria: ["tests pass"], maxRepairAttempts: 3 }),
+    manager.create({ projectId: "fixture", projectRoot: project, goal: "Implement a bounded fixture change", allowedPaths: ["src"], acceptanceCriteria: ["tests pass"], acceptanceCommands:["git diff --check"],acceptanceEvidence:[{criterion:"tests pass",type:"TEST",reference:"git diff --check"}], maxRepairAttempts: 3 }),
     (error) => error.code === "REPAIR_BUDGET_INVALID",
   );
 });
@@ -63,7 +63,7 @@ test("approval is bound to the clean project baseline and orphaned side effects 
   git(project, ["init"]); git(project, ["config", "user.email", "studio@test.local"]); git(project, ["config", "user.name", "Studio Test"]);
   await writeFile(resolve(project, "README.md"), "# Fixture\n"); git(project, ["add", "."]); git(project, ["commit", "-m", "fixture"]);
   const manager = new AutonomousDevelopmentJobs({ repoRoot: root, storeDir: resolve(root, "runtime"), processAlive: () => false });
-  const job = await manager.create({ projectId: "fixture", projectRoot: project, goal: "Implement a bounded and verifiable fixture change", allowedPaths: ["src"], acceptanceCriteria: ["typecheck passes"] });
+  const job = await manager.create({ projectId: "fixture", projectRoot: project, goal: "Implement a bounded and verifiable fixture change", allowedPaths: ["src"], acceptanceCriteria: ["typecheck passes"],acceptanceCommands:["git diff --check"],acceptanceEvidence:[{criterion:"typecheck passes",type:"TEST",reference:"git diff --check"}] });
   const approved = await manager.approve(job.id, { userId: "owner" });
   assert.match(approved.approvalScopeDigest, /^[0-9a-f]{64}$/);
   const claimed = await manager.claim({ id: "worker", pid: 999999 });
@@ -79,7 +79,7 @@ test("dirty projects fail preflight instead of absorbing existing user changes",
   await mkdir(project); git(project, ["init"]);
   await writeFile(resolve(project, "user-change.txt"), "preserve me\n");
   const manager = new AutonomousDevelopmentJobs({ repoRoot: root, storeDir: resolve(root, "runtime") });
-  const job = await manager.create({ projectId: "fixture", projectRoot: project, goal: "Implement a bounded and verifiable fixture change", allowedPaths: ["src"], acceptanceCriteria: ["tests pass"] });
+  const job = await manager.create({ projectId: "fixture", projectRoot: project, goal: "Implement a bounded and verifiable fixture change", allowedPaths: ["src"], acceptanceCriteria: ["tests pass"],acceptanceCommands:["git diff --check"],acceptanceEvidence:[{criterion:"tests pass",type:"TEST",reference:"git diff --check"}] });
   assert.equal(job.status, "PREFLIGHT_BLOCKED");
   assert.deepEqual(job.preflight.existingChangedPaths, ["user-change.txt"]);
 });

@@ -28,6 +28,7 @@ Neither secret is stored in the repository or deployment logs.
 - Modified tracked files on the server stop deployment; the script never uses `git reset --hard`.
 - Git updates are fast-forward only.
 - The Console is typechecked, linted, smoke-tested and built before restart.
+- Third-party capability resources are checked out at their registry-pinned commits and must pass license, content-count and integrity checks before restart.
 - The loopback-only business database is started, migrations are applied idempotently, and record/work/event tables are verified before Console restarts.
 - The existing systemd service restarts the Console after the deployment script terminates the managed Node process.
 - Local and public `/login` endpoints are checked before the workflow succeeds.

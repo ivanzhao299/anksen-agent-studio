@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "registry_id": "anksen-capability-resources",
+  "resources": [
+    {
+      "resource_id": "awesome-design-md",
+      "display_name": "Awesome DESIGN.md Library",
+      "capability_type": "DESIGN_SYSTEM_KNOWLEDGE",
+      "provider": "VoltAgent",
+      "source_url": "https://github.com/VoltAgent/awesome-design-md.git",
+      "source_commit": "8147538b4226ae41e2487a9179e3bcc1f68e8554",
+      "default_branch": "main",
+      "local_path": "runtime/capability-resources/awesome-design-md",
+      "content_root": "design-md",
+      "license": "MIT",
+      "license_path": "LICENSE",
+      "expected_minimum_items": 73,
+      "featured_presets": ["stripe", "linear.app", "vercel"],
+      "capabilities": ["design_system_reference", "ui_style_guidance", "responsive_design_guidance", "agent_prompt_guidance"],
+      "network_policy": "INSTALL_AND_UPDATE_ONLY",
+      "side_effect_policy": "READ_ONLY_REFERENCE",
+      "activation": "EXPLICIT_PRESET_SELECTION",
+      "governance": {
+        "copy_to_project_automatically": false,
+        "replace_existing_design_md": false,
+        "brand_impersonation_allowed": false,
+        "requires_human_brand_selection": true,
+        "attribution_notice": "Third-party design analysis derived from public websites; brand identities remain owned by their respective owners."
+      }
+    }
+  ]
+}

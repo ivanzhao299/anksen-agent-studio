@@ -54,6 +54,12 @@ The default and production Runtime remains `CONTROLLED_STUB`. The governed auton
 
 The Resident Development Worker is installed and can run continuously. Automatic commit, push, merge, deploy, production changes, and secret-value access remain disabled. A successful proof run establishes controlled autonomy, not authorization for production autonomy.
 
+Autonomous Development V3 was implemented on 2026-08-03. It adds bounded Worker supervision, priority and maintenance-window queue policy, deterministic acceptance-evidence mapping, token/runtime budgets, operational metrics and alerts, artifact redaction and SHA256 integrity, retention/audit support, a two-project ten-case controlled policy pilot, and release-assistance artifacts. Maturity is `CONTROLLED_PILOT_READY`, while production autonomy remains `DISABLED`.
+
+The user LaunchAgent definition is installed but cannot execute this repository from macOS `Documents` because launchd returns `EX_CONFIG`; the active service uses the same detached Supervisor as a fallback. Moving the repository to a service-accessible path or granting the relevant background access is required before LaunchAgent loading can replace the fallback.
+
+The Skill Router capability center includes the `awesome-design-md` third-party design-system knowledge resource, pinned to VoltAgent commit `8147538b4226ae41e2487a9179e3bcc1f68e8554`. It indexes 74 MIT-licensed `DESIGN.md` references from `runtime/capability-resources/awesome-design-md`. Selection is explicit and read-only; the loader treats all content as untrusted, removes executable shell-pipe examples on load, never overwrites a managed project's `DESIGN.md`, and prohibits brand impersonation.
+
 ## 5. Night Shift Principle
 
 Night Shift is the core Studio execution chain:

@@ -76,3 +76,22 @@ Move from a proven single governed run to reliable, observable, low-intervention
 - Every acceptance criterion has deterministic or explicitly classified review evidence.
 - Queue, cost, failure, and recovery behavior is visible in Console.
 - No automatic commit, push, merge, deploy, production operation, or secret access is introduced.
+
+## Implementation status
+
+Status as of 2026-08-03: V3 control and operations implementation complete; controlled ten-case pilot complete; production autonomy remains disabled.
+
+- ADV3-010: complete with an operational caveat. The Supervisor performs Codex login, PostgreSQL and store preflight, bounded exponential restart, and crash-loop incident reporting. Killing an idle Worker proved automatic child recovery without a duplicate job. A LaunchAgent definition is installed, but macOS returns `EX_CONFIG` when a background agent executes the repository from `Documents`; the detached Supervisor is the active fallback until the repository is moved to a service-accessible path or background access is granted.
+- ADV3-020: complete. Existing queued jobs now carry P0-P3 priority, optional UTC maintenance windows, per-project isolation, global concurrency one, FIFO fairness within priority, and immutable queue scope.
+- ADV3-030: complete. Every acceptance criterion must map to an allowed command/test or explicit independent review before approval. Missing or unknown evidence fails closed.
+- ADV3-040: complete. Jobs enforce input/output token, total runtime, and daily project runtime budgets. Attempts persist token/runtime evidence and changed paths; repairs persist error class and repair hypotheses and retain bounded non-improvement stopping.
+- ADV3-050: complete. Console exposes queue depth, running count, success rate, token cost and actionable alerts. The API exposes operational snapshots and scoped audit export without raw-log inspection.
+- ADV3-060: complete. New artifacts are redacted, SHA256-addressed, integrity-checked on read, included in audit export, and eligible for replay-safe terminal-job retention cleanup.
+- ADV3-070: controlled pilot complete. Ten deterministic cases across two project identities cover success, repair, cancellation, safe restart, uncertain recovery, scope-drift rejection, approval expiry, budget exhaustion and maintenance windows. The report is explicitly `CONTROLLED_POLICY_PILOT`; it does not claim ten real Codex executions. The earlier four-role real job remains the real Runtime proof.
+- ADV3-080: complete. Delivery now generates a commit message, `codex/` branch suggestion, PR summary, risk notes and rollback instructions. Commit, push, merge, deploy and production remain separately approved.
+
+Current maturity labels:
+
+- Autonomous development: `READY` based on the real four-role proof.
+- Operational reliability: `CONTROLLED_PILOT_READY`.
+- Production autonomy: `DISABLED`.

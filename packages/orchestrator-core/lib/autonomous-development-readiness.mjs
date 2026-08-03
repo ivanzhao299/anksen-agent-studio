@@ -41,6 +41,8 @@ export async function assessAutonomousDevelopmentReadiness({
 } = {}) {
   const repositoryRoot = resolve(root);
   const heartbeat = await readJson(resolve(repositoryRoot, "runtime/autonomous-development/worker-heartbeat.json"));
+  const supervisor = await readJson(resolve(repositoryRoot,"runtime/autonomous-development/supervisor-state.json"));
+  const v3Pilot = await readJson(resolve(repositoryRoot,"runtime/autonomous-development/v3-pilot-report.json"));
   const heartbeatAgeMs = heartbeat?.lastHeartbeatAt
     ? Math.max(0, now.getTime() - new Date(heartbeat.lastHeartbeatAt).getTime())
     : null;
@@ -80,15 +82,17 @@ export async function assessAutonomousDevelopmentReadiness({
     scopedOnce: ["real CODEX job approval including project, paths, checks, duration, and repair budget"],
     alwaysHuman: ["ambiguous requirement resolution", "diff approval and local commit", "push", "merge", "deploy", "production operations", "secret-value access"],
   };
+  const operationalPilotReady=supervisor?.status==="HEALTHY"&&v3Pilot?.status==="PASS"&&v3Pilot?.executionMode==="CONTROLLED_POLICY_PILOT";
 
   return {
     schemaVersion: 1,
     status: autonomousReady ? "AUTONOMOUS_DEVELOPMENT_READY" : runtimeReady ? "CODEX_RUNTIME_READY" : "CONTROL_PLANE_READY",
     generatedAt: now.toISOString(),
     summary: { ready: checks.filter((item) => item.status === "READY").length, total: checks.length },
-    maturity: { controlPlane: "READY", codexRuntime: runtimeReady ? "READY" : "NOT_READY", autonomousDevelopment: autonomousReady ? "READY" : "NOT_READY" },
+    maturity: { controlPlane: "READY", codexRuntime: runtimeReady ? "READY" : "NOT_READY", autonomousDevelopment: autonomousReady ? "READY" : "NOT_READY",operationalReliability:operationalPilotReady?"CONTROLLED_PILOT_READY":"NOT_READY",productionAutonomy:"DISABLED" },
     checks,
     interventionPolicy,
     safety: { realRuntimeEnabledPersistently: false, automaticCommit: false, automaticPush: false, automaticMerge: false, automaticDeploy: false },
+    v3:{supervisor:supervisor??{status:"NOT_CONFIGURED"},pilot:v3Pilot?{status:v3Pilot.status,executionMode:v3Pilot.executionMode,jobCount:v3Pilot.validation?.jobCount,projectCount:v3Pilot.validation?.projectCount}:null,claim:"Controlled operational pilot only; production autonomy is not enabled."},
   };
 }

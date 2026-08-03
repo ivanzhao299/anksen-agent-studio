@@ -63,6 +63,7 @@ pnpm install --frozen-lockfile
 pnpm typecheck
 pnpm lint:check
 node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run
+pnpm capability-resources:sync
 pnpm --filter @anksen/console build
 bash scripts/deploy-business-data.sh
 bash scripts/deploy-identity.sh
