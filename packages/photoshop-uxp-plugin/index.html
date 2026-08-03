@@ -4,51 +4,149 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="styles.css" />
-    <title>ANKSEN Studio</title>
+    <title>ANKSEN Design Production</title>
   </head>
   <body>
-    <main class="panel">
-      <header class="brand">
-        <div class="brand-mark">AS</div>
-        <div>
-          <h1>ANKSEN Studio</h1>
-          <p>Photoshop 受控设计执行端</p>
+    <main class="workbench" id="workbench" aria-busy="false">
+      <header class="app-header">
+        <div class="product-lockup">
+          <div class="product-mark" aria-hidden="true">A</div>
+          <div class="product-copy">
+            <h1>Design Production</h1>
+            <p>ANKSEN Studio · Photoshop 受控执行端</p>
+          </div>
+        </div>
+        <div class="connection-status" title="默认不启用网络连接">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="connectionMode">本地受控</span>
         </div>
       </header>
 
-      <section class="status-card">
-        <div class="status-row"><span>连接模式</span><strong id="connectionMode">本地受控</strong></div>
-        <div class="status-row"><span>任务状态</span><strong id="jobStatus">待导入</strong></div>
-        <div class="status-row"><span>模板</span><strong id="templateName">金湖科创产业园</strong></div>
+      <section class="context-bar" aria-label="当前任务状态">
+        <div><span>任务</span><strong id="jobStatus">未载入</strong></div>
+        <div><span>文档</span><strong id="documentStatus">未检查</strong></div>
+        <div><span>预检</span><strong id="reviewStatus">待执行</strong></div>
       </section>
 
-      <section>
-        <h2>任务</h2>
-        <div class="actions">
-          <button id="loadJob" class="secondary">导入任务 JSON</button>
-          <button id="loadLogo" class="secondary">选择 Logo</button>
-          <button id="useSample" class="secondary">载入内置示例</button>
-        </div>
-      </section>
+      <nav class="tabs" role="tablist" aria-label="设计生产工作台">
+        <button class="tab is-active" id="tab-task" role="tab" tabindex="0" aria-selected="true" aria-controls="panel-task" data-tab="task">任务</button>
+        <button class="tab" id="tab-layers" role="tab" tabindex="-1" aria-selected="false" aria-controls="panel-layers" data-tab="layers">图层</button>
+        <button class="tab" id="tab-operations" role="tab" tabindex="-1" aria-selected="false" aria-controls="panel-operations" data-tab="operations">操作</button>
+        <button class="tab" id="tab-review" role="tab" tabindex="-1" aria-selected="false" aria-controls="panel-review" data-tab="review">检查</button>
+        <button class="tab" id="tab-export" role="tab" tabindex="-1" aria-selected="false" aria-controls="panel-export" data-tab="export">交付</button>
+      </nav>
 
-      <section id="summary" class="summary" aria-live="polite">
-        <p>导入经 Studio 审批的任务，或使用内置金湖模板进行本地预览。</p>
-      </section>
+      <div class="workspace">
+        <section class="tab-panel is-active" id="panel-task" role="tabpanel" aria-labelledby="tab-task">
+          <div class="section-heading">
+            <div>
+              <h2>生产任务</h2>
+              <p>导入任务用于本地审阅；受控示例可演示执行流程。</p>
+            </div>
+            <span class="version-badge">V2</span>
+          </div>
+          <div class="button-row">
+            <button id="loadJob" class="button button-primary">导入 JSON 审阅</button>
+            <button id="useV2Sample" class="button">载入 V2 示例</button>
+            <button id="useLegacySample" class="button">创建展板示例</button>
+          </div>
+          <div id="taskEmpty" class="empty-state">
+            <strong>尚未载入生产任务</strong>
+            <p>任务文件只描述白名单操作；插件不会执行原始 BatchPlay 或任意脚本。</p>
+          </div>
+          <div id="taskSummary" class="task-summary is-hidden" aria-live="polite">
+            <div class="summary-title"><strong id="taskTitle"></strong><span id="taskVersion"></span></div>
+            <p id="taskGoal"></p>
+            <dl class="spec-grid">
+              <div><dt>画布</dt><dd id="taskCanvas"></dd></div>
+              <div><dt>模式</dt><dd id="taskMode"></dd></div>
+              <div><dt>操作</dt><dd id="taskOperations"></dd></div>
+              <div><dt>输出</dt><dd id="taskOutputs"></dd></div>
+            </dl>
+          </div>
+          <div class="field-row">
+            <div>
+              <strong>品牌素材</strong>
+              <p id="assetStatus">内置 Logo 已准备；V2 替换素材需逐项授权。</p>
+            </div>
+            <button id="loadLogo" class="button button-compact">选择 Logo</button>
+          </div>
+          <div class="field-row">
+            <div>
+              <strong>当前 Photoshop 文档</strong>
+              <p id="activeDocumentHint">检查尺寸、色彩模式和可编辑图层。</p>
+            </div>
+            <button id="inspectDocument" class="button button-compact">检查当前文档</button>
+          </div>
+        </section>
 
-      <label class="approval">
-        <input id="approval" type="checkbox" />
-        <span>我已确认内容、尺寸与输出位置</span>
-      </label>
+        <section class="tab-panel" id="panel-layers" role="tabpanel" aria-labelledby="tab-layers" hidden>
+          <div class="section-heading">
+            <div><h2>可编辑图层</h2><p>显示图层类型、状态与允许的编辑能力。</p></div>
+            <span id="layerCount" class="count-badge">0</span>
+          </div>
+          <div id="layersEmpty" class="empty-state compact"><strong>还没有图层快照</strong><p>先检查当前 Photoshop 文档。</p></div>
+          <div id="layerTree" class="layer-tree" role="tree" aria-label="Photoshop 图层树"></div>
+        </section>
 
-      <section class="actions primary-actions">
-        <button id="renderPreview" class="primary" disabled>生成可编辑 PSD</button>
-        <button id="exportPreview" class="secondary" disabled>导出 PNG</button>
-      </section>
+        <section class="tab-panel" id="panel-operations" role="tabpanel" aria-labelledby="tab-operations" hidden>
+          <div class="section-heading">
+            <div><h2>受控操作计划</h2><p>风险由白名单定义派生，任务不能自行降低风险等级。</p></div>
+            <span id="operationCount" class="count-badge">0</span>
+          </div>
+          <div id="operationsEmpty" class="empty-state compact"><strong>没有待执行操作</strong><p>载入 V2 任务后在这里确认影响范围。</p></div>
+          <ol id="operationList" class="operation-list"></ol>
+          <div class="approval-block">
+            <label class="approval">
+              <input id="approval" type="checkbox" />
+              <span><strong>我已核对任务、图层、素材与输出位置</strong><small>执行会形成一个可撤销历史步骤；高风险输出仍由文件选择器逐项确认。</small></span>
+            </label>
+            <div class="button-row">
+              <button id="prepareFiles" class="button">准备素材与输出</button>
+              <button id="executePlan" class="button button-primary" disabled>执行受控计划</button>
+            </div>
+          </div>
+        </section>
 
-      <section class="execution-log">
-        <h2>执行日志</h2>
-        <pre id="log">插件已就绪。未执行任何 Photoshop 修改。</pre>
+        <section class="tab-panel" id="panel-review" role="tabpanel" aria-labelledby="tab-review" hidden>
+          <div class="section-heading">
+            <div><h2>技术与印前检查</h2><p>检查尺寸、分辨率、色彩、字体、文字变形、安全区和图层命名。</p></div>
+            <button id="runReview" class="button button-compact">运行预检</button>
+          </div>
+          <div id="reviewEmpty" class="empty-state compact"><strong>尚未生成检查结果</strong><p>技术预检不替代设计总监的视觉审查。</p></div>
+          <div id="reviewSummary" class="review-summary is-hidden">
+            <div class="score-block"><strong id="reviewScore">—</strong><span>技术分</span></div>
+            <div><strong id="reviewDisposition"></strong><p id="reviewNote"></p></div>
+          </div>
+          <ul id="issueList" class="issue-list"></ul>
+          <label id="highRiskApprovalBlock" class="approval approval-alert is-hidden">
+            <input id="highRiskApproval" type="checkbox" />
+            <span><strong>我已逐项核对并接受本次高风险预检问题</strong><small>确认仅绑定当前任务、当前 Photoshop 文档和当前预检报告；任一变化都会自动失效。</small></span>
+          </label>
+        </section>
+
+        <section class="tab-panel" id="panel-export" role="tabpanel" aria-labelledby="tab-export" hidden>
+          <div class="section-heading">
+            <div><h2>交付与证据</h2><p>输出可编辑源文件、审核图和带校验值的结果清单。</p></div>
+          </div>
+          <div class="deliverable-grid">
+            <div><strong>PSD</strong><span>可编辑图层源文件</span></div>
+            <div><strong>PNG / JPG</strong><span>审核与展示图</span></div>
+            <div><strong>Manifest</strong><span>操作、预检与 SHA-256</span></div>
+          </div>
+          <p id="exportHint" class="export-hint">完成任务执行和技术预检后生成交付清单。</p>
+          <div class="button-row">
+            <button id="saveManifest" class="button" disabled>保存结果清单</button>
+            <button id="exportLegacyPng" class="button" disabled>导出当前 PNG</button>
+          </div>
+        </section>
+      </div>
+
+      <section class="activity" aria-label="执行活动" aria-live="polite">
+        <button id="toggleLog" class="activity-toggle" aria-expanded="false" aria-controls="activityLog"><span>执行记录</span><strong id="lastActivity">插件已就绪</strong></button>
+        <pre id="activityLog" hidden>未执行任何 Photoshop 修改。</pre>
       </section>
+      <div id="busyOverlay" class="busy-overlay" hidden role="status" aria-live="assertive"><div class="busy-indicator"></div><strong id="busyMessage">处理中</strong></div>
     </main>
     <script src="index.js"></script>
   </body>

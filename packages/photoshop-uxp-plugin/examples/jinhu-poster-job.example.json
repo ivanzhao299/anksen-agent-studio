@@ -5,15 +5,15 @@
   "document": {
     "widthMm": 640,
     "heightMm": 1440,
-    "bleedMm": 3,
+    "bleedMm": 0,
     "resolution": 150,
     "colorMode": "RGB"
   },
   "content": {
-    "title": "金湖科创产业园",
-    "subtitle": "创新驱动发展  科技引领未来",
-    "features": ["科技创新", "产业协同", "企业服务"],
-    "slogan": "汇聚创新力量 · 共创产业未来"
+    "title": "聚势 · 共创",
+    "subtitle": "向新而行",
+    "features": ["创新策源", "产业协同", "企业成长"],
+    "slogan": "金湖科创产业园"
   },
   "operations": [
     "create_document",
@@ -29,6 +29,9 @@
   "governance": {
     "executionMode": "human_confirmed",
     "production": false,
-    "deploy": false
+    "deploy": false,
+    "approvedJobId": "JINHU-POSTER-001",
+    "approvalId": "local-demo-jinhu-poster-001",
+    "approvalSource": "LOCAL_DEMO"
   }
 }

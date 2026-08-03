@@ -1,5 +1,8 @@
 "use strict";
 
+const { findLayer, inspectDocument, inspectLayer, layerType } = require("./document-inspector.cjs");
+const { validateOperationPlan } = require("./operation-dsl.cjs");
+
 function resolvePhotoshop(dependencies = {}) {
   return dependencies.photoshop || require("photoshop");
 }
@@ -98,6 +101,27 @@ async function placeLogo(doc, logoEntry, layout, dependencies) {
   return logo;
 }
 
+async function placeImageAsCover(doc, entry, layout, dependencies) {
+  if (!entry) return null;
+  const { action, constants } = resolvePhotoshop(dependencies);
+  const token = resolveUxp(dependencies).storage.localFileSystem.createSessionToken(entry);
+  await action.batchPlay([{ _obj: "placeEvent", null: { _path: token, _kind: "local" }, linked: false, _isCommand: true }], {});
+  const layer = doc.activeLayers[0];
+  if (!layer) throw new Error("Placed key visual did not create an active layer.");
+  layer.name = "00_KEY_VISUAL_AI_主视觉智能对象";
+  const bounds = layer.bounds;
+  const currentWidth = Number(bounds.right) - Number(bounds.left);
+  const currentHeight = Number(bounds.bottom) - Number(bounds.top);
+  if (currentWidth <= 0 || currentHeight <= 0) throw new Error("Placed key visual has invalid bounds.");
+  const scale = Math.max(layout.width / currentWidth, layout.height / currentHeight) * 100;
+  await layer.scale(scale, scale, constants.AnchorPosition.MIDDLECENTER);
+  const next = layer.bounds;
+  const nextWidth = Number(next.right) - Number(next.left);
+  const nextHeight = Number(next.bottom) - Number(next.top);
+  await layer.translate((layout.width - nextWidth) / 2 - Number(next.left), (layout.height - nextHeight) / 2 - Number(next.top));
+  return layer;
+}
+
 async function renderPoster(job, layout, options = {}, dependencies = {}) {
   if (!options.approved) throw new Error("Human approval is required before Photoshop execution.");
   const photoshop = resolvePhotoshop(dependencies);
@@ -128,8 +152,13 @@ async function renderPoster(job, layout, options = {}, dependencies = {}) {
     let commitHistory = false;
     try {
       stage = "create_brand_background";
-      await createBrandBackground(action, layout.width, layout.height);
-      if (doc.activeLayers[0]) doc.activeLayers[0].name = "00_BACKGROUND_蓝白品牌渐变";
+      if (options.keyVisualEntry) {
+        const keyVisual = await placeImageAsCover(doc, options.keyVisualEntry, layout, dependencies);
+        await doc.createLayerGroup({ name: "00_VISUAL_主视觉与氛围", fromLayers: [keyVisual] });
+      } else {
+        await createBrandBackground(action, layout.width, layout.height);
+        if (doc.activeLayers[0]) doc.activeLayers[0].name = "00_BACKGROUND_蓝白品牌渐变";
+      }
 
       stage = "place_logo";
       const logo = await placeLogo(doc, options.logoEntry, layout, dependencies);
@@ -177,4 +206,165 @@ async function saveDocument(doc, format, dependencies = {}) {
   }, { commandName: `导出 ${extension.toUpperCase()}` });
 }
 
-module.exports = { createBrandBackground, renderPoster, saveDocument, solidColor };
+function snapshotLayer(layer) {
+  if (!layer) return null;
+  return inspectLayer(layer);
+}
+
+function operationEntry(options, operation) {
+  const entry = options.outputEntries?.[operation.operationId] || options.assetEntries?.[operation.parameters?.assetRef];
+  if (!entry) throw new Error(`A user-selected file entry is required for ${operation.operationId}.`);
+  return entry;
+}
+
+async function selectLayer(doc, layer, action) {
+  try {
+    doc.activeLayers = [layer];
+  } catch {
+    await action.batchPlay([{
+      _obj: "select",
+      _target: [{ _ref: "layer", _id: layer.id }],
+      makeVisible: false,
+      _options: { dialogOptions: "dontDisplay" }
+    }], {});
+  }
+}
+
+async function replaceSmartObject(doc, layer, operation, options, dependencies) {
+  if (layerType(layer) !== "SMART_OBJECT") throw new Error(`Layer ${layer.name} is not a smart object.`);
+  const photoshop = resolvePhotoshop(dependencies);
+  const entry = operationEntry(options, operation);
+  const token = resolveUxp(dependencies).storage.localFileSystem.createSessionToken(entry);
+  await selectLayer(doc, layer, photoshop.action);
+  await photoshop.action.batchPlay([{
+    _obj: "placedLayerReplaceContents",
+    null: { _path: token, _kind: "local" },
+    _options: { dialogOptions: "dontDisplay" }
+  }], {});
+  return { assetRef: operation.parameters.assetRef, fitMode: operation.parameters.fitMode, preserveTransform: operation.parameters.preserveTransform };
+}
+
+async function saveToSelectedEntry(doc, operation, options) {
+  const entry = operationEntry(options, operation);
+  const format = operation.parameters.format;
+  if (operation.operation === "SAVE_COPY" && format === "psd") await doc.saveAs.psd(entry, { embedColorProfile: true }, true);
+  else if (format === "jpg") await doc.saveAs.jpg(entry, { quality: operation.parameters.quality || 12 }, true);
+  else if (format === "png") await doc.saveAs.png(entry, {}, true);
+  else throw new Error(`Unsupported selected output format: ${format}`);
+  return { name: entry.name, format };
+}
+
+async function applyOperation(doc, operation, options = {}, dependencies = {}) {
+  const { app, action, constants } = resolvePhotoshop(dependencies);
+  if (operation.operation === "INSPECT_DOCUMENT") return inspectDocument(doc);
+  if (operation.operation === "CREATE_GROUP") {
+    const group = await doc.createLayerGroup({ name: operation.parameters.name });
+    return snapshotLayer(group);
+  }
+  if (operation.operation === "SAVE_COPY" || operation.operation === "EXPORT_DOCUMENT") return saveToSelectedEntry(doc, operation, options);
+  const layer = findLayer(doc, operation.target);
+  if (!layer) throw new Error(`Target layer was not found for ${operation.operationId}.`);
+  if (operation.operation === "SELECT_LAYER") {
+    await selectLayer(doc, layer, action);
+    return snapshotLayer(layer);
+  }
+  if (operation.operation === "RENAME_LAYER") layer.name = operation.parameters.name;
+  else if (operation.operation === "SET_VISIBILITY") layer.visible = operation.parameters.visible;
+  else if (operation.operation === "MOVE_LAYER") await layer.translate(operation.parameters.deltaX, operation.parameters.deltaY);
+  else if (operation.operation === "RESIZE_LAYER") await layer.scale(operation.parameters.scaleX, operation.parameters.scaleY, constants.AnchorPosition.MIDDLECENTER);
+  else if (operation.operation === "DUPLICATE_LAYER") {
+    const copy = await layer.duplicate();
+    if (operation.parameters.newName) copy.name = operation.parameters.newName;
+    return snapshotLayer(copy);
+  }
+  else if (operation.operation === "REPLACE_TEXT") {
+    if (layerType(layer) !== "TEXT" || !layer.textItem) throw new Error(`Layer ${layer.name} is not an editable text layer.`);
+    layer.textItem.contents = operation.parameters.text;
+  }
+  else if (operation.operation === "SET_TEXT_COLOR") {
+    if (layerType(layer) !== "TEXT" || !layer.textItem?.characterStyle) throw new Error(`Layer ${layer.name} does not expose editable character style.`);
+    layer.textItem.characterStyle.color = solidColor(app, operation.parameters.color);
+  }
+  else if (operation.operation === "REPLACE_SMART_OBJECT") return replaceSmartObject(doc, layer, operation, options, dependencies);
+  else throw new Error(`No executor is registered for ${operation.operation}.`);
+  return snapshotLayer(layer);
+}
+
+async function executeOperationPlan(document, inputOperations, options = {}, dependencies = {}) {
+  if (!options.approved) throw new Error("Human approval is required before Photoshop execution.");
+  const plan = validateOperationPlan(inputOperations);
+  const photoshop = resolvePhotoshop(dependencies);
+  const { core } = photoshop;
+  const results = [];
+  const newlyCompletedKeys = [];
+  let failedOperation = null;
+  try {
+    await core.executeAsModal(async executionContext => {
+      let suspension = null;
+      let commit = false;
+      try {
+        try {
+          suspension = await executionContext.hostControl.suspendHistory({ documentID: document.id, name: options.historyName || "ANKSEN：执行受控设计操作" });
+        } catch {
+          // A newly created document may reject history suspension. Modal execution remains mandatory.
+        }
+        for (let index = 0; index < plan.operations.length; index += 1) {
+          const operation = plan.operations[index];
+          failedOperation = operation;
+          if (executionContext.isCancelled || options.isCancelled?.()) throw new Error("USER_CANCELLED");
+          const alwaysRewriteOutput = operation.operation === "SAVE_COPY" || operation.operation === "EXPORT_DOCUMENT";
+          if (!alwaysRewriteOutput && options.completedIdempotencyKeys?.has(operation.idempotencyKey)) {
+            results.push({ operationId: operation.operationId, operation: operation.operation, idempotencyKey: operation.idempotencyKey, status: "SKIPPED_IDEMPOTENT", risk: operation.risk, durationMs: 0, before: null, after: null, rollbackHint: null });
+            continue;
+          }
+          executionContext.reportProgress?.({ value: index / plan.operations.length, commandName: `执行 ${operation.operation}` });
+          const layer = operation.target ? findLayer(document, operation.target) : null;
+          const before = layer ? snapshotLayer(layer) : operation.operation === "INSPECT_DOCUMENT" ? inspectDocument(document) : null;
+          const isOutput = operation.operation === "SAVE_COPY" || operation.operation === "EXPORT_DOCUMENT";
+          if (isOutput) {
+            if (typeof options.preflightBeforeOutput !== "function") throw new Error("PREFLIGHT_REQUIRED_BEFORE_OUTPUT");
+            const preflight = await options.preflightBeforeOutput({ document, operation });
+            if (!preflight || preflight.exportAllowed !== true || preflight.disposition === "BLOCKED") throw new Error("PREFLIGHT_BLOCKED_OUTPUT");
+          }
+          const startedAt = Date.now();
+          const output = await applyOperation(document, operation, options, dependencies);
+          const durationMs = Date.now() - startedAt;
+          results.push({
+            operationId: operation.operationId,
+            operation: operation.operation,
+            idempotencyKey: operation.idempotencyKey,
+            status: "COMPLETED",
+            risk: operation.risk,
+            durationMs,
+            before,
+            after: output,
+            rollbackHint: operation.write ? "Use the single ANKSEN history step or discard the unsaved document copy." : null
+          });
+          newlyCompletedKeys.push(operation.idempotencyKey);
+        }
+        executionContext.reportProgress?.({ value: 1, commandName: "完成受控设计操作" });
+        commit = true;
+      } finally {
+        if (suspension) await executionContext.hostControl.resumeHistory(suspension, commit);
+      }
+    }, { commandName: options.commandName || "ANKSEN 受控设计生产", timeOut: options.modalTimeoutSeconds || 10 });
+  } catch (error) {
+    const wrapped = new Error(`${failedOperation?.operationId || "operation-plan"}: ${describeError(error)}`);
+    wrapped.operationResults = results;
+    wrapped.failedOperation = failedOperation;
+    throw wrapped;
+  }
+  for (const key of newlyCompletedKeys) options.onOperationCompleted?.(key);
+  return { schemaVersion: 1, status: "COMPLETED", plan: plan.summary, results, inspection: inspectDocument(document) };
+}
+
+module.exports = {
+  applyOperation,
+  createBrandBackground,
+  executeOperationPlan,
+  renderPoster,
+  placeImageAsCover,
+  saveDocument,
+  selectLayer,
+  solidColor
+};

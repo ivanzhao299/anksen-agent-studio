@@ -2,53 +2,132 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://anksen-agent-studio.local/schemas/photoshop/design-job.schema.json",
   "title": "Governed Photoshop Design Job",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["jobId", "templateId", "templateVersion", "document", "content", "operations", "outputs", "requireApproval", "governance"],
-  "properties": {
-    "jobId": {"type": "string", "minLength": 1, "maxLength": 80},
-    "templateId": {"const": "jinhu-park-64x144-v1"},
-    "templateVersion": {"const": "1.0.0"},
-    "document": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["widthMm", "heightMm", "bleedMm", "resolution", "colorMode"],
-      "properties": {
-        "widthMm": {"const": 640},
-        "heightMm": {"const": 1440},
-        "bleedMm": {"const": 3},
-        "resolution": {"enum": [150, 200, 300]},
-        "colorMode": {"enum": ["RGB", "CMYK"]}
-      }
-    },
-    "content": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["title", "subtitle", "features", "slogan"],
-      "properties": {
-        "title": {"type": "string", "minLength": 1, "maxLength": 24},
-        "subtitle": {"type": "string", "minLength": 1, "maxLength": 40},
-        "features": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "string", "minLength": 1, "maxLength": 12}},
-        "slogan": {"type": "string", "minLength": 1, "maxLength": 40}
-      }
-    },
-    "operations": {
-      "type": "array",
-      "minItems": 1,
-      "uniqueItems": true,
-      "items": {"enum": ["create_document", "create_layer_groups", "place_approved_logo", "create_text_layers", "create_brand_background", "save_psd", "export_preview"]}
-    },
-    "outputs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["psd", "png", "jpg"]}},
-    "requireApproval": {"const": true},
+  "oneOf": [
+    { "$ref": "#/$defs/legacyJob" },
+    { "$ref": "#/$defs/operationJob" }
+  ],
+  "$defs": {
     "governance": {
       "type": "object",
-      "additionalProperties": false,
-      "required": ["executionMode", "production", "deploy"],
+      "required": ["executionMode", "production", "deploy", "approvedJobId", "approvalId", "approvalSource"],
       "properties": {
-        "executionMode": {"const": "human_confirmed"},
-        "production": {"const": false},
-        "deploy": {"const": false}
-      }
+        "executionMode": { "const": "human_confirmed" },
+        "production": { "const": false },
+        "deploy": { "const": false },
+        "approvedJobId": { "type": "string", "maxLength": 80 },
+        "approvalId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "approvalSource": { "enum": ["STUDIO", "LOCAL_DEMO"] }
+      },
+      "additionalProperties": false
+    },
+    "document": {
+      "type": "object",
+      "required": ["resolution", "colorMode"],
+      "properties": {
+        "widthMm": { "type": "number", "exclusiveMinimum": 0, "maximum": 10000 },
+        "heightMm": { "type": "number", "exclusiveMinimum": 0, "maximum": 10000 },
+        "widthPx": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "heightPx": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "bleedMm": { "type": "number", "minimum": 0, "maximum": 100 },
+        "safeMarginPx": { "type": "integer", "minimum": 0 },
+        "resolution": { "enum": [72, 96, 120, 150, 200, 240, 300, 600] },
+        "colorMode": { "enum": ["RGB", "CMYK"] }
+      },
+      "additionalProperties": false
+    },
+    "operation": {
+      "type": "object",
+      "required": ["operation"],
+      "properties": {
+        "operationId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "operation": { "enum": ["INSPECT_DOCUMENT", "SELECT_LAYER", "RENAME_LAYER", "SET_VISIBILITY", "MOVE_LAYER", "RESIZE_LAYER", "REPLACE_TEXT", "SET_TEXT_COLOR", "CREATE_GROUP", "DUPLICATE_LAYER", "REPLACE_SMART_OBJECT", "SAVE_COPY", "EXPORT_DOCUMENT"] },
+        "target": {
+          "oneOf": [
+            { "type": "object", "required": ["layerId"], "properties": { "layerId": { "type": "integer", "minimum": 1 } }, "additionalProperties": false },
+            { "type": "object", "required": ["layerName"], "properties": { "layerName": { "type": "string", "minLength": 1, "maxLength": 255 } }, "additionalProperties": false }
+          ]
+        },
+        "parameters": { "type": "object" },
+        "risk": { "enum": ["READ_ONLY", "MEDIUM", "HIGH"] },
+        "idempotencyKey": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "expectedResult": { "type": "string", "maxLength": 500 }
+      },
+      "additionalProperties": false
+    },
+    "legacyJob": {
+      "type": "object",
+      "required": ["jobId", "templateId", "templateVersion", "document", "content", "operations", "outputs", "requireApproval", "governance"],
+      "properties": {
+        "schemaVersion": { "enum": [1, null] },
+        "jobId": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "templateId": { "const": "jinhu-park-64x144-v1" },
+        "templateVersion": { "const": "1.0.0" },
+        "document": {
+          "allOf": [
+            { "$ref": "#/$defs/document" },
+            { "properties": { "widthMm": { "const": 640 }, "heightMm": { "const": 1440 }, "bleedMm": { "const": 0 } }, "required": ["widthMm", "heightMm", "bleedMm"] }
+          ]
+        },
+        "content": {
+          "type": "object",
+          "required": ["title", "subtitle", "features", "slogan"],
+          "properties": {
+            "title": { "type": "string", "minLength": 1, "maxLength": 24 },
+            "subtitle": { "type": "string", "minLength": 1, "maxLength": 40 },
+            "features": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "string", "minLength": 1, "maxLength": 12 } },
+            "slogan": { "type": "string", "minLength": 1, "maxLength": 40 }
+          },
+          "additionalProperties": false
+        },
+        "operations": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["create_document", "create_layer_groups", "place_approved_logo", "create_text_layers", "create_brand_background", "save_psd", "export_preview"] } },
+        "outputs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["psd", "png", "jpg"] } },
+        "requireApproval": { "const": true },
+        "governance": { "$ref": "#/$defs/governance" }
+      },
+      "additionalProperties": false
+    },
+    "operationJob": {
+      "type": "object",
+      "required": ["schemaVersion", "jobId", "title", "executionMode", "document", "operations", "outputs", "requireApproval", "governance"],
+      "properties": {
+        "schemaVersion": { "const": 2 },
+        "jobId": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "executionMode": { "const": "MODIFY_ACTIVE_DOCUMENT" },
+        "templateId": { "type": "string", "maxLength": 128 },
+        "templateVersion": { "type": "string", "maxLength": 40 },
+        "document": { "$ref": "#/$defs/document" },
+        "brief": {
+          "type": "object",
+          "properties": {
+            "goal": { "type": "string", "maxLength": 500 },
+            "audience": { "type": "string", "maxLength": 240 },
+            "requiredElements": { "type": "array", "items": { "type": "string", "maxLength": 160 } },
+            "forbiddenElements": { "type": "array", "items": { "type": "string", "maxLength": 160 } }
+          },
+          "additionalProperties": false
+        },
+        "sourceAssetRefs": { "type": "array", "items": { "type": "string", "maxLength": 128 } },
+        "operations": { "type": "array", "minItems": 1, "maxItems": 100, "items": { "$ref": "#/$defs/operation" } },
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["format"],
+            "properties": { "format": { "enum": ["psd", "png", "jpg"] }, "purpose": { "type": "string", "maxLength": 160 }, "required": { "type": "boolean" }, "preserveLayers": { "type": "boolean" } },
+            "additionalProperties": false
+          }
+        },
+        "reviewCriteria": {
+          "type": "object",
+          "properties": { "minimumFontSizePt": { "type": "number", "minimum": 6, "maximum": 400 }, "requireEditableText": { "type": "boolean" }, "requireSemanticLayerNames": { "type": "boolean" } },
+          "additionalProperties": false
+        },
+        "requireApproval": { "const": true },
+        "governance": { "$ref": "#/$defs/governance" }
+      },
+      "additionalProperties": false
     }
   }
 }

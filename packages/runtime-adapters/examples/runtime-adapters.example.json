@@ -206,7 +206,7 @@
       "runtime_id": "photoshop-uxp",
       "provider": "adobe",
       "invoke_mode": "browser",
-      "supported_skills": ["print_design", "poster_generation", "photoshop_document_generation", "design_preview_export"],
+      "supported_skills": ["print_design", "poster_generation", "photoshop_document_generation", "photoshop_document_inspection", "layer_tree_analysis", "smart_object_replace", "text_replace", "technical_preflight", "design_preview_export", "artifact_manifest"],
       "credential_reference_required": false,
       "network_required": false,
       "workspace_required": true,
@@ -222,6 +222,9 @@
         "no_managed_project_write",
         "human_approval_before_document_write",
         "approved_template_operations_only",
+        "whitelisted_operation_dsl_only",
+        "technical_preflight_before_delivery",
+        "artifact_manifest_sha256_required",
         "explicit_file_picker_for_external_paths",
         "runtime_activation_gate_required"
       ],

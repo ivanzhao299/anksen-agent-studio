@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 2,
+  "jobId": "jinhu-production-v2-example",
+  "title": "金湖科创产业园展板印前生产",
+  "executionMode": "MODIFY_ACTIVE_DOCUMENT",
+  "document": {
+    "widthMm": 640,
+    "heightMm": 1440,
+    "widthPx": 3780,
+    "heightPx": 8504,
+    "bleedMm": 0,
+    "safeMarginPx": 180,
+    "resolution": 150,
+    "colorMode": "RGB"
+  },
+  "brief": {
+    "goal": "把经确认的创意稿复现为可编辑、可检查、可交付的 Photoshop 生产文件。",
+    "audience": "园区访客、入驻企业与合作机构",
+    "requiredElements": ["金湖科创产业园名称", "园区品牌标识", "清晰视觉层级"],
+    "forbiddenElements": ["变形文字", "低可读性小字", "未授权品牌素材"]
+  },
+  "sourceAssetRefs": [],
+  "operations": [
+    { "operationId": "inspect-before", "operation": "INSPECT_DOCUMENT", "expectedResult": "读取当前文档规格和图层树" },
+    { "operationId": "replace-title", "operation": "REPLACE_TEXT", "target": { "layerName": "10_TITLE_园区名称" }, "parameters": { "text": "金湖科创产业园" }, "expectedResult": "标题保持可编辑且无文字变形" },
+    { "operationId": "save-source", "operation": "SAVE_COPY", "parameters": { "format": "psd", "suggestedName": "jinhu-production-v2.psd" }, "expectedResult": "保存含完整图层的 PSD 副本" },
+    { "operationId": "export-proof", "operation": "EXPORT_DOCUMENT", "parameters": { "format": "png", "suggestedName": "jinhu-production-v2.png" }, "expectedResult": "导出审核用 PNG" }
+  ],
+  "outputs": [
+    { "format": "psd", "purpose": "editable_source", "required": true, "preserveLayers": true },
+    { "format": "png", "purpose": "review_proof", "required": true }
+  ],
+  "reviewCriteria": { "minimumFontSizePt": 18, "requireEditableText": true, "requireSemanticLayerNames": true },
+  "requireApproval": true,
+  "governance": { "executionMode": "human_confirmed", "production": false, "deploy": false, "approvedJobId": "jinhu-production-v2-example", "approvalId": "local-demo-jinhu-production-v2", "approvalSource": "LOCAL_DEMO" }
+}

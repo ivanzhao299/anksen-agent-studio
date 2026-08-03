@@ -5,6 +5,9 @@
 const { validateJob } = require("../src/job-contract.cjs");
 const { createLayout, sampleJob } = require("../src/jinhu-template.cjs");
 const { renderPoster, saveDocument } = require("../src/photoshop-executor.cjs");
+const { inspectDocument } = require("../src/document-inspector.cjs");
+const { runPreflight } = require("../src/preflight-review.cjs");
+const { buildArtifactManifest } = require("../src/artifact-manifest.cjs");
 const { storage } = require("uxp");
 
 async function run() {
@@ -13,18 +16,35 @@ async function run() {
     types: ["jpg", "jpeg", "png"]
   });
   if (!logoEntry) throw new Error("Logo selection is required for the acceptance run.");
+  const keyVisualEntry = await storage.localFileSystem.getFileForOpening({
+    types: ["png", "jpg", "jpeg"]
+  });
+  if (!keyVisualEntry) throw new Error("Key visual selection is required for the acceptance run.");
 
   const document = await renderPoster(job, createLayout(job), {
     approved: true,
-    logoEntry
+    logoEntry,
+    keyVisualEntry
   });
   const psd = await saveDocument(document, "psd");
   if (!psd) throw new Error("PSD save is required for the acceptance run.");
   const png = await saveDocument(document, "png");
   if (!png) throw new Error("PNG export is required for the acceptance run.");
 
+  const inspection = inspectDocument(document);
+  const preflight = runPreflight(inspection, job);
+  const manifest = await buildArtifactManifest({
+    job,
+    executionResult: { status: "COMPLETED", plan: { total: job.operations.length, writes: job.operations.length } },
+    preflight,
+    outputEntries: [{ entry: psd, format: "psd" }, { entry: png, format: "png" }]
+  });
+  const resultEntry = await storage.localFileSystem.getFileForSaving("jinhu-design-production-v2-result.json", { types: ["json"] });
+  if (!resultEntry) throw new Error("Result manifest save is required for the acceptance run.");
+  await resultEntry.write(`${JSON.stringify(manifest, null, 2)}\n`);
+
   await require("photoshop").app.showAlert(
-    `ANKSEN Photoshop acceptance passed.\nPSD: ${psd.name}\nPNG: ${png.name}`
+    `ANKSEN Photoshop V2 acceptance passed.\nPreflight: ${preflight.disposition} / ${preflight.score}\nPSD: ${psd.name}\nPNG: ${png.name}\nManifest: ${resultEntry.name}`
   );
 }
 

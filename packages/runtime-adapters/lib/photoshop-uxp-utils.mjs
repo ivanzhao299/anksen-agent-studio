@@ -1,11 +1,37 @@
 const REQUIRED_PHOTOSHOP_GUARDRAILS = [
   "human_approval_before_document_write",
   "approved_template_operations_only",
+  "whitelisted_operation_dsl_only",
+  "technical_preflight_before_delivery",
+  "artifact_manifest_sha256_required",
   "explicit_file_picker_for_external_paths",
   "runtime_activation_gate_required"
 ];
 
 const forbiddenKeys = /^(api_key|secret|token|password|private_key|credential_value)$/i;
+const rawExecutionKeys = /^(batchplay|descriptor|javascript|script|eval|_obj|_target|_path)$/i;
+const v2Operations = new Set(["INSPECT_DOCUMENT", "SELECT_LAYER", "RENAME_LAYER", "SET_VISIBILITY", "MOVE_LAYER", "RESIZE_LAYER", "REPLACE_TEXT", "SET_TEXT_COLOR", "CREATE_GROUP", "DUPLICATE_LAYER", "REPLACE_SMART_OBJECT", "SAVE_COPY", "EXPORT_DOCUMENT"]);
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+  return JSON.stringify(value);
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function preflightReportSha256(preflight) {
+  if (!preflight || !Array.isArray(preflight.issues)) return null;
+  return sha256(stableStringify({
+    score: preflight.score,
+    disposition: preflight.disposition,
+    exportAllowed: preflight.exportAllowed,
+    note: preflight.note || null,
+    issues: preflight.issues
+  }));
+}
 
 function findForbiddenCredentialValues(value, path = []) {
   if (!value || typeof value !== "object") return [];
@@ -18,6 +44,38 @@ function findForbiddenCredentialValues(value, path = []) {
   return findings;
 }
 
+function findRawExecutionFields(value, path = []) {
+  if (!value || typeof value !== "object") return [];
+  const findings = [];
+  for (const [key, child] of Object.entries(value)) {
+    const next = [...path, key];
+    if (rawExecutionKeys.test(key)) findings.push(next.join("."));
+    findings.push(...findRawExecutionFields(child, next));
+  }
+  return findings;
+}
+
+function validateOperationBoundary(job) {
+  if (Number(job?.schemaVersion || 1) !== 2) return [];
+  if (!Array.isArray(job.operations) || job.operations.length === 0 || job.operations.length > 100) return ["V2 job requires 1 to 100 operations."];
+  const blockers = [];
+  const ids = new Set();
+  let outputPhase = false;
+  for (const [index, operation] of job.operations.entries()) {
+    const operationName = String(operation?.operation || "").toUpperCase();
+    if (!v2Operations.has(operationName)) blockers.push(`Unsupported Photoshop operation at index ${index}.`);
+    if (!operation?.operationId || ids.has(operation.operationId)) blockers.push(`Operation IDs must be present and unique at index ${index}.`);
+    ids.add(operation?.operationId);
+    if (operation?.timeoutMs != null) blockers.push(`Per-operation timeout is not supported at index ${index}; Photoshop host calls cannot be safely interrupted.`);
+    const isOutput = operationName === "SAVE_COPY" || operationName === "EXPORT_DOCUMENT";
+    if (!isOutput && outputPhase) blockers.push(`All Photoshop output operations must form the terminal suffix of the plan; mutation found at index ${index}.`);
+    if (isOutput) outputPhase = true;
+  }
+  const rawPaths = findRawExecutionFields(job.operations);
+  if (rawPaths.length) blockers.push(`Raw Photoshop execution fields are forbidden: ${rawPaths.join(", ")}`);
+  return blockers;
+}
+
 export function evaluatePhotoshopUxpActivation({ adapter, proposal, node, job }) {
   const blockers = [];
   if (!adapter || adapter.adapter_id !== "photoshop-uxp") blockers.push("Photoshop UXP adapter is not registered.");
@@ -27,6 +85,8 @@ export function evaluatePhotoshopUxpActivation({ adapter, proposal, node, job })
   }
   if (proposal?.status !== "APPROVED") blockers.push("A Studio proposal approval is required.");
   if (proposal?.approved_job_id !== job?.jobId) blockers.push("Approval is not bound to this Photoshop job.");
+  if (!job?.governance?.approvalId || job?.governance?.approvedJobId !== job?.jobId || job?.governance?.approvalSource !== "STUDIO") blockers.push("Job approval provenance is missing or is not Studio-issued.");
+  if (proposal?.approval_id !== job?.governance?.approvalId) blockers.push("Proposal approval ID is not bound to the job approval provenance.");
   if (node?.photoshop_running !== true) blockers.push("Photoshop node is not running.");
   if (node?.uxp_plugin_loaded !== true) blockers.push("UXP plugin is not loaded.");
   if (node?.interactive_user_session !== true) blockers.push("An interactive user session is required.");
@@ -34,6 +94,7 @@ export function evaluatePhotoshopUxpActivation({ adapter, proposal, node, job })
   if (job?.governance?.production !== false || job?.governance?.deploy !== false) blockers.push("Production and deployment flags must remain false.");
   const forbiddenPaths = findForbiddenCredentialValues({ proposal, node, job });
   if (forbiddenPaths.length) blockers.push(`Credential values are forbidden: ${forbiddenPaths.join(", ")}`);
+  blockers.push(...validateOperationBoundary(job));
   return {
     status: blockers.length ? "BLOCKED" : "READY_FOR_INTERACTIVE_CONFIRMATION",
     blockers,
@@ -46,7 +107,7 @@ export function evaluatePhotoshopUxpActivation({ adapter, proposal, node, job })
 export function buildPhotoshopUxpDispatchPlan(input) {
   const activation = evaluatePhotoshopUxpActivation(input);
   return {
-    schema_version: 1,
+    schema_version: 2,
     adapter_id: "photoshop-uxp",
     runtime_id: "photoshop-uxp",
     job_id: input.job?.jobId ?? null,
@@ -56,6 +117,13 @@ export function buildPhotoshopUxpDispatchPlan(input) {
     credential_reference_id: input.credentialReferenceId ?? null,
     credential_values_read: false,
     external_calls: "disabled",
+    operation_dsl_version: Number(input.job?.schemaVersion || 1) === 2 ? 1 : null,
+    capability_status: {
+      studio_dispatch: "DRY_RUN_ONLY",
+      photoshop_execution: "INTERACTIVE_CONFIRMATION_REQUIRED",
+      technical_preflight: "PLUGIN_ENFORCED",
+      artifact_manifest: "PLUGIN_ENFORCED"
+    },
     steps: [
       "Resolve the existing Photoshop UXP adapter from Runtime Adapter Marketplace.",
       "Verify proposal approval is bound to the exact design job.",
@@ -67,4 +135,36 @@ export function buildPhotoshopUxpDispatchPlan(input) {
   };
 }
 
-export { REQUIRED_PHOTOSHOP_GUARDRAILS };
+export function evaluatePhotoshopUxpResult({ job, result }) {
+  const blockers = [];
+  const jobId = job?.jobId;
+  if (!jobId) blockers.push("The dispatched Photoshop job is required for result verification.");
+  if (!result || result.kind !== "PHOTOSHOP_DESIGN_RESULT") blockers.push("Result manifest kind is invalid.");
+  if (result?.schemaVersion !== 1) blockers.push("Result manifest schema version is invalid.");
+  if (result?.jobId !== jobId) blockers.push("Result manifest is not bound to the dispatched job.");
+  if (result?.status !== "COMPLETED") blockers.push("Photoshop execution is not completed.");
+  const expectedJobSpecSha256 = job ? sha256(stableStringify(job)) : null;
+  if (!/^[a-f0-9]{64}$/i.test(result?.jobSpecSha256 || "") || result?.jobSpecSha256 !== expectedJobSpecSha256) blockers.push("Result is not bound to the exact dispatched job specification.");
+  if (result?.approvedDocumentId == null) blockers.push("Result is not bound to an approved Photoshop document.");
+  if (result?.approvalId !== job?.governance?.approvalId || result?.approvalSource !== "STUDIO") blockers.push("Result approval provenance is invalid.");
+  if (!/^[a-f0-9]{64}$/i.test(result?.manifestSha256 || "")) blockers.push("Result manifest SHA-256 is missing or invalid.");
+  else {
+    const { manifestSha256, ...unsignedManifest } = result;
+    if (sha256(stableStringify(unsignedManifest)) !== manifestSha256) blockers.push("Result manifest SHA-256 does not match its canonical content.");
+  }
+  if (!Array.isArray(result?.artifacts) || result.artifacts.length === 0) blockers.push("Result manifest contains no artifacts.");
+  for (const [index, artifact] of (result?.artifacts || []).entries()) {
+    if (!artifact?.name || !artifact?.format) blockers.push(`Artifact ${index} identity is incomplete.`);
+    if (!/^[a-f0-9]{64}$/i.test(artifact?.sha256 || "")) blockers.push(`Artifact ${index} SHA-256 is missing or invalid.`);
+    if (!Number.isInteger(artifact?.sizeBytes) || artifact.sizeBytes <= 0) blockers.push(`Artifact ${index} size is invalid.`);
+  }
+  const requiredFormats = (job?.outputs || []).filter(output => typeof output === "string" || output.required !== false).map(output => typeof output === "string" ? output : output.format);
+  for (const format of requiredFormats) if (!(result?.artifacts || []).some(artifact => artifact.format === format)) blockers.push(`Required ${format} output is missing.`);
+  if (!result?.preflight || result.preflight.exportAllowed !== true || !["READY", "REQUIRES_CONFIRMATION"].includes(result.preflight.disposition) || !Number.isInteger(result.preflight.issueCount) || result.preflight.issueCount !== result.preflight.issues?.length || !result.preflight.checkedAt || !/^[a-f0-9]{64}$/i.test(result.preflight.reportSha256 || "") || result.preflight.reportSha256 !== preflightReportSha256(result.preflight)) blockers.push("A complete, canonically checksummed technical preflight is required.");
+  if (result?.governance?.humanConfirmed !== true || result?.governance?.approvedJobId !== jobId || result?.governance?.approvalId !== job?.governance?.approvalId || result?.governance?.approvalSource !== "STUDIO" || result?.governance?.production !== false || result?.governance?.deploy !== false) blockers.push("Result governance evidence is incomplete or invalid.");
+  if (result?.preflight?.disposition === "REQUIRES_CONFIRMATION" && (result?.governance?.highRiskConfirmed !== true || result?.governance?.highRiskReportSha256 !== result.preflight.reportSha256)) blockers.push("High-risk preflight issues require a second confirmation bound to the exact report.");
+  return { status: blockers.length ? "BLOCKED" : "READY_FOR_HUMAN_VISUAL_REVIEW", blockers, credential_values_read: false };
+}
+
+export { REQUIRED_PHOTOSHOP_GUARDRAILS, validateOperationBoundary };
+import { createHash } from "node:crypto";
