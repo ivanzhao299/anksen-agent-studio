@@ -1,0 +1,34 @@
+{
+  "jobId": "JINHU-POSTER-001",
+  "templateId": "jinhu-park-64x144-v1",
+  "templateVersion": "1.0.0",
+  "document": {
+    "widthMm": 640,
+    "heightMm": 1440,
+    "bleedMm": 3,
+    "resolution": 150,
+    "colorMode": "RGB"
+  },
+  "content": {
+    "title": "金湖科创产业园",
+    "subtitle": "创新驱动发展  科技引领未来",
+    "features": ["科技创新", "产业协同", "企业服务"],
+    "slogan": "汇聚创新力量 · 共创产业未来"
+  },
+  "operations": [
+    "create_document",
+    "create_layer_groups",
+    "place_approved_logo",
+    "create_text_layers",
+    "create_brand_background",
+    "save_psd",
+    "export_preview"
+  ],
+  "outputs": ["psd", "png"],
+  "requireApproval": true,
+  "governance": {
+    "executionMode": "human_confirmed",
+    "production": false,
+    "deploy": false
+  }
+}

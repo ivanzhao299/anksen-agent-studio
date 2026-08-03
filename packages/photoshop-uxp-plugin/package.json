@@ -1,0 +1,17 @@
+{
+  "name": "@anksen-agent-studio/photoshop-uxp-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "node scripts/validate.mjs",
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "verify:artifacts": "node scripts/verify-artifacts.mjs",
+    "package:prepare": "node scripts/build.mjs --package",
+    "package:ccx": "node scripts/build.mjs --package && node scripts/package-ccx.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

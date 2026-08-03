@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "adapter_id": "photoshop-uxp",
+  "runtime_id": "photoshop-uxp",
+  "job_id": "JINHU-POSTER-001",
+  "dry_run": true,
+  "execution_status": "blocked",
+  "activation": {
+    "status": "BLOCKED",
+    "blockers": ["Photoshop UXP adapter health is not healthy."],
+    "credential_values_read": false,
+    "external_calls": "disabled",
+    "execution_mode": "human_confirmed"
+  },
+  "credential_reference_id": null,
+  "credential_values_read": false,
+  "external_calls": "disabled",
+  "steps": [
+    "Resolve the existing Photoshop UXP adapter from Runtime Adapter Marketplace.",
+    "Verify proposal approval is bound to the exact design job.",
+    "Verify Photoshop, the UXP plugin, and an interactive user session are healthy.",
+    "Deliver the validated job to the plugin without arbitrary Photoshop commands.",
+    "Require the user to confirm in the plugin panel before executeAsModal.",
+    "Return artifact references through the existing Studio task result boundary."
+  ]
+}

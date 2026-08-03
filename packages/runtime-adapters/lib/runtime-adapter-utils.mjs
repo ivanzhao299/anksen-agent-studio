@@ -20,7 +20,8 @@ const requiredAdapters = [
   "qwen-plus",
   "openhands",
   "aider",
-  "local-agent"
+  "local-agent",
+  "photoshop-uxp"
 ];
 const requiredGuardrails = [
   "dry_run_invocation_plan_only",

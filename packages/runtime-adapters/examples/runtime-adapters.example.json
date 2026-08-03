@@ -200,6 +200,32 @@
       "risk_baseline": "MEDIUM",
       "guardrails": ["professional_capability_probe_required", "artifact_root_only", "no_publish", "no_deploy", "no_production_operation", "credential_reference_only", "human_approval_for_footage"],
       "notes": "Execution is fail-closed until the selected professional profile passes Skill, tool and credential-reference probes."
+    },
+    {
+      "adapter_id": "photoshop-uxp",
+      "runtime_id": "photoshop-uxp",
+      "provider": "adobe",
+      "invoke_mode": "browser",
+      "supported_skills": ["print_design", "poster_generation", "photoshop_document_generation", "design_preview_export"],
+      "credential_reference_required": false,
+      "network_required": false,
+      "workspace_required": true,
+      "max_parallel_tasks": 1,
+      "health_status": "disabled",
+      "risk_baseline": "HIGH",
+      "guardrails": [
+        "dry_run_invocation_plan_only",
+        "no_model_invocation",
+        "no_secret_value_read",
+        "no_deploy",
+        "no_production_operation",
+        "no_managed_project_write",
+        "human_approval_before_document_write",
+        "approved_template_operations_only",
+        "explicit_file_picker_for_external_paths",
+        "runtime_activation_gate_required"
+      ],
+      "notes": "Photoshop UXP execution endpoint. Disabled by default. Local JSON preview requires explicit human confirmation; Studio-connected execution additionally requires the existing Runtime Activation and approval gates."
     }
   ]
 }

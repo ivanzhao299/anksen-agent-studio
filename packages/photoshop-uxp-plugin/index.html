@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>ANKSEN Studio</title>
+  </head>
+  <body>
+    <main class="panel">
+      <header class="brand">
+        <div class="brand-mark">AS</div>
+        <div>
+          <h1>ANKSEN Studio</h1>
+          <p>Photoshop 受控设计执行端</p>
+        </div>
+      </header>
+
+      <section class="status-card">
+        <div class="status-row"><span>连接模式</span><strong id="connectionMode">本地受控</strong></div>
+        <div class="status-row"><span>任务状态</span><strong id="jobStatus">待导入</strong></div>
+        <div class="status-row"><span>模板</span><strong id="templateName">金湖科创产业园</strong></div>
+      </section>
+
+      <section>
+        <h2>任务</h2>
+        <div class="actions">
+          <button id="loadJob" class="secondary">导入任务 JSON</button>
+          <button id="loadLogo" class="secondary">选择 Logo</button>
+          <button id="useSample" class="secondary">载入内置示例</button>
+        </div>
+      </section>
+
+      <section id="summary" class="summary" aria-live="polite">
+        <p>导入经 Studio 审批的任务，或使用内置金湖模板进行本地预览。</p>
+      </section>
+
+      <label class="approval">
+        <input id="approval" type="checkbox" />
+        <span>我已确认内容、尺寸与输出位置</span>
+      </label>
+
+      <section class="actions primary-actions">
+        <button id="renderPreview" class="primary" disabled>生成可编辑 PSD</button>
+        <button id="exportPreview" class="secondary" disabled>导出 PNG</button>
+      </section>
+
+      <section class="execution-log">
+        <h2>执行日志</h2>
+        <pre id="log">插件已就绪。未执行任何 Photoshop 修改。</pre>
+      </section>
+    </main>
+    <script src="index.js"></script>
+  </body>
+</html>
