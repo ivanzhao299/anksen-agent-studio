@@ -10,7 +10,7 @@ test("accepts the governed Jinhu poster job", () => {
   const job = validateJob(sampleJob());
   assert.equal(job.templateId, "jinhu-park-64x144-v1");
   assert.equal(job.document.widthMm, 640);
-  assert.deepEqual(job.content.features, ["创新策源", "产业协同", "企业成长"]);
+  assert.deepEqual(job.content.features, ["科创孵化", "产业协同", "成果转化"]);
 });
 
 test("requires explicit human approval mode", () => {

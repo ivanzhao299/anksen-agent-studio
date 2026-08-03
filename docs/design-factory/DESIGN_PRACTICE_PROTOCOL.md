@@ -49,7 +49,7 @@
 
 | 阶段 | 核心活动 | 必须形成的证据 | 主要方法资源 | 通过条件 |
 | --- | --- | --- | --- | --- |
-| 0 任务建模 | 明确目的、受众、环境、介质、尺寸、材料和交付物 | Design Brief、规格表、未知项 | 现场资料、品牌资料 | 关键物理规格无未知项 |
+| 0 任务建模 | 明确目的、受众、环境、介质、尺寸和交付物 | Design Brief、规格表、默认生产预设 | 现场资料、品牌资料 | 已有尺寸和用途即可进入创作；其余采用可追溯默认值 |
 | 1 研究与诊断 | 品牌、受众、竞品、空间和历史作品分析 | Insight Map、问题陈述、反模板清单 | 案例库、Awesome DESIGN.md | 结论有来源且没有照搬品牌 |
 | 2 创意发散 | 形成不同视觉假设 | 2–4 个 Concept Cards、风险和证伪条件 | AI 推演、草图、情绪板 | 方向在命题与构图上有真实差异 |
 | 3 文案编辑 | 建立阅读层级与信息节奏 | Copy Deck、事实来源、字数预算 | 文案推演、人工核对 | 每句话有目的、优先级和距离 |
@@ -58,7 +58,7 @@
 | 6 素材创造 | 生成、拍摄、绘制或寻找主视觉 | Asset Ledger、来源、授权、分辨率、选片理由 | GPT Image、Flux、摄影、插画、3D | 主素材满足尺寸和裁切需求 |
 | 7 Photoshop 制作 | 精确复现构图、合成、排版、光影和材质 | 分层 PSD、工具意图卡、制作快照 | Photoshop 原生能力 | 非破坏、语义分层、文字可编辑 |
 | 8 设计总监审查 | 审查创意、层级、节奏、品牌和完成度 | Critique Report、问题优先级 | Taste、设计总监、对照测试 | P1/P2 视觉问题关闭 |
-| 9 技术与印前 | 检查尺寸、出血、字体、图像、色彩和输出 | Preflight Report、软打样说明 | Photoshop、PDF/印前检查 | BLOCKER 为 0，HIGH 已绑定确认 |
+| 9 技术与输出 | 检查尺寸、分辨率、字体、图像、色彩和输出 | Preflight Report、自动修复记录 | Photoshop、PDF 检查 | 文件有效、目标像素与画面检查通过 |
 | 10 交付与学习 | 输出、追溯并沉淀有效判断 | PSD/PDF/PNG、Manifest、Decision Log、Learning Note | Studio Memory、知识库 | 文件、哈希、来源和决策完整 |
 
 每个阶段既可由一个 Agent 完成，也可由多个 Agent/工具共同完成；调度方式由现有 Studio 决定，协议不固化角色组织。
@@ -113,10 +113,19 @@ Photoshop 不是创意来源，也不是把低质量方案“加滤镜变高级�
 - **视觉审查**：构图、层级、字体、色彩、材质和细节是否达到设计师水平；
 - **技术审查**：尺寸、分辨率、色彩空间、出血、字体、链接和文件是否可生产。
 
-技术评分通过不能抵消视觉平庸；视觉惊艳也不能绕过技术 BLOCKER。
+技术评分通过不能抵消视觉平庸；技术问题优先进入自动修复与重跑，不把外部参数缺失设置为等待点。
 
 ## 9. 与 Studio 的集成边界
 
 现有 Goal 和 Planner 接收本协议生成的 Practice Plan，并把阶段证据映射到现有 Task Graph。Skill Router 只解析受控参考和方法能力；Photoshop Adapter 只执行批准后的白名单生产操作；Review 与 Memory 记录证据和学习。任何 SKILL 都不得自行创建任务、启动 Runtime、越过审批或把参考内容直接写入生产文件。
 
-Practice Plan 分开报告三种就绪度：`plannerReadiness` 判断是否可以进入现有 Planner，`photoshopProductionReadiness` 判断是否具备尺寸、观看距离和品牌资产等制作条件，`pressReadiness` 判断印厂 ICC/材料规范是否已确认。可以先进行 Photoshop 创意制作，但不能把“可制作”误报为“可直接送印”。V2 Photoshop Job 必须携带 Practice Plan 的 evidenceHash、批准方向、已通过阶段门和 Tool Intent IDs；插件与 Adapter 都会独立校验其结构及操作—意图对应关系。
+Practice Plan 分开报告两种就绪度：`plannerReadiness` 判断是否可以进入现有 Planner，`photoshopProductionReadiness` 判断是否已有尺寸、用途和品牌资产。印厂 ICC、材料和额外出血如果未提供，直接采用 Design Factory 的介质默认生产预设并记录，不暂停创作、Photoshop 制作或成果输出；后续明确参数只触发派生输出，不推翻 RGB 母版。V2 Photoshop Job 必须携带 Practice Plan 的 evidenceHash、批准方向、已通过阶段门和 Tool Intent IDs；插件与 Adapter 都会独立校验其结构及操作—意图对应关系。
+
+## 10. 结果优先的自动推进规则
+
+1. 用户给出尺寸、用途和品牌资产后立即建立默认生产规格，不等待印厂回答；
+2. 每个阶段只产出下一阶段必需的证据，禁止“什么都 HOLD”；
+3. 视觉问题进入“诊断 → 单变量修正 → Photoshop 重跑 → 同尺度复查”；
+4. 尺寸、文字变形、缺失文件等确定性问题自动修复，不能用提示报告代替动手；
+5. 只有文件不可读、目标尺寸互相矛盾或必需品牌资产实际缺失时才报告失败；
+6. 成果、脚本、判断记录和测试必须在同一轮提交，形成下一次可直接调用的能力。

@@ -119,6 +119,6 @@ test("renders the governed job inside one modal history operation", async () => 
   assert.equal(h.calls.filter(call => call[0] === "document").length, 1);
   assert.equal(h.calls.filter(call => call[0] === "text").length, 6);
   assert.equal(h.calls.filter(call => call[0] === "group").length, 2);
-  assert.deepEqual(h.calls.find(call => call[0] === "text")[1].textColor.rgb, { red: 246, green: 248, blue: 251 });
+  assert.deepEqual(h.calls.find(call => call[0] === "text")[1].textColor.rgb, { red: 10, green: 32, blue: 71 });
   assert.equal(h.calls.filter(call => call[0] === "resume").at(-1)[2], true);
 });

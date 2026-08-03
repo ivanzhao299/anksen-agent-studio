@@ -538,8 +538,8 @@ async function initialize() {
   renderPreflight();
   try {
     state.logoEntry = await storage.localFileSystem.getEntryWithUrl("plugin:/assets/jinhu-logo.jpg");
-    state.keyVisualEntry = await storage.localFileSystem.getEntryWithUrl("plugin:/assets/jinhu-key-visual-v2.png");
-    setText("assetStatus", "内置金湖科创产业园 Logo 已准备。");
+    state.keyVisualEntry = await storage.localFileSystem.getEntryWithUrl("plugin:/assets/jinhu-key-visual-v3.png");
+    setText("assetStatus", "内置 V3 创新之门主视觉与金湖 Logo 已准备。");
   } catch (error) {
     setText("assetStatus", "内置生产素材不完整，请手动选择 Logo。");
     log(`内置生产素材未载入：${describeError(error)}`);

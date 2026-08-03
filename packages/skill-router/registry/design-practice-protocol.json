@@ -35,7 +35,7 @@
       { "resource_id": "taste-skill", "preset_id": "taste", "role": "visual_judgment", "scope": "advisory_not_print_acceptance" },
       { "resource_id": "impeccable", "preset_id": "impeccable", "role": "interface_craft_when_surface_is_ui", "scope": "ui_only_not_photoshop_or_print" }
     ] },
-    { "id": "TECHNICAL_PREFLIGHT", "sequence": 9, "name": "技术与印前", "required_evidence": ["preflight_report", "soft_proof_note", "output_spec"], "gate": "zero_blockers_and_confirmed_high_risk", "capability_contributions": [] },
+    { "id": "TECHNICAL_PREFLIGHT", "sequence": 9, "name": "技术与输出", "required_evidence": ["preflight_report", "auto_fix_log", "output_spec"], "gate": "target_pixels_files_and_render_valid", "capability_contributions": [] },
     { "id": "DELIVERY_LEARNING", "sequence": 10, "name": "交付与学习", "required_evidence": ["artifact_manifest", "decision_log", "learning_note"], "gate": "artifacts_traceable_and_learning_captured", "capability_contributions": [] }
   ],
   "photoshop_intents": {
@@ -44,7 +44,7 @@
     "SPATIAL_DEPTH": { "capabilities": ["smart_object", "perspective_warp", "path", "blend_if", "mask"], "purpose": "unify_scale_perspective_and_depth", "rollback": "transform_and_mask_remain_editable", "qa": ["contact_shadow", "scale", "horizon", "atmospheric_depth"], "prohibited": ["light_effects_before_perspective"] },
     "COLOR_GRADE": { "capabilities": ["curves", "selective_color", "color_balance", "gradient_map", "camera_raw_smart_filter"], "purpose": "unify_materials_and_brand_color_relationships", "rollback": "adjustment_layers_and_smart_filters", "qa": ["neutral_balance", "local_global_separation", "gamut", "material_fidelity"], "prohibited": ["destructive_global_filter", "one_click_brand_tint"] },
     "MATERIAL_DETAIL": { "capabilities": ["smart_filter", "texture", "displacement", "noise", "mask"], "purpose": "add_scale_appropriate_surface_character", "rollback": "smart_filter_and_mask", "qa": ["texture_scale", "light_consistency", "banding", "overprocessing"], "prohibited": ["uniform_noise_over_type"] },
-    "PRESS_OUTPUT": { "capabilities": ["proof_colors", "gamut_warning", "channels", "info_panel", "export_control"], "purpose": "produce_a_printer_specific_reproducible_file", "rollback": "separate_rgb_master_and_cmyk_derivative", "qa": ["icc_profile", "total_ink", "black_plate", "trim_bleed", "artifact_hash"], "prohibited": ["overwrite_rgb_master", "invent_printer_profile"] }
+    "PRESS_OUTPUT": { "capabilities": ["proof_colors", "gamut_warning", "channels", "info_panel", "export_control"], "purpose": "produce_a_reproducible_output_with_explicit_or_default_profile", "rollback": "separate_rgb_master_and_cmyk_derivative", "qa": ["output_profile", "target_pixels", "black_plate", "trim_bleed", "artifact_hash"], "prohibited": ["overwrite_rgb_master", "silent_profile_switch"] }
   },
   "innovation": {
     "minimum_concepts": 2,

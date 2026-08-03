@@ -97,6 +97,10 @@ async function placeLogo(doc, logoEntry, layout, dependencies) {
       const next = logo.bounds;
       await logo.translate(layout.logo.x - Number(next.left), layout.logo.y - Number(next.top));
     }
+    try { logo.blendMode = constants.BlendMode.MULTIPLY; } catch {
+      // Older hosts may not expose BlendMode on placed layers. The source
+      // remains editable and the production JSX applies the same correction.
+    }
   }
   return logo;
 }
@@ -143,7 +147,7 @@ async function renderPoster(job, layout, options = {}, dependencies = {}) {
     try {
       suspension = await executionContext.hostControl.suspendHistory({
         documentID: doc.id,
-        name: "ANKSEN：生成金湖科创产业园展板"
+        name: "ANKSEN：生成金湖创新之门展板"
       });
     } catch {
       // Photoshop 27.9 can reject suspendHistory for a just-created document.
@@ -186,7 +190,7 @@ async function renderPoster(job, layout, options = {}, dependencies = {}) {
         if (commitHistory) throw new Error(`resume_history: ${describeError(error)}`);
       }
     }
-    }, { commandName: "生成金湖科创产业园展板", interactiveMode: false });
+    }, { commandName: "生成金湖创新之门展板", interactiveMode: false });
   } catch (error) {
     throw new Error(`${stage}: ${describeError(error)}`);
   }

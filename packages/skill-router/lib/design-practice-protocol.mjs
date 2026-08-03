@@ -22,16 +22,28 @@ function normalizeRequest(input = {}) {
   const medium = String(input.medium || "").toUpperCase();
   if (!supportedMedia.has(medium)) throw Object.assign(new Error("DESIGN_MEDIUM_INVALID"), { code: "DESIGN_MEDIUM_INVALID" });
   const intents = [...new Set((input.photoshopIntents || []).map(value => String(value).toUpperCase()))];
+  const usesPhysicalOutput = new Set(["PRINT", "ENVIRONMENT", "HYBRID"]).has(medium);
+  const suppliedSpec = input.physicalSpec || {};
+  const physicalSpec = usesPhysicalOutput ? {
+    ...suppliedSpec,
+    bleedMm: Number.isFinite(suppliedSpec.bleedMm) && suppliedSpec.bleedMm >= 0 ? suppliedSpec.bleedMm : 0,
+    resolutionPpi: positive(suppliedSpec.resolutionPpi) ? suppliedSpec.resolutionPpi : 150,
+    targetColorSpace: String(suppliedSpec.targetColorSpace || "CMYK_FOGRA39").trim()
+  } : input.physicalSpec || null;
+  const viewing = {
+    ...(input.viewing || {}),
+    ...(usesPhysicalOutput && !positive(input.viewing?.distanceMeters) ? { distanceMeters: 3 } : {})
+  };
   return {
     designTaskId: input.designTaskId,
     artifactType: String(input.artifactType || "UNSPECIFIED").toUpperCase(),
     medium,
     objective: String(input.objective || "").trim(),
     audience: String(input.audience || "").trim(),
-    viewing: input.viewing || {},
-    physicalSpec: input.physicalSpec || null,
+    viewing,
+    physicalSpec,
     brandAssetsStatus: String(input.brandAssetsStatus || "UNKNOWN").toUpperCase(),
-    printerProfileStatus: String(input.printerProfileStatus || "UNKNOWN").toUpperCase(),
+    printerProfileStatus: String(input.printerProfileStatus || (usesPhysicalOutput ? "DESIGN_FACTORY_DEFAULT" : "NOT_APPLICABLE")).toUpperCase(),
     innovationMode: String(input.innovationMode || "STANDARD").toUpperCase(),
     photoshopIntents: intents,
     surfaceIsUi: input.surfaceIsUi === true
@@ -107,8 +119,15 @@ export class DesignPracticeProtocol {
       ...physicalSpecBlockers(request),
       ...(request.brandAssetsStatus === "READY" ? [] : ["BRAND_ASSETS_NOT_READY"])
     ];
-    const needsPrinterProfile = new Set(["PRINT", "ENVIRONMENT", "HYBRID"]).has(request.medium);
-    const pressBlockers = needsPrinterProfile && request.printerProfileStatus !== "CONFIRMED" ? ["PRINTER_PROFILE_NOT_CONFIRMED"] : [];
+    const needsOutputProfile = new Set(["PRINT", "ENVIRONMENT", "HYBRID"]).has(request.medium);
+    const usesConfirmedProfile = needsOutputProfile && request.printerProfileStatus === "CONFIRMED";
+    const productionDefaults = needsOutputProfile ? Object.freeze({
+      source: usesConfirmedProfile ? "EXTERNAL_CONFIRMED" : "DESIGN_FACTORY_DEFAULT",
+      resolutionPpi: request.physicalSpec?.resolutionPpi,
+      bleedMm: request.physicalSpec?.bleedMm,
+      targetColorSpace: request.physicalSpec?.targetColorSpace,
+      viewingDistanceMeters: request.viewing.distanceMeters
+    }) : null;
     const toolCards = toolIntentCards(protocol, request);
     const planCore = {
       schemaVersion: 1,
@@ -119,8 +138,9 @@ export class DesignPracticeProtocol {
       request,
       plannerReadiness: planningBlockers.length ? "BLOCKED_PENDING_EVIDENCE" : "READY_FOR_EXISTING_PLANNER",
       photoshopProductionReadiness: productionBlockers.length ? "BLOCKED_PENDING_EVIDENCE" : "READY_FOR_PHOTOSHOP_PRODUCTION",
-      pressReadiness: pressBlockers.length ? "BLOCKED_PENDING_PRINTER_SPEC" : "READY_FOR_PRESS_PREFLIGHT",
-      blockers: { planning: planningBlockers, photoshopProduction: productionBlockers, press: pressBlockers },
+      pressReadiness: needsOutputProfile ? usesConfirmedProfile ? "READY_FOR_PRESS_PREFLIGHT" : "READY_WITH_DESIGN_FACTORY_DEFAULTS" : "NOT_APPLICABLE",
+      productionDefaults,
+      blockers: { planning: planningBlockers, photoshopProduction: productionBlockers, press: [] },
       stages,
       photoshopToolIntentCards: toolCards,
       innovationContract: {
@@ -132,7 +152,7 @@ export class DesignPracticeProtocol {
       reviewModel: {
         separateGates: ["CONCEPT_REVIEW", "VISUAL_REVIEW", "TECHNICAL_PREFLIGHT"],
         technicalPassCannotOverrideVisualFailure: true,
-        visualPassCannotOverrideTechnicalBlocker: true
+        visualPassRequiresTechnicalFileValidity: true
       }
     };
     return Object.freeze({ ...planCore, evidenceHash: digest(planCore), compiledAt: new Date().toISOString() });

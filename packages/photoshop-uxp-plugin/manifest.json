@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.anksen.studio.photoshop",
   "name": "ANKSEN Studio for Photoshop",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "main": "index.html",
   "icons": [
     { "width": 48, "height": 48, "path": "icons/plugin.png", "scale": [1, 2], "theme": ["all"], "species": ["generic"] }

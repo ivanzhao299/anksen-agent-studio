@@ -4,7 +4,7 @@
 
 V2 将原来的单模板面板升级为 Photoshop 内的受控生产工作台：任务、图层、操作、检查、交付五个连续视图，支持当前文档语义化检查、白名单 Operation DSL、风险预演、人工确认、单步历史回滚、技术预检和带 SHA-256 的交付清单。插件仍是现有 Studio Runtime Adapter 的执行端，不承担规划或调度。
 
-高端商务展架的单页 Photoshop 生产样例使用 `scripts/jinhu-v2-premium-production.jsx`。它在真实 Photoshop 中生成 `640 × 1440 mm @ 150 ppi` 的 CMYK 分层 PSD、同尺寸印刷 PDF 和 3840px 高 PNG，AI 主视觉以智能对象保留，中文文字保持可编辑且横纵缩放均为 100%。
+V3 高端商务展架使用 `scripts/jinhu-v3-innovation-gate-production.jsx`。它把 AI 生成的“创新之门”建筑主视觉作为智能对象，在真实 Photoshop 中完成品牌融合、真实中文排版、语义分层、CMYK 派生和多格式输出，生成 `640 × 1440 mm @ 150 ppi` 的 3780×8504 PSD、同尺寸 PDF 与 3840px 高 PNG。首轮 Logo 白底缺陷已由设计审查发现并在脚本中固定修复。
 
 十二联画生产版使用 `scripts/jinhu-series-production.jsx`。脚本读取 `design-assets/jinhu-12-panel-series/photoshop-production-manifest.json`，逐页生成真实文字图层、品牌锁定组、智能对象主视觉、整体色调层、150ppi CMYK PSD、印刷PDF和3840px高PNG预览。它是受控的本地 Photoshop 生产执行器，不新增 Planner、Scheduler、Runtime 或队列。
 
@@ -64,9 +64,9 @@ pnpm --filter @anksen-agent-studio/photoshop-uxp-plugin package:ccx
 
 Photoshop 23.5及以上可以从“文件 > 脚本 > 浏览”运行UXP `.psjs` 脚本。选择 `scripts/e2e-photoshop.psjs`，再依次选择Logo、PSD保存位置和PNG保存位置。该脚本调用与插件面板相同的任务校验、布局和Photoshop执行器；它不能替代面板加载与CCX打包验收。
 
-十二联画的实际生产可从 Photoshop 运行 `scripts/jinhu-series-production.jsx`。输出固定写入 `/Users/mac/Documents/Jinhu-Science-Innovation-Park-12-Panel-Final`，包含 `PSD/`、`PDF/`、`PREVIEW_4K/` 和 `production-log.txt`。正式送印前仍需使用印厂提供的ICC配置文件完成一次软打样；当前脚本优先使用 Coated FOGRA39，若本机没有该配置文件则使用 Photoshop 当前工作CMYK。
+十二联画的实际生产可从 Photoshop 运行 `scripts/jinhu-series-production.jsx`。输出固定写入 `/Users/mac/Documents/Jinhu-Science-Innovation-Park-12-Panel-Final`，包含 `PSD/`、`PDF/`、`PREVIEW_4K/` 和 `production-log.txt`。未提供外部输出参数时采用 Design Factory 大幅展陈默认预设，不暂停生产。
 
-V2 单页验收稿从 Photoshop 运行 `scripts/jinhu-v2-premium-production.jsx`，输出到 `/Users/mac/Documents/Jinhu-Science-Innovation-Park-Design-V2-Final`。该脚本会覆盖同名的已生成验收稿，不覆盖用户的任意源文件。当前交付是 `640 × 1440 mm` 精确成品尺寸、0mm 出血；若承印商要求额外出血，必须使用其 TrimBox/BleedBox 规范重新生成和审批。正式送印前仍应根据承印材料和印厂 ICC 再做一次软打样。
+V3 单页验收稿从 Photoshop 运行 `scripts/jinhu-v3-innovation-gate-production.jsx`，输出到 `/Users/mac/Documents/Jinhu-Science-Innovation-Park-Design-V3-Final`。该脚本只覆盖同名 V3 验收稿，不覆盖用户其他文件。插件内置示例也已切换为 V3 主视觉和“让创新 / 在这里生长”文案。
 
 ## 任务示例
 

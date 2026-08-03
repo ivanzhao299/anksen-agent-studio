@@ -28,7 +28,9 @@ test("compiles a stage-based evidence protocol without assigning agent ownership
   const plan = await new DesignPracticeProtocol({ resourceRegistry }).compile(validRequest);
   assert.equal(plan.plannerReadiness, "READY_FOR_EXISTING_PLANNER");
   assert.equal(plan.photoshopProductionReadiness, "READY_FOR_PHOTOSHOP_PRODUCTION");
-  assert.equal(plan.pressReadiness, "BLOCKED_PENDING_PRINTER_SPEC");
+  assert.equal(plan.pressReadiness, "READY_WITH_DESIGN_FACTORY_DEFAULTS");
+  assert.equal(plan.productionDefaults.source, "DESIGN_FACTORY_DEFAULT");
+  assert.deepEqual(plan.blockers.press, []);
   assert.equal(plan.stages.length, 11);
   assert.deepEqual(plan.stages.map(stage => stage.sequence), [...Array(11).keys()]);
   assert.equal(JSON.stringify(plan).includes("agentId"), false);
@@ -39,19 +41,39 @@ test("compiles a stage-based evidence protocol without assigning agent ownership
   assert.equal(repeated.evidenceHash, plan.evidenceHash);
 });
 
-test("separates Photoshop readiness from printer-specific press readiness", async () => {
+test("uses production defaults without waiting for printer-specific settings", async () => {
   const pending = await new DesignPracticeProtocol({ resourceRegistry }).compile(validRequest);
   assert.equal(pending.photoshopProductionReadiness, "READY_FOR_PHOTOSHOP_PRODUCTION");
-  assert.equal(pending.pressReadiness, "BLOCKED_PENDING_PRINTER_SPEC");
+  assert.equal(pending.pressReadiness, "READY_WITH_DESIGN_FACTORY_DEFAULTS");
+  assert.equal(pending.productionDefaults.targetColorSpace, "CMYK");
   const confirmed = await new DesignPracticeProtocol({ resourceRegistry }).compile({ ...validRequest, printerProfileStatus: "CONFIRMED" });
   assert.equal(confirmed.pressReadiness, "READY_FOR_PRESS_PREFLIGHT");
+  assert.equal(confirmed.productionDefaults.source, "EXTERNAL_CONFIRMED");
 });
 
-test("blocks print production when physical and viewing evidence is missing", async () => {
+test("fills standard large-format defaults instead of pausing production", async () => {
+  const plan = await new DesignPracticeProtocol({ resourceRegistry }).compile({
+    ...validRequest,
+    physicalSpec: { widthMm: 640, heightMm: 1440 },
+    viewing: {},
+    printerProfileStatus: undefined
+  });
+  assert.equal(plan.photoshopProductionReadiness, "READY_FOR_PHOTOSHOP_PRODUCTION");
+  assert.equal(plan.pressReadiness, "READY_WITH_DESIGN_FACTORY_DEFAULTS");
+  assert.deepEqual(plan.productionDefaults, {
+    source: "DESIGN_FACTORY_DEFAULT",
+    resolutionPpi: 150,
+    bleedMm: 0,
+    targetColorSpace: "CMYK_FOGRA39",
+    viewingDistanceMeters: 3
+  });
+});
+
+test("requires only physical dimensions when standard production defaults can be applied", async () => {
   const plan = await new DesignPracticeProtocol({ resourceRegistry }).compile({ ...validRequest, physicalSpec: null, viewing: {} });
   assert.equal(plan.photoshopProductionReadiness, "BLOCKED_PENDING_EVIDENCE");
   assert.ok(plan.blockers.photoshopProduction.includes("PHYSICAL_DIMENSIONS_REQUIRED"));
-  assert.ok(plan.blockers.photoshopProduction.includes("VIEWING_DISTANCE_REQUIRED"));
+  assert.equal(plan.blockers.photoshopProduction.includes("VIEWING_DISTANCE_REQUIRED"), false);
 });
 
 test("turns Photoshop choices into intent, rollback and QA cards", async () => {
