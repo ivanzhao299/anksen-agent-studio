@@ -46,6 +46,15 @@ test("accepts a governed V2 active-document operation plan", () => {
     title: "金湖展板印前生产",
     executionMode: "MODIFY_ACTIVE_DOCUMENT",
     document: { widthPx: 3780, heightPx: 8504, resolution: 150, colorMode: "RGB", safeMarginPx: 180 },
+    practiceContext: {
+      protocolId: "design-practice-v1",
+      protocolVersion: "1.0.0",
+      evidenceHash: "a".repeat(64),
+      approvedDirectionId: "direction-1",
+      stage: "PHOTOSHOP_PRODUCTION",
+      passedGates: ["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"],
+      toolIntentIds: ["TYPOGRAPHY", "PRESS_OUTPUT"]
+    },
     operations: [
       { operationId: "inspect", operation: "INSPECT_DOCUMENT" },
       { operationId: "replace-title", operation: "REPLACE_TEXT", target: { layerName: "10_TITLE_园区名称" }, parameters: { text: "金湖科创产业园" } },
@@ -60,6 +69,24 @@ test("accepts a governed V2 active-document operation plan", () => {
   assert.equal(job.schemaVersion, 2);
   assert.equal(job.operationSummary.writes, 3);
   assert.equal(job.reviewCriteria.minimumFontSizePt, 18);
+  assert.equal(job.practiceContext.approvedDirectionId, "direction-1");
+});
+
+test("requires upstream design evidence and tool intent for V2 Photoshop work", () => {
+  const base = {
+    schemaVersion: 2,
+    jobId: "practice-required",
+    title: "Practice required",
+    executionMode: "MODIFY_ACTIVE_DOCUMENT",
+    document: { widthPx: 1000, heightPx: 1000, resolution: 150, colorMode: "RGB" },
+    operations: [{ operationId: "replace", operation: "REPLACE_TEXT", target: { layerId: 1 }, parameters: { text: "Title" } }, { operationId: "export", operation: "EXPORT_DOCUMENT", parameters: { format: "png" } }],
+    outputs: [{ format: "png" }],
+    requireApproval: true,
+    governance: { executionMode: "human_confirmed", production: false, deploy: false, approvedJobId: "practice-required", approvalId: "approval-1", approvalSource: "STUDIO" }
+  };
+  assert.throws(() => validateJob(base), /practiceContext/);
+  const practiceContext = { protocolId: "design-practice-v1", protocolVersion: "1.0.0", evidenceHash: "b".repeat(64), approvedDirectionId: "direction-1", stage: "PHOTOSHOP_PRODUCTION", passedGates: ["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"], toolIntentIds: ["PRESS_OUTPUT"] };
+  assert.throws(() => validateJob({ ...base, practiceContext }), /REPLACE_TEXT requires declared intent TYPOGRAPHY/);
 });
 
 test("requires approval provenance bound to the exact job", () => {

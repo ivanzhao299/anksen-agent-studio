@@ -95,11 +95,14 @@ Studio Goal / Planner / Task Graph
 
 ## 2026-08-03 acceptance matrix
 
+The Design Practice evidence boundary was added in plugin release `0.3.0`; it extends V2 without activating the Studio Bridge or changing the existing Runtime default.
+
 | Capability | Result | Evidence |
 |---|---|---|
 | UXP Manifest v5 load and reload | `VERIFIED_IN_PHOTOSHOP` | UXP Developer Tool 2.2.1 reports plugin `com.anksen.studio.photoshop` as `Loaded`; Photoshop 2026 v27.9 registers the plugin menu. |
 | UXP workbench layout and accessibility | `VERIFIED_OFFLINE` | Static host rendering, roving keyboard semantics, layer-tree navigation, busy/error states, narrow-panel DOM checks and a scoped Impeccable detector run (`[]`). The static browser's `require is not defined` is expected outside UXP and was not treated as a plugin failure. |
 | Versioned job contract and Operation DSL | `VERIFIED_OFFLINE` | Node tests cover whitelist, deterministic risk, idempotency, raw BatchPlay/script rejection, terminal output ordering and approval requirements. |
+| Design Practice evidence boundary | `VERIFIED_OFFLINE` | Every V2 Photoshop job must carry the approved direction, upstream stage gates, evidence SHA-256 and Tool Intent IDs. Plugin and Adapter independently reject missing evidence or operations without a matching intent. |
 | Document inspection and technical preflight | `VERIFIED_OFFLINE` | Unit tests cover semantic layer trees, duplicate-name rejection, physical-to-pixel dimension derivation, requested-bleed blocking, editable capabilities, distorted-text blocking and report-bound HIGH confirmation whose hash includes complete evidence/fix metadata. |
 | V2 operation execution and rollback | `VERIFIED_OFFLINE` | Executor tests cover `executeAsModal`, one history suspension, host cancellation, rollback and mandatory preflight before every output. Per-operation timeout is explicitly `NOT_SUPPORTED` and rejected fail-closed. V2 multi-operation execution has not been claimed as a live Studio round-trip. |
 | Premium 640 × 1440 mm Photoshop production | `VERIFIED_IN_PHOTOSHOP` | Photoshop generated the final 3780 × 8504 CMYK PSD, 640 × 1440 mm PDF and 4K PNG in `/Users/mac/Documents/Jinhu-Science-Innovation-Park-Design-V2-Final`. |

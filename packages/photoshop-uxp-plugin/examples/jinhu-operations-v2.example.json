@@ -20,6 +20,15 @@
     "forbiddenElements": ["变形文字", "低可读性小字", "未授权品牌素材"]
   },
   "sourceAssetRefs": [],
+  "practiceContext": {
+    "protocolId": "design-practice-v1",
+    "protocolVersion": "1.0.0",
+    "evidenceHash": "cf346349ff462977219f5a07f5bb1db552cb43f1e62212ae1d261985db13d758",
+    "approvedDirectionId": "jinhu-industrial-constellation-v1",
+    "stage": "PHOTOSHOP_PRODUCTION",
+    "passedGates": ["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"],
+    "toolIntentIds": ["TYPOGRAPHY", "PRESS_OUTPUT"]
+  },
   "operations": [
     { "operationId": "inspect-before", "operation": "INSPECT_DOCUMENT", "expectedResult": "读取当前文档规格和图层树" },
     { "operationId": "replace-title", "operation": "REPLACE_TEXT", "target": { "layerName": "10_TITLE_园区名称" }, "parameters": { "text": "金湖科创产业园" }, "expectedResult": "标题保持可编辑且无文字变形" },

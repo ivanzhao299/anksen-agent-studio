@@ -121,7 +121,7 @@ function renderTask() {
   $("taskSummary").classList.toggle("is-hidden", !job);
   if (!job) return;
   setText("taskTitle", job.title || job.content.title);
-  setText("taskVersion", `Schema V${job.schemaVersion}`);
+  setText("taskVersion", job.practiceContext ? `Schema V${job.schemaVersion} · Practice ${job.practiceContext.protocolVersion}` : `Schema V${job.schemaVersion}`);
   setText("taskGoal", taskGoal(job));
   const dimensions = job.document.widthPx && job.document.heightPx ? `${job.document.widthPx} × ${job.document.heightPx} px` : `${job.document.widthMm} × ${job.document.heightMm} mm`;
   setText("taskCanvas", `${dimensions} · ${job.document.resolution} ppi`);

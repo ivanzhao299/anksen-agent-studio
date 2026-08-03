@@ -2,6 +2,8 @@
 
 本流程用于展板、海报、品牌视觉、展厅画面和印刷物料。任何作品必须逐阶段通过检查，禁止直接生成图片后反复碰运气修改。
 
+本文件是生产检查清单；阶段证据、SKILL 贡献边界、创新机制以及与现有 Studio Planner/Task Graph 的关系，以 [DESIGN_PRACTICE_PROTOCOL.md](./DESIGN_PRACTICE_PROTOCOL.md) 为准。Photoshop 的高级制作方法见 [PHOTOSHOP_MASTER_WORKFLOW.md](./PHOTOSHOP_MASTER_WORKFLOW.md)。
+
 ## 0. 项目定义与约束
 
 输入：目标、场景、观看距离、尺寸、材质、安装方式、品牌资产、交付格式。

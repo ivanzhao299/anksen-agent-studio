@@ -88,7 +88,7 @@
     },
     "operationJob": {
       "type": "object",
-      "required": ["schemaVersion", "jobId", "title", "executionMode", "document", "operations", "outputs", "requireApproval", "governance"],
+      "required": ["schemaVersion", "jobId", "title", "executionMode", "document", "practiceContext", "operations", "outputs", "requireApproval", "governance"],
       "properties": {
         "schemaVersion": { "const": 2 },
         "jobId": { "type": "string", "minLength": 1, "maxLength": 80 },
@@ -108,6 +108,20 @@
           "additionalProperties": false
         },
         "sourceAssetRefs": { "type": "array", "items": { "type": "string", "maxLength": 128 } },
+        "practiceContext": {
+          "type": "object",
+          "required": ["protocolId", "protocolVersion", "evidenceHash", "approvedDirectionId", "stage", "passedGates", "toolIntentIds"],
+          "properties": {
+            "protocolId": { "const": "design-practice-v1" },
+            "protocolVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+            "evidenceHash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+            "approvedDirectionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "stage": { "const": "PHOTOSHOP_PRODUCTION" },
+            "passedGates": { "type": "array", "uniqueItems": true, "items": { "enum": ["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"] } },
+            "toolIntentIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["HERO_COMPOSITE", "TYPOGRAPHY", "SPATIAL_DEPTH", "COLOR_GRADE", "MATERIAL_DETAIL", "PRESS_OUTPUT"] } }
+          },
+          "additionalProperties": false
+        },
         "operations": { "type": "array", "minItems": 1, "maxItems": 100, "items": { "$ref": "#/$defs/operation" } },
         "outputs": {
           "type": "array",

@@ -85,3 +85,5 @@ V2 单页验收稿从 Photoshop 运行 `scripts/jinhu-v2-premium-production.jsx`
 本地导入的 JSON 无法证明 Studio 审批来源，因此 V2 工作台只允许审阅，不允许执行。真实 Studio 任务必须通过未来经 Activation Gate 批准的 Bridge 进入，并携带与 jobId 绑定的 approvalId；当前默认构建仍保持离线和禁用状态。
 
 预检含 HIGH 问题时，首次任务确认不足以导出。操作员还必须对当前任务、当前 Photoshop 文档和当前预检报告完成二次确认；报告、文档或任务变化会立即使该确认失效。所有 SAVE/EXPORT 操作必须构成计划的末尾连续区段，禁止输出后继续修改。UXP 主机调用无法可靠中止，因此 V2 不支持也不接受单操作 timeout 字段。
+
+V2 任务还必须携带 `design-practice-v1` 的 Practice Context：上游证据哈希、批准的创意方向、进入 Photoshop 前已通过的阶段门，以及与实际 Operation DSL 匹配的 Tool Intent IDs。插件和 Runtime Adapter 都会独立拒绝没有设计证据或“有操作、无意图”的任务。该 Context 由现有 Studio Planner/Task Graph 传递，不在插件内创建新的流程引擎。

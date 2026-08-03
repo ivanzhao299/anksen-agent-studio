@@ -4,6 +4,10 @@ const { validateOperationPlan } = require("./operation-dsl.cjs");
 
 const TEMPLATE_ID = "jinhu-park-64x144-v1";
 const ALLOWED_OUTPUTS = new Set(["psd", "png", "jpg"]);
+const DESIGN_PRACTICE_PROTOCOL_ID = "design-practice-v1";
+const DESIGN_PRACTICE_GATES = Object.freeze(["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"]);
+const PHOTOSHOP_INTENT_IDS = new Set(["HERO_COMPOSITE", "TYPOGRAPHY", "SPATIAL_DEPTH", "COLOR_GRADE", "MATERIAL_DETAIL", "PRESS_OUTPUT"]);
+const OPERATION_INTENTS = Object.freeze({ REPLACE_TEXT: "TYPOGRAPHY", SET_TEXT_COLOR: "TYPOGRAPHY", REPLACE_SMART_OBJECT: "HERO_COMPOSITE", MOVE_LAYER: "SPATIAL_DEPTH", RESIZE_LAYER: "SPATIAL_DEPTH", SAVE_COPY: "PRESS_OUTPUT", EXPORT_DOCUMENT: "PRESS_OUTPUT" });
 const LEGACY_OPERATIONS = new Set([
   "create_document",
   "create_layer_groups",
@@ -120,10 +124,34 @@ function validateOutputSpecs(outputs) {
   }));
 }
 
+function validatePracticeContext(input, operations) {
+  const practice = input.practiceContext;
+  assert(practice && typeof practice === "object" && !Array.isArray(practice), "is required for V2 Photoshop production", "practiceContext");
+  assert(practice.protocolId === DESIGN_PRACTICE_PROTOCOL_ID, `must be ${DESIGN_PRACTICE_PROTOCOL_ID}`, "practiceContext.protocolId");
+  const protocolVersion = safeText(practice.protocolVersion, "practiceContext.protocolVersion", 40);
+  assert(/^\d+\.\d+\.\d+$/.test(protocolVersion), "must be a semantic version", "practiceContext.protocolVersion");
+  const evidenceHash = safeText(practice.evidenceHash, "practiceContext.evidenceHash", 64).toLowerCase();
+  assert(/^[a-f0-9]{64}$/.test(evidenceHash), "must be a SHA-256 hash", "practiceContext.evidenceHash");
+  const approvedDirectionId = safeText(practice.approvedDirectionId, "practiceContext.approvedDirectionId", 128);
+  assert(practice.stage === "PHOTOSHOP_PRODUCTION", "must be PHOTOSHOP_PRODUCTION", "practiceContext.stage");
+  assert(Array.isArray(practice.passedGates), "must be an array", "practiceContext.passedGates");
+  const passedGates = [...new Set(practice.passedGates.map((value, index) => safeText(value, `practiceContext.passedGates.${index}`, 64).toUpperCase()))];
+  for (const gate of DESIGN_PRACTICE_GATES) assert(passedGates.includes(gate), `missing required gate ${gate}`, "practiceContext.passedGates");
+  assert(Array.isArray(practice.toolIntentIds) && practice.toolIntentIds.length > 0, "must be a non-empty array", "practiceContext.toolIntentIds");
+  const toolIntentIds = [...new Set(practice.toolIntentIds.map((value, index) => safeText(value, `practiceContext.toolIntentIds.${index}`, 64).toUpperCase()))];
+  for (const intent of toolIntentIds) assert(PHOTOSHOP_INTENT_IDS.has(intent), `unsupported Photoshop intent ${intent}`, "practiceContext.toolIntentIds");
+  for (const operation of operations) {
+    const requiredIntent = OPERATION_INTENTS[operation.operation];
+    if (requiredIntent) assert(toolIntentIds.includes(requiredIntent), `${operation.operation} requires declared intent ${requiredIntent}`, "practiceContext.toolIntentIds");
+  }
+  return Object.freeze({ protocolId: DESIGN_PRACTICE_PROTOCOL_ID, protocolVersion, evidenceHash, approvedDirectionId, stage: "PHOTOSHOP_PRODUCTION", passedGates: Object.freeze(passedGates), toolIntentIds: Object.freeze(toolIntentIds) });
+}
+
 function validateV2Job(input, jobId) {
   const executionMode = String(input.executionMode || "MODIFY_ACTIVE_DOCUMENT").toUpperCase();
   assert(executionMode === "MODIFY_ACTIVE_DOCUMENT", "V2 supports MODIFY_ACTIVE_DOCUMENT only; use the governed legacy template path for document creation", "executionMode");
   const plan = validateOperationPlan(input.operations);
+  const practiceContext = validatePracticeContext(input, plan.operations);
   const outputs = validateOutputSpecs(input.outputs);
   const plannedOutputFormats = new Set(plan.operations.filter(operation => operation.operation === "SAVE_COPY" || operation.operation === "EXPORT_DOCUMENT").map(operation => operation.parameters.format));
   for (const output of outputs.filter(item => item.required)) assert(plannedOutputFormats.has(output.format), `required ${output.format} output has no matching SAVE_COPY or EXPORT_DOCUMENT operation`, "outputs");
@@ -148,6 +176,7 @@ function validateV2Job(input, jobId) {
       forbiddenElements: Object.freeze((brief.forbiddenElements || []).map((value, index) => safeText(value, `brief.forbiddenElements.${index}`, 160)))
     }),
     sourceAssetRefs: Object.freeze(assets),
+    practiceContext,
     operations: plan.operations,
     operationSummary: plan.summary,
     outputs,
@@ -170,4 +199,4 @@ function validateJob(input) {
   throw new JobValidationError(`unsupported schema version: ${version}`, "schemaVersion");
 }
 
-module.exports = { TEMPLATE_ID, ALLOWED_OUTPUTS, LEGACY_OPERATIONS, JobValidationError, validateJob };
+module.exports = { TEMPLATE_ID, ALLOWED_OUTPUTS, LEGACY_OPERATIONS, DESIGN_PRACTICE_GATES, PHOTOSHOP_INTENT_IDS, JobValidationError, validateJob };

@@ -11,6 +11,9 @@ const REQUIRED_PHOTOSHOP_GUARDRAILS = [
 const forbiddenKeys = /^(api_key|secret|token|password|private_key|credential_value)$/i;
 const rawExecutionKeys = /^(batchplay|descriptor|javascript|script|eval|_obj|_target|_path)$/i;
 const v2Operations = new Set(["INSPECT_DOCUMENT", "SELECT_LAYER", "RENAME_LAYER", "SET_VISIBILITY", "MOVE_LAYER", "RESIZE_LAYER", "REPLACE_TEXT", "SET_TEXT_COLOR", "CREATE_GROUP", "DUPLICATE_LAYER", "REPLACE_SMART_OBJECT", "SAVE_COPY", "EXPORT_DOCUMENT"]);
+const designPracticeGates = ["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"];
+const photoshopIntentIds = new Set(["HERO_COMPOSITE", "TYPOGRAPHY", "SPATIAL_DEPTH", "COLOR_GRADE", "MATERIAL_DETAIL", "PRESS_OUTPUT"]);
+const operationIntents = { REPLACE_TEXT: "TYPOGRAPHY", SET_TEXT_COLOR: "TYPOGRAPHY", REPLACE_SMART_OBJECT: "HERO_COMPOSITE", MOVE_LAYER: "SPATIAL_DEPTH", RESIZE_LAYER: "SPATIAL_DEPTH", SAVE_COPY: "PRESS_OUTPUT", EXPORT_DOCUMENT: "PRESS_OUTPUT" };
 
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
@@ -59,6 +62,12 @@ function validateOperationBoundary(job) {
   if (Number(job?.schemaVersion || 1) !== 2) return [];
   if (!Array.isArray(job.operations) || job.operations.length === 0 || job.operations.length > 100) return ["V2 job requires 1 to 100 operations."];
   const blockers = [];
+  const practice = job.practiceContext;
+  if (!practice || practice.protocolId !== "design-practice-v1" || !/^\d+\.\d+\.\d+$/.test(practice?.protocolVersion || "") || !/^[a-f0-9]{64}$/i.test(practice?.evidenceHash || "") || !practice?.approvedDirectionId || practice?.stage !== "PHOTOSHOP_PRODUCTION") blockers.push("V2 Photoshop work requires a valid Design Practice evidence context.");
+  const passedGates = new Set(practice?.passedGates || []);
+  for (const gate of designPracticeGates) if (!passedGates.has(gate)) blockers.push(`Design Practice gate is missing: ${gate}.`);
+  const declaredIntents = new Set(practice?.toolIntentIds || []);
+  for (const intent of declaredIntents) if (!photoshopIntentIds.has(intent)) blockers.push(`Unsupported Photoshop tool intent: ${intent}.`);
   const ids = new Set();
   let outputPhase = false;
   for (const [index, operation] of job.operations.entries()) {
@@ -70,6 +79,8 @@ function validateOperationBoundary(job) {
     const isOutput = operationName === "SAVE_COPY" || operationName === "EXPORT_DOCUMENT";
     if (!isOutput && outputPhase) blockers.push(`All Photoshop output operations must form the terminal suffix of the plan; mutation found at index ${index}.`);
     if (isOutput) outputPhase = true;
+    const requiredIntent = operationIntents[operationName];
+    if (requiredIntent && !declaredIntents.has(requiredIntent)) blockers.push(`${operationName} requires declared Photoshop intent ${requiredIntent}.`);
   }
   const rawPaths = findRawExecutionFields(job.operations);
   if (rawPaths.length) blockers.push(`Raw Photoshop execution fields are forbidden: ${rawPaths.join(", ")}`);

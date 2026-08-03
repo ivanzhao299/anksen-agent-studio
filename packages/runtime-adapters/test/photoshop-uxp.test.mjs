@@ -50,6 +50,16 @@ test("V2 dispatch rejects raw BatchPlay and unsupported operations at the adapte
   assert.match(activation.blockers.join(" "), /Raw Photoshop execution fields/);
 });
 
+test("V2 dispatch requires upstream Design Practice evidence and matching Photoshop intent", () => {
+  const operations = [{ operationId: "replace", operation: "REPLACE_TEXT", target: { layerId: 1 }, parameters: { text: "Title" } }, { operationId: "export", operation: "EXPORT_DOCUMENT", parameters: { format: "png" } }];
+  const missing = evaluatePhotoshopUxpActivation({ adapter: { ...adapter, health_status: "healthy" }, proposal, node, job: { ...job, schemaVersion: 2, operations } });
+  assert.equal(missing.status, "BLOCKED");
+  assert.match(missing.blockers.join(" "), /Design Practice evidence/);
+  const practiceContext = { protocolId: "design-practice-v1", protocolVersion: "1.0.0", evidenceHash: "d".repeat(64), approvedDirectionId: "direction-1", stage: "PHOTOSHOP_PRODUCTION", passedGates: ["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"], toolIntentIds: ["TYPOGRAPHY", "PRESS_OUTPUT"] };
+  const ready = evaluatePhotoshopUxpActivation({ adapter: { ...adapter, health_status: "healthy" }, proposal, node, job: { ...job, schemaVersion: 2, operations, practiceContext } });
+  assert.equal(ready.status, "READY_FOR_INTERACTIVE_CONFIRMATION");
+});
+
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   if (value && typeof value === "object") return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
