@@ -10,6 +10,11 @@ on:
       phoenix_sha:
         description: Full phoenix-erp-v3 main commit SHA (required for deploy)
         required: false
+      auto_release:
+        description: Enable gated push, CI wait, deploy and production smoke after approved task evidence passes
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -44,11 +49,19 @@ jobs:
           ACTION: ${{ inputs.action }}
           SHA: ${{ inputs.phoenix_sha }}
           RUNNER_ENV_B64: ${{ secrets.PHOENIX_ERP_RUNNER_ENV_B64 }}
+          AUTO_RELEASE: ${{ inputs.auto_release }}
         run: |
+          set -euo pipefail
           SSH=(ssh -i "$HOME/.ssh/jump" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes root@123.57.220.65)
           if [ "$ACTION" = probe ]; then
             "${SSH[@]}" "phoenix-runner probe"
           else
             test -n "$RUNNER_ENV_B64"
-            printf '%s' "$RUNNER_ENV_B64" | "${SSH[@]}" "phoenix-runner deploy $SHA"
+            ENV_FILE="$(mktemp)"
+            trap 'rm -f "$ENV_FILE"' EXIT
+            printf '%s' "$RUNNER_ENV_B64" | base64 --decode > "$ENV_FILE"
+            sed -i '/^PHOENIX_ERP_RUNNER_AUTO_RELEASE=/d' "$ENV_FILE"
+            printf 'PHOENIX_ERP_RUNNER_AUTO_RELEASE=%s\n' "$AUTO_RELEASE" >> "$ENV_FILE"
+            chmod 600 "$ENV_FILE"
+            base64 -w 0 "$ENV_FILE" | "${SSH[@]}" "phoenix-runner deploy $SHA"
           fi

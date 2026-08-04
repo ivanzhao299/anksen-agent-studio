@@ -22,8 +22,13 @@ the `production` GitHub Environment. Deployments reject dirty state, pin the
 Phoenix checkout to an exact `main` SHA, restart the service, and fail unless
 systemd reports it active. Runner-generated changes are allowed only below
 `docs/ops/`; a dirty executable `code` worktree or any other state change fails
-closed. Keep `PHOENIX_ERP_RUNNER_AUTO_RELEASE=false` for the
-first acceptance run; enable it only after the probe and read-only run pass.
+closed. The workflow's explicit `auto_release` production input rewrites only
+`PHOENIX_ERP_RUNNER_AUTO_RELEASE` inside a temporary decoded environment file;
+it never prints or replaces the other encrypted credentials. Keep it `false`
+for the first acceptance run. Set it to `true` only after CI, security, deploy,
+service-account, read-only and rollback gates pass; the resulting Runner adds
+push-after-success, CI wait, deploy-after-CI and production route smoke, while
+task approval and release-evidence gates continue to fail closed.
 
 ## Required Repository Secrets
 
