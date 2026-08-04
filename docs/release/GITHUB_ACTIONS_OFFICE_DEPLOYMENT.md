@@ -20,7 +20,9 @@ the encrypted `PHOENIX_ERP_RUNNER_ENV_B64` repository secret.
 The manually dispatched workflow is the human approval gate and is bound to
 the `production` GitHub Environment. Deployments reject dirty state, pin the
 Phoenix checkout to an exact `main` SHA, restart the service, and fail unless
-systemd reports it active. Keep `PHOENIX_ERP_RUNNER_AUTO_RELEASE=false` for the
+systemd reports it active. Runner-generated changes are allowed only below
+`docs/ops/`; a dirty executable `code` worktree or any other state change fails
+closed. Keep `PHOENIX_ERP_RUNNER_AUTO_RELEASE=false` for the
 first acceptance run; enable it only after the probe and read-only run pass.
 
 ## Required Repository Secrets
