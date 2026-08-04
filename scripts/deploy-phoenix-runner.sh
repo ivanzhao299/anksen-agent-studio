@@ -34,7 +34,36 @@ if $probe; then
   echo "CODEX_BIN=$(command -v codex)"
   df -h /opt
   free -h
-  systemctl is-active phoenix-bug-intake-runner 2>/dev/null || true
+  sudo systemctl is-enabled --quiet phoenix-bug-intake-runner
+  sudo systemctl is-active --quiet phoenix-bug-intake-runner
+  echo "PHOENIX_RUNNER_SERVICE=ACTIVE"
+  state_repo="$runner_root/state"
+  code_repo="$runner_root/code"
+  [[ -d "$state_repo/.git" && -e "$code_repo/.git" ]]
+  git -C "$state_repo" fetch origin main --quiet
+  state_sha="$(git -C "$state_repo" rev-parse HEAD)"
+  code_sha="$(git -C "$code_repo" rev-parse HEAD)"
+  origin_sha="$(git -C "$state_repo" rev-parse origin/main)"
+  echo "PHOENIX_RUNNER_STATE_SHA=$state_sha"
+  echo "PHOENIX_RUNNER_CODE_SHA=$code_sha"
+  echo "PHOENIX_RUNNER_ORIGIN_SHA=$origin_sha"
+  [[ "$state_sha" == "$origin_sha" && "$code_sha" == "$origin_sha" ]]
+  main_pid="$(sudo systemctl show phoenix-bug-intake-runner -p MainPID --value)"
+  [[ "$main_pid" =~ ^[1-9][0-9]*$ ]]
+  runner_command="$(tr '\0' ' ' < "/proc/$main_pid/cmdline")"
+  for required_arg in \
+    '--watch' '--parallel-workers 3' '--wake-file' \
+    '--apply-queue' '--execute-approved' \
+    '--auto-recover-generation-drift' '--auto-unblock-dirty-worktrees' \
+    '--skip-blocked' '--commit-audit-artifacts' '--audit-commit-minutes 30' \
+    '--push-after-success' '--wait-ci-after-push' '--deploy-after-ci' \
+    '--production-smoke-after-ci'; do
+    [[ "$runner_command" == *"$required_arg"* ]] || {
+      echo "PHOENIX_RUNNER_CAPABILITY_MISSING=$required_arg" >&2
+      exit 1
+    }
+  done
+  echo "PHOENIX_RUNNER_FULL_AUTOMATION_GATE=PASS"
   exit 0
 fi
 [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "full commit SHA required" >&2; exit 2; }

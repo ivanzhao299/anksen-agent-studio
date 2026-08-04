@@ -30,6 +30,11 @@ service-account, read-only and rollback gates pass; the resulting Runner adds
 push-after-success, CI wait, deploy-after-CI and production route smoke, while
 task approval and release-evidence gates continue to fail closed.
 
+The guarded `phoenix-runner probe` is the production qualification check. It
+fails unless systemd is enabled and active, the state and executable worktrees
+match `origin/main`, and the live process contains every governed execution,
+auto-release, CI-wait, deployment and production-smoke capability argument.
+
 ## Required Repository Secrets
 
 - `STUDIO_DEPLOY_JUMP_SSH_KEY`: dedicated private key for GitHub Actions to access the Aliyun jump host.
