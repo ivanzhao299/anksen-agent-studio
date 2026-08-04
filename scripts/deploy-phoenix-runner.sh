@@ -46,10 +46,19 @@ sudo install -d -m 0750 -o ubuntu -g ubuntu "$runner_root" "$runner_root/config"
 if [[ ! -d "$runner_root/state/.git" ]]; then
   gh repo clone "$repo" "$runner_root/state"
 fi
-[[ -z "$(git -C "$runner_root/state" status --porcelain)" ]] || {
-  echo "runner state repository is dirty; refusing deployment" >&2
+if [[ -d "$runner_root/code" ]] && [[ -n "$(git -C "$runner_root/code" status --porcelain)" ]]; then
+  echo "runner code worktree is dirty; refusing deployment" >&2
   exit 1
-}
+fi
+while IFS= read -r dirty_entry; do
+  [[ -z "$dirty_entry" ]] && continue
+  dirty_path="${dirty_entry:3}"
+  dirty_path="${dirty_path##* -> }"
+  [[ "$dirty_path" == docs/ops/* ]] || {
+    echo "runner state has non-audit changes: $dirty_path" >&2
+    exit 1
+  }
+done < <(git -C "$runner_root/state" status --porcelain --untracked-files=all)
 git -C "$runner_root/state" fetch origin main
 [[ "$(git -C "$runner_root/state" rev-parse origin/main)" == "$commit" ]]
 git -C "$runner_root/state" checkout main
