@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "protocol_id": "design-practice-v1",
+  "protocol_version": "1.0.0",
+  "control_plane_boundary": "EVIDENCE_PROTOCOL_ONLY",
+  "principles": [
+    "brief_before_style",
+    "diverge_before_converge",
+    "evidence_before_preference",
+    "creative_judgment_separate_from_technical_preflight",
+    "ai_creates_options_photoshop_produces_editable_artifacts",
+    "non_destructive_production",
+    "innovation_must_improve_meaning_memory_or_action",
+    "learning_returns_to_studio_memory"
+  ],
+  "stages": [
+    { "id": "TASK_MODEL", "sequence": 0, "name": "任务建模", "required_evidence": ["design_brief", "physical_spec", "unknowns"], "gate": "critical_specs_resolved", "capability_contributions": [] },
+    { "id": "RESEARCH_DIAGNOSIS", "sequence": 1, "name": "研究与诊断", "required_evidence": ["insight_map", "problem_statement", "anti_template_baseline"], "gate": "claims_have_sources", "capability_contributions": [
+      { "resource_id": "awesome-design-md", "preset_id": "linear.app", "role": "precedent_decomposition", "scope": "extract_principles_not_brand_identity" }
+    ] },
+    { "id": "CONCEPT_DIVERGENCE", "sequence": 2, "name": "创意发散", "required_evidence": ["concept_cards", "novelty_hypotheses", "kill_criteria"], "gate": "concepts_are_materially_distinct", "capability_contributions": [
+      { "resource_id": "taste-skill", "preset_id": "taste", "role": "anti_template_challenge", "scope": "advisory_visual_judgment" }
+    ] },
+    { "id": "COPY_EDITING", "sequence": 3, "name": "文案编辑", "required_evidence": ["copy_deck", "fact_sources", "reading_distance_budget"], "gate": "copy_is_true_purposeful_and_prioritized", "capability_contributions": [] },
+    { "id": "ART_DIRECTION", "sequence": 4, "name": "艺术指导", "required_evidence": ["art_direction_sheet", "type_rules", "color_rules", "image_rules"], "gate": "visual_language_matches_brief", "capability_contributions": [
+      { "resource_id": "taste-skill", "preset_id": "taste", "role": "hierarchy_and_restraint_review", "scope": "advisory_visual_judgment" },
+      { "resource_id": "awesome-design-md", "preset_id": "vercel", "role": "system_coherence_reference", "scope": "extract_principles_not_brand_identity" }
+    ] },
+    { "id": "COMPOSITION_PROTOTYPE", "sequence": 5, "name": "构图原型", "required_evidence": ["grayscale_thumbnails", "grid", "three_second_test", "distance_test"], "gate": "hierarchy_survives_three_viewing_scales", "capability_contributions": [
+      { "resource_id": "taste-skill", "preset_id": "taste", "role": "spacing_density_hierarchy_review", "scope": "advisory_visual_judgment" }
+    ] },
+    { "id": "ASSET_CREATION", "sequence": 6, "name": "素材创造", "required_evidence": ["asset_ledger", "license", "resolution", "selection_rationale"], "gate": "assets_are_usable_and_traceable", "capability_contributions": [] },
+    { "id": "PHOTOSHOP_PRODUCTION", "sequence": 7, "name": "Photoshop 制作", "required_evidence": ["layered_psd", "tool_intent_cards", "production_snapshots"], "gate": "editable_non_destructive_and_semantic", "capability_contributions": [] },
+    { "id": "DIRECTOR_REVIEW", "sequence": 8, "name": "设计总监审查", "required_evidence": ["concept_review", "visual_review", "issue_priority"], "gate": "visual_p1_p2_closed", "capability_contributions": [
+      { "resource_id": "taste-skill", "preset_id": "taste", "role": "visual_judgment", "scope": "advisory_not_print_acceptance" },
+      { "resource_id": "impeccable", "preset_id": "impeccable", "role": "interface_craft_when_surface_is_ui", "scope": "ui_only_not_photoshop_or_print" }
+    ] },
+    { "id": "TECHNICAL_PREFLIGHT", "sequence": 9, "name": "技术与输出", "required_evidence": ["preflight_report", "auto_fix_log", "output_spec"], "gate": "target_pixels_files_and_render_valid", "capability_contributions": [] },
+    { "id": "DELIVERY_LEARNING", "sequence": 10, "name": "交付与学习", "required_evidence": ["artifact_manifest", "decision_log", "learning_note"], "gate": "artifacts_traceable_and_learning_captured", "capability_contributions": [] }
+  ],
+  "photoshop_intents": {
+    "HERO_COMPOSITE": { "capabilities": ["smart_object", "mask", "path", "local_adjustment"], "purpose": "build_a_believable_editable_hero_visual", "rollback": "source_smart_object_and_mask_preserved", "qa": ["perspective", "edge_quality", "light_direction", "100_percent_inspection"], "prohibited": ["erase_source_pixels", "flatten_source"] },
+    "TYPOGRAPHY": { "capabilities": ["text_layer", "character_style", "paragraph_style", "guides"], "purpose": "produce_true_readable_type", "rollback": "editable_text_and_style_snapshot", "qa": ["no_horizontal_distortion", "punctuation", "tracking", "distance_legibility"], "prohibited": ["ai_baked_text", "non_uniform_type_scale"] },
+    "SPATIAL_DEPTH": { "capabilities": ["smart_object", "perspective_warp", "path", "blend_if", "mask"], "purpose": "unify_scale_perspective_and_depth", "rollback": "transform_and_mask_remain_editable", "qa": ["contact_shadow", "scale", "horizon", "atmospheric_depth"], "prohibited": ["light_effects_before_perspective"] },
+    "COLOR_GRADE": { "capabilities": ["curves", "selective_color", "color_balance", "gradient_map", "camera_raw_smart_filter"], "purpose": "unify_materials_and_brand_color_relationships", "rollback": "adjustment_layers_and_smart_filters", "qa": ["neutral_balance", "local_global_separation", "gamut", "material_fidelity"], "prohibited": ["destructive_global_filter", "one_click_brand_tint"] },
+    "MATERIAL_DETAIL": { "capabilities": ["smart_filter", "texture", "displacement", "noise", "mask"], "purpose": "add_scale_appropriate_surface_character", "rollback": "smart_filter_and_mask", "qa": ["texture_scale", "light_consistency", "banding", "overprocessing"], "prohibited": ["uniform_noise_over_type"] },
+    "PRESS_OUTPUT": { "capabilities": ["proof_colors", "gamut_warning", "channels", "info_panel", "export_control"], "purpose": "produce_a_reproducible_output_with_explicit_or_default_profile", "rollback": "separate_rgb_master_and_cmyk_derivative", "qa": ["output_profile", "target_pixels", "black_plate", "trim_bleed", "artifact_hash"], "prohibited": ["overwrite_rgb_master", "silent_profile_switch"] }
+  },
+  "innovation": {
+    "minimum_concepts": 2,
+    "maximum_concepts": 4,
+    "required_fields": ["novelty_hypothesis", "convention_baseline", "deliberate_break", "utility_check", "kill_criterion"],
+    "anti_patterns": ["effect_as_concept", "template_recolor", "reference_copy", "technology_particles_by_default"]
+  }
+}

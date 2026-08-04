@@ -2,6 +2,8 @@
 
 Photoshop 工具不是固定模板，而是服务于创意意图。每个工具必须有使用理由、输入、输出和可回滚记录。
 
+矩阵中的每次调用都应形成 Tool Intent Card，并遵循 [PHOTOSHOP_MASTER_WORKFLOW.md](./PHOTOSHOP_MASTER_WORKFLOW.md) 的三尺度检查与 RGB 母版/CMYK 派生策略。AI 负责提出和制造视觉可能性，Photoshop 负责把选定方向变成可编辑、可追溯、可按规格复现的生产文件。
+
 | 创意目标 | Photoshop 能力 | 使用方式 | 约束 |
 | --- | --- | --- | --- |
 | 建立空间层次 | 图层、智能对象、混合模式 | 背景/建筑/光线分层，保留可编辑源 | 不合并原始素材 |

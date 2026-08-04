@@ -2,6 +2,8 @@
 
 本流程用于展板、海报、品牌视觉、展厅画面和印刷物料。任何作品必须逐阶段通过检查，禁止直接生成图片后反复碰运气修改。
 
+本文件是生产检查清单；阶段证据、SKILL 贡献边界、创新机制以及与现有 Studio Planner/Task Graph 的关系，以 [DESIGN_PRACTICE_PROTOCOL.md](./DESIGN_PRACTICE_PROTOCOL.md) 为准。Photoshop 的高级制作方法见 [PHOTOSHOP_MASTER_WORKFLOW.md](./PHOTOSHOP_MASTER_WORKFLOW.md)。
+
 ## 0. 项目定义与约束
 
 输入：目标、场景、观看距离、尺寸、材质、安装方式、品牌资产、交付格式。
@@ -76,7 +78,7 @@
 1. 冻结创意：科技园区连接产业成长。
 2. 冻结文案：主标题“金湖科创产业园”；主张“让创新发生，让产业生长”。
 3. 冻结蓝金品牌色和 Logo 使用边界。
-4. 按 640×1440mm、3mm 出血、18mm 安全区建立 Photoshop 文档。
+4. 按 640×1440mm 成品尺寸和 18mm 安全区建立 Photoshop 文档。默认展架任务使用 0mm 出血；只有承印商明确提供 TrimBox/BleedBox 规范时，才在重新审批后的任务中加入指定出血。
 5. 背景、建筑主视觉、光线、Logo、标题、主张分别建层。
 6. 用真实字体排版，完成远读测试后再进入 CMYK。
 7. 通过 Review Gate 后输出 PSD、PDF/X-4、PNG。

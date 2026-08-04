@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 3,
+  "jobId": "photoshop-capability-graph-v3-demo",
+  "title": "ANKSEN Capability Graph — Editorial Poster",
+  "executionMode": "CREATE_DOCUMENT",
+  "document": {
+    "widthPx": 2400,
+    "heightPx": 3600,
+    "resolution": 150,
+    "colorMode": "RGB",
+    "safeMarginPx": 160
+  },
+  "brief": {
+    "goal": "把批准的主视觉复现为高端商务编辑风海报，并保留文字、智能对象、蒙版和调整层的可编辑性。",
+    "audience": "企业访客与品牌决策者",
+    "requiredElements": ["可编辑标题", "主视觉智能对象", "非破坏蒙版", "整体色调调整层"],
+    "forbiddenElements": ["文字变形", "低对比小字", "任意脚本", "栅格化全部图层"]
+  },
+  "sourceAssetRefs": ["hero-image"],
+  "practiceContext": {
+    "protocolId": "design-practice-v1",
+    "protocolVersion": "1.1.0",
+    "evidenceHash": "7d15d6a1c4d8412e731acc303d1a700441b62ed92885822f32ae36f8a5608f12",
+    "approvedDirectionId": "editorial-depth-01",
+    "stage": "PHOTOSHOP_PRODUCTION",
+    "passedGates": ["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"],
+      "toolIntentIds": ["LAYER_STRUCTURE", "HERO_COMPOSITE", "TYPOGRAPHY", "SPATIAL_DEPTH", "MASKING", "COLOR_GRADE", "MATERIAL_DETAIL", "PRESS_OUTPUT"]
+  },
+  "commandGraph": {
+    "schemaVersion": 1,
+    "graphId": "editorial-poster-production-02",
+    "nodes": [
+      {
+        "nodeId": "background",
+        "command": {
+          "operation": "CREATE_SOLID_FILL_LAYER",
+          "parameters": { "name": "00_BACKGROUND_深海军蓝", "color": { "red": 8, "green": 20, "blue": 38 }, "opacity": 100 },
+          "expectedResult": "建立可编辑品牌底色"
+        }
+      },
+      {
+        "nodeId": "hero",
+        "dependsOn": ["background"],
+        "command": {
+          "operation": "PLACE_AS_SMART_OBJECT",
+          "parameters": { "assetRef": "hero-image", "name": "10_HERO_主视觉智能对象", "linked": false },
+          "expectedResult": "主视觉以嵌入式智能对象置入"
+        }
+      },
+      {
+        "nodeId": "hero-scale",
+        "dependsOn": ["hero"],
+        "command": { "operation": "RESIZE_LAYER", "target": { "nodeOutput": "hero" }, "parameters": { "scaleX": 135, "preserveAspect": true } }
+      },
+      {
+        "nodeId": "hero-position",
+        "dependsOn": ["hero", "hero-scale"],
+        "command": { "operation": "MOVE_LAYER", "target": { "nodeOutput": "hero" }, "parameters": { "deltaX": 260, "deltaY": -120 } }
+      },
+      {
+        "nodeId": "hero-window",
+        "dependsOn": ["hero-position"],
+        "command": { "operation": "CREATE_RECT_SELECTION", "parameters": { "bounds": { "left": 300, "top": 280, "right": 2330, "bottom": 2630 }, "feather": 120, "antialias": true } }
+      },
+      {
+        "nodeId": "hero-work-path",
+        "dependsOn": ["hero-window"],
+        "command": { "operation": "CREATE_WORK_PATH_FROM_SELECTION", "parameters": { "tolerance": 2 }, "expectedResult": "把批准的主视觉窗口固化为可编辑工作路径" }
+      },
+      {
+        "nodeId": "clear-before-path-load",
+        "dependsOn": ["hero-work-path"],
+        "command": { "operation": "DESELECT", "parameters": {} }
+      },
+      {
+        "nodeId": "load-hero-path",
+        "dependsOn": ["clear-before-path-load"],
+        "command": { "operation": "LOAD_WORK_PATH_AS_SELECTION", "parameters": { "feather": 0, "antialias": true } }
+      },
+      {
+        "nodeId": "hero-mask",
+        "dependsOn": ["hero", "load-hero-path"],
+        "command": { "operation": "CREATE_REVEAL_SELECTION_MASK", "target": { "nodeOutput": "hero" }, "parameters": {}, "expectedResult": "以大幅柔边矩形蒙版塑造主视觉空间" }
+      },
+      {
+        "nodeId": "clear-selection",
+        "dependsOn": ["hero-mask"],
+        "command": { "operation": "DESELECT", "parameters": {} }
+      },
+      {
+        "nodeId": "hero-blend",
+        "dependsOn": ["hero", "clear-selection"],
+        "command": { "operation": "SET_BLEND_MODE", "target": { "nodeOutput": "hero" }, "parameters": { "blendMode": "NORMAL" } }
+      },
+      {
+        "nodeId": "hero-glow",
+        "dependsOn": ["hero", "hero-blend"],
+        "command": { "operation": "DUPLICATE_LAYER", "target": { "nodeOutput": "hero" }, "parameters": { "newName": "11_HERO_GLOW_智能滤镜氛围" } }
+      },
+      {
+        "nodeId": "hero-glow-filter",
+        "dependsOn": ["hero-glow"],
+        "command": { "operation": "APPLY_FILTER", "target": { "nodeOutput": "hero-glow" }, "parameters": { "type": "GAUSSIAN_BLUR", "radius": 28 }, "expectedResult": "以智能滤镜建立克制的空间光晕" }
+      },
+      {
+        "nodeId": "hero-glow-opacity",
+        "dependsOn": ["hero-glow", "hero-glow-filter"],
+        "command": { "operation": "SET_OPACITY", "target": { "nodeOutput": "hero-glow" }, "parameters": { "opacity": 18 } }
+      },
+      {
+        "nodeId": "hero-glow-blend",
+        "dependsOn": ["hero-glow", "hero-glow-opacity"],
+        "command": { "operation": "SET_BLEND_MODE", "target": { "nodeOutput": "hero-glow" }, "parameters": { "blendMode": "SCREEN" } }
+      },
+      {
+        "nodeId": "grade",
+        "dependsOn": ["hero-glow-blend"],
+        "command": {
+          "operation": "CREATE_ADJUSTMENT_LAYER",
+          "parameters": { "type": "CURVES", "name": "20_GRADE_整体明暗曲线", "settings": { "points": [{ "input": 0, "output": 0 }, { "input": 72, "output": 58 }, { "input": 168, "output": 188 }, { "input": 255, "output": 255 }] } }
+        }
+      },
+      {
+        "nodeId": "eyebrow",
+        "dependsOn": ["grade"],
+        "command": { "operation": "CREATE_TEXT_LAYER", "parameters": { "name": "30_EYEBROW_栏目", "text": "DESIGN FACTORY  /  PRODUCTION SYSTEM", "position": { "x": 180, "y": 260 }, "fontSize": 38, "color": { "red": 219, "green": 183, "blue": 103 } } }
+      },
+      {
+        "nodeId": "eyebrow-style",
+        "dependsOn": ["eyebrow"],
+        "command": { "operation": "SET_TEXT_STYLE", "target": { "nodeOutput": "eyebrow" }, "parameters": { "tracking": 220, "horizontalScale": 100, "verticalScale": 100 } }
+      },
+      {
+        "nodeId": "title",
+        "dependsOn": ["grade"],
+        "command": { "operation": "CREATE_TEXT_LAYER", "parameters": { "name": "31_TITLE_主标题", "text": "IDEAS, MADE REAL.", "position": { "x": 180, "y": 2860 }, "fontSize": 170, "color": { "red": 244, "green": 247, "blue": 250 } } }
+      },
+      {
+        "nodeId": "title-style",
+        "dependsOn": ["title"],
+        "command": { "operation": "SET_TEXT_STYLE", "target": { "nodeOutput": "title" }, "parameters": { "tracking": -20, "horizontalScale": 100, "verticalScale": 100, "fauxBold": true } }
+      },
+      {
+        "nodeId": "subtitle",
+        "dependsOn": ["title-style"],
+        "command": { "operation": "CREATE_TEXT_LAYER", "parameters": { "name": "32_SUBTITLE_说明", "text": "AI creates the direction. Photoshop makes it editable, repeatable and ready for delivery.", "position": { "x": 188, "y": 3140 }, "fontSize": 46, "color": { "red": 184, "green": 197, "blue": 211 } } }
+      },
+      {
+        "nodeId": "subtitle-style",
+        "dependsOn": ["subtitle"],
+        "command": { "operation": "SET_TEXT_STYLE", "target": { "nodeOutput": "subtitle" }, "parameters": { "tracking": 35, "horizontalScale": 100, "verticalScale": 100 } }
+      },
+      {
+        "nodeId": "save-source",
+        "dependsOn": ["eyebrow-style", "subtitle-style"],
+        "command": { "operation": "SAVE_COPY", "parameters": { "format": "psd", "suggestedName": "anksen-capability-graph-v3.psd" } }
+      },
+      {
+        "nodeId": "export-preview",
+        "dependsOn": ["eyebrow-style", "subtitle-style"],
+        "command": { "operation": "EXPORT_DOCUMENT", "parameters": { "format": "png", "suggestedName": "anksen-capability-graph-v3.png" } }
+      }
+    ]
+  },
+  "outputs": [
+    { "format": "psd", "purpose": "editable_source", "required": true, "preserveLayers": true },
+    { "format": "png", "purpose": "visual_review", "required": true }
+  ],
+  "reviewCriteria": { "minimumFontSizePt": 18, "requireEditableText": true, "requireSemanticLayerNames": true },
+  "requireApproval": true,
+  "governance": {
+    "executionMode": "human_confirmed",
+    "production": false,
+    "deploy": false,
+    "approvedJobId": "photoshop-capability-graph-v3-demo",
+    "approvalId": "local-demo-capability-v3",
+    "approvalSource": "LOCAL_DEMO"
+  }
+}

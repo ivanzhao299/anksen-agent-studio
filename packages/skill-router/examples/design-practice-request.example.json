@@ -1,0 +1,14 @@
+{
+  "designTaskId": "jinhu-rollup-series-v3",
+  "artifactType": "ROLLUP_SERIES",
+  "medium": "PRINT",
+  "objective": "在三秒内建立金湖科创产业园的产业协同与创新策源认知",
+  "audience": "到访企业决策者、合作机构与招商对象",
+  "viewing": { "distanceMeters": 3, "exposureSeconds": 8 },
+  "physicalSpec": { "widthMm": 640, "heightMm": 1440, "bleedMm": 0, "resolutionPpi": 150, "targetColorSpace": "CMYK_FOGRA39" },
+  "brandAssetsStatus": "READY",
+  "printerProfileStatus": "DESIGN_FACTORY_DEFAULT",
+  "innovationMode": "EXPLORATORY",
+  "surfaceIsUi": false,
+  "photoshopIntents": ["HERO_COMPOSITE", "TYPOGRAPHY", "SPATIAL_DEPTH", "COLOR_GRADE", "MATERIAL_DETAIL", "PRESS_OUTPUT"]
+}

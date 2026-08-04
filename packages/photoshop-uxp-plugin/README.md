@@ -1,6 +1,12 @@
 # ANKSEN Studio Photoshop UXP Plugin
 
-受 Agent Studio 治理的 Photoshop 设计执行端。当前模板生成 `640 × 1440 mm` 的金湖科创产业园竖版展板，保留可编辑文字图层，并支持 PSD、PNG、JPG 输出。
+受 Agent Studio 治理的 Photoshop 设计执行端。V3 不再以固定模板作为能力边界：Studio 可以把批准的创意方向编译为文档内命令图，由 33 项白名单能力动态组合图层、文字、智能对象、路径、蒙版、调整层、滤镜与交付输出。
+
+V2 将原来的单模板面板升级为 Photoshop 内的受控生产工作台：任务、图层、操作、检查、交付五个连续视图，支持当前文档语义化检查、白名单 Operation DSL、风险预演、人工确认、单步历史回滚、技术预检和带 SHA-256 的交付清单。插件仍是现有 Studio Runtime Adapter 的执行端，不承担规划或调度。
+
+V3 高端商务展架使用 `scripts/jinhu-v3-innovation-gate-production.jsx`。它把 AI 生成的“创新之门”建筑主视觉作为智能对象，在真实 Photoshop 中完成品牌融合、真实中文排版、语义分层、CMYK 派生和多格式输出，生成 `640 × 1440 mm @ 150 ppi` 的 3780×8504 PSD、同尺寸 PDF 与 3840px 高 PNG。首轮 Logo 白底缺陷已由设计审查发现并在脚本中固定修复。
+
+通用能力验收使用 `examples/capability-graph-v3.example.json`，不是项目模板。Photoshop 菜单“增效工具 > ANKSEN Studio for Photoshop > 运行 V3 能力验收”会运行 24 节点命令图。2026-08-04 的真实宿主证据 `anksen-capability-v3-20260804-002631` 已确认：2400×3600 分层 PSD、两层智能对象、路径转选区、两层非破坏蒙版、曲线调整层、3 个真实文字层及 28px 高斯智能滤镜。未通过真实宿主验收的能力仍在注册表中明确标为 `HOST_ACCEPTANCE_REQUIRED`。
 
 十二联画生产版使用 `scripts/jinhu-series-production.jsx`。脚本读取 `design-assets/jinhu-12-panel-series/photoshop-production-manifest.json`，逐页生成真实文字图层、品牌锁定组、智能对象主视觉、整体色调层、150ppi CMYK PSD、印刷PDF和3840px高PNG预览。它是受控的本地 Photoshop 生产执行器，不新增 Planner、Scheduler、Runtime 或队列。
 
@@ -30,7 +36,7 @@ pnpm --filter @anksen-agent-studio/photoshop-uxp-plugin build
 5. 选择 `dist/manifest.json`。
 6. 启动 Photoshop，点击 `Load`。
 7. 在 Photoshop 的“增效工具”菜单打开 `ANKSEN Studio`。
-8. 点击“载入内置示例”，检查内容后勾选人工确认。
+8. 点击“载入内置示例”，检查内容和当前 Photoshop 文档后勾选人工确认。确认会绑定任务哈希与文档 ID；切换任务或文档后必须重新确认。
 9. 点击“生成可编辑 PSD”。
 10. 调整后点击“导出 PNG”，由文件选择器明确选择保存位置。
 
@@ -44,7 +50,7 @@ pnpm --dir packages/photoshop-uxp-plugin verify:artifacts -- \
   /Users/mac/Documents/jinhu-science-innovation-park-preview.png
 ```
 
-脚本校验 PSD 的 `8BPS` 签名、文件非空、PNG 签名，以及固定模板在 150 ppi 下的 `3780 × 8504 px` 尺寸。Photoshop 内还应确认以下可编辑图层：`00_BACKGROUND_蓝白品牌渐变`、`01_LOGO_金湖科创产业园`、`02_COPY_可编辑文字` 和各命名文字层。
+脚本校验 PSD 的 `8BPS` 签名、PSD 的 `3780 × 8504 px` 生产尺寸、文件非空、PNG 签名，以及默认 4K 预览的 `1707 × 3840 px` 尺寸。可使用 `--psd-width`、`--psd-height`、`--png-width` 和 `--png-height` 覆盖期望值。Photoshop 内还应确认语义化分组、AI 主视觉智能对象、真实文字图层和 `99_EXPORT_CONTROL` 交付控制组。
 
 ## 打包
 
@@ -60,7 +66,9 @@ pnpm --filter @anksen-agent-studio/photoshop-uxp-plugin package:ccx
 
 Photoshop 23.5及以上可以从“文件 > 脚本 > 浏览”运行UXP `.psjs` 脚本。选择 `scripts/e2e-photoshop.psjs`，再依次选择Logo、PSD保存位置和PNG保存位置。该脚本调用与插件面板相同的任务校验、布局和Photoshop执行器；它不能替代面板加载与CCX打包验收。
 
-十二联画的实际生产可从 Photoshop 运行 `scripts/jinhu-series-production.jsx`。输出固定写入 `/Users/mac/Documents/Jinhu-Science-Innovation-Park-12-Panel-Final`，包含 `PSD/`、`PDF/`、`PREVIEW_4K/` 和 `production-log.txt`。正式送印前仍需使用印厂提供的ICC配置文件完成一次软打样；当前脚本优先使用 Coated FOGRA39，若本机没有该配置文件则使用 Photoshop 当前工作CMYK。
+十二联画的实际生产可从 Photoshop 运行 `scripts/jinhu-series-production.jsx`。输出固定写入 `/Users/mac/Documents/Jinhu-Science-Innovation-Park-12-Panel-Final`，包含 `PSD/`、`PDF/`、`PREVIEW_4K/` 和 `production-log.txt`。未提供外部输出参数时采用 Design Factory 大幅展陈默认预设，不暂停生产。
+
+V3 单页验收稿从 Photoshop 运行 `scripts/jinhu-v3-innovation-gate-production.jsx`，输出到 `/Users/mac/Documents/Jinhu-Science-Innovation-Park-Design-V3-Final`。该脚本只覆盖同名 V3 验收稿，不覆盖用户其他文件。插件内置示例也已切换为 V3 主视觉和“让创新 / 在这里生长”文案。
 
 ## 任务示例
 
@@ -75,3 +83,9 @@ Photoshop 23.5及以上可以从“文件 > 脚本 > 浏览”运行UXP `.psjs` 
 3. 通过现有 Governance Center proposal 与 Runtime Activation Gate。
 4. 确认 Photoshop 节点健康、用户会话和输出目录权限。
 5. 保持 `max_parallel_tasks = 1`，避免多个任务争用 Photoshop 模态状态。
+
+本地导入的 JSON 无法证明 Studio 审批来源，因此 V2 工作台只允许审阅，不允许执行。真实 Studio 任务必须通过未来经 Activation Gate 批准的 Bridge 进入，并携带与 jobId 绑定的 approvalId；当前默认构建仍保持离线和禁用状态。
+
+预检含 HIGH 问题时，首次任务确认不足以导出。操作员还必须对当前任务、当前 Photoshop 文档和当前预检报告完成二次确认；报告、文档或任务变化会立即使该确认失效。所有 SAVE/EXPORT 操作必须构成计划的末尾连续区段，禁止输出后继续修改。UXP 主机调用无法可靠中止，因此 V2 不支持也不接受单操作 timeout 字段。
+
+V2 任务还必须携带 `design-practice-v1` 的 Practice Context：上游证据哈希、批准的创意方向、进入 Photoshop 前已通过的阶段门，以及与实际 Operation DSL 匹配的 Tool Intent IDs。插件和 Runtime Adapter 都会独立拒绝没有设计证据或“有操作、无意图”的任务。该 Context 由现有 Studio Planner/Task Graph 传递，不在插件内创建新的流程引擎。
