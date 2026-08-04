@@ -1,12 +1,14 @@
 "use strict";
 
 const { validateOperationPlan } = require("./operation-dsl.cjs");
+const { getCapability } = require("./capability-registry.cjs");
+const { compilePhotoshopCommandGraph } = require("./photoshop-command-graph.cjs");
 
 const TEMPLATE_ID = "jinhu-park-64x144-v1";
 const ALLOWED_OUTPUTS = new Set(["psd", "png", "jpg"]);
 const DESIGN_PRACTICE_PROTOCOL_ID = "design-practice-v1";
 const DESIGN_PRACTICE_GATES = Object.freeze(["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"]);
-const PHOTOSHOP_INTENT_IDS = new Set(["HERO_COMPOSITE", "TYPOGRAPHY", "SPATIAL_DEPTH", "COLOR_GRADE", "MATERIAL_DETAIL", "PRESS_OUTPUT"]);
+const PHOTOSHOP_INTENT_IDS = new Set(["DOCUMENT_ANALYSIS", "LAYER_STRUCTURE", "HERO_COMPOSITE", "TYPOGRAPHY", "SPATIAL_DEPTH", "MASKING", "COLOR_GRADE", "MATERIAL_DETAIL", "PRESS_OUTPUT"]);
 const OPERATION_INTENTS = Object.freeze({ REPLACE_TEXT: "TYPOGRAPHY", SET_TEXT_COLOR: "TYPOGRAPHY", REPLACE_SMART_OBJECT: "HERO_COMPOSITE", MOVE_LAYER: "SPATIAL_DEPTH", RESIZE_LAYER: "SPATIAL_DEPTH", SAVE_COPY: "PRESS_OUTPUT", EXPORT_DOCUMENT: "PRESS_OUTPUT" });
 const LEGACY_OPERATIONS = new Set([
   "create_document",
@@ -124,7 +126,7 @@ function validateOutputSpecs(outputs) {
   }));
 }
 
-function validatePracticeContext(input, operations) {
+function validatePracticeContext(input, operations, options = {}) {
   const practice = input.practiceContext;
   assert(practice && typeof practice === "object" && !Array.isArray(practice), "is required for V2 Photoshop production", "practiceContext");
   assert(practice.protocolId === DESIGN_PRACTICE_PROTOCOL_ID, `must be ${DESIGN_PRACTICE_PROTOCOL_ID}`, "practiceContext.protocolId");
@@ -141,10 +143,54 @@ function validatePracticeContext(input, operations) {
   const toolIntentIds = [...new Set(practice.toolIntentIds.map((value, index) => safeText(value, `practiceContext.toolIntentIds.${index}`, 64).toUpperCase()))];
   for (const intent of toolIntentIds) assert(PHOTOSHOP_INTENT_IDS.has(intent), `unsupported Photoshop intent ${intent}`, "practiceContext.toolIntentIds");
   for (const operation of operations) {
-    const requiredIntent = OPERATION_INTENTS[operation.operation];
+    const requiredIntent = options.requireAllCapabilityIntents ? getCapability(operation.operation)?.intent : OPERATION_INTENTS[operation.operation];
     if (requiredIntent) assert(toolIntentIds.includes(requiredIntent), `${operation.operation} requires declared intent ${requiredIntent}`, "practiceContext.toolIntentIds");
   }
   return Object.freeze({ protocolId: DESIGN_PRACTICE_PROTOCOL_ID, protocolVersion, evidenceHash, approvedDirectionId, stage: "PHOTOSHOP_PRODUCTION", passedGates: Object.freeze(passedGates), toolIntentIds: Object.freeze(toolIntentIds) });
+}
+
+function validateOperationJobCommon(input, jobId, executionMode, plan, options = {}) {
+  const practiceContext = validatePracticeContext(input, plan.operations, { requireAllCapabilityIntents: options.requireAllCapabilityIntents });
+  const outputs = validateOutputSpecs(input.outputs);
+  const plannedOutputFormats = new Set(plan.operations.filter(operation => operation.operation === "SAVE_COPY" || operation.operation === "EXPORT_DOCUMENT").map(operation => operation.parameters.format));
+  for (const output of outputs.filter(item => item.required)) assert(plannedOutputFormats.has(output.format), `required ${output.format} output has no matching SAVE_COPY or EXPORT_DOCUMENT operation`, "outputs");
+  const sourceAssetRefs = input.sourceAssetRefs || [];
+  assert(Array.isArray(sourceAssetRefs), "must be an array", "sourceAssetRefs");
+  const assets = sourceAssetRefs.map((value, index) => safeText(value, `sourceAssetRefs.${index}`, 128));
+  for (const operation of plan.operations.filter(item => item.parameters?.assetRef)) assert(assets.includes(operation.parameters.assetRef), `asset ${operation.parameters.assetRef} must be declared in sourceAssetRefs`, "sourceAssetRefs");
+  const brief = input.brief || {};
+  const minimumFontSizePt = Number(input.reviewCriteria?.minimumFontSizePt ?? 18);
+  assert(Number.isFinite(minimumFontSizePt) && minimumFontSizePt >= 6 && minimumFontSizePt <= 400, "must be between 6 and 400", "reviewCriteria.minimumFontSizePt");
+  const document = validateDocument(input.document || {});
+  if (executionMode === "CREATE_DOCUMENT") {
+    assert(Number.isInteger(document.widthPx) && Number.isInteger(document.heightPx), "CREATE_DOCUMENT requires widthPx and heightPx", "document");
+  }
+  return {
+    jobId,
+    title: safeText(input.title || jobId, "title", 160),
+    executionMode,
+    templateId: input.templateId ? safeText(input.templateId, "templateId", 128) : null,
+    templateVersion: input.templateVersion ? safeText(input.templateVersion, "templateVersion", 40) : null,
+    document,
+    brief: Object.freeze({
+      goal: safeText(brief.goal || input.title || jobId, "brief.goal", 500),
+      audience: brief.audience ? safeText(brief.audience, "brief.audience", 240) : null,
+      requiredElements: Object.freeze((brief.requiredElements || []).map((value, index) => safeText(value, `brief.requiredElements.${index}`, 160))),
+      forbiddenElements: Object.freeze((brief.forbiddenElements || []).map((value, index) => safeText(value, `brief.forbiddenElements.${index}`, 160)))
+    }),
+    sourceAssetRefs: Object.freeze(assets),
+    practiceContext,
+    operations: plan.operations,
+    operationSummary: plan.summary,
+    outputs,
+    reviewCriteria: Object.freeze({
+      minimumFontSizePt,
+      requireEditableText: input.reviewCriteria?.requireEditableText !== false,
+      requireSemanticLayerNames: input.reviewCriteria?.requireSemanticLayerNames !== false
+    }),
+    requireApproval: true,
+    governance: validateGovernance(input, jobId)
+  };
 }
 
 function validateV2Job(input, jobId) {
@@ -190,12 +236,30 @@ function validateV2Job(input, jobId) {
   });
 }
 
+function validateV3Job(input, jobId) {
+  const executionMode = String(input.executionMode || "MODIFY_ACTIVE_DOCUMENT").toUpperCase();
+  assert(["MODIFY_ACTIVE_DOCUMENT", "CREATE_DOCUMENT"].includes(executionMode), "must be MODIFY_ACTIVE_DOCUMENT or CREATE_DOCUMENT", "executionMode");
+  const graph = compilePhotoshopCommandGraph(input.commandGraph);
+  const common = validateOperationJobCommon(input, jobId, executionMode, graph, { requireAllCapabilityIntents: true });
+  return Object.freeze({
+    schemaVersion: 3,
+    ...common,
+    commandGraph: Object.freeze({
+      schemaVersion: graph.schemaVersion,
+      graphId: graph.graphId,
+      summary: graph.summary
+    }),
+    capabilityProfile: graph.capabilityProfile
+  });
+}
+
 function validateJob(input) {
   assert(input && typeof input === "object" && !Array.isArray(input), "job must be an object");
   const jobId = safeText(input.jobId, "jobId", 80);
   const version = Number(input.schemaVersion || 1);
   if (version === 1) return validateLegacyJob(input, jobId);
   if (version === 2) return validateV2Job(input, jobId);
+  if (version === 3) return validateV3Job(input, jobId);
   throw new JobValidationError(`unsupported schema version: ${version}`, "schemaVersion");
 }
 

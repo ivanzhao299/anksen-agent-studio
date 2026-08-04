@@ -1,5 +1,5 @@
 ---
-name: ANKSEN Studio for Photoshop V2
+name: ANKSEN Studio for Photoshop V3
 description: 与 Photoshop 深色宿主一致的受控设计生产工作台
 colors:
   surface-0: "var(--uxp-host-background-color, #242424)"
@@ -94,7 +94,7 @@ components:
     padding: "3px 6px"
 ---
 
-# Design System: ANKSEN Studio for Photoshop V2
+# Design System: ANKSEN Studio for Photoshop V3
 
 ## Overview
 

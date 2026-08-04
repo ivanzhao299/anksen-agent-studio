@@ -60,6 +60,20 @@ test("V2 dispatch requires upstream Design Practice evidence and matching Photos
   assert.equal(ready.status, "READY_FOR_INTERACTIVE_CONFIRMATION");
 });
 
+test("V3 dispatch accepts a compiled capability graph and rejects incomplete intent evidence", () => {
+  const operations = [
+    { operationId: "fill", operation: "CREATE_SOLID_FILL_LAYER", parameters: { name: "Background", color: { red: 10, green: 20, blue: 30 } } },
+    { operationId: "export", operation: "EXPORT_DOCUMENT", parameters: { format: "png" } }
+  ];
+  const practiceContext = { protocolId: "design-practice-v1", protocolVersion: "1.1.0", evidenceHash: "e".repeat(64), approvedDirectionId: "direction-v3", stage: "PHOTOSHOP_PRODUCTION", passedGates: ["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"], toolIntentIds: ["COLOR_GRADE", "PRESS_OUTPUT"] };
+  const v3 = { ...job, schemaVersion: 3, operations, practiceContext, commandGraph: { graphId: "graph-v3", summary: { nodes: 2, edges: 0 } }, capabilityProfile: { registryVersion: "1.0.0" } };
+  const ready = evaluatePhotoshopUxpActivation({ adapter: { ...adapter, health_status: "healthy" }, proposal, node, job: v3 });
+  assert.equal(ready.status, "READY_FOR_INTERACTIVE_CONFIRMATION");
+  const blocked = evaluatePhotoshopUxpActivation({ adapter: { ...adapter, health_status: "healthy" }, proposal, node, job: { ...v3, practiceContext: { ...practiceContext, toolIntentIds: ["PRESS_OUTPUT"] } } });
+  assert.equal(blocked.status, "BLOCKED");
+  assert.match(blocked.blockers.join(" "), /COLOR_GRADE/);
+});
+
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   if (value && typeof value === "object") return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;

@@ -25,6 +25,13 @@ test("blocks distorted text and reports the exact evidence", () => {
   assert.equal(result.issues[0].code, "TEXT_DISTORTED");
 });
 
+test("reports text content used as a layer name when semantic names are required", () => {
+  const value = inspection();
+  value.layers[0].name = value.layers[0].text.contents;
+  const result = runPreflight(value, { ...job, reviewCriteria: { ...job.reviewCriteria, requireSemanticLayerNames: true } });
+  assert.ok(result.issues.some(item => item.code === "TEXT_CONTENT_USED_AS_LAYER_NAME"));
+});
+
 test("derives pixel dimensions from physical millimetres and blocks a 1x1 document", () => {
   const inspection = { document: { width: 1, height: 1, resolution: 150, colorMode: "CMYK", profile: "FOGRA39" }, layers: [{ id: 1, name: "00_BACKGROUND", type: "PIXEL", visible: true, children: [] }] };
   const result = runPreflight(inspection, { document: { widthMm: 640, heightMm: 1440, resolution: 150, colorMode: "CMYK", bleedMm: 0 } });

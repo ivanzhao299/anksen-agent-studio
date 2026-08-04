@@ -1,10 +1,12 @@
 # ANKSEN Studio Photoshop UXP Plugin
 
-受 Agent Studio 治理的 Photoshop 设计执行端。当前模板生成 `640 × 1440 mm` 的金湖科创产业园竖版展板，保留可编辑文字图层，并支持 PSD、PNG、JPG 输出。
+受 Agent Studio 治理的 Photoshop 设计执行端。V3 不再以固定模板作为能力边界：Studio 可以把批准的创意方向编译为文档内命令图，由 33 项白名单能力动态组合图层、文字、智能对象、路径、蒙版、调整层、滤镜与交付输出。
 
 V2 将原来的单模板面板升级为 Photoshop 内的受控生产工作台：任务、图层、操作、检查、交付五个连续视图，支持当前文档语义化检查、白名单 Operation DSL、风险预演、人工确认、单步历史回滚、技术预检和带 SHA-256 的交付清单。插件仍是现有 Studio Runtime Adapter 的执行端，不承担规划或调度。
 
 V3 高端商务展架使用 `scripts/jinhu-v3-innovation-gate-production.jsx`。它把 AI 生成的“创新之门”建筑主视觉作为智能对象，在真实 Photoshop 中完成品牌融合、真实中文排版、语义分层、CMYK 派生和多格式输出，生成 `640 × 1440 mm @ 150 ppi` 的 3780×8504 PSD、同尺寸 PDF 与 3840px 高 PNG。首轮 Logo 白底缺陷已由设计审查发现并在脚本中固定修复。
+
+通用能力验收使用 `examples/capability-graph-v3.example.json`，不是项目模板。Photoshop 菜单“增效工具 > ANKSEN Studio for Photoshop > 运行 V3 能力验收”会运行 24 节点命令图。2026-08-04 的真实宿主证据 `anksen-capability-v3-20260804-002631` 已确认：2400×3600 分层 PSD、两层智能对象、路径转选区、两层非破坏蒙版、曲线调整层、3 个真实文字层及 28px 高斯智能滤镜。未通过真实宿主验收的能力仍在注册表中明确标为 `HOST_ACCEPTANCE_REQUIRED`。
 
 十二联画生产版使用 `scripts/jinhu-series-production.jsx`。脚本读取 `design-assets/jinhu-12-panel-series/photoshop-production-manifest.json`，逐页生成真实文字图层、品牌锁定组、智能对象主视觉、整体色调层、150ppi CMYK PSD、印刷PDF和3840px高PNG预览。它是受控的本地 Photoshop 生产执行器，不新增 Planner、Scheduler、Runtime 或队列。
 

@@ -30,13 +30,66 @@ const state = {
   producedEntries: []
 };
 
-entrypoints.setup({ panels: { anksenStudioPanel: { show() {} } } });
+entrypoints.setup({
+  panels: { anksenStudioPanel: { show() {} } },
+  commands: { runCapabilityAcceptance: () => runCapabilityAcceptance() }
+});
 
 const $ = id => document.getElementById(id);
 const setText = (id, value) => { $(id).textContent = value == null ? "—" : String(value); };
 
 function describeError(error) {
   return error && typeof error.message === "string" ? error.message : String(error);
+}
+
+async function runCapabilityAcceptance() {
+  const createdEntries = [];
+  try {
+    const jobEntry = await storage.localFileSystem.getEntryWithUrl("plugin:/examples/capability-graph-v3.example.json");
+    const job = validateJob(JSON.parse(await jobEntry.read()));
+    const heroEntry = await storage.localFileSystem.getEntryWithUrl("plugin:/assets/jinhu-key-visual-v3.png");
+    const outputFolder = await storage.localFileSystem.getFolder();
+    if (!outputFolder) throw new Error("已取消能力验收输出文件夹选择。");
+    const suffix = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "").replace("T", "-");
+    const psdEntry = await outputFolder.createFile(`anksen-capability-v3-${suffix}.psd`, { overwrite: false });
+    createdEntries.push(psdEntry);
+    const pngEntry = await outputFolder.createFile(`anksen-capability-v3-${suffix}.png`, { overwrite: false });
+    createdEntries.push(pngEntry);
+    const manifestEntry = await outputFolder.createFile(`anksen-capability-v3-${suffix}-result.json`, { overwrite: false });
+    createdEntries.push(manifestEntry);
+    let latestPreflight = null;
+    const executionResult = await executeOperationPlan(null, job.operations, {
+      approved: true,
+      assetEntries: { "hero-image": heroEntry },
+      outputEntries: { "save-source": psdEntry, "export-preview": pngEntry },
+      createDocument: { width: job.document.widthPx, height: job.document.heightPx, resolution: job.document.resolution, colorMode: job.document.colorMode, name: job.title },
+      historyName: `ANKSEN V3 Host Acceptance · ${job.commandGraph.graphId}`,
+      preflightBeforeOutput: async ({ document }) => {
+        latestPreflight = runPreflight(inspectPhotoshopDocument(document), job);
+        if (latestPreflight.disposition === "REQUIRES_CONFIRMATION") throw new Error("HOST_ACCEPTANCE_REQUIRES_REPORT_BOUND_CONFIRMATION");
+        return latestPreflight;
+      }
+    });
+    const document = executionResult.document;
+    latestPreflight = runPreflight(inspectPhotoshopDocument(document), job);
+    const approvalBinding = createApprovalBinding(job, document, { humanConfirmed: true });
+    const manifest = await buildArtifactManifest({
+      job,
+      executionResult,
+      preflight: latestPreflight,
+      approvalBinding,
+      outputEntries: [{ entry: psdEntry, format: "psd" }, { entry: pngEntry, format: "png" }]
+    });
+    await manifestEntry.write(`${JSON.stringify(manifest, null, 2)}\n`);
+    await photoshop.app.showAlert(`ANKSEN V3 能力验收通过\n${job.operationSummary.total} 个命令 · ${manifest.artifacts.length} 个交付文件\n${psdEntry.name}\n${pngEntry.name}`);
+    return manifest;
+  } catch (error) {
+    for (const entry of createdEntries) {
+      try { await entry.delete(); } catch { /* Failed acceptance artifacts are best-effort cleaned up. */ }
+    }
+    await photoshop.app.showAlert(`ANKSEN V3 能力验收失败\n${describeError(error)}`);
+    throw error;
+  }
 }
 
 function log(message) {
@@ -111,7 +164,7 @@ function outputFormats(job) {
 }
 
 function taskGoal(job) {
-  if (job.schemaVersion === 2) return job.brief.goal;
+  if (job.schemaVersion >= 2) return job.brief.goal;
   return `${job.content.subtitle} · ${job.content.features.join(" · ")}`;
 }
 
@@ -126,7 +179,7 @@ function renderTask() {
   const dimensions = job.document.widthPx && job.document.heightPx ? `${job.document.widthPx} × ${job.document.heightPx} px` : `${job.document.widthMm} × ${job.document.heightMm} mm`;
   setText("taskCanvas", `${dimensions} · ${job.document.resolution} ppi`);
   setText("taskMode", `${job.executionMode} · ${job.document.colorMode}`);
-  setText("taskOperations", job.schemaVersion === 2 ? `${job.operationSummary.total} 项 / ${job.operationSummary.highRisk} 高风险` : `${job.operations.length} 项模板步骤`);
+  setText("taskOperations", job.schemaVersion >= 2 ? `${job.operationSummary.total} 项 / ${job.operationSummary.highRisk} 高风险` : `${job.operations.length} 项模板步骤`);
   setText("taskOutputs", outputFormats(job).map(value => value.toUpperCase()).join(" / "));
   setText("jobStatus", "待人工确认");
 }
@@ -141,7 +194,7 @@ function operationDescription(operation) {
 function renderOperations() {
   const list = $("operationList");
   list.replaceChildren();
-  const operations = state.job?.schemaVersion === 2 ? state.job.operations : [];
+  const operations = state.job?.schemaVersion >= 2 ? state.job.operations : [];
   $("operationsEmpty").classList.toggle("is-hidden", operations.length > 0);
   setText("operationCount", operations.length);
   for (const operation of operations) {
@@ -304,7 +357,7 @@ function bindHumanApproval() {
   }
   if (!state.job) throw new Error("请先载入任务。");
   if (state.jobSource === "LOCAL_FILE") throw new Error("本地导入任务只允许审阅；请通过受治理的 Studio Bridge 提交，或使用明确标记的本地演示。");
-  const document = state.job.schemaVersion === 1 ? { id: "NEW_DOCUMENT" } : activeDocument();
+  const document = state.job.executionMode === "CREATE_DOCUMENT" || state.job.schemaVersion === 1 ? { id: "NEW_DOCUMENT" } : activeDocument();
   state.approvalBinding = createApprovalBinding(state.job, document, { humanConfirmed: true });
   log(`人工确认已绑定任务 ${state.job.jobId} 与文档 #${document.id}。`);
   updateActions();
@@ -346,12 +399,12 @@ async function runReview() {
 }
 
 async function prepareOperationFiles() {
-  if (!state.job || state.job.schemaVersion !== 2) {
-    log("当前模板任务无需预先准备 V2 文件条目。");
+  if (!state.job || state.job.schemaVersion < 2) {
+    log("当前模板任务无需预先准备操作文件条目。");
     return;
   }
   for (const operation of state.job.operations) {
-    if (operation.operation === "REPLACE_SMART_OBJECT" && !state.assetEntries[operation.parameters.assetRef]) {
+    if (["REPLACE_SMART_OBJECT", "PLACE_AS_SMART_OBJECT"].includes(operation.operation) && !state.assetEntries[operation.parameters.assetRef]) {
       const entry = await storage.localFileSystem.getFileForOpening({ types: ["png", "jpg", "jpeg", "psd"] });
       if (!entry) throw new Error(`已取消素材 ${operation.parameters.assetRef} 的选择。`);
       state.assetEntries[operation.parameters.assetRef] = entry;
@@ -384,7 +437,8 @@ async function executeCurrentJob() {
   if (!state.job) throw new Error("请先载入任务。");
   if (!$("approval").checked) throw new Error("必须先完成明确的人工确认。");
   if (!state.approvalBinding) throw new Error("人工确认尚未绑定任务和 Photoshop 文档。");
-  const currentDocument = state.job.schemaVersion === 1 ? { id: "NEW_DOCUMENT" } : activeDocument();
+  const createsDocument = state.job.schemaVersion === 1 || state.job.executionMode === "CREATE_DOCUMENT";
+  const currentDocument = createsDocument ? { id: "NEW_DOCUMENT" } : activeDocument();
   try { assertApprovalBinding(state.approvalBinding, state.job, currentDocument); }
   catch { throw new Error("任务或活动文档已变化，请重新检查并确认。"); }
   if (state.jobSource === "LOCAL_FILE") throw new Error("本地导入任务不能进入执行路径。");
@@ -399,13 +453,20 @@ async function executeCurrentJob() {
     state.producedEntries = psdEntry ? [{ entry: psdEntry, format: "psd" }] : [];
     state.executionResult = { status: "COMPLETED", plan: { total: state.job.operations.length, writes: state.job.operations.length } };
   } else {
-    state.document = currentDocument;
+    state.document = createsDocument ? null : currentDocument;
     await prepareOperationFiles();
     state.executionResult = await executeOperationPlan(state.document, state.job.operations, {
       approved: true,
       assetEntries: state.assetEntries,
       outputEntries: state.outputEntries,
       historyName: `ANKSEN：${state.job.title}`,
+      createDocument: createsDocument ? {
+        width: state.job.document.widthPx,
+        height: state.job.document.heightPx,
+        resolution: state.job.document.resolution,
+        colorMode: state.job.document.colorMode,
+        name: state.job.title
+      } : null,
       completedIdempotencyKeys: new Set(),
       preflightBeforeOutput: async ({ document }) => {
         const inspection = inspectPhotoshopDocument(document);
@@ -416,6 +477,7 @@ async function executeCurrentJob() {
         return { ...result, exportAllowed: preflightAllowsOutput(result, state.highRiskBinding, state.job, document) };
       }
     });
+    state.document = state.executionResult.document;
     state.producedEntries = state.job.operations
       .filter(operation => state.outputEntries[operation.operationId])
       .map(operation => ({ entry: state.outputEntries[operation.operationId], format: operation.parameters.format }));
@@ -457,6 +519,7 @@ $("loadJob").addEventListener("click", () => withBusy("正在校验任务", asyn
 }));
 
 $("useV2Sample").addEventListener("click", () => withBusy("正在载入 V2 示例", async () => setJob(await loadBundledJson("plugin:/examples/jinhu-operations-v2.example.json"), "BUNDLED_DEMO")));
+$("useV3Sample").addEventListener("click", () => withBusy("正在载入通用能力图 V3", async () => setJob(await loadBundledJson("plugin:/examples/capability-graph-v3.example.json"), "BUNDLED_DEMO")));
 $("useLegacySample").addEventListener("click", () => { try { setJob(sampleJob(), "BUNDLED_DEMO"); } catch (error) { log(`示例加载失败：${describeError(error)}`); } });
 
 $("loadLogo").addEventListener("click", () => withBusy("正在选择品牌素材", async () => {

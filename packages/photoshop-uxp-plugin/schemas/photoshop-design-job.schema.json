@@ -4,7 +4,8 @@
   "title": "Governed Photoshop Design Job",
   "oneOf": [
     { "$ref": "#/$defs/legacyJob" },
-    { "$ref": "#/$defs/operationJob" }
+    { "$ref": "#/$defs/operationJob" },
+    { "$ref": "#/$defs/capabilityGraphJob" }
   ],
   "$defs": {
     "governance": {
@@ -40,11 +41,12 @@
       "required": ["operation"],
       "properties": {
         "operationId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
-        "operation": { "enum": ["INSPECT_DOCUMENT", "SELECT_LAYER", "RENAME_LAYER", "SET_VISIBILITY", "MOVE_LAYER", "RESIZE_LAYER", "REPLACE_TEXT", "SET_TEXT_COLOR", "CREATE_GROUP", "DUPLICATE_LAYER", "REPLACE_SMART_OBJECT", "SAVE_COPY", "EXPORT_DOCUMENT"] },
+        "operation": { "enum": ["INSPECT_DOCUMENT", "SELECT_LAYER", "RENAME_LAYER", "SET_VISIBILITY", "SET_OPACITY", "SET_BLEND_MODE", "MOVE_LAYER", "RESIZE_LAYER", "ROTATE_LAYER", "DUPLICATE_LAYER", "RASTERIZE_LAYER", "CONVERT_TO_SMART_OBJECT", "REPLACE_TEXT", "SET_TEXT_COLOR", "SET_TEXT_STYLE", "CREATE_GROUP", "CREATE_PIXEL_LAYER", "CREATE_TEXT_LAYER", "CREATE_SOLID_FILL_LAYER", "PLACE_AS_SMART_OBJECT", "REPLACE_SMART_OBJECT", "CREATE_RECT_SELECTION", "CREATE_ELLIPSE_SELECTION", "CREATE_POLYGON_SELECTION", "DESELECT", "CREATE_WORK_PATH_FROM_SELECTION", "LOAD_WORK_PATH_AS_SELECTION", "CREATE_REVEAL_SELECTION_MASK", "APPLY_LAYER_MASK", "CREATE_ADJUSTMENT_LAYER", "APPLY_FILTER", "SAVE_COPY", "EXPORT_DOCUMENT"] },
         "target": {
           "oneOf": [
             { "type": "object", "required": ["layerId"], "properties": { "layerId": { "type": "integer", "minimum": 1 } }, "additionalProperties": false },
-            { "type": "object", "required": ["layerName"], "properties": { "layerName": { "type": "string", "minLength": 1, "maxLength": 255 } }, "additionalProperties": false }
+            { "type": "object", "required": ["layerName"], "properties": { "layerName": { "type": "string", "minLength": 1, "maxLength": 255 } }, "additionalProperties": false },
+            { "type": "object", "required": ["nodeOutput"], "properties": { "nodeOutput": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" } }, "additionalProperties": false }
           ]
         },
         "parameters": { "type": "object" },
@@ -118,7 +120,7 @@
             "approvedDirectionId": { "type": "string", "minLength": 1, "maxLength": 128 },
             "stage": { "const": "PHOTOSHOP_PRODUCTION" },
             "passedGates": { "type": "array", "uniqueItems": true, "items": { "enum": ["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"] } },
-            "toolIntentIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["HERO_COMPOSITE", "TYPOGRAPHY", "SPATIAL_DEPTH", "COLOR_GRADE", "MATERIAL_DETAIL", "PRESS_OUTPUT"] } }
+            "toolIntentIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["DOCUMENT_ANALYSIS", "LAYER_STRUCTURE", "HERO_COMPOSITE", "TYPOGRAPHY", "SPATIAL_DEPTH", "MASKING", "COLOR_GRADE", "MATERIAL_DETAIL", "PRESS_OUTPUT"] } }
           },
           "additionalProperties": false
         },
@@ -129,6 +131,81 @@
           "items": {
             "type": "object",
             "required": ["format"],
+            "properties": { "format": { "enum": ["psd", "png", "jpg"] }, "purpose": { "type": "string", "maxLength": 160 }, "required": { "type": "boolean" }, "preserveLayers": { "type": "boolean" } },
+            "additionalProperties": false
+          }
+        },
+        "reviewCriteria": {
+          "type": "object",
+          "properties": { "minimumFontSizePt": { "type": "number", "minimum": 6, "maximum": 400 }, "requireEditableText": { "type": "boolean" }, "requireSemanticLayerNames": { "type": "boolean" } },
+          "additionalProperties": false
+        },
+        "requireApproval": { "const": true },
+        "governance": { "$ref": "#/$defs/governance" }
+      },
+      "additionalProperties": false
+    },
+    "capabilityGraphJob": {
+      "type": "object",
+      "required": ["schemaVersion", "jobId", "title", "executionMode", "document", "practiceContext", "commandGraph", "outputs", "requireApproval", "governance"],
+      "properties": {
+        "schemaVersion": { "const": 3 },
+        "jobId": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "executionMode": { "enum": ["MODIFY_ACTIVE_DOCUMENT", "CREATE_DOCUMENT"] },
+        "templateId": { "type": "string", "maxLength": 128 },
+        "templateVersion": { "type": "string", "maxLength": 40 },
+        "document": { "$ref": "#/$defs/document" },
+        "brief": {
+          "type": "object",
+          "properties": {
+            "goal": { "type": "string", "maxLength": 500 },
+            "audience": { "type": "string", "maxLength": 240 },
+            "requiredElements": { "type": "array", "items": { "type": "string", "maxLength": 160 } },
+            "forbiddenElements": { "type": "array", "items": { "type": "string", "maxLength": 160 } }
+          },
+          "additionalProperties": false
+        },
+        "sourceAssetRefs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "maxLength": 128 } },
+        "practiceContext": {
+          "type": "object",
+          "required": ["protocolId", "protocolVersion", "evidenceHash", "approvedDirectionId", "stage", "passedGates", "toolIntentIds"],
+          "properties": {
+            "protocolId": { "const": "design-practice-v1" },
+            "protocolVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+            "evidenceHash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+            "approvedDirectionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "stage": { "const": "PHOTOSHOP_PRODUCTION" },
+            "passedGates": { "type": "array", "uniqueItems": true, "items": { "enum": ["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"] } },
+            "toolIntentIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["DOCUMENT_ANALYSIS", "LAYER_STRUCTURE", "HERO_COMPOSITE", "TYPOGRAPHY", "SPATIAL_DEPTH", "MASKING", "COLOR_GRADE", "MATERIAL_DETAIL", "PRESS_OUTPUT"] } }
+          },
+          "additionalProperties": false
+        },
+        "commandGraph": {
+          "type": "object",
+          "required": ["nodes"],
+          "properties": {
+            "schemaVersion": { "const": 1 },
+            "graphId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "nodes": {
+              "type": "array", "minItems": 1, "maxItems": 200,
+              "items": {
+                "type": "object", "required": ["nodeId", "command"],
+                "properties": {
+                  "nodeId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+                  "dependsOn": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" } },
+                  "command": { "$ref": "#/$defs/operation" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputs": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "required": ["format"],
             "properties": { "format": { "enum": ["psd", "png", "jpg"] }, "purpose": { "type": "string", "maxLength": 160 }, "required": { "type": "boolean" }, "preserveLayers": { "type": "boolean" } },
             "additionalProperties": false
           }

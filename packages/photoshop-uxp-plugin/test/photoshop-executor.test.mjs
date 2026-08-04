@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const { validateJob } = require("../src/job-contract.cjs");
 const { createLayout, sampleJob } = require("../src/jinhu-template.cjs");
-const { executeOperationPlan, renderPoster } = require("../src/photoshop-executor.cjs");
+const { applyOperation, executeOperationPlan, renderPoster, selectLayer } = require("../src/photoshop-executor.cjs");
 
 function harness() {
   const calls = [];
@@ -121,4 +121,61 @@ test("renders the governed job inside one modal history operation", async () => 
   assert.equal(h.calls.filter(call => call[0] === "group").length, 2);
   assert.deepEqual(h.calls.find(call => call[0] === "text")[1].textColor.rgb, { red: 10, green: 32, blue: 71 });
   assert.equal(h.calls.filter(call => call[0] === "resume").at(-1)[2], true);
+});
+
+test("creates a document and resolves created layer outputs for later commands", async () => {
+  const calls = [];
+  const createdLayer = { id: 88, name: "", kind: "text", visible: true, opacity: 100, bounds: { left: 100, top: 100, right: 500, bottom: 200 }, textItem: { contents: "", characterStyle: { size: 80, horizontalScale: 100, verticalScale: 100 }, paragraphStyle: {} } };
+  const doc = {
+    id: 77, name: "dynamic.psd", width: 1200, height: 1800, resolution: 150, mode: "RGB", layers: [], activeLayers: [],
+    async createTextLayer(options) { calls.push(["createTextLayer", options]); Object.assign(createdLayer, { name: options.name }); createdLayer.textItem.contents = options.contents; this.layers.push(createdLayer); this.activeLayers = [createdLayer]; return createdLayer; }
+  };
+  class SolidColor { constructor() { this.rgb = {}; } }
+  const photoshop = {
+    app: { SolidColor, async createDocument(options) { calls.push(["createDocument", options]); return doc; } },
+    constants: { NewDocumentMode: { RGB: "RGB", CMYK: "CMYK" }, DocumentFill: { TRANSPARENT: "TRANSPARENT", WHITE: "WHITE" }, AnchorPosition: { MIDDLECENTER: "center" } },
+    action: { async batchPlay(descriptors) { calls.push(["batchPlay", descriptors]); } },
+    core: { async executeAsModal(callback) { return callback({ isCancelled: false, reportProgress() {}, hostControl: { async suspendHistory() { return "h"; }, async resumeHistory() {} } }); } }
+  };
+  const result = await executeOperationPlan(null, [
+    { operationId: "title", operation: "CREATE_TEXT_LAYER", parameters: { name: "10_TITLE", text: "Capability Graph", position: { x: 100, y: 200 }, fontSize: 80, color: { red: 10, green: 20, blue: 30 } } },
+    { operationId: "style", operation: "SET_TEXT_STYLE", target: { nodeOutput: "title" }, parameters: { tracking: 120, fauxBold: true } }
+  ], { approved: true, createDocument: { width: 1200, height: 1800, resolution: 150, colorMode: "RGB", name: "Dynamic" } }, { photoshop });
+  assert.equal(result.document.id, 77);
+  assert.equal(createdLayer.name, "10_TITLE");
+  assert.equal(createdLayer.textItem.characterStyle.tracking, 120);
+  assert.equal(createdLayer.textItem.characterStyle.fauxBold, true);
+  assert.equal(calls.filter(call => call[0] === "createDocument").length, 1);
+});
+
+test("selects a target-sensitive layer by stable Photoshop id", async () => {
+  const wrongLayer = { id: 1, name: "wrong" };
+  const targetLayer = { id: 22, name: "hero" };
+  const doc = { activeLayers: [wrongLayer] };
+  const descriptors = [];
+  const action = { async batchPlay(value) { descriptors.push(...value); doc.activeLayers = [targetLayer]; } };
+  await selectLayer(doc, targetLayer, action);
+  assert.equal(descriptors[0]._obj, "select");
+  assert.equal(descriptors[0]._target[0]._id, 22);
+});
+
+test("round-trips a selection through the typed Photoshop work-path DOM", async () => {
+  const calls = [];
+  const path = { async makeSelection(feather, antialias, mode) { calls.push(["makeSelection", feather, antialias, mode]); } };
+  const doc = {
+    selection: { async makeWorkPath(tolerance) { calls.push(["makeWorkPath", tolerance]); return path; } },
+    pathItems: { getByName(name) { calls.push(["getByName", name]); return path; } }
+  };
+  const photoshop = {
+    app: {},
+    action: {},
+    constants: { SelectionType: { REPLACE: "replace" } }
+  };
+  await applyOperation(doc, { operation: "CREATE_WORK_PATH_FROM_SELECTION", parameters: { tolerance: 2 } }, {}, { photoshop });
+  await applyOperation(doc, { operation: "LOAD_WORK_PATH_AS_SELECTION", parameters: { feather: 0, antialias: true } }, {}, { photoshop });
+  assert.deepEqual(calls, [
+    ["makeWorkPath", 2],
+    ["getByName", "Work Path"],
+    ["makeSelection", 0, true, "replace"]
+  ]);
 });

@@ -56,6 +56,7 @@ function runPreflight(inspection, job = {}, options = {}) {
 
   const minFontSize = Number(job.reviewCriteria?.minimumFontSizePt ?? options.minimumFontSizePt ?? 18);
   for (const layer of layers.filter(item => item.type === "TEXT")) {
+    if (job.reviewCriteria?.requireSemanticLayerNames !== false && layer.name === layer.text?.contents?.slice(0, layer.name.length)) findings.push(issue("TEXT_CONTENT_USED_AS_LAYER_NAME", "MEDIUM", `文字图层“${layer.name}”没有独立的语义化名称。`, { layerId: layer.id }, "使用如 31_TITLE_主标题 的稳定语义名称，避免文案变化破坏自动化定位。"));
     if (!layer.text?.contents?.trim()) findings.push(issue("EMPTY_TEXT_LAYER", "MEDIUM", `文字图层“${layer.name}”为空。`, { layerId: layer.id }, "删除无用途文字层或补充已确认文案。"));
     if (layer.text?.missingFont) findings.push(issue("MISSING_FONT", "BLOCKER", `文字图层“${layer.name}”使用了缺失字体。`, { layerId: layer.id, font: layer.text.font }, "安装授权字体或替换为已批准字体。"));
     if (Number.isFinite(layer.text?.fontSize) && layer.text.fontSize < minFontSize) findings.push(issue("TEXT_BELOW_MINIMUM_SIZE", "HIGH", `文字图层“${layer.name}”小于最低可读字号。`, { layerId: layer.id, actualPt: layer.text.fontSize, minimumPt: minFontSize }, "提升字号或删除低优先级小字，并进行观看距离测试。"));

@@ -47,8 +47,9 @@
           </div>
           <div class="button-row">
             <button id="loadJob" class="button button-primary">导入 JSON 审阅</button>
+            <button id="useV3Sample" class="button">载入能力图 V3</button>
             <button id="useV2Sample" class="button">载入 V2 示例</button>
-            <button id="useLegacySample" class="button">创建 V3 展板</button>
+            <button id="useLegacySample" class="button">固定模板（兼容）</button>
           </div>
           <div id="taskEmpty" class="empty-state">
             <strong>尚未载入生产任务</strong>
@@ -67,7 +68,7 @@
           <div class="field-row">
             <div>
               <strong>品牌素材</strong>
-              <p id="assetStatus">内置 Logo 已准备；V2 替换素材需逐项授权。</p>
+              <p id="assetStatus">内置 Logo 已准备；外部素材与输出位置需逐项授权。</p>
             </div>
             <button id="loadLogo" class="button button-compact">选择 Logo</button>
           </div>
@@ -94,7 +95,7 @@
             <div><h2>受控操作计划</h2><p>风险由白名单定义派生，任务不能自行降低风险等级。</p></div>
             <span id="operationCount" class="count-badge">0</span>
           </div>
-          <div id="operationsEmpty" class="empty-state compact"><strong>没有待执行操作</strong><p>载入 V2 任务后在这里确认影响范围。</p></div>
+          <div id="operationsEmpty" class="empty-state compact"><strong>没有待执行操作</strong><p>载入 V2/V3 任务后在这里确认影响范围。</p></div>
           <ol id="operationList" class="operation-list"></ol>
           <div class="approval-block">
             <label class="approval">

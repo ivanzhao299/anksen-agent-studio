@@ -12,7 +12,9 @@ function stableStringify(value) {
 }
 
 async function describeEntry(entry, format) {
-  const binary = await entry.read({ format: "binary" });
+  let binaryFormat = "binary";
+  try { binaryFormat = require("uxp").storage.formats.binary; } catch { /* Node tests use the portable string sentinel. */ }
+  const binary = await entry.read({ format: binaryFormat });
   const bytes = binary instanceof ArrayBuffer ? new Uint8Array(binary) : new Uint8Array(binary.buffer, binary.byteOffset, binary.byteLength);
   return Object.freeze({ name: entry.name, format, sizeBytes: bytes.byteLength, sha256: sha256Hex(bytes) });
 }

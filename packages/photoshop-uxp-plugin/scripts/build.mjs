@@ -35,7 +35,7 @@ for (const file of await readdir(resolve(root, "schemas"))) await cp(resolve(roo
 
 const manifest = JSON.parse(await readFile(resolve(root, "manifest.json"), "utf8"));
 const buildInfo = {
-  schema_version: 2,
+  schema_version: 3,
   plugin_id: manifest.id,
   version: manifest.version,
   host: manifest.host,
@@ -44,9 +44,19 @@ const buildInfo = {
   capability_status: {
     document_inspection: "VERIFIED_OFFLINE",
     operation_dsl: "VERIFIED_OFFLINE",
+    capability_registry: "VERIFIED_OFFLINE",
+    photoshop_command_graph: "VERIFIED_OFFLINE",
+    advanced_atomic_operations: "PARTIALLY_VERIFIED_PHOTOSHOP_27_9",
     print_preflight: "VERIFIED_OFFLINE",
     artifact_manifest: "VERIFIED_OFFLINE",
-    photoshop_execution: "REQUIRES_REAL_HOST_ACCEPTANCE"
+    photoshop_execution: "VERIFIED_PHOTOSHOP_27_9"
+  },
+  host_acceptance: {
+    host: "Adobe Photoshop 2026 v27.9 on macOS",
+    evidence: "anksen-capability-v3-20260804-002631",
+    command_count: 24,
+    psd: { width: 2400, height: 3600, layers: 7 },
+    remaining_operations_are_explicitly_marked: "HOST_ACCEPTANCE_REQUIRED"
   },
   note: "Use UXP Developer Tool > Package. Do not rename a ZIP archive to .ccx."
 };

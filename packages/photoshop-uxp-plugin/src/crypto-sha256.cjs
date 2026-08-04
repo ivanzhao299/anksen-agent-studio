@@ -15,7 +15,28 @@ function toBytes(value) {
   if (value instanceof Uint8Array) return value;
   if (value instanceof ArrayBuffer) return new Uint8Array(value);
   if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-  return new TextEncoder().encode(String(value));
+  return utf8Bytes(String(value));
+}
+
+// Photoshop UXP 27.9 does not provide the browser TextEncoder global. Keep
+// hashing deterministic with a small standards-compatible UTF-8 encoder.
+function utf8Bytes(value) {
+  const bytes = [];
+  for (let index = 0; index < value.length; index += 1) {
+    let codePoint = value.charCodeAt(index);
+    if (codePoint >= 0xd800 && codePoint <= 0xdbff) {
+      const low = value.charCodeAt(index + 1);
+      if (low >= 0xdc00 && low <= 0xdfff) {
+        codePoint = 0x10000 + ((codePoint - 0xd800) << 10) + (low - 0xdc00);
+        index += 1;
+      } else codePoint = 0xfffd;
+    } else if (codePoint >= 0xdc00 && codePoint <= 0xdfff) codePoint = 0xfffd;
+    if (codePoint <= 0x7f) bytes.push(codePoint);
+    else if (codePoint <= 0x7ff) bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 0x3f));
+    else if (codePoint <= 0xffff) bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f));
+    else bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 0x3f), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f));
+  }
+  return Uint8Array.from(bytes);
 }
 
 function rotateRight(value, bits) {
@@ -95,4 +116,4 @@ function hmacSha256Hex(secret, message) {
   return sha256Hex(outer);
 }
 
-module.exports = { bytesToHex, hmacSha256Hex, sha256Bytes, sha256Hex, toBytes };
+module.exports = { bytesToHex, hmacSha256Hex, sha256Bytes, sha256Hex, toBytes, utf8Bytes };

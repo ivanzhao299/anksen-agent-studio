@@ -10,10 +10,30 @@ const REQUIRED_PHOTOSHOP_GUARDRAILS = [
 
 const forbiddenKeys = /^(api_key|secret|token|password|private_key|credential_value)$/i;
 const rawExecutionKeys = /^(batchplay|descriptor|javascript|script|eval|_obj|_target|_path)$/i;
-const v2Operations = new Set(["INSPECT_DOCUMENT", "SELECT_LAYER", "RENAME_LAYER", "SET_VISIBILITY", "MOVE_LAYER", "RESIZE_LAYER", "REPLACE_TEXT", "SET_TEXT_COLOR", "CREATE_GROUP", "DUPLICATE_LAYER", "REPLACE_SMART_OBJECT", "SAVE_COPY", "EXPORT_DOCUMENT"]);
+const governedOperations = new Set([
+  "INSPECT_DOCUMENT", "SELECT_LAYER", "RENAME_LAYER", "SET_VISIBILITY", "SET_OPACITY", "SET_BLEND_MODE",
+  "MOVE_LAYER", "RESIZE_LAYER", "ROTATE_LAYER", "DUPLICATE_LAYER", "RASTERIZE_LAYER", "CONVERT_TO_SMART_OBJECT",
+  "REPLACE_TEXT", "SET_TEXT_COLOR", "SET_TEXT_STYLE", "CREATE_GROUP", "CREATE_PIXEL_LAYER", "CREATE_TEXT_LAYER",
+  "CREATE_SOLID_FILL_LAYER", "PLACE_AS_SMART_OBJECT", "REPLACE_SMART_OBJECT", "CREATE_RECT_SELECTION",
+  "CREATE_ELLIPSE_SELECTION", "CREATE_POLYGON_SELECTION", "DESELECT", "CREATE_WORK_PATH_FROM_SELECTION", "LOAD_WORK_PATH_AS_SELECTION", "CREATE_REVEAL_SELECTION_MASK",
+  "APPLY_LAYER_MASK", "CREATE_ADJUSTMENT_LAYER", "APPLY_FILTER", "SAVE_COPY", "EXPORT_DOCUMENT"
+]);
 const designPracticeGates = ["TASK_MODEL", "RESEARCH_DIAGNOSIS", "CONCEPT_DIVERGENCE", "COPY_EDITING", "ART_DIRECTION", "COMPOSITION_PROTOTYPE", "ASSET_CREATION"];
-const photoshopIntentIds = new Set(["HERO_COMPOSITE", "TYPOGRAPHY", "SPATIAL_DEPTH", "COLOR_GRADE", "MATERIAL_DETAIL", "PRESS_OUTPUT"]);
-const operationIntents = { REPLACE_TEXT: "TYPOGRAPHY", SET_TEXT_COLOR: "TYPOGRAPHY", REPLACE_SMART_OBJECT: "HERO_COMPOSITE", MOVE_LAYER: "SPATIAL_DEPTH", RESIZE_LAYER: "SPATIAL_DEPTH", SAVE_COPY: "PRESS_OUTPUT", EXPORT_DOCUMENT: "PRESS_OUTPUT" };
+const photoshopIntentIds = new Set(["DOCUMENT_ANALYSIS", "LAYER_STRUCTURE", "HERO_COMPOSITE", "TYPOGRAPHY", "SPATIAL_DEPTH", "MASKING", "COLOR_GRADE", "MATERIAL_DETAIL", "PRESS_OUTPUT"]);
+const operationIntents = {
+  INSPECT_DOCUMENT: "DOCUMENT_ANALYSIS", SELECT_LAYER: "DOCUMENT_ANALYSIS",
+  RENAME_LAYER: "LAYER_STRUCTURE", SET_VISIBILITY: "LAYER_STRUCTURE", DUPLICATE_LAYER: "LAYER_STRUCTURE",
+  CREATE_GROUP: "LAYER_STRUCTURE", CREATE_PIXEL_LAYER: "LAYER_STRUCTURE",
+  SET_OPACITY: "SPATIAL_DEPTH", MOVE_LAYER: "SPATIAL_DEPTH", RESIZE_LAYER: "SPATIAL_DEPTH", ROTATE_LAYER: "SPATIAL_DEPTH",
+  REPLACE_TEXT: "TYPOGRAPHY", SET_TEXT_COLOR: "TYPOGRAPHY", SET_TEXT_STYLE: "TYPOGRAPHY", CREATE_TEXT_LAYER: "TYPOGRAPHY",
+  SET_BLEND_MODE: "COLOR_GRADE", CREATE_SOLID_FILL_LAYER: "COLOR_GRADE", CREATE_ADJUSTMENT_LAYER: "COLOR_GRADE",
+  PLACE_AS_SMART_OBJECT: "HERO_COMPOSITE", REPLACE_SMART_OBJECT: "HERO_COMPOSITE", CONVERT_TO_SMART_OBJECT: "HERO_COMPOSITE",
+  CREATE_RECT_SELECTION: "MASKING", CREATE_ELLIPSE_SELECTION: "MASKING", CREATE_POLYGON_SELECTION: "MASKING",
+  DESELECT: "MASKING", CREATE_WORK_PATH_FROM_SELECTION: "MASKING", LOAD_WORK_PATH_AS_SELECTION: "MASKING", CREATE_REVEAL_SELECTION_MASK: "MASKING", APPLY_LAYER_MASK: "MASKING",
+  RASTERIZE_LAYER: "MATERIAL_DETAIL", APPLY_FILTER: "MATERIAL_DETAIL",
+  SAVE_COPY: "PRESS_OUTPUT", EXPORT_DOCUMENT: "PRESS_OUTPUT"
+};
+const v2OperationIntents = { REPLACE_TEXT: "TYPOGRAPHY", SET_TEXT_COLOR: "TYPOGRAPHY", REPLACE_SMART_OBJECT: "HERO_COMPOSITE", MOVE_LAYER: "SPATIAL_DEPTH", RESIZE_LAYER: "SPATIAL_DEPTH", SAVE_COPY: "PRESS_OUTPUT", EXPORT_DOCUMENT: "PRESS_OUTPUT" };
 
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
@@ -59,11 +79,13 @@ function findRawExecutionFields(value, path = []) {
 }
 
 function validateOperationBoundary(job) {
-  if (Number(job?.schemaVersion || 1) !== 2) return [];
-  if (!Array.isArray(job.operations) || job.operations.length === 0 || job.operations.length > 100) return ["V2 job requires 1 to 100 operations."];
+  const schemaVersion = Number(job?.schemaVersion || 1);
+  if (![2, 3].includes(schemaVersion)) return [];
+  const maximum = schemaVersion === 3 ? 200 : 100;
+  if (!Array.isArray(job.operations) || job.operations.length === 0 || job.operations.length > maximum) return [`Photoshop job requires 1 to ${maximum} operations.`];
   const blockers = [];
   const practice = job.practiceContext;
-  if (!practice || practice.protocolId !== "design-practice-v1" || !/^\d+\.\d+\.\d+$/.test(practice?.protocolVersion || "") || !/^[a-f0-9]{64}$/i.test(practice?.evidenceHash || "") || !practice?.approvedDirectionId || practice?.stage !== "PHOTOSHOP_PRODUCTION") blockers.push("V2 Photoshop work requires a valid Design Practice evidence context.");
+  if (!practice || practice.protocolId !== "design-practice-v1" || !/^\d+\.\d+\.\d+$/.test(practice?.protocolVersion || "") || !/^[a-f0-9]{64}$/i.test(practice?.evidenceHash || "") || !practice?.approvedDirectionId || practice?.stage !== "PHOTOSHOP_PRODUCTION") blockers.push("Photoshop work requires a valid Design Practice evidence context.");
   const passedGates = new Set(practice?.passedGates || []);
   for (const gate of designPracticeGates) if (!passedGates.has(gate)) blockers.push(`Design Practice gate is missing: ${gate}.`);
   const declaredIntents = new Set(practice?.toolIntentIds || []);
@@ -72,18 +94,24 @@ function validateOperationBoundary(job) {
   let outputPhase = false;
   for (const [index, operation] of job.operations.entries()) {
     const operationName = String(operation?.operation || "").toUpperCase();
-    if (!v2Operations.has(operationName)) blockers.push(`Unsupported Photoshop operation at index ${index}.`);
+    if (!governedOperations.has(operationName)) blockers.push(`Unsupported Photoshop operation at index ${index}.`);
     if (!operation?.operationId || ids.has(operation.operationId)) blockers.push(`Operation IDs must be present and unique at index ${index}.`);
     ids.add(operation?.operationId);
     if (operation?.timeoutMs != null) blockers.push(`Per-operation timeout is not supported at index ${index}; Photoshop host calls cannot be safely interrupted.`);
     const isOutput = operationName === "SAVE_COPY" || operationName === "EXPORT_DOCUMENT";
     if (!isOutput && outputPhase) blockers.push(`All Photoshop output operations must form the terminal suffix of the plan; mutation found at index ${index}.`);
     if (isOutput) outputPhase = true;
-    const requiredIntent = operationIntents[operationName];
+    const requiredIntent = (schemaVersion === 3 ? operationIntents : v2OperationIntents)[operationName];
     if (requiredIntent && !declaredIntents.has(requiredIntent)) blockers.push(`${operationName} requires declared Photoshop intent ${requiredIntent}.`);
   }
   const rawPaths = findRawExecutionFields(job.operations);
   if (rawPaths.length) blockers.push(`Raw Photoshop execution fields are forbidden: ${rawPaths.join(", ")}`);
+  if (schemaVersion === 3) {
+    if (job?.capabilityProfile?.registryVersion !== "1.0.0") blockers.push("V3 Photoshop work requires capability registry version 1.0.0.");
+    if (!job?.commandGraph?.graphId || !job?.commandGraph?.summary) blockers.push("V3 Photoshop work requires a compiled document-local command graph summary.");
+    const requiredIntents = new Set(job.operations.map(operation => operationIntents[operation.operation]).filter(Boolean));
+    for (const intent of requiredIntents) if (!declaredIntents.has(intent)) blockers.push(`V3 command graph requires declared Photoshop intent ${intent}.`);
+  }
   return blockers;
 }
 
@@ -128,7 +156,7 @@ export function buildPhotoshopUxpDispatchPlan(input) {
     credential_reference_id: input.credentialReferenceId ?? null,
     credential_values_read: false,
     external_calls: "disabled",
-    operation_dsl_version: Number(input.job?.schemaVersion || 1) === 2 ? 1 : null,
+    operation_dsl_version: Number(input.job?.schemaVersion || 1) === 3 ? 2 : Number(input.job?.schemaVersion || 1) === 2 ? 1 : null,
     capability_status: {
       studio_dispatch: "DRY_RUN_ONLY",
       photoshop_execution: "INTERACTIVE_CONFIRMATION_REQUIRED",
