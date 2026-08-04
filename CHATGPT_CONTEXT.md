@@ -60,6 +60,8 @@ The user LaunchAgent definition is installed but cannot execute this repository 
 
 The Skill Router capability center includes the `awesome-design-md` third-party design-system knowledge resource, pinned to VoltAgent commit `8147538b4226ae41e2487a9179e3bcc1f68e8554`. It indexes 74 MIT-licensed `DESIGN.md` references from `runtime/capability-resources/awesome-design-md`. Selection is explicit and read-only; the loader treats all content as untrusted, removes executable shell-pipe examples on load, never overwrites a managed project's `DESIGN.md`, and prohibits brand impersonation.
 
+The specialized Phoenix ERP bug-intake Runner reached scoped production automation qualification on 2026-08-04. Office 204 runs `phoenix-erp-v3` commit `42890d2f10b8ed2bb18b95eed01b47e9d1ab28d9` with `PHOENIX_ERP_RUNNER_AUTO_RELEASE=true`; guarded probe run `30889595090` proved the service active, state/code/origin commits aligned, and live push, CI-wait, deploy-after-CI and production-smoke arguments present. This is limited to administrator-approved Phoenix bug reports that pass the Runner's evidence and CI gates. It does not enable general Studio production autonomy, arbitrary deployment, migrations, secret access or unmanaged projects.
+
 ## 5. Night Shift Principle
 
 Night Shift is the core Studio execution chain:

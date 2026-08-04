@@ -35,6 +35,20 @@ fails unless systemd is enabled and active, the state and executable worktrees
 match `origin/main`, and the live process contains every governed execution,
 auto-release, CI-wait, deployment and production-smoke capability argument.
 
+## Phoenix production automation activation evidence
+
+Activated on 2026-08-04 for Phoenix bug-intake work only:
+
+- Phoenix commit: `42890d2f10b8ed2bb18b95eed01b47e9d1ab28d9`
+- Studio deployment workflow: `30889100063`
+- Phoenix deployment and auto-release activation: `30889243457`
+- Strict guarded qualification probe: `30889595090`
+- Probe decision: `PHOENIX_RUNNER_FULL_AUTOMATION_GATE=PASS`
+
+The scope remains administrator-approved Phoenix bug reports with exact task,
+evidence, CI and production-smoke gates. General Studio production autonomy and
+unmanaged project deployment remain disabled.
+
 ## Required Repository Secrets
 
 - `STUDIO_DEPLOY_JUMP_SSH_KEY`: dedicated private key for GitHub Actions to access the Aliyun jump host.
