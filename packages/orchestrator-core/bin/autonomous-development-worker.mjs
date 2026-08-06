@@ -5,11 +5,28 @@ import { resolve } from "node:path";
 import { AutonomousDevelopmentJobs } from "../lib/autonomous-development-jobs.mjs";
 import { approvalScopeDigest, assertWorkspaceWithinScope, captureGitWorkspace, repairDecision } from "../lib/autonomous-development-policy.mjs";
 import { resourceBudgetDecision } from "../lib/autonomous-development-operations.mjs";
+import { ManagedIssueDevelopmentAdapter } from "../lib/managed-issue-development-adapter.mjs";
 
 const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
 const jobs = new AutonomousDevelopmentJobs({ repoRoot });
 const worker = { id: process.env.AUTONOMOUS_DEVELOPMENT_WORKER_ID || "resident-codex-dev-1", pid: process.pid };
 const codexPath = "/Applications/ChatGPT.app/Contents/Resources/codex";
+const managedIssueAdapter = process.env.SMART_PARK_ISSUE_API_URL && process.env.SMART_PARK_RUNNER_TOKEN && process.env.SMART_PARK_PROJECT_ROOT
+  ? new ManagedIssueDevelopmentAdapter({
+      apiBaseUrl: process.env.SMART_PARK_ISSUE_API_URL,
+      token: process.env.SMART_PARK_RUNNER_TOKEN,
+      jobs,
+      runnerId: process.env.SMART_PARK_RUNNER_ID || worker.id,
+      project: {
+        projectId: "jinhu-smart-park",
+        projectRoot: process.env.SMART_PARK_PROJECT_ROOT,
+        allowedPaths: (process.env.SMART_PARK_ALLOWED_PATHS || "apps,packages,database,scripts").split(",").map(value => value.trim()).filter(Boolean),
+        acceptanceCommands: (process.env.SMART_PARK_ACCEPTANCE_COMMANDS || "pnpm lint,pnpm typecheck,pnpm build").split(",").map(value => value.trim()).filter(Boolean),
+        maxRuntimeSeconds: Number(process.env.SMART_PARK_MAX_RUNTIME_SECONDS || 1800),
+        maxRepairAttempts: Number(process.env.SMART_PARK_MAX_REPAIR_ATTEMPTS || 1)
+      }
+    })
+  : null;
 let stopping = false;
 let currentJobId = null;
 let currentChild = null;
@@ -108,5 +125,14 @@ async function execute(job) {
 await jobs.reconcileOrphanedJobs();
 console.log(`Autonomous development worker ${worker.id} pid=${worker.pid}`);
 const heartbeatTimer=setInterval(()=>jobs.heartbeat(worker,currentJobId).catch(()=>{}),5000);heartbeatTimer.unref();
-while(!stopping){await jobs.heartbeat(worker,currentJobId);const job=await jobs.claim(worker);if(job){currentJobId=job.id;await jobs.heartbeat(worker,currentJobId);await execute(job);currentJobId=null;await jobs.heartbeat(worker);}await sleep(1500);}
+while(!stopping){
+  await jobs.heartbeat(worker,currentJobId);
+  if(managedIssueAdapter){
+    try{await managedIssueAdapter.syncReady({limit:5});}catch(error){console.error(`Managed issue intake failed: ${error.code||error.message}`);}
+    for(const completed of (await jobs.list()).filter(item=>item.status==="COMMITTED"&&item.managedIssue&&!item.managedIssue.resultWrittenAt)){
+      try{await managedIssueAdapter.writeBack(completed);completed.managedIssue.resultWrittenAt=new Date().toISOString();await jobs.event(completed,"MANAGED_ISSUE_RESULT_WRITTEN",{issueNo:completed.managedIssue.issueNo});}catch(error){console.error(`Managed issue writeback failed: ${error.code||error.message}`);}
+    }
+  }
+  const job=await jobs.claim(worker);if(job){currentJobId=job.id;await jobs.heartbeat(worker,currentJobId);await execute(job);currentJobId=null;await jobs.heartbeat(worker);}await sleep(1500);
+}
 clearInterval(heartbeatTimer);await jobs.heartbeat({...worker,id:worker.id});
