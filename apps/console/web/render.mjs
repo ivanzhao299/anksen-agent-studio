@@ -1561,6 +1561,17 @@ function interactiveScript() {
 </script>`;
 }
 
+function themeOptions() {
+  return [
+    ["system", "跟随系统"],
+    ["light", "晨光浅色"],
+    ["dark", "午夜深色"],
+    ["ocean", "海洋蓝"],
+    ["forest", "森林绿"],
+    ["sunset", "暖阳橙"],
+  ].map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
+}
+
 function shell(content, activeId, model, data, auth = {}) {
   const route = consoleWebRoutes.find((item) => item.id === activeId) ?? consoleWebRoutes[0];
   const gated = data.access?.summary?.allow_anonymous_console_read !== true && !auth.authenticated;
@@ -1587,6 +1598,16 @@ function shell(content, activeId, model, data, auth = {}) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(pageTitle)}</title>
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem('anksen-theme') || 'system';
+      const resolvedTheme = savedTheme === 'system'
+        ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : savedTheme;
+      document.documentElement.dataset.themePreference = savedTheme;
+      document.documentElement.dataset.theme = resolvedTheme;
+    })();
+  </script>
   <style>
     :root { color-scheme: dark; --canvas: #070a10; --surface-1:#0d121c; --surface-2:#121925; --surface-3:#182131; --elevated:#202b3d; --bg:var(--canvas); --nav:var(--surface-1); --panel:var(--surface-2); --panel-2:var(--surface-3); --text:#f7f8fa; --muted:#98a2b3; --line:rgba(255,255,255,.08); --primary:#4f7cff; --primary-hover:#6b91ff; --blue:#53b1fd; --cyan:#28c7e8; --purple:#8b72ff; --green:#32d583; --yellow:#fdb022; --red:#f97066; --shadow:rgba(0,0,0,.24); --sidebar-width:248px; }
     * { box-sizing: border-box; }
@@ -2398,6 +2419,175 @@ function shell(content, activeId, model, data, auth = {}) {
     .page-dashboard .advanced-config details { margin:0; border:0; border-bottom:1px solid #ececf0; border-radius:0; background:transparent; }
     .page-dashboard .advanced-config summary { min-height:44px; padding:13px 0; color:#5f5f68; font-size:11px; }
     .page-dashboard .workstation-field-guide { display:none; }
+    /* Semantic theme system: one component language, multiple accessible atmospheres. */
+    :root,
+    :root[data-theme="light"] {
+      color-scheme:light;
+      --theme-canvas:#f8f9fc;
+      --theme-canvas-soft:#fbfbfd;
+      --theme-surface:#ffffff;
+      --theme-surface-soft:#f5f6fa;
+      --theme-surface-raised:#ffffff;
+      --theme-text:#15161a;
+      --theme-text-soft:#656773;
+      --theme-text-faint:#8b8d98;
+      --theme-border:#e6e7ec;
+      --theme-border-strong:#d7d9e1;
+      --theme-accent:#5b5ce2;
+      --theme-accent-strong:#4647c8;
+      --theme-accent-soft:#efefff;
+      --theme-accent-contrast:#ffffff;
+      --theme-focus:rgba(91,92,226,.18);
+      --theme-header:rgba(251,251,253,.9);
+      --theme-sidebar:rgba(252,252,255,.9);
+      --theme-shadow:rgba(30,30,50,.07);
+    }
+    :root[data-theme="dark"] {
+      color-scheme:dark;
+      --theme-canvas:#111216;
+      --theme-canvas-soft:#15161b;
+      --theme-surface:#1b1c22;
+      --theme-surface-soft:#22232b;
+      --theme-surface-raised:#262832;
+      --theme-text:#f5f5f7;
+      --theme-text-soft:#b4b5bf;
+      --theme-text-faint:#858793;
+      --theme-border:#30313a;
+      --theme-border-strong:#40424d;
+      --theme-accent:#9496ff;
+      --theme-accent-strong:#afb0ff;
+      --theme-accent-soft:#292a4a;
+      --theme-accent-contrast:#111216;
+      --theme-focus:rgba(148,150,255,.24);
+      --theme-header:rgba(21,22,27,.92);
+      --theme-sidebar:rgba(18,19,24,.94);
+      --theme-shadow:rgba(0,0,0,.28);
+    }
+    :root[data-theme="ocean"] {
+      color-scheme:light;
+      --theme-canvas:#f3f9fb;
+      --theme-canvas-soft:#f7fbfc;
+      --theme-surface:#ffffff;
+      --theme-surface-soft:#eaf5f7;
+      --theme-surface-raised:#ffffff;
+      --theme-text:#102a33;
+      --theme-text-soft:#52717b;
+      --theme-text-faint:#78929a;
+      --theme-border:#d5e8ec;
+      --theme-border-strong:#bedbe1;
+      --theme-accent:#087f8c;
+      --theme-accent-strong:#056875;
+      --theme-accent-soft:#def3f5;
+      --theme-accent-contrast:#ffffff;
+      --theme-focus:rgba(8,127,140,.2);
+      --theme-header:rgba(247,251,252,.92);
+      --theme-sidebar:rgba(246,251,252,.94);
+      --theme-shadow:rgba(16,73,82,.08);
+    }
+    :root[data-theme="forest"] {
+      color-scheme:light;
+      --theme-canvas:#f5f8f4;
+      --theme-canvas-soft:#f8faf7;
+      --theme-surface:#ffffff;
+      --theme-surface-soft:#edf3eb;
+      --theme-surface-raised:#ffffff;
+      --theme-text:#1d2b20;
+      --theme-text-soft:#5d705f;
+      --theme-text-faint:#829085;
+      --theme-border:#dce7da;
+      --theme-border-strong:#c8d9c5;
+      --theme-accent:#397447;
+      --theme-accent-strong:#2d6039;
+      --theme-accent-soft:#e3f0e3;
+      --theme-accent-contrast:#ffffff;
+      --theme-focus:rgba(57,116,71,.2);
+      --theme-header:rgba(248,250,247,.92);
+      --theme-sidebar:rgba(247,250,246,.94);
+      --theme-shadow:rgba(32,72,40,.08);
+    }
+    :root[data-theme="sunset"] {
+      color-scheme:light;
+      --theme-canvas:#fcf8f3;
+      --theme-canvas-soft:#fdfaf6;
+      --theme-surface:#ffffff;
+      --theme-surface-soft:#f8efe5;
+      --theme-surface-raised:#ffffff;
+      --theme-text:#31241b;
+      --theme-text-soft:#756356;
+      --theme-text-faint:#98877b;
+      --theme-border:#eadfd5;
+      --theme-border-strong:#dccabd;
+      --theme-accent:#c45d2d;
+      --theme-accent-strong:#a94b23;
+      --theme-accent-soft:#fae8dc;
+      --theme-accent-contrast:#ffffff;
+      --theme-focus:rgba(196,93,45,.2);
+      --theme-header:rgba(253,250,246,.92);
+      --theme-sidebar:rgba(253,249,245,.94);
+      --theme-shadow:rgba(92,51,29,.08);
+    }
+    :root[data-theme] {
+      --canvas:var(--theme-canvas);
+      --surface-1:var(--theme-surface);
+      --surface-2:var(--theme-surface);
+      --surface-3:var(--theme-surface-soft);
+      --elevated:var(--theme-surface-raised);
+      --bg:var(--theme-canvas);
+      --nav:var(--theme-sidebar);
+      --panel:var(--theme-surface);
+      --panel-2:var(--theme-surface-soft);
+      --text:var(--theme-text);
+      --muted:var(--theme-text-soft);
+      --line:var(--theme-border);
+      --primary:var(--theme-accent);
+      --primary-hover:var(--theme-accent-strong);
+      --blue:var(--theme-accent);
+      --studio-ink:var(--theme-text);
+      --studio-muted:var(--theme-text-soft);
+      --studio-primary:var(--theme-accent);
+      --studio-primary-strong:var(--theme-accent-strong);
+      --studio-violet:var(--theme-accent);
+      --studio-border:var(--theme-border);
+      --studio-glass:color-mix(in srgb,var(--theme-surface) 88%,transparent);
+      --studio-shadow-sm:0 1px 2px var(--theme-shadow),0 8px 24px color-mix(in srgb,var(--theme-shadow) 55%,transparent);
+    }
+    html[data-theme] body { background:var(--theme-canvas); color:var(--theme-text); }
+    html[data-theme] body:not(.login-gated),html[data-theme] body.page-dashboard { background:var(--theme-canvas-soft); color:var(--theme-text); }
+    html[data-theme] body:not(.login-gated)::before { background:var(--theme-canvas); opacity:.72; }
+    html[data-theme] body:not(.login-gated) header:not(.login-header) { border-color:var(--theme-border); background:var(--theme-sidebar); }
+    html[data-theme] .app-toolbar,html[data-theme] .page-dashboard .app-toolbar { border-color:var(--theme-border); background:var(--theme-header); }
+    html[data-theme] h1,html[data-theme] h2,html[data-theme] h3,html[data-theme] h4 { color:var(--theme-text); }
+    html[data-theme] p,html[data-theme] .help { color:var(--theme-text-soft); }
+    .theme-switch { min-height:34px; width:auto; max-width:132px; padding:6px 30px 6px 10px; border-color:var(--theme-border-strong); background:var(--theme-surface); color:var(--theme-text); font-size:12px; }
+    .login-theme-switch { margin-left:auto; }
+    html[data-theme] input,html[data-theme] select,html[data-theme] textarea { border-color:var(--theme-border-strong); background:var(--theme-surface); color:var(--theme-text); }
+    html[data-theme] input:focus,html[data-theme] select:focus,html[data-theme] textarea:focus { border-color:var(--theme-accent); box-shadow:0 0 0 4px var(--theme-focus); }
+    html[data-theme] button { border-color:var(--theme-border-strong); background:var(--theme-surface); color:var(--theme-text); }
+    html[data-theme] button:hover { background:var(--theme-surface-soft); }
+    html[data-theme] button.primary-action,html[data-theme] .primary-link,html[data-theme] .page-dashboard .start-button { border-color:var(--theme-accent); background:var(--theme-accent); color:var(--theme-accent-contrast); box-shadow:none; }
+    html[data-theme] button.primary-action:hover,html[data-theme] .primary-link:hover,html[data-theme] .page-dashboard .start-button:hover { background:var(--theme-accent-strong); }
+    html[data-theme] .panel,html[data-theme] .metric,html[data-theme] .workbench,html[data-theme] .smart-entry,html[data-theme] .output-card,html[data-theme] .summary-card,html[data-theme] .operation-card,html[data-theme] .portfolio-card,html[data-theme] .application-suite,html[data-theme] .domain-card,html[data-theme] .advanced-section,html[data-theme] .details-drawer,html[data-theme] .side-panel,html[data-theme] table { border-color:var(--theme-border); background:var(--theme-surface); color:var(--theme-text); }
+    html[data-theme] th { background:var(--theme-surface-soft); color:var(--theme-text-soft); }
+    html[data-theme] th,html[data-theme] td,html[data-theme] .simple-row,html[data-theme] .activity-item { border-color:var(--theme-border); }
+    html[data-theme] .eyebrow,html[data-theme] .rail-label,html[data-theme] .side-kicker { color:var(--theme-accent); }
+    html[data-theme] body:not(.login-gated) header:not(.login-header) .top-nav a { color:var(--theme-text-soft); }
+    html[data-theme] body:not(.login-gated) header:not(.login-header) .top-nav a:hover { background:var(--theme-accent-soft); color:var(--theme-accent-strong); }
+    html[data-theme] body:not(.login-gated) header:not(.login-header) .top-nav a.active { border-color:var(--theme-border); background:var(--theme-accent-soft); color:var(--theme-accent-strong); box-shadow:inset 3px 0 0 var(--theme-accent); }
+    html[data-theme] .page-dashboard .project-rail,html[data-theme] .page-dashboard .advanced-config,html[data-theme] .page-dashboard .workspace-hero.compact-hero,html[data-theme] .page-dashboard .quick-row,html[data-theme] .page-dashboard .execution-console,html[data-theme] .page-dashboard .side-panel,html[data-theme] .page-dashboard .advanced-config details { border-color:var(--theme-border); }
+    html[data-theme] .page-dashboard .project-row,html[data-theme] .page-dashboard .quick-chip { color:var(--theme-text-soft); }
+    html[data-theme] .page-dashboard .project-row:hover,html[data-theme] .page-dashboard .project-row.active,html[data-theme] .page-dashboard .welcome-message strong { color:var(--theme-text); }
+    html[data-theme] .page-dashboard .project-row.active::before,html[data-theme] .page-dashboard .welcome-mark { background:var(--theme-accent); }
+    html[data-theme] .page-dashboard .workspace-title .eyebrow,html[data-theme] .workspace-orientation,html[data-theme] .workspace-live-state,html[data-theme] .page-dashboard .welcome-message p,html[data-theme] .page-dashboard .workspace-controls label { color:var(--theme-text-soft); }
+    html[data-theme] .workspace-project-name,html[data-theme] .page-dashboard .timeline-label { color:var(--theme-text); }
+    html[data-theme] .page-dashboard .composer { border-color:var(--theme-border-strong); background:var(--theme-surface); box-shadow:0 12px 34px var(--theme-shadow); }
+    html[data-theme] .page-dashboard .composer:focus-within { border-color:var(--theme-accent); box-shadow:0 0 0 3px var(--theme-focus); }
+    html[data-theme] .page-dashboard .goal-box,html[data-theme] .page-dashboard .workspace-controls select { background:var(--theme-surface); color:var(--theme-text); }
+    html[data-theme] body.login-gated { background:var(--theme-canvas); color:var(--theme-text); }
+    html[data-theme] body.login-gated .login-header { border-color:var(--theme-border); background:var(--theme-header); color:var(--theme-text); }
+    html[data-theme] body.login-gated .login-header .subhead { color:var(--theme-text-soft); }
+    html[data-theme] body.login-gated .auth-shell,html[data-theme] body.login-gated .auth-side { border-color:var(--theme-border); background:var(--theme-surface); color:var(--theme-text); }
+    html[data-theme] body.login-gated .auth-product-panel { border-color:var(--theme-border); background:var(--theme-accent-soft); }
+    html[data-theme] body.login-gated .auth-submit-button,html[data-theme] body.login-gated .auth-link-button.primary-action { background:var(--theme-accent); color:var(--theme-accent-contrast); }
     @media (max-width:1100px) { .page-dashboard .workspace-shell { grid-template-columns:170px minmax(480px,1fr); } .page-dashboard .advanced-config { display:none; } }
     @media (max-width:900px) { .page-dashboard main { padding:0 18px 22px; } .page-dashboard .app-toolbar { margin:0 -18px; padding:0 18px; } .page-dashboard .workspace-shell { display:block; min-height:auto; } .page-dashboard .chat-workspace { min-height:auto; } .page-dashboard .project-rail,.page-dashboard .advanced-config { display:none; } .page-dashboard .ai-workspace { padding:22px 0 0; } .page-dashboard .conversation-stream { min-height:230px; padding:34px 0 20px; } .page-dashboard .welcome-message { min-height:150px; } .page-dashboard .workspace-controls { grid-template-columns:1fr 1fr; } .page-dashboard .workspace-controls > div:nth-child(3) { grid-column:1/-1; } .page-dashboard .start-button,.page-dashboard .cancel-button { min-height:46px; } }
     @media (max-width:560px) { .page-dashboard .app-toolbar h2,.page-dashboard .app-toolbar-actions > .status-label { display:none; } .page-dashboard .app-toolbar-actions { width:auto; margin-left:auto; justify-content:flex-end; } .page-dashboard .language-switch { min-width:112px; } .page-dashboard .workspace-hero.compact-hero { display:block; } .page-dashboard .workspace-meta { justify-items:start; margin-top:14px; } .page-dashboard .conversation-stream { min-height:190px; padding:28px 0 16px; } .page-dashboard .welcome-message { align-items:flex-start; min-height:138px; } .page-dashboard .welcome-mark { margin-top:3px; } .page-dashboard .quick-row-label { display:none; } .page-dashboard .flow-rail { display:none; } .page-dashboard .timeline-strip { justify-content:space-between; } .page-dashboard .workspace-controls { grid-template-columns:1fr; } .page-dashboard .workspace-controls > div:nth-child(3) { grid-column:auto; } }
@@ -2421,12 +2611,12 @@ function shell(content, activeId, model, data, auth = {}) {
           <div class="subhead">${escapeHtml(messages.app.subtitle)}</div>
         </div>
       </div>
-      ${useAuthLayout ? "" : `<button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="折叠侧栏" title="折叠侧栏">‹</button>`}
+      ${useAuthLayout ? `<select id="theme-switch" class="theme-switch login-theme-switch" aria-label="外观主题">${themeOptions()}</select>` : `<button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="折叠侧栏" title="折叠侧栏">‹</button>`}
     </div>
     ${headerMeta}
   </header>
   ${useAuthLayout ? "" : `<button id="sidebar-scrim" class="sidebar-scrim" type="button" aria-label="关闭导航"></button>`}
-  <main>${useAuthLayout ? "" : `<div class="app-toolbar"><div style="display:flex;align-items:center;gap:10px"><button id="mobile-sidebar-toggle" class="mobile-sidebar-toggle" type="button" aria-label="打开导航">☰</button><div><span class="eyebrow">ANKSEN STUDIO</span><h2>${escapeHtml(route.label)}</h2></div></div><div class="app-toolbar-actions"><span class="status-label pass">● ${escapeHtml(data.active_project_id ?? "Workspace")}</span><select id="language-switch" class="language-switch" aria-label="Language"><option value="zh-CN">简体中文</option><option value="en">English</option></select></div></div>`}${mainContent}</main>
+  <main>${useAuthLayout ? "" : `<div class="app-toolbar"><div style="display:flex;align-items:center;gap:10px"><button id="mobile-sidebar-toggle" class="mobile-sidebar-toggle" type="button" aria-label="打开导航">☰</button><div><span class="eyebrow">ANKSEN STUDIO</span><h2>${escapeHtml(route.label)}</h2></div></div><div class="app-toolbar-actions"><span class="status-label pass">● ${escapeHtml(data.active_project_id ?? "Workspace")}</span><select id="theme-switch" class="theme-switch" aria-label="外观主题">${themeOptions()}</select><select id="language-switch" class="language-switch" aria-label="Language"><option value="zh-CN">简体中文</option><option value="en">English</option></select></div></div>`}${mainContent}</main>
   ${interactiveScript()}
   <script>
   (() => {
@@ -2452,6 +2642,24 @@ function shell(content, activeId, model, data, auth = {}) {
     sidebarScrim?.addEventListener('click', () => document.body.classList.remove('sidebar-open'));
     document.querySelectorAll('.top-nav a').forEach((link) => link.addEventListener('click', () => document.body.classList.remove('sidebar-open')));
     syncSidebarLabel();
+    const themeSelect = document.getElementById('theme-switch');
+    const themeMedia = matchMedia('(prefers-color-scheme: dark)');
+    function resolveTheme(preference) {
+      return preference === 'system' ? (themeMedia.matches ? 'dark' : 'light') : preference;
+    }
+    function applyTheme(preference) {
+      const safePreference = ['system','light','dark','ocean','forest','sunset'].includes(preference) ? preference : 'system';
+      document.documentElement.dataset.themePreference = safePreference;
+      document.documentElement.dataset.theme = resolveTheme(safePreference);
+      document.documentElement.style.colorScheme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+      localStorage.setItem('anksen-theme', safePreference);
+      if (themeSelect) themeSelect.value = safePreference;
+    }
+    themeSelect?.addEventListener('change', () => applyTheme(themeSelect.value));
+    themeMedia.addEventListener?.('change', () => {
+      if (document.documentElement.dataset.themePreference === 'system') applyTheme('system');
+    });
+    applyTheme(localStorage.getItem('anksen-theme') || 'system');
     const select = document.getElementById('language-switch');
     if (!select) return;
     const dictionary = {
