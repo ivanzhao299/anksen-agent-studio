@@ -2254,16 +2254,98 @@ function shell(content, activeId, model, data, auth = {}) {
     body.login-gated .auth-status.success { background:#ecfdf3; color:#027a48; }
     body.login-gated .auth-status.error { background:#fef3f2; color:#b42318; }
     body.login-gated .auth-path-actions { max-width:none; }
+    .capability-assignment-list { display:grid; gap:14px; }
+    .domain-capability-assignment { padding:20px; }
+    .domain-capability-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; }
+    .domain-capability-option { display:flex; align-items:flex-start; gap:9px; min-width:0; padding:11px; border:1px solid #e4e7ec; border-radius:11px; background:#fff; cursor:pointer; }
+    .domain-capability-option:hover { border-color:#b2ccff; background:#f8faff; }
+    .domain-capability-option.inherited { background:#f9fafb; cursor:default; }
+    .domain-capability-option input { flex:0 0 auto; width:16px; height:16px; margin:2px 0 0; accent-color:#2563eb; }
+    .domain-capability-option span { min-width:0; }
+    .domain-capability-option strong,.domain-capability-option small { display:block; }
+    .domain-capability-option strong { color:#344054; font-size:12px; }
+    .domain-capability-option small { margin-top:4px; color:#667085; font-size:10px; line-height:1.45; }
+    .capability-assignment-actions { align-items:center; justify-content:space-between; margin-top:14px; }
+    .capability-assignment-actions .help { margin:0; }
+    /* Studio 2026 visual system: one calm, expressive surface language across every domain. */
+    :root {
+      --studio-ink:#111827;
+      --studio-muted:#64748b;
+      --studio-primary:#5b5ce2;
+      --studio-primary-strong:#4647c8;
+      --studio-violet:#8b5cf6;
+      --studio-cyan:#06b6d4;
+      --studio-border:rgba(15,23,42,.09);
+      --studio-glass:rgba(255,255,255,.78);
+      --studio-shadow-sm:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.035);
+      --studio-shadow-lg:0 24px 70px rgba(46,51,90,.11);
+      --studio-radius:18px;
+    }
+    body:not(.login-gated) { position:relative; min-height:100vh; background:#f7f8fc; color:var(--studio-ink); }
+    body:not(.login-gated)::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; background:radial-gradient(circle at 82% 4%,rgba(139,92,246,.11),transparent 29%),radial-gradient(circle at 48% 34%,rgba(6,182,212,.07),transparent 25%),radial-gradient(circle at 12% 92%,rgba(91,92,226,.08),transparent 28%),linear-gradient(180deg,#fbfcff 0%,#f6f7fb 100%); animation:studio-aurora 18s ease-in-out infinite alternate; }
+    body:not(.login-gated) header:not(.login-header) { border-right:1px solid var(--studio-border); background:rgba(252,252,255,.82); box-shadow:8px 0 32px rgba(31,41,55,.035); }
+    body:not(.login-gated) header:not(.login-header) .top-nav a { transition:color .18s ease,background .18s ease,transform .18s ease; }
+    body:not(.login-gated) header:not(.login-header) .top-nav a:hover { background:rgba(91,92,226,.07); color:#3435a9; transform:translateX(2px); }
+    body:not(.login-gated) header:not(.login-header) .top-nav a.active { border-color:rgba(91,92,226,.14); background:linear-gradient(135deg,rgba(91,92,226,.13),rgba(139,92,246,.08)); color:#3f40b4; box-shadow:inset 3px 0 0 var(--studio-primary); }
+    body:not(.login-gated) header:not(.login-header) .top-nav a.active .nav-icon { color:var(--studio-primary); }
+    .app-toolbar { border-bottom-color:var(--studio-border); background:rgba(250,251,255,.76); box-shadow:0 8px 28px rgba(15,23,42,.025); }
+    h1,h2,h3,h4 { color:var(--studio-ink); letter-spacing:-.025em; }
+    .eyebrow { color:var(--studio-primary); font-weight:800; letter-spacing:.12em; }
+    .product-hero { position:relative; isolation:isolate; overflow:hidden; padding:clamp(24px,4vw,42px); border:1px solid rgba(91,92,226,.12); border-radius:24px; background:linear-gradient(135deg,rgba(255,255,255,.94),rgba(245,243,255,.9) 52%,rgba(236,254,255,.72)); box-shadow:var(--studio-shadow-lg); }
+    .product-hero::after { content:""; position:absolute; z-index:-1; width:320px; height:320px; top:-210px; right:-70px; border-radius:50%; background:conic-gradient(from 90deg,rgba(91,92,226,.23),rgba(6,182,212,.16),rgba(139,92,246,.2),rgba(91,92,226,.23)); filter:blur(8px); }
+    .product-hero h2 { color:#111827; font-size:clamp(28px,3.2vw,44px); line-height:1.06; letter-spacing:-.045em; }
+    .product-hero p { max-width:760px; color:#5b6577; line-height:1.75; }
+    .panel,.metric,.workbench,.smart-entry,.output-card,.summary-card,.operation-card,.portfolio-card,.application-suite,.domain-card,.advanced-section,.details-drawer,.side-panel,.diagnostic-card,.diagnostic-snapshot,.current-run-strip,.recent-outcomes { border:1px solid var(--studio-border); background:var(--studio-glass); color:var(--studio-ink); box-shadow:var(--studio-shadow-sm); backdrop-filter:blur(18px); }
+    .panel,.workbench,.smart-entry,.output-card,.operation-card,.portfolio-card,.application-suite,.advanced-section,.details-drawer { border-radius:var(--studio-radius); }
+    .metric,.summary-card,.diagnostic-card { border-radius:15px; }
+    .domain-card { min-height:0; border-radius:18px; background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(248,250,255,.88)); transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease; }
+    .domain-card:hover,.portfolio-card:hover,.operation-card:hover { transform:translateY(-3px); border-color:rgba(91,92,226,.22); box-shadow:0 18px 44px rgba(61,64,120,.09); }
+    .domain-card h3,.application-suite h2,.domain-card small { color:var(--studio-ink); }
+    .domain-card p,.application-suite-head p,.help { color:var(--studio-muted); }
+    .application-suite { padding:clamp(18px,3vw,28px); }
+    .application-badge,.domain-mark,.domain-icon { border-color:rgba(91,92,226,.14); background:linear-gradient(145deg,#f0efff,#ecfeff); color:var(--studio-primary); box-shadow:0 8px 22px rgba(91,92,226,.09); }
+    .advanced-section { overflow:hidden; }
+    .advanced-section > summary,.details-drawer summary { color:#394150; background:rgba(248,250,252,.72); transition:background .18s ease,color .18s ease; }
+    .advanced-section > summary:hover,.details-drawer summary:hover { color:var(--studio-primary); background:rgba(91,92,226,.055); }
+    .advanced-section[open] > summary,.details-drawer[open] summary { border-bottom:1px solid var(--studio-border); }
+    .simple-list,.activity-feed { border-color:var(--studio-border); }
+    .simple-row,.activity-item { border-color:var(--studio-border); background:rgba(255,255,255,.62); transition:background .16s ease,transform .16s ease; }
+    .simple-row:hover,.activity-item:hover { background:rgba(245,246,255,.94); }
+    table { overflow:hidden; border:1px solid var(--studio-border); border-radius:16px; background:rgba(255,255,255,.82); box-shadow:var(--studio-shadow-sm); }
+    th { color:#5b6474; background:#f7f8fc; font-size:11px; letter-spacing:.055em; text-transform:uppercase; }
+    th,td { border-color:var(--studio-border); }
+    tbody tr { transition:background .15s ease; }
+    tbody tr:hover { background:rgba(91,92,226,.035); }
+    input,select,textarea { border-color:#d8dce6; border-radius:11px; box-shadow:0 1px 2px rgba(15,23,42,.025); transition:border-color .16s ease,box-shadow .16s ease,background .16s ease; }
+    input:focus,select:focus,textarea:focus { outline:0; border-color:rgba(91,92,226,.58); box-shadow:0 0 0 4px rgba(91,92,226,.09); }
+    button,.primary-link { border-radius:11px; transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease; }
+    button:hover,.primary-link:hover { transform:translateY(-1px); }
+    button.primary-action,.primary-link { border-color:transparent; background:linear-gradient(135deg,var(--studio-primary),var(--studio-violet)); color:#fff; box-shadow:0 10px 24px rgba(91,92,226,.23); }
+    button.primary-action:hover,.primary-link:hover { background:linear-gradient(135deg,var(--studio-primary-strong),#7c3aed); box-shadow:0 14px 30px rgba(91,92,226,.28); }
+    .quick-chip,.pill,.meta-chip,.status-label { backdrop-filter:blur(8px); }
+    .conversation-stream,.composer,.command-box,.ai-workspace,.advanced-config,.project-rail { border-color:var(--studio-border); box-shadow:var(--studio-shadow-sm); }
+    .composer:focus-within,.command-box:focus-within { border-color:rgba(91,92,226,.3); box-shadow:0 22px 62px rgba(55,58,118,.13),0 0 0 4px rgba(91,92,226,.055); }
+    .welcome-mark { background:linear-gradient(145deg,var(--studio-primary),var(--studio-violet) 58%,var(--studio-cyan)); box-shadow:0 12px 30px rgba(91,92,226,.25); }
+    body.login-gated { background:radial-gradient(circle at 15% 10%,rgba(91,92,226,.11),transparent 30%),radial-gradient(circle at 90% 90%,rgba(6,182,212,.08),transparent 28%),#f8f9fc; }
+    body.login-gated .auth-shell { border-color:var(--studio-border); box-shadow:var(--studio-shadow-lg); }
+    body.login-gated .auth-product-panel { background:linear-gradient(145deg,#f7f7ff 0%,#eeefff 48%,#ecfeff 100%); }
+    body.login-gated .auth-submit-button,body.login-gated .auth-link-button.primary-action { border-color:transparent; background:linear-gradient(135deg,var(--studio-primary),var(--studio-violet)); box-shadow:0 12px 28px rgba(91,92,226,.23); }
+    .domain-capability-option { transition:border-color .16s ease,background .16s ease,transform .16s ease; }
+    .domain-capability-option:hover { transform:translateY(-1px); border-color:rgba(91,92,226,.28); background:#f8f7ff; }
+    .domain-capability-option input { accent-color:var(--studio-primary); }
+    @keyframes studio-aurora { from { transform:scale(1) translate3d(0,0,0); filter:saturate(1); } to { transform:scale(1.04) translate3d(0,-1.2%,0); filter:saturate(1.08); } }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; } }
     @media (max-width: 1100px) { .domain-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width: 1200px) { .domain-capability-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
     @media (max-width: 1000px) { .portfolio-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-    @media (max-width: 760px) { .portfolio-grid { grid-template-columns:1fr; } }
+    @media (max-width: 760px) { .portfolio-grid,.domain-capability-grid { grid-template-columns:1fr; } .capability-assignment-actions { align-items:stretch; flex-direction:column; } }
     @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width:72px; height:40px; } main { padding:18px 14px 36px; } .product-hero { align-items:flex-start; flex-direction:column; padding:22px; } .product-hero h2 { font-size:24px; } .command-center-hero { padding:22px 0 20px; } .command-center-copy h2 { font-size:28px; } .command-compose-footer { align-items:stretch; flex-direction:column; } .current-run-strip { grid-template-columns:12px minmax(0,1fr); } .current-run-actions { grid-column:2; align-items:flex-start; flex-wrap:wrap; } .diagnostic-snapshot { grid-template-columns:repeat(2,1fr); } .domain-summary,.domain-grid { grid-template-columns:1fr; } .application-suite-head { flex-direction:column-reverse; } .domain-architecture { align-items:flex-start; flex-direction:column; } .diagnostic-links,.activity-feed,.operation-card-grid,.system-strip,.summary-grid,.product-grid,.goal-layout,.timeline,.action-feedback-grid,.flow-rail,.conversation-result,.chat-message,.chat-message.user,.attachment-bubble,.attachment-list,.cad-workbench { grid-template-columns:1fr; } .cad-dropzone { min-height:190px; padding:20px 14px; } .activity-item { grid-template-columns:34px minmax(0,1fr); } .activity-item time { grid-column:2; } .goal-sidebar { position:static; } .stage-rail { overflow-x:auto; min-width:520px; } .chat-message.user .message-avatar,.chat-message.user .message-body { grid-column:auto; grid-row:auto; } .workspace-hero { display:block; } .workspace-meta { margin-top:8px; } .auth-strip,.auth-actions,.auth-help-row { align-items:flex-start; flex-direction:column; } .auth-card-head h3,.auth-side h2 { font-size:28px; } .auth-product-panel { min-height:180px; } .auth-product-panel::before { inset:18px; } .auth-side { padding:24px; } .auth-path-actions { grid-template-columns:1fr; } body.login-gated .login-header { padding:16px 20px; } body.login-gated .login-header .brand-row { align-items:center; } body.login-gated .login-header .logo-frame { width:38px; height:34px; } body.login-gated main { min-height:auto; padding:18px; } body.login-gated .auth-shell { display:flex; flex-direction:column; width:100%; border-radius:18px; } body.login-gated .auth-side { order:0; border:0; padding:30px; } body.login-gated .auth-product-panel { order:1; min-height:auto; padding:30px; border-top:1px solid #eaecf0; } .auth-product-copy h2 { font-size:34px; } .auth-flow-preview { grid-template-columns:1fr 1fr; gap:18px; margin:30px 0 22px; } .auth-flow-step { padding:0; } .auth-flow-step i { display:none; } }
     @media (max-width: 760px) { .account-security-grid,.password-requirements { grid-template-columns:1fr; } }
     .sidebar-scrim { display:none; }
     @media (max-width: 900px) { body:not(.login-gated) header:not(.login-header) { position:fixed; inset:0 auto 0 0; width:260px; height:100vh; padding:18px 14px; transform:translateX(-105%); transition:transform .2s ease; z-index:20; } body.sidebar-open header:not(.login-header) { transform:translateX(0); } body.sidebar-open .sidebar-scrim { display:block; position:fixed; inset:0; z-index:19; border:0; border-radius:0; background:rgba(0,0,0,.56); backdrop-filter:blur(2px); } body:not(.login-gated) header:not(.login-header) .brand-row { padding:0 4px 16px; } body:not(.login-gated) header:not(.login-header) .top-nav { flex-direction:column; overflow-y:auto; margin-top:12px; } body:not(.login-gated) header:not(.login-header) .nav-group-label,body:not(.login-gated) header:not(.login-header) .nav-spacer,body:not(.login-gated) header:not(.login-header) .top-status,body:not(.login-gated) header:not(.login-header) .auth-strip { display:flex; } body:not(.login-gated) main,body.sidebar-collapsed main { margin-left:0; padding:0 16px 40px; } .app-toolbar { height:60px; margin:0 -16px 20px; padding:0 16px; } .mobile-sidebar-toggle { display:inline-flex; } .sidebar-toggle { display:none; } .form-grid,.workspace-controls,.workspace-shell,.auth-shell,.auth-entry-shell { grid-template-columns:1fr; } .advanced-config,.project-rail { position:static; } .auth-side { order:-1; justify-self:stretch; } }
   </style>
 </head>
-<body class="${useAuthLayout ? "login-gated" : `page-${escapeHtml(activeId)}`}">
+<body data-design-system="studio-2026" class="${useAuthLayout ? "login-gated" : `page-${escapeHtml(activeId)}`}">
   <header class="${headerClass}">
     <div class="brand-row">
       <div class="brand-lockup">
@@ -2997,6 +3079,8 @@ function pageConfig(data) {
   const plans = Array.isArray(access.plans) ? access.plans : [];
   const users = Array.isArray(access.users) ? access.users : [];
   const memberships = Array.isArray(access.memberships) ? access.memberships : [];
+  const domainCapabilities = Array.isArray(access.domain_capabilities) ? access.domain_capabilities : [];
+  const canManageDomainCapabilities = data.renderAuth?.can_manage_access === true || (data.renderAuth?.capabilities ?? []).includes("*") || (data.renderAuth?.capabilities ?? []).includes("access.manage");
   const routeChecks = Array.isArray(access.route_checks) ? access.route_checks : [];
   const actionChecks = Array.isArray(access.action_checks) ? access.action_checks : [];
   const inviteSummary = access.invite_summary ?? { invite_count: 0, pending_invite_count: 0, approved_invite_count: 0, materialized_invite_count: 0, invites: [] };
@@ -3036,6 +3120,21 @@ function pageConfig(data) {
       status: statusLabel(user.status || "UNKNOWN")
     };
   });
+  const capabilityAssignments = users.map((user) => {
+    const membership = memberships.find((item) => item.user_id === user.user_id) ?? null;
+    const directGrants = new Set(membership?.capability_grants ?? []);
+    const roleCapabilities = new Set((membership?.role_ids ?? [user.primary_role_id]).flatMap((roleId) => roleMap.get(roleId)?.capabilities ?? []));
+    const hasAll = roleCapabilities.has("*");
+    return `<form class="panel domain-capability-assignment" data-capability-user="${escapeHtml(user.user_id)}">
+      <div class="section-head small"><div><h3>${escapeHtml(user.display_name || user.username)}</h3><p class="help">${escapeHtml(user.username)} · ${escapeHtml(roleMap.get(user.primary_role_id)?.display_name || user.primary_role_id || "未分配角色")}</p></div><span class="pill">${directGrants.size} 项直接授权</span></div>
+      <div class="domain-capability-grid">${domainCapabilities.map((capability) => {
+        const inherited = hasAll || roleCapabilities.has(capability.id);
+        const checked = inherited || directGrants.has(capability.id);
+        return `<label class="domain-capability-option${inherited ? " inherited" : ""}"><input type="checkbox" value="${escapeHtml(capability.id)}"${checked ? " checked" : ""}${inherited ? " disabled" : ""}><span><strong>${escapeHtml(capability.label)}</strong><small>${escapeHtml(inherited ? "角色已包含" : capability.description)}</small></span></label>`;
+      }).join("")}</div>
+      <div class="button-row capability-assignment-actions"><span class="help" role="status" data-capability-status>${canManageDomainCapabilities ? "勾选后保存，仅调整该成员的直接领域授权。" : "当前账号只能查看授权。"}</span>${canManageDomainCapabilities ? '<button type="submit" class="primary-action">保存领域能力</button>' : ""}</div>
+    </form>`;
+  }).join("");
   const routeRows = routeChecks.map((check) => ({
     route: check.route_id,
     status: toneLabel(check.allowed ? "ALLOW" : "DENY", check.allowed ? "pass" : "blocked"),
@@ -3130,6 +3229,10 @@ function pageConfig(data) {
       { key: "status", label: "状态", html: true }
     ]) : `<div class="panel"><p class="help">当前没有可见账号。</p></div>`}
   </section>
+  <section>
+    <div class="section-head"><div><h2>成员领域能力</h2><p class="help">角色提供基础权限，管理员可在这里为单个成员追加领域能力；保存后导航、页面、API 和 Agent 工作流同步生效。</p></div><span class="pill">${domainCapabilities.length} 个领域</span></div>
+    <div class="capability-assignment-list">${capabilityAssignments || '<div class="panel"><p class="help">当前没有可分配成员。</p></div>'}</div>
+  </section>
   <section class="kanban-grid">
     <div class="panel">
       <div class="section-head small"><h3>角色矩阵</h3><span class="pill">${roles.length} 角色</span></div>
@@ -3194,6 +3297,7 @@ function pageConfig(data) {
       { key: "next", label: "下一步" }
     ]) : `<div class="panel"><p class="help">当前没有 invite 草稿。可通过 CLI 先创建：<code>studio access invite-user --user ... --dry-run</code></p></div>`}
   </section>
+  <script>(()=>{document.querySelectorAll('[data-capability-user]').forEach(form=>form.addEventListener('submit',async event=>{event.preventDefault();const button=form.querySelector('button[type="submit"]'),status=form.querySelector('[data-capability-status]'),capabilityIds=[...form.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)')].map(input=>input.value);button.disabled=true;status.textContent='正在保存…';try{const response=await fetch('/api/access/members/'+encodeURIComponent(form.dataset.capabilityUser)+'/domain-capabilities',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({capability_ids:capabilityIds})}),body=await response.json();if(!response.ok)throw new Error(body.reason||body.status);status.textContent='已保存 '+body.membership.capability_grants.length+' 项直接领域授权。';status.className='help auth-status success';}catch(error){status.textContent=error.message;status.className='help auth-status error';}finally{button.disabled=false;}}));})();</script>
   <details class="details-drawer" open>
     <summary>查看草稿模式配置</summary>
     <section class="draft-grid">

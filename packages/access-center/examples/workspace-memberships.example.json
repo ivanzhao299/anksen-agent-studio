@@ -10,6 +10,7 @@
       "plan_id": "internal_preview",
       "role_ids": ["platform_owner"],
       "project_allowlist": ["*"],
+      "capability_grants": [],
       "beta_features": ["console_live_execute", "multi_project_beta", "real_runtime_visibility"]
     },
     {
@@ -20,6 +21,7 @@
       "plan_id": "team",
       "role_ids": ["workspace_admin"],
       "project_allowlist": ["jinhu-smart-park", "phoenix-erp", "group-portal"],
+      "capability_grants": [],
       "beta_features": ["beta_console_actions", "agent_runtime_preview"]
     },
     {
@@ -30,6 +32,7 @@
       "plan_id": "starter",
       "role_ids": ["operator"],
       "project_allowlist": ["jinhu-smart-park"],
+      "capability_grants": [],
       "beta_features": ["mobile_terminal_preview"]
     },
     {
@@ -40,6 +43,7 @@
       "plan_id": "starter",
       "role_ids": ["viewer"],
       "project_allowlist": ["jinhu-smart-park"],
+      "capability_grants": [],
       "beta_features": []
     }
   ]
