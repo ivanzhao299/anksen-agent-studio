@@ -9811,11 +9811,15 @@ async function consoleSmoke(args) {
     "申请加入"
   ].every((text) => unauthHtml.includes(text));
   const authLoginPresent = [
-    "Console Access",
-    "登录",
+    "Welcome back",
+    "登录工作台",
     "用户名",
     "密码",
-    "仅限已授权账号"
+    "仅限已授权账号",
+    "理解目标",
+    "组织工作流",
+    "调用 Agent",
+    "验证交付"
   ].every((text) => unauthLoginHtml.includes(text));
   const authGatePresent = authEntryPresent && authLoginPresent;
   const safetyPass = data.safety.external_calls === "disabled"
