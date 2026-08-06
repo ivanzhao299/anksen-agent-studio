@@ -14,7 +14,8 @@ import {
   loadAccessCenter,
   loginToAccessCenter,
   logoutFromAccessCenter,
-  resolveSessionContext
+  resolveSessionContext,
+  updateWorkspaceDomainCapabilities
 } from "../../../packages/access-center/lib/access-center-utils.mjs";
 import { AutonomousExecutionCenter } from "../../../packages/orchestrator-core/lib/autonomous-execution-center.mjs";
 import { createTestPool, ensurePostgresFixture } from "../../../packages/orchestrator-core/lib/postgres-fixture.mjs";
@@ -325,6 +326,41 @@ const server = createServer(async (request, response) => {
         status: "AUTH_REQUIRED",
         reason: "Console Action Server requires a local Studio login before invoking actions."
       });
+      return;
+    }
+    const domainCapabilityMemberMatch = pathname.match(/^\/api\/access\/members\/([^/]+)\/domain-capabilities$/);
+    if (domainCapabilityMemberMatch) {
+      if (!accessContext.can_manage_access && !(accessContext.capabilities ?? []).some((item) => item === "*" || item === "access.manage")) {
+        sendJson(response, 403, { status: "ACCESS_MANAGEMENT_DENIED", reason: "管理员权限不足。" });
+        return;
+      }
+      if (request.method !== "PATCH") {
+        sendJson(response, 405, { status: "METHOD_NOT_ALLOWED" }, { allow: "PATCH" });
+        return;
+      }
+      const expectedOrigin = identityRuntime ? new URL(identityRuntime.publicUrl).origin : `http://${request.headers.host ?? "localhost"}`;
+      const forwardedOrigin = `${String(request.headers["x-forwarded-proto"] ?? "http").split(",")[0].trim()}://${String(request.headers["x-forwarded-host"] ?? request.headers.host ?? "localhost").split(",")[0].trim()}`;
+      const requestOrigin = String(request.headers.origin ?? "");
+      if (!requestOrigin || (requestOrigin !== expectedOrigin && requestOrigin !== forwardedOrigin)) {
+        sendJson(response, 403, { status: "BLOCKED", reason: "Same-origin confirmation is required." });
+        return;
+      }
+      try {
+        const body = await readJsonBody(request);
+        const result = await updateWorkspaceDomainCapabilities(
+          accessBundle,
+          decodeURIComponent(domainCapabilityMemberMatch[1]),
+          body.capability_ids ?? body.capabilityIds ?? [],
+          { actor: accessContext }
+        );
+        sendJson(response, 200, result);
+      } catch (error) {
+        const code = error?.code ?? "DOMAIN_CAPABILITY_UPDATE_FAILED";
+        sendJson(response, code === "ACCESS_USER_NOT_FOUND" ? 404 : code === "ACCESS_MANAGEMENT_DENIED" ? 403 : 400, {
+          status: code,
+          reason: error instanceof Error ? error.message : String(error)
+        });
+      }
       return;
     }
     if (pathname === "/api/admin/agents" || pathname === "/api/admin/agents/audit" || pathname.startsWith("/api/admin/agents/")) {

@@ -2254,9 +2254,23 @@ function shell(content, activeId, model, data, auth = {}) {
     body.login-gated .auth-status.success { background:#ecfdf3; color:#027a48; }
     body.login-gated .auth-status.error { background:#fef3f2; color:#b42318; }
     body.login-gated .auth-path-actions { max-width:none; }
+    .capability-assignment-list { display:grid; gap:14px; }
+    .domain-capability-assignment { padding:20px; }
+    .domain-capability-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; }
+    .domain-capability-option { display:flex; align-items:flex-start; gap:9px; min-width:0; padding:11px; border:1px solid #e4e7ec; border-radius:11px; background:#fff; cursor:pointer; }
+    .domain-capability-option:hover { border-color:#b2ccff; background:#f8faff; }
+    .domain-capability-option.inherited { background:#f9fafb; cursor:default; }
+    .domain-capability-option input { flex:0 0 auto; width:16px; height:16px; margin:2px 0 0; accent-color:#2563eb; }
+    .domain-capability-option span { min-width:0; }
+    .domain-capability-option strong,.domain-capability-option small { display:block; }
+    .domain-capability-option strong { color:#344054; font-size:12px; }
+    .domain-capability-option small { margin-top:4px; color:#667085; font-size:10px; line-height:1.45; }
+    .capability-assignment-actions { align-items:center; justify-content:space-between; margin-top:14px; }
+    .capability-assignment-actions .help { margin:0; }
     @media (max-width: 1100px) { .domain-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width: 1200px) { .domain-capability-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
     @media (max-width: 1000px) { .portfolio-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-    @media (max-width: 760px) { .portfolio-grid { grid-template-columns:1fr; } }
+    @media (max-width: 760px) { .portfolio-grid,.domain-capability-grid { grid-template-columns:1fr; } .capability-assignment-actions { align-items:stretch; flex-direction:column; } }
     @media (max-width: 760px) { .brand-row { align-items: flex-start; } .logo-frame { width:72px; height:40px; } main { padding:18px 14px 36px; } .product-hero { align-items:flex-start; flex-direction:column; padding:22px; } .product-hero h2 { font-size:24px; } .command-center-hero { padding:22px 0 20px; } .command-center-copy h2 { font-size:28px; } .command-compose-footer { align-items:stretch; flex-direction:column; } .current-run-strip { grid-template-columns:12px minmax(0,1fr); } .current-run-actions { grid-column:2; align-items:flex-start; flex-wrap:wrap; } .diagnostic-snapshot { grid-template-columns:repeat(2,1fr); } .domain-summary,.domain-grid { grid-template-columns:1fr; } .application-suite-head { flex-direction:column-reverse; } .domain-architecture { align-items:flex-start; flex-direction:column; } .diagnostic-links,.activity-feed,.operation-card-grid,.system-strip,.summary-grid,.product-grid,.goal-layout,.timeline,.action-feedback-grid,.flow-rail,.conversation-result,.chat-message,.chat-message.user,.attachment-bubble,.attachment-list,.cad-workbench { grid-template-columns:1fr; } .cad-dropzone { min-height:190px; padding:20px 14px; } .activity-item { grid-template-columns:34px minmax(0,1fr); } .activity-item time { grid-column:2; } .goal-sidebar { position:static; } .stage-rail { overflow-x:auto; min-width:520px; } .chat-message.user .message-avatar,.chat-message.user .message-body { grid-column:auto; grid-row:auto; } .workspace-hero { display:block; } .workspace-meta { margin-top:8px; } .auth-strip,.auth-actions,.auth-help-row { align-items:flex-start; flex-direction:column; } .auth-card-head h3,.auth-side h2 { font-size:28px; } .auth-product-panel { min-height:180px; } .auth-product-panel::before { inset:18px; } .auth-side { padding:24px; } .auth-path-actions { grid-template-columns:1fr; } body.login-gated .login-header { padding:16px 20px; } body.login-gated .login-header .brand-row { align-items:center; } body.login-gated .login-header .logo-frame { width:38px; height:34px; } body.login-gated main { min-height:auto; padding:18px; } body.login-gated .auth-shell { display:flex; flex-direction:column; width:100%; border-radius:18px; } body.login-gated .auth-side { order:0; border:0; padding:30px; } body.login-gated .auth-product-panel { order:1; min-height:auto; padding:30px; border-top:1px solid #eaecf0; } .auth-product-copy h2 { font-size:34px; } .auth-flow-preview { grid-template-columns:1fr 1fr; gap:18px; margin:30px 0 22px; } .auth-flow-step { padding:0; } .auth-flow-step i { display:none; } }
     @media (max-width: 760px) { .account-security-grid,.password-requirements { grid-template-columns:1fr; } }
     .sidebar-scrim { display:none; }
@@ -2997,6 +3011,8 @@ function pageConfig(data) {
   const plans = Array.isArray(access.plans) ? access.plans : [];
   const users = Array.isArray(access.users) ? access.users : [];
   const memberships = Array.isArray(access.memberships) ? access.memberships : [];
+  const domainCapabilities = Array.isArray(access.domain_capabilities) ? access.domain_capabilities : [];
+  const canManageDomainCapabilities = data.renderAuth?.can_manage_access === true || (data.renderAuth?.capabilities ?? []).includes("*") || (data.renderAuth?.capabilities ?? []).includes("access.manage");
   const routeChecks = Array.isArray(access.route_checks) ? access.route_checks : [];
   const actionChecks = Array.isArray(access.action_checks) ? access.action_checks : [];
   const inviteSummary = access.invite_summary ?? { invite_count: 0, pending_invite_count: 0, approved_invite_count: 0, materialized_invite_count: 0, invites: [] };
@@ -3036,6 +3052,21 @@ function pageConfig(data) {
       status: statusLabel(user.status || "UNKNOWN")
     };
   });
+  const capabilityAssignments = users.map((user) => {
+    const membership = memberships.find((item) => item.user_id === user.user_id) ?? null;
+    const directGrants = new Set(membership?.capability_grants ?? []);
+    const roleCapabilities = new Set((membership?.role_ids ?? [user.primary_role_id]).flatMap((roleId) => roleMap.get(roleId)?.capabilities ?? []));
+    const hasAll = roleCapabilities.has("*");
+    return `<form class="panel domain-capability-assignment" data-capability-user="${escapeHtml(user.user_id)}">
+      <div class="section-head small"><div><h3>${escapeHtml(user.display_name || user.username)}</h3><p class="help">${escapeHtml(user.username)} · ${escapeHtml(roleMap.get(user.primary_role_id)?.display_name || user.primary_role_id || "未分配角色")}</p></div><span class="pill">${directGrants.size} 项直接授权</span></div>
+      <div class="domain-capability-grid">${domainCapabilities.map((capability) => {
+        const inherited = hasAll || roleCapabilities.has(capability.id);
+        const checked = inherited || directGrants.has(capability.id);
+        return `<label class="domain-capability-option${inherited ? " inherited" : ""}"><input type="checkbox" value="${escapeHtml(capability.id)}"${checked ? " checked" : ""}${inherited ? " disabled" : ""}><span><strong>${escapeHtml(capability.label)}</strong><small>${escapeHtml(inherited ? "角色已包含" : capability.description)}</small></span></label>`;
+      }).join("")}</div>
+      <div class="button-row capability-assignment-actions"><span class="help" role="status" data-capability-status>${canManageDomainCapabilities ? "勾选后保存，仅调整该成员的直接领域授权。" : "当前账号只能查看授权。"}</span>${canManageDomainCapabilities ? '<button type="submit" class="primary-action">保存领域能力</button>' : ""}</div>
+    </form>`;
+  }).join("");
   const routeRows = routeChecks.map((check) => ({
     route: check.route_id,
     status: toneLabel(check.allowed ? "ALLOW" : "DENY", check.allowed ? "pass" : "blocked"),
@@ -3130,6 +3161,10 @@ function pageConfig(data) {
       { key: "status", label: "状态", html: true }
     ]) : `<div class="panel"><p class="help">当前没有可见账号。</p></div>`}
   </section>
+  <section>
+    <div class="section-head"><div><h2>成员领域能力</h2><p class="help">角色提供基础权限，管理员可在这里为单个成员追加领域能力；保存后导航、页面、API 和 Agent 工作流同步生效。</p></div><span class="pill">${domainCapabilities.length} 个领域</span></div>
+    <div class="capability-assignment-list">${capabilityAssignments || '<div class="panel"><p class="help">当前没有可分配成员。</p></div>'}</div>
+  </section>
   <section class="kanban-grid">
     <div class="panel">
       <div class="section-head small"><h3>角色矩阵</h3><span class="pill">${roles.length} 角色</span></div>
@@ -3194,6 +3229,7 @@ function pageConfig(data) {
       { key: "next", label: "下一步" }
     ]) : `<div class="panel"><p class="help">当前没有 invite 草稿。可通过 CLI 先创建：<code>studio access invite-user --user ... --dry-run</code></p></div>`}
   </section>
+  <script>(()=>{document.querySelectorAll('[data-capability-user]').forEach(form=>form.addEventListener('submit',async event=>{event.preventDefault();const button=form.querySelector('button[type="submit"]'),status=form.querySelector('[data-capability-status]'),capabilityIds=[...form.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)')].map(input=>input.value);button.disabled=true;status.textContent='正在保存…';try{const response=await fetch('/api/access/members/'+encodeURIComponent(form.dataset.capabilityUser)+'/domain-capabilities',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({capability_ids:capabilityIds})}),body=await response.json();if(!response.ok)throw new Error(body.reason||body.status);status.textContent='已保存 '+body.membership.capability_grants.length+' 项直接领域授权。';status.className='help auth-status success';}catch(error){status.textContent=error.message;status.className='help auth-status error';}finally{button.disabled=false;}}));})();</script>
   <details class="details-drawer" open>
     <summary>查看草稿模式配置</summary>
     <section class="draft-grid">

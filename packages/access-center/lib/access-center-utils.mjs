@@ -78,6 +78,20 @@ const agentRuntimeIds = new Set([
   "local-agent"
 ]);
 
+export const domainCapabilityCatalog = [
+  { id: "strategy.read", label: "战略执行", description: "目标、指标、举措与经营复盘" },
+  { id: "sales.read", label: "增长销售", description: "营销、线索、客户、商机与服务" },
+  { id: "hr.read", label: "人力资源", description: "组织、岗位、招聘、入职与员工流程" },
+  { id: "finance.read", label: "财务管理", description: "预算、费用、应收应付与财务分析" },
+  { id: "manufacturing.read", label: "制造 ERP", description: "物料、BOM、工单、库存与质量" },
+  { id: "smart_park.workspace", label: "智慧园区", description: "企业、空间、合同、工单与能源" },
+  { id: "video.read", label: "视频工厂", description: "视频生产、数字人与媒体交付" },
+  { id: "design.read", label: "平面设计", description: "设计系统、视觉生成与 Photoshop 生产" },
+  { id: "cad.read", label: "工程 CAD", description: "图纸解析、校验、统计与工程报告" },
+  { id: "software_development.use", label: "软件开发", description: "仓库分析、开发、测试与交付工作流" }
+];
+const domainCapabilityIds = new Set(domainCapabilityCatalog.map((item) => item.id));
+
 const consoleActionCatalog = {
   "cad-document-analyze": { capabilities: ["console.access"], execution_mode: "direct_execute", projectScoped: false, risk: "LOW" },
   "identity-owner-bootstrap": { capabilities: ["console.access", "access.manage"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
@@ -146,14 +160,14 @@ const consoleRouteCatalog = {
   growthSales: ["console.access", "sales.read"],
   manufacturing: ["console.access", "manufacturing.read"],
   smartPark: ["console.access", "smart_park.workspace"],
-  video: ["console.access", "media.read"],
-  graphicDesign: ["console.access", "media.read"],
-  cad: ["console.access"],
+  video: ["console.access", "video.read"],
+  graphicDesign: ["console.access", "design.read"],
+  cad: ["console.access", "cad.read"],
   execution: ["console.access", "autopilot.plan"],
   domains: ["console.access"],
   portfolio: ["console.access", "autopilot.plan"],
   outcomes: ["console.access", "governance.read"],
-  development: ["console.access", "autopilot.plan"],
+  development: ["console.access", "autopilot.plan", "software_development.use"],
   dashboard: ["console.access"],
   projects: ["project.read"],
   workers: ["worker.read"],
@@ -380,6 +394,7 @@ function ensureMembershipRecord(bundle, document, user, workspaceId) {
     plan_id: user.default_plan_id,
     role_ids: [user.primary_role_id].filter(Boolean),
     project_allowlist: defaultProjectAllowlistForRole(user.primary_role_id),
+    capability_grants: [],
     beta_features: [...(user.feature_overrides ?? [])]
   };
   document.memberships.push(membership);
@@ -553,7 +568,8 @@ function buildProfile(bundle, user) {
   const plan = planDefinition(bundle, membership?.plan_id ?? user.default_plan_id);
   const capabilities = unique([
     ...(plan?.capabilities ?? []),
-    ...roles.flatMap((role) => role.capabilities ?? [])
+    ...roles.flatMap((role) => role.capabilities ?? []),
+    ...(membership?.capability_grants ?? [])
   ]);
   const featureFlags = unique([
     ...(plan?.beta_features ?? []),
@@ -1296,6 +1312,7 @@ export async function createStudioUser(bundle, input = {}) {
     plan_id: plan.plan_id,
     role_ids: [role.role_id],
     project_allowlist: enforceProjectScopeLimit(plan, projectAllowlist),
+    capability_grants: [],
     beta_features: []
   });
 
@@ -1322,6 +1339,33 @@ export async function updateWorkspaceProjectScope(bundle, userOrUsername, projec
     membership,
     written_path: writtenPath
   };
+}
+
+export async function updateWorkspaceDomainCapabilities(bundle, userOrUsername, capabilityIds, options = {}) {
+  const actor = options.actor ?? null;
+  if (!actor?.can_manage_access && !hasCapability(actor, "access.manage")) {
+    throw Object.assign(new Error("Access management capability is required."), { code: "ACCESS_MANAGEMENT_DENIED" });
+  }
+  const user = findUserRecord(bundle, userOrUsername);
+  if (!user) throw Object.assign(new Error(`Studio user not found: ${userOrUsername}`), { code: "ACCESS_USER_NOT_FOUND" });
+  const requested = unique((Array.isArray(capabilityIds) ? capabilityIds : []).map((item) => String(item ?? "").trim()));
+  const unsupported = requested.filter((capability) => !domainCapabilityIds.has(capability));
+  if (unsupported.length > 0) {
+    throw Object.assign(new Error(`Unsupported domain capabilities: ${unsupported.join(", ")}`), { code: "DOMAIN_CAPABILITY_INVALID" });
+  }
+  const workspaceId = options.workspace_id ?? bundle.state.workspace_id ?? bundle.policy.default_workspace_id;
+  const membershipsDocument = ensureMembershipDocument(bundle);
+  const membership = ensureMembershipRecord(bundle, membershipsDocument, user, workspaceId);
+  membership.capability_grants = requested;
+  const writtenPath = await persistMembershipsDocument(membershipsDocument);
+  await appendAccessSecurityAudit({
+    event_type: "DOMAIN_CAPABILITIES_UPDATED",
+    user_id: user.user_id,
+    actor_user_id: actor.user?.user_id ?? actor.user_id ?? "unknown",
+    workspace_id: workspaceId,
+    capability_grants: requested
+  });
+  return { status: "PASS", user: sanitizeUser(user), membership, domain_capabilities: domainCapabilityCatalog, written_path: writtenPath };
 }
 
 export async function updateWorkspaceMembershipStatus(bundle, userOrUsername, status, options = {}) {

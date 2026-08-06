@@ -4,7 +4,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { actionServerSummary, latestActionLog } from "./action-server.mjs";
 import { loadProjectRegistry, resolveActiveProjectId } from "./project-registry.mjs";
-import { accessInviteSummary, accessSummary, loadAccessCenter, resolveUserProfile } from "../../../packages/access-center/lib/access-center-utils.mjs";
+import { accessInviteSummary, accessSummary, domainCapabilityCatalog, loadAccessCenter, resolveUserProfile } from "../../../packages/access-center/lib/access-center-utils.mjs";
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(webDir, "../../..");
@@ -649,6 +649,7 @@ export async function loadConsoleLocalData(options = {}) {
     plan_id: membership.plan_id,
     role_ids: Array.isArray(membership.role_ids) ? membership.role_ids : [],
     project_allowlist: Array.isArray(membership.project_allowlist) ? membership.project_allowlist : [],
+    capability_grants: Array.isArray(membership.capability_grants) ? membership.capability_grants : [],
     beta_features: Array.isArray(membership.beta_features) ? membership.beta_features : []
   }));
   const allProjectProposals = [...projectProposals, ...modelGatewayProposals];
@@ -741,6 +742,7 @@ export async function loadConsoleLocalData(options = {}) {
       plans: accessPlans,
       users: accessUsersSafe,
       memberships: accessMembershipsSafe,
+      domain_capabilities: domainCapabilityCatalog,
       route_checks: accessEnforcement?.route_checks ?? [],
       action_checks: accessEnforcement?.action_checks ?? [],
       user_count: countArray(accessUsers?.users, "users"),

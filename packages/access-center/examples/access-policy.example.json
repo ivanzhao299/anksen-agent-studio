@@ -36,7 +36,11 @@
     "finance.read",
     "sales.read",
     "manufacturing.read",
-    "media.read"
+    "media.read",
+    "video.read",
+    "design.read",
+    "cad.read",
+    "software_development.use"
   ],
   "roles": [
     {
@@ -73,10 +77,20 @@
         "business.operate",
         "business.work.control",
         "business.manage",
-        "agent.manage"
+        "agent.manage",
+        "access.manage",
+        "strategy.read",
+        "hr.read",
+        "finance.read",
+        "sales.read",
+        "manufacturing.read",
+        "video.read",
+        "design.read",
+        "cad.read",
+        "software_development.use"
       ],
       "direct_execute_max_risk": "MEDIUM",
-      "can_manage_access": false
+      "can_manage_access": true
     },
     {
       "role_id": "operator",
