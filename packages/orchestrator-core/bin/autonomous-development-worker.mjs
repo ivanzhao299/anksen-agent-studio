@@ -6,25 +6,38 @@ import { AutonomousDevelopmentJobs } from "../lib/autonomous-development-jobs.mj
 import { approvalScopeDigest, assertWorkspaceWithinScope, captureGitWorkspace, repairDecision } from "../lib/autonomous-development-policy.mjs";
 import { resourceBudgetDecision } from "../lib/autonomous-development-operations.mjs";
 import { ManagedIssueDevelopmentAdapter } from "../lib/managed-issue-development-adapter.mjs";
+import { ManagedIssueReleaseController } from "../lib/managed-issue-release-controller.mjs";
 
 const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
 const jobs = new AutonomousDevelopmentJobs({ repoRoot });
 const worker = { id: process.env.AUTONOMOUS_DEVELOPMENT_WORKER_ID || "resident-codex-dev-1", pid: process.pid };
 const codexPath = "/Applications/ChatGPT.app/Contents/Resources/codex";
-const managedIssueAdapter = process.env.SMART_PARK_ISSUE_API_URL && process.env.SMART_PARK_RUNNER_TOKEN && process.env.SMART_PARK_PROJECT_ROOT
+const managedIssueAdapter = process.env.SMART_PARK_ISSUE_API_URL && (process.env.SMART_PARK_RUNNER_TOKEN || (process.env.SMART_PARK_RUNNER_USER && process.env.SMART_PARK_RUNNER_PASSWORD)) && process.env.SMART_PARK_PROJECT_ROOT
   ? new ManagedIssueDevelopmentAdapter({
       apiBaseUrl: process.env.SMART_PARK_ISSUE_API_URL,
       token: process.env.SMART_PARK_RUNNER_TOKEN,
+      credentials: { username: process.env.SMART_PARK_RUNNER_USER, password: process.env.SMART_PARK_RUNNER_PASSWORD, tenantId: process.env.SMART_PARK_TENANT_ID, parkId: process.env.SMART_PARK_PARK_ID },
       jobs,
       runnerId: process.env.SMART_PARK_RUNNER_ID || worker.id,
       project: {
         projectId: "jinhu-smart-park",
         projectRoot: process.env.SMART_PARK_PROJECT_ROOT,
+        worktreeRoot: process.env.SMART_PARK_WORKTREE_ROOT,
         allowedPaths: (process.env.SMART_PARK_ALLOWED_PATHS || "apps,packages,database,scripts").split(",").map(value => value.trim()).filter(Boolean),
         acceptanceCommands: (process.env.SMART_PARK_ACCEPTANCE_COMMANDS || "pnpm lint,pnpm typecheck,pnpm build").split(",").map(value => value.trim()).filter(Boolean),
         maxRuntimeSeconds: Number(process.env.SMART_PARK_MAX_RUNTIME_SECONDS || 1800),
         maxRepairAttempts: Number(process.env.SMART_PARK_MAX_REPAIR_ATTEMPTS || 1)
       }
+    })
+  : null;
+const managedIssueRelease = managedIssueAdapter && process.env.SMART_PARK_AUTO_RELEASE === "true"
+  ? new ManagedIssueReleaseController({
+      jobs,
+      adapter: managedIssueAdapter,
+      repository: process.env.SMART_PARK_GITHUB_REPOSITORY || "ivanzhao299/jinhu-smart-park",
+      productionUrl: process.env.SMART_PARK_PRODUCTION_HEALTH_URL || "https://park.cnjinhu.com/api/v1/health",
+      pollSeconds: Number(process.env.SMART_PARK_RELEASE_POLL_SECONDS || 20),
+      maxWaitMinutes: Number(process.env.SMART_PARK_RELEASE_MAX_WAIT_MINUTES || 60)
     })
   : null;
 let stopping = false;
@@ -131,6 +144,11 @@ while(!stopping){
     try{await managedIssueAdapter.syncReady({limit:5});}catch(error){console.error(`Managed issue intake failed: ${error.code||error.message}`);}
     for(const completed of (await jobs.list()).filter(item=>item.status==="COMMITTED"&&item.managedIssue&&!item.managedIssue.resultWrittenAt)){
       try{await managedIssueAdapter.writeBack(completed);completed.managedIssue.resultWrittenAt=new Date().toISOString();await jobs.event(completed,"MANAGED_ISSUE_RESULT_WRITTEN",{issueNo:completed.managedIssue.issueNo});}catch(error){console.error(`Managed issue writeback failed: ${error.code||error.message}`);}
+    }
+    if(managedIssueRelease){
+      for(const releasable of (await jobs.list()).filter(item=>item.status==="AWAITING_DIFF_APPROVAL"&&item.managedIssue&&!item.release)){
+        try{await managedIssueRelease.release(releasable);}catch(error){releasable.release={status:"HOLD",error:error.code||error.message,at:new Date().toISOString()};await jobs.event(releasable,"MANAGED_ISSUE_RELEASE_HOLD",releasable.release);console.error(`Managed issue release held: ${error.code||error.message}`);}
+      }
     }
   }
   const job=await jobs.claim(worker);if(job){currentJobId=job.id;await jobs.heartbeat(worker,currentJobId);await execute(job);currentJobId=null;await jobs.heartbeat(worker);}await sleep(1500);

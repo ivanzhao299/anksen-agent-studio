@@ -44,5 +44,18 @@ test("resident development worker wires the adapter without embedding a second s
   assert.match(source, /ManagedIssueDevelopmentAdapter/);
   assert.match(source, /managedIssueAdapter\.syncReady/);
   assert.match(source, /managedIssueAdapter\.writeBack/);
+  assert.match(source, /ManagedIssueReleaseController/);
+  assert.match(source, /SMART_PARK_AUTO_RELEASE/);
   assert.doesNotMatch(source, /class\s+(?:Planner|Scheduler|Worker|Queue)/);
+});
+
+test("release controller requires branch CI, fast-forward main and production workflow evidence", async () => {
+  const source = await import("node:fs/promises").then(fs => fs.readFile(new URL("../lib/managed-issue-release-controller.mjs", import.meta.url), "utf8"));
+  assert.match(source, /waitWorkflow\("CI"/);
+  assert.match(source, /"Release Smoke"/);
+  assert.match(source, /merge-base.*--is-ancestor/s);
+  assert.match(source, /"HEAD:main"/);
+  assert.match(source, /waitWorkflow\("Deploy Production"/);
+  assert.match(source, /PRODUCTION_SMOKE_FAILED/);
+  assert.doesNotMatch(source, /--force/);
 });
