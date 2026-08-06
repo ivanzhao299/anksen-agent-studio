@@ -54,3 +54,28 @@ test("the primary workstation applies the cardless product-design capability", a
   ]) assert.match(html, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.doesNotMatch(html, /Personal AI Workstation/);
 });
+
+test("theme personalization is shared by authenticated and access surfaces", async () => {
+  const [workstation, login] = await Promise.all([
+    renderConsolePage("/", owner),
+    renderConsolePage("/login", { authenticated: false }),
+  ]);
+
+  for (const html of [workstation, login]) {
+    assert.match(html, /id="theme-switch"/);
+    assert.match(html, /aria-label="外观主题"/);
+    for (const theme of ["system", "light", "dark", "ocean", "forest", "sunset"]) {
+      assert.match(html, new RegExp(`value="${theme}"`));
+    }
+    assert.match(html, /localStorage\.getItem\('anksen-theme'\)/);
+    assert.match(html, /prefers-color-scheme: dark/);
+    assert.match(html, /themeMedia\.addEventListener/);
+  }
+
+  assert.match(workstation, /Semantic theme system/);
+  assert.match(workstation, /:root\[data-theme="dark"\]/);
+  assert.match(workstation, /:root\[data-theme="ocean"\]/);
+  assert.match(workstation, /--theme-accent:#397447/);
+  assert.match(workstation, /--theme-accent:#c45d2d/);
+  assert.match(login, /login-theme-switch/);
+});
