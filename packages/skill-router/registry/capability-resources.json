@@ -27,6 +27,74 @@
         "requires_human_brand_selection": true,
         "attribution_notice": "Third-party design analysis derived from public websites; brand identities remain owned by their respective owners."
       }
+    },
+    {
+      "resource_id": "openai-frontend-skill",
+      "display_name": "OpenAI Frontend Composition Skill",
+      "capability_type": "FRONTEND_DESIGN_KNOWLEDGE",
+      "provider": "OpenAI",
+      "source_url": "https://github.com/openai/skills.git",
+      "source_commit": "30444aed500c00c85294d12074f6e3ee794f808a",
+      "default_branch": "main",
+      "local_path": "runtime/capability-resources/openai-frontend-skill",
+      "license": "Apache-2.0",
+      "license_path": "skills/.curated/frontend-skill/LICENSE.txt",
+      "expected_minimum_items": 1,
+      "featured_presets": ["frontend-composition"],
+      "items": [{"id":"frontend-composition","display_name":"Frontend Composition","path":"skills/.curated/frontend-skill/SKILL.md"}],
+      "capabilities": ["art_direction", "cardless_composition", "content_hierarchy", "utility_ui_copy"],
+      "network_policy": "INSTALL_AND_UPDATE_ONLY",
+      "side_effect_policy": "READ_ONLY_REFERENCE",
+      "activation": "FRONTEND_DESIGN_WORKFLOW",
+      "governance": {"execute_embedded_commands":false,"copy_to_project_automatically":false,"attribution_required":true}
+    },
+    {
+      "resource_id": "emil-design-engineering",
+      "display_name": "Emil Design Engineering Skills",
+      "capability_type": "INTERACTION_DESIGN_KNOWLEDGE",
+      "provider": "Emil Kowalski",
+      "source_url": "https://github.com/emilkowalski/skills.git",
+      "source_commit": "de33dbed000212b54400a33767d1e4d03654db2a",
+      "default_branch": "main",
+      "local_path": "runtime/capability-resources/emil-design-engineering",
+      "license": "MIT",
+      "license_path": "LICENSE",
+      "expected_minimum_items": 3,
+      "featured_presets": ["design-engineering", "animation-opportunities"],
+      "items": [
+        {"id":"design-engineering","display_name":"Design Engineering","path":"skills/emil-design-eng/SKILL.md"},
+        {"id":"animation-opportunities","display_name":"Animation Opportunities","path":"skills/find-animation-opportunities/SKILL.md"},
+        {"id":"animation-review","display_name":"Animation Review","path":"skills/review-animations/SKILL.md"}
+      ],
+      "capabilities": ["interaction_polish", "motion_decision", "animation_review", "perceived_performance"],
+      "network_policy": "INSTALL_AND_UPDATE_ONLY",
+      "side_effect_policy": "READ_ONLY_REFERENCE",
+      "activation": "FRONTEND_DESIGN_WORKFLOW",
+      "governance": {"execute_embedded_commands":false,"copy_to_project_automatically":false,"attribution_required":true}
+    },
+    {
+      "resource_id": "ui-ux-pro-max",
+      "display_name": "UI UX Pro Max Intelligence",
+      "capability_type": "UI_UX_DESIGN_INTELLIGENCE",
+      "provider": "nextlevelbuilder",
+      "source_url": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git",
+      "source_commit": "abb7f2fd5a083fa1ff55c326a963ff0d95c33f99",
+      "default_branch": "main",
+      "local_path": "runtime/capability-resources/ui-ux-pro-max",
+      "license": "MIT",
+      "license_path": "LICENSE",
+      "expected_minimum_items": 3,
+      "featured_presets": ["ui-ux-design-intelligence", "ux-rules"],
+      "items": [
+        {"id":"ui-ux-design-intelligence","display_name":"UI UX Design Intelligence","path":".claude/skills/ui-ux-pro-max/SKILL.md"},
+        {"id":"ux-rules","display_name":"UX Rules","path":".claude/skills/ui-ux-pro-max/references/quick-reference.md"},
+        {"id":"delivery-rules","display_name":"Pre-delivery Rules","path":".claude/skills/ui-ux-pro-max/references/pro-rules.md"}
+      ],
+      "capabilities": ["design_system_generation", "style_search", "typography_selection", "responsive_rules", "accessibility_review", "stack_guidance"],
+      "network_policy": "INSTALL_AND_UPDATE_ONLY",
+      "side_effect_policy": "READ_ONLY_REFERENCE",
+      "activation": "FRONTEND_DESIGN_WORKFLOW",
+      "governance": {"execute_embedded_commands":false,"copy_to_project_automatically":false,"attribution_required":true}
     }
   ]
 }

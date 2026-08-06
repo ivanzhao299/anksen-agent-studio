@@ -17,7 +17,7 @@
     "smart-park-source:sync": "node packages/domain-center/bin/smart-park-source.mjs --apply",
     "runner-capabilities:check": "node packages/skill-router/bin/professional-runner-capabilities.mjs",
     "capability-resources:check": "node packages/skill-router/bin/capability-resources.mjs inventory",
-    "capability-resources:sync": "node packages/skill-router/bin/capability-resources.mjs sync awesome-design-md",
+    "capability-resources:sync": "node packages/skill-router/bin/capability-resources.mjs sync awesome-design-md && node packages/skill-router/bin/capability-resources.mjs sync openai-frontend-skill && node packages/skill-router/bin/capability-resources.mjs sync emil-design-engineering && node packages/skill-router/bin/capability-resources.mjs sync ui-ux-pro-max && node packages/skill-router/bin/capability-resources.mjs inventory",
     "media:hyperframes:smoke": "node packages/skill-router/bin/media-hyperframes-smoke.mjs",
     "media:multi-runner:smoke": "node packages/skill-router/bin/media-multi-runner-smoke.mjs",
     "media:digital-human:doctor": "node packages/digital-human-pipeline/bin/digital-human-pipeline.mjs doctor",

@@ -365,6 +365,31 @@
       "reason": "Latest information/research requests should use web research with citations."
     },
     {
+      "rule_id": "RULE-FRONTEND-PRODUCT-DESIGN",
+      "skill_type": "frontend_product_design",
+      "task_type": "frontend_ui_design",
+      "keywords": [
+        "前端设计",
+        "页面设计",
+        "网站设计",
+        "界面重构",
+        "样式优化",
+        "交互设计",
+        "视觉优化",
+        "ui design",
+        "ux design",
+        "landing page",
+        "design system",
+        "responsive ui"
+      ],
+      "expected_output_type": "design brief + responsive implementation + visual QA evidence",
+      "runtime": "codex-cli",
+      "runtime_candidates": ["codex-cli", "claude-code"],
+      "selected_agent": "agent-4",
+      "confidence_boost": 80,
+      "reason": "Visual interface work first receives product design direction, information hierarchy and browser-verified quality gates before implementation is considered complete."
+    },
+    {
       "rule_id": "RULE-FRONTEND-CODE",
       "skill_type": "code_development",
       "task_type": "frontend_ui",
@@ -387,7 +412,7 @@
       "runtime_candidates": ["claude-code", "codex-cli"],
       "selected_agent": "agent-4",
       "confidence_boost": 15,
-      "reason": "Frontend/UI/dashboard/mobile code work should route to code development with agent-4."
+      "reason": "General frontend implementation still routes to code development; explicit design and visual-quality requests receive the higher-confidence frontend product design capability."
     },
     {
       "rule_id": "RULE-VALIDATION-TESTING",
