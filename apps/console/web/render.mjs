@@ -381,7 +381,7 @@ function actionWorkbench(data, title = "ANKSEN 工作站") {
     ["project-inspect", "检查项目", `检查 ${activeProjectLabel} 当前状态和阻断项`],
     ["context-summary", "整理进展", `整理 ${activeProjectLabel} 最近任务、结果和下一步`]
   ];
-  return `<section class="workspace-shell">
+  return `<section class="workspace-shell" data-workstation="personal-ai" data-interface-model="cardless-editorial">
     <aside class="project-rail">
       <div class="rail-header">
         <span class="rail-label">项目</span>
@@ -392,16 +392,18 @@ function actionWorkbench(data, title = "ANKSEN 工作站") {
     <div class="ai-workspace chat-workspace">
       <div class="workspace-hero compact-hero">
         <div class="workspace-title">
-          <span class="eyebrow">Personal AI Workstation</span>
+          <span class="eyebrow">当前工作空间</span>
           <h2>${escapeHtml(title)}</h2>
+          <p class="workspace-orientation">说出结果，Studio 会定位项目、组织 Agent，并把执行证据带回这里。</p>
         </div>
         <div class="workspace-meta">
-          <span class="meta-chip">${escapeHtml(activeProjectLabel)}</span>
-          <span class="meta-chip">AI 协作中</span>
+          <span class="workspace-project-name">${escapeHtml(activeProjectLabel)}</span>
+          <span class="workspace-live-state"><i></i> 可以开始</span>
         </div>
       </div>
       ${accessEntitlementPanel(data.renderAuth ?? {})}
       <div class="quick-row compact-quick-row">
+        <span class="quick-row-label">常用意图</span>
         ${quickActions.map(([id, label, suggestedGoal]) => {
           const goal = suggestedGoal ?? label;
           return `<button type="button" class="quick-chip" data-quick-action="${escapeHtml(id)}" data-goal="${escapeHtml(goal)}">${escapeHtml(label)}</button>`;
@@ -410,7 +412,7 @@ function actionWorkbench(data, title = "ANKSEN 工作站") {
       <div id="conversation-stream" class="conversation-stream" aria-live="polite">
         <div class="welcome-message">
           <span class="welcome-mark">A</span>
-          <div><strong>今天想推进什么？</strong><p>描述目标即可。我会定位仓库、拆解任务、调用合适的 Agent，并持续汇报执行结果。</p></div>
+          <div><strong>今天想完成什么？</strong><p>直接描述目标、约束和期望结果；不需要先选择流程。</p></div>
         </div>
       </div>
       <div class="execution-console">
@@ -2335,6 +2337,70 @@ function shell(content, activeId, model, data, auth = {}) {
     .domain-capability-option input { accent-color:var(--studio-primary); }
     @keyframes studio-aurora { from { transform:scale(1) translate3d(0,0,0); filter:saturate(1); } to { transform:scale(1.04) translate3d(0,-1.2%,0); filter:saturate(1.08); } }
     @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; } }
+    /* Frontend product-design capability trial: cardless editorial workstation. */
+    .page-dashboard { background:#fbfbfd; }
+    .page-dashboard::before { display:none; }
+    .page-dashboard main { padding:0 28px 28px; }
+    .page-dashboard .app-toolbar { height:64px; margin:0 -28px; padding:0 28px; border-bottom:1px solid #e9e9ee; background:rgba(251,251,253,.9); box-shadow:none; }
+    .page-dashboard .workspace-shell { grid-template-columns:196px minmax(520px,1fr) 232px; gap:0; max-width:1540px; min-height:calc(100vh - 92px); margin:0 auto; }
+    .page-dashboard .project-rail,.page-dashboard .ai-workspace,.page-dashboard .advanced-config { border:0; border-radius:0; background:transparent; box-shadow:none; backdrop-filter:none; }
+    .page-dashboard .project-rail { position:static; padding:28px 22px 0 0; border-right:1px solid #e8e8ed; }
+    .page-dashboard .ai-workspace { padding:28px clamp(28px,4vw,64px) 24px; }
+    .page-dashboard .advanced-config { position:static; padding:28px 0 0 22px; border-left:1px solid #e8e8ed; }
+    .page-dashboard .rail-header { min-height:28px; margin-bottom:14px; }
+    .page-dashboard .rail-label { color:#86868f; font-size:10px; letter-spacing:.12em; text-transform:uppercase; }
+    .page-dashboard .rail-header .pill { min-width:24px; padding:2px 7px; border:0; background:#f0f0f4; color:#6b6b75; }
+    .page-dashboard .project-list { gap:1px; }
+    .page-dashboard .project-row { position:relative; min-height:52px; padding:9px 10px 9px 14px; border:0; border-radius:0; background:transparent; color:#767680; text-align:left; }
+    .page-dashboard .project-row::before { content:""; position:absolute; left:0; top:12px; bottom:12px; width:2px; border-radius:2px; background:transparent; }
+    .page-dashboard .project-row:hover { background:transparent; color:#1d1d1f; transform:none; }
+    .page-dashboard .project-row.active { border:0; background:transparent; color:#1d1d1f; box-shadow:none; }
+    .page-dashboard .project-row.active::before { background:#5b5ce2; }
+    .page-dashboard .project-row strong { font-size:12px; line-height:1.3; }
+    .page-dashboard .project-row span { margin-top:3px; color:#9b9ba4; font-size:10px; }
+    .page-dashboard .workspace-hero.compact-hero { align-items:flex-start; padding:0 0 22px; border-bottom:1px solid #ececf0; }
+    .page-dashboard .workspace-title .eyebrow { color:#777780; }
+    .page-dashboard .workspace-title h2 { margin:6px 0 7px; font-size:clamp(25px,2.4vw,34px); font-weight:650; letter-spacing:-.045em; }
+    .workspace-orientation { max-width:620px; color:#777780; font-size:13px; line-height:1.6; }
+    .page-dashboard .workspace-meta { display:grid; justify-items:end; gap:7px; padding-top:2px; }
+    .workspace-project-name { color:#4c4c55; font-size:11px; font-weight:650; }
+    .workspace-live-state { display:inline-flex; align-items:center; gap:7px; color:#72727c; font-size:11px; }
+    .workspace-live-state i { width:6px; height:6px; border-radius:50%; background:#34a66f; box-shadow:0 0 0 4px rgba(52,166,111,.1); }
+    .page-dashboard .quick-row { gap:0; margin:14px 0 0; padding-bottom:14px; overflow-x:auto; border-bottom:1px solid #f0f0f3; }
+    .quick-row-label { flex:0 0 auto; align-self:center; margin-right:12px; color:#9a9aa3; font-size:10px; letter-spacing:.08em; }
+    .page-dashboard .quick-chip { min-height:30px; padding:5px 10px; border:0; border-right:1px solid #e8e8ec; border-radius:0; background:transparent; color:#666670; box-shadow:none; }
+    .page-dashboard .quick-chip:last-child { border-right:0; }
+    .page-dashboard .quick-chip:hover { border-color:#e8e8ec; background:transparent; color:#4b4cc3; transform:none; }
+    .page-dashboard .conversation-stream { min-height:250px; max-height:none; margin:0; padding:clamp(28px,5vh,48px) 0 22px; border:0; border-radius:0; background:transparent; box-shadow:none; }
+    .page-dashboard .welcome-message { min-height:158px; justify-content:flex-start; gap:18px; }
+    .page-dashboard .welcome-message > div { max-width:560px; }
+    .page-dashboard .welcome-message strong { margin-bottom:8px; color:#202024; font-size:clamp(26px,3.2vw,42px); font-weight:600; line-height:1.08; letter-spacing:-.045em; }
+    .page-dashboard .welcome-message p { max-width:480px; color:#7b7b84; font-size:14px; line-height:1.65; }
+    .page-dashboard .welcome-mark { width:34px; height:34px; border-radius:9px; background:#5b5ce2; box-shadow:none; font-size:13px; }
+    .page-dashboard .execution-console { margin:0 0 14px; padding:10px 0; border:0; border-top:1px solid #ececf0; border-bottom:1px solid #ececf0; border-radius:0; background:transparent; }
+    .page-dashboard .timeline-label { color:#4f4f57; }
+    .page-dashboard .flow-step,.page-dashboard .timeline-state { color:#8a8a94; }
+    .page-dashboard .flow-separator { color:#d1d1d6; }
+    .page-dashboard .composer { margin:0; padding:13px 15px 12px; border:1px solid #d9d9e0; border-radius:15px; background:#fff; box-shadow:0 12px 34px rgba(30,30,50,.07); }
+    .page-dashboard .composer:focus-within { border-color:#8c8de8; box-shadow:0 16px 42px rgba(51,52,110,.1),0 0 0 3px rgba(91,92,226,.07); }
+    .page-dashboard .goal-box { min-height:86px; font-size:15px; }
+    .page-dashboard .attachment-toolbar { padding:7px 0; }
+    .page-dashboard .workspace-controls { grid-template-columns:minmax(140px,1fr) 110px 130px auto auto; }
+    .page-dashboard .workspace-controls label { color:#8d8d96; font-size:9px; letter-spacing:.08em; text-transform:uppercase; }
+    .page-dashboard .workspace-controls select { min-height:38px; border-color:#e1e1e6; background:#fafafd; }
+    .page-dashboard .start-button { min-height:42px; padding-inline:18px; border-radius:10px; background:#5556d8; box-shadow:none; }
+    .page-dashboard .start-button:hover { background:#4647c8; box-shadow:none; }
+    .page-dashboard .cancel-button { min-height:42px; }
+    .page-dashboard .side-stack { gap:0; }
+    .page-dashboard .side-panel { margin:0; padding:14px 0 17px; border:0; border-bottom:1px solid #ececf0; border-radius:0; background:transparent; box-shadow:none; }
+    .page-dashboard .side-kicker { color:#8d8d96; font-size:9px; letter-spacing:.1em; text-transform:uppercase; }
+    .page-dashboard .workstation-automation-summary span { padding:8px 0; }
+    .page-dashboard .advanced-config details { margin:0; border:0; border-bottom:1px solid #ececf0; border-radius:0; background:transparent; }
+    .page-dashboard .advanced-config summary { min-height:44px; padding:13px 0; color:#5f5f68; font-size:11px; }
+    .page-dashboard .workstation-field-guide { display:none; }
+    @media (max-width:1100px) { .page-dashboard .workspace-shell { grid-template-columns:170px minmax(480px,1fr); } .page-dashboard .advanced-config { display:none; } }
+    @media (max-width:900px) { .page-dashboard main { padding:0 18px 22px; } .page-dashboard .app-toolbar { margin:0 -18px; padding:0 18px; } .page-dashboard .workspace-shell { display:block; min-height:auto; } .page-dashboard .chat-workspace { min-height:auto; } .page-dashboard .project-rail,.page-dashboard .advanced-config { display:none; } .page-dashboard .ai-workspace { padding:22px 0 0; } .page-dashboard .conversation-stream { min-height:230px; padding:34px 0 20px; } .page-dashboard .welcome-message { min-height:150px; } .page-dashboard .workspace-controls { grid-template-columns:1fr 1fr; } .page-dashboard .workspace-controls > div:nth-child(3) { grid-column:1/-1; } .page-dashboard .start-button,.page-dashboard .cancel-button { min-height:46px; } }
+    @media (max-width:560px) { .page-dashboard .app-toolbar h2,.page-dashboard .app-toolbar-actions > .status-label { display:none; } .page-dashboard .app-toolbar-actions { width:auto; margin-left:auto; justify-content:flex-end; } .page-dashboard .language-switch { min-width:112px; } .page-dashboard .workspace-hero.compact-hero { display:block; } .page-dashboard .workspace-meta { justify-items:start; margin-top:14px; } .page-dashboard .conversation-stream { min-height:190px; padding:28px 0 16px; } .page-dashboard .welcome-message { align-items:flex-start; min-height:138px; } .page-dashboard .welcome-mark { margin-top:3px; } .page-dashboard .quick-row-label { display:none; } .page-dashboard .flow-rail { display:none; } .page-dashboard .timeline-strip { justify-content:space-between; } .page-dashboard .workspace-controls { grid-template-columns:1fr; } .page-dashboard .workspace-controls > div:nth-child(3) { grid-column:auto; } }
     @media (max-width: 1100px) { .domain-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media (max-width: 1200px) { .domain-capability-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
     @media (max-width: 1000px) { .portfolio-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
