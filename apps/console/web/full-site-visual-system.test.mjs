@@ -39,17 +39,19 @@ test("the visual system covers legacy operational surfaces instead of only the c
   assert.match(html, /@keyframes studio-aurora/);
 });
 
-test("the primary workstation applies the cardless product-design capability", async () => {
+test("the primary workstation applies the prompt-first mission canvas", async () => {
   const html = await renderConsolePage("/", owner);
   for (const value of [
-    "cardless editorial workstation",
+    "Frontend delivery engineering: mission canvas",
     "data-workstation=\"personal-ai\"",
-    "data-interface-model=\"cardless-editorial\"",
+    "data-interface-model=\"mission-canvas\"",
     "workspace-orientation",
     "workspace-live-state",
-    "常用意图",
-    "直接描述目标、约束和期望结果",
-    "grid-template-columns:196px minmax(520px,1fr) 232px",
+    "从一个意图开始",
+    "描述目标、背景、约束和完成标准",
+    "grid-template-columns:172px minmax(560px,1fr) 192px",
+    ".page-dashboard .composer { order:3",
+    ".page-dashboard .quick-row { order:4",
     "project-rail,.page-dashboard .advanced-config { display:none",
   ]) assert.match(html, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.doesNotMatch(html, /Personal AI Workstation/);

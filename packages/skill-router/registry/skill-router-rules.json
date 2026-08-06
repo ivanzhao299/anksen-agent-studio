@@ -365,6 +365,35 @@
       "reason": "Latest information/research requests should use web research with citations."
     },
     {
+      "rule_id": "RULE-FRONTEND-DELIVERY-ENGINEERING",
+      "skill_type": "frontend_delivery_engineering",
+      "task_type": "frontend_end_to_end_delivery",
+      "keywords": [
+        "前端交付",
+        "端到端前端",
+        "figma implement",
+        "figma to code",
+        "code to figma",
+        "playwright",
+        "e2e",
+        "浏览器验证",
+        "网页质量审查",
+        "react best practices",
+        "next.js best practices",
+        "修复 ci",
+        "github actions",
+        "pr comments",
+        "review comments",
+        "前端验收"
+      ],
+      "expected_output_type": "design contract + implementation + browser/E2E/CI/review evidence",
+      "runtime": "codex-cli",
+      "runtime_candidates": ["codex-cli", "claude-code", "browser-agent"],
+      "selected_agent": "agent-4",
+      "confidence_boost": 95,
+      "reason": "Cross-stage frontend requests require one evidence-bearing delivery workflow spanning design, engineering, browser validation, CI diagnosis and review closure."
+    },
+    {
       "rule_id": "RULE-FRONTEND-PRODUCT-DESIGN",
       "skill_type": "frontend_product_design",
       "task_type": "frontend_ui_design",

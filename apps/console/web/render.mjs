@@ -381,10 +381,10 @@ function actionWorkbench(data, title = "ANKSEN 工作站") {
     ["project-inspect", "检查项目", `检查 ${activeProjectLabel} 当前状态和阻断项`],
     ["context-summary", "整理进展", `整理 ${activeProjectLabel} 最近任务、结果和下一步`]
   ];
-  return `<section class="workspace-shell" data-workstation="personal-ai" data-interface-model="cardless-editorial">
-    <aside class="project-rail">
+  return `<section class="workspace-shell" data-workstation="personal-ai" data-interface-model="mission-canvas">
+    <aside class="project-rail" aria-label="项目工作空间">
       <div class="rail-header">
-        <span class="rail-label">项目</span>
+        <span class="rail-label">工作空间</span>
         <span class="pill">${data.actionServer.projects.length}</span>
       </div>
       <div class="project-list">${projectCards.join("")}</div>
@@ -392,18 +392,18 @@ function actionWorkbench(data, title = "ANKSEN 工作站") {
     <div class="ai-workspace chat-workspace">
       <div class="workspace-hero compact-hero">
         <div class="workspace-title">
-          <span class="eyebrow">当前工作空间</span>
+          <span class="eyebrow">Agent mission control</span>
           <h2>${escapeHtml(title)}</h2>
-          <p class="workspace-orientation">说出结果，Studio 会定位项目、组织 Agent，并把执行证据带回这里。</p>
+          <p class="workspace-orientation">描述目标与验收标准。Studio 将拆解任务、调度能力，并把代码、验证和交付证据带回同一条对话。</p>
         </div>
         <div class="workspace-meta">
           <span class="workspace-project-name">${escapeHtml(activeProjectLabel)}</span>
-          <span class="workspace-live-state"><i></i> 可以开始</span>
+          <span class="workspace-live-state"><i></i> Agent 网络就绪</span>
         </div>
       </div>
       ${accessEntitlementPanel(data.renderAuth ?? {})}
       <div class="quick-row compact-quick-row">
-        <span class="quick-row-label">常用意图</span>
+        <span class="quick-row-label">从一个意图开始</span>
         ${quickActions.map(([id, label, suggestedGoal]) => {
           const goal = suggestedGoal ?? label;
           return `<button type="button" class="quick-chip" data-quick-action="${escapeHtml(id)}" data-goal="${escapeHtml(goal)}">${escapeHtml(label)}</button>`;
@@ -412,12 +412,12 @@ function actionWorkbench(data, title = "ANKSEN 工作站") {
       <div id="conversation-stream" class="conversation-stream" aria-live="polite">
         <div class="welcome-message">
           <span class="welcome-mark">A</span>
-          <div><strong>今天想完成什么？</strong><p>直接描述目标、约束和期望结果；不需要先选择流程。</p></div>
+          <div><strong>任务会在这里持续推进</strong><p>规划、执行、验证与发布结果会沿时间顺序返回；需要决策时才会请求你介入。</p></div>
         </div>
       </div>
       <div class="execution-console">
         <div class="timeline-strip">
-          <span class="timeline-label">进度</span>
+          <span class="timeline-label">交付链路</span>
           <span id="run-state" class="timeline-state ready">待操作</span>
           <div id="flow-rail" class="flow-rail">${flowSteps.map((name, index) => `<span class="flow-step pending"><span class="flow-dot"></span><strong>${escapeHtml(name)}</strong></span>${index < flowSteps.length - 1 ? '<span class="flow-separator">→</span>' : ""}`).join("")}</div>
         </div>
@@ -439,7 +439,7 @@ function actionWorkbench(data, title = "ANKSEN 工作站") {
       </div>
       <div class="composer">
         <label class="sr-only" for="action-goal">任务</label>
-        <textarea id="action-goal" class="goal-box command-input" placeholder="交给 Studio 一项任务……"></textarea>
+        <textarea id="action-goal" class="goal-box command-input" placeholder="描述目标、背景、约束和完成标准……"></textarea>
         <div class="attachment-toolbar">
           <div class="attachment-toolbar-head">
             <label class="attachment-label" for="action-attachments">上下文</label>
@@ -472,8 +472,8 @@ function actionWorkbench(data, title = "ANKSEN 工作站") {
     </div>
     <aside class="advanced-config">
       <div class="rail-header">
-        <span class="rail-label">工作站状态</span>
-        <span class="pill">按需查看</span>
+        <span class="rail-label">执行上下文</span>
+        <span class="pill">实时</span>
       </div>
       <div class="side-stack">
         <div class="side-panel">
@@ -2419,6 +2419,34 @@ function shell(content, activeId, model, data, auth = {}) {
     .page-dashboard .advanced-config details { margin:0; border:0; border-bottom:1px solid #ececf0; border-radius:0; background:transparent; }
     .page-dashboard .advanced-config summary { min-height:44px; padding:13px 0; color:#5f5f68; font-size:11px; }
     .page-dashboard .workstation-field-guide { display:none; }
+    /* Frontend delivery engineering: mission canvas, prompt first, evidence always visible. */
+    .page-dashboard .workspace-shell { grid-template-columns:172px minmax(560px,1fr) 192px; max-width:1600px; }
+    .page-dashboard .ai-workspace { display:flex; flex-direction:column; padding:34px clamp(34px,4.5vw,76px) 28px; }
+    .page-dashboard .workspace-hero { order:1; }
+    .page-dashboard .access-entitlement-panel { order:2; }
+    .page-dashboard .composer { order:3; margin-top:30px; padding:18px 18px 13px; border-radius:20px; border-color:#d6d6de; box-shadow:0 18px 54px rgba(30,30,50,.08); }
+    .page-dashboard .composer::before { content:""; display:block; width:32px; height:3px; margin-bottom:15px; border-radius:3px; background:var(--theme-accent); }
+    .page-dashboard .goal-box { min-height:112px; padding:0; font-size:17px; line-height:1.55; }
+    .page-dashboard .attachment-toolbar { margin-top:10px; padding:10px 0 2px; }
+    .page-dashboard .workspace-controls { margin-top:10px; padding-top:12px; border-top:1px solid var(--theme-border); }
+    .page-dashboard .quick-row { order:4; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0; margin:20px 0 0; padding:0; overflow:visible; border:1px solid var(--theme-border); border-width:1px 0; }
+    .page-dashboard .quick-row-label { grid-column:1/-1; margin:0; padding:11px 0 8px; color:var(--theme-text-faint); }
+    .page-dashboard .quick-chip { min-height:52px; padding:11px 14px; border:0; border-right:1px solid var(--theme-border); border-radius:0; background:transparent; color:var(--theme-text-soft); text-align:left; font-weight:650; }
+    .page-dashboard .quick-chip:nth-child(5) { border-right:0; }
+    .page-dashboard .quick-chip:nth-child(n+6) { border-top:1px solid var(--theme-border); }
+    .page-dashboard .quick-chip:last-child { border-right:0; }
+    .page-dashboard .quick-chip::after { content:"↗"; float:right; color:var(--theme-text-faint); font-weight:400; }
+    .page-dashboard .quick-chip:hover { border-color:var(--theme-border); background:var(--theme-surface-soft); color:var(--theme-accent-strong); transform:none; }
+    .page-dashboard .conversation-stream { order:5; min-height:220px; padding:36px 0 18px; }
+    .page-dashboard .welcome-message { min-height:130px; }
+    .page-dashboard .welcome-message strong { font-size:clamp(22px,2.4vw,32px); }
+    .page-dashboard .execution-console { order:6; margin-top:auto; }
+    .page-dashboard .project-rail { padding-top:34px; padding-right:18px; }
+    .page-dashboard .advanced-config { padding-top:34px; padding-left:18px; }
+    .page-dashboard .project-row { min-height:58px; padding-left:12px; }
+    .page-dashboard .project-row.active::before { top:9px; bottom:9px; }
+    .page-dashboard .workstation-automation-summary span { display:grid; grid-template-columns:auto 1fr; gap:8px; align-items:baseline; }
+    .page-dashboard .workstation-automation-summary b { color:var(--theme-accent-strong); }
     /* Semantic theme system: one component language, multiple accessible atmospheres. */
     :root,
     :root[data-theme="light"] {
@@ -2599,9 +2627,9 @@ function shell(content, activeId, model, data, auth = {}) {
     html[data-theme] body.login-gated .auth-shell,html[data-theme] body.login-gated .auth-side { border-color:var(--theme-border); background:var(--theme-surface); color:var(--theme-text); }
     html[data-theme] body.login-gated .auth-product-panel { border-color:var(--theme-border); background:var(--theme-accent-soft); }
     html[data-theme] body.login-gated .auth-submit-button,html[data-theme] body.login-gated .auth-link-button.primary-action { background:var(--theme-accent); color:var(--theme-accent-contrast); }
-    @media (max-width:1100px) { .page-dashboard .workspace-shell { grid-template-columns:170px minmax(480px,1fr); } .page-dashboard .advanced-config { display:none; } }
-    @media (max-width:900px) { .page-dashboard main { padding:0 18px 22px; } .page-dashboard .app-toolbar { margin:0 -18px; padding:0 18px; } .page-dashboard .workspace-shell { display:block; min-height:auto; } .page-dashboard .chat-workspace { min-height:auto; } .page-dashboard .project-rail,.page-dashboard .advanced-config { display:none; } .page-dashboard .ai-workspace { padding:22px 0 0; } .page-dashboard .conversation-stream { min-height:230px; padding:34px 0 20px; } .page-dashboard .welcome-message { min-height:150px; } .page-dashboard .workspace-controls { grid-template-columns:1fr 1fr; } .page-dashboard .workspace-controls > div:nth-child(3) { grid-column:1/-1; } .page-dashboard .start-button,.page-dashboard .cancel-button { min-height:46px; } }
-    @media (max-width:560px) { .page-dashboard .app-toolbar h2,.page-dashboard .app-toolbar-actions > .status-label { display:none; } .page-dashboard .app-toolbar-actions { width:auto; margin-left:auto; justify-content:flex-end; } .page-dashboard .language-switch { min-width:112px; } .page-dashboard .workspace-hero.compact-hero { display:block; } .page-dashboard .workspace-meta { justify-items:start; margin-top:14px; } .page-dashboard .conversation-stream { min-height:190px; padding:28px 0 16px; } .page-dashboard .welcome-message { align-items:flex-start; min-height:138px; } .page-dashboard .welcome-mark { margin-top:3px; } .page-dashboard .quick-row-label { display:none; } .page-dashboard .flow-rail { display:none; } .page-dashboard .timeline-strip { justify-content:space-between; } .page-dashboard .workspace-controls { grid-template-columns:1fr; } .page-dashboard .workspace-controls > div:nth-child(3) { grid-column:auto; } }
+    @media (max-width:1100px) { .page-dashboard .workspace-shell { grid-template-columns:156px minmax(480px,1fr); } .page-dashboard .advanced-config { display:none; } .page-dashboard .quick-row { grid-template-columns:repeat(3,minmax(0,1fr)); } .page-dashboard .quick-chip:nth-child(5) { border-right:1px solid var(--theme-border); } .page-dashboard .quick-chip:nth-child(4),.page-dashboard .quick-chip:nth-child(7) { border-right:0; } .page-dashboard .quick-chip:nth-child(n+5) { border-top:1px solid var(--theme-border); } }
+    @media (max-width:900px) { .page-dashboard main { padding:0 18px 22px; } .page-dashboard .app-toolbar { margin:0 -18px; padding:0 18px; } .page-dashboard .workspace-shell { display:block; min-height:auto; } .page-dashboard .chat-workspace { min-height:auto; } .page-dashboard .project-rail,.page-dashboard .advanced-config { display:none; } .page-dashboard .ai-workspace { padding:22px 0 0; } .page-dashboard .composer { margin-top:22px; } .page-dashboard .conversation-stream { min-height:210px; padding:30px 0 18px; } .page-dashboard .welcome-message { min-height:132px; } .page-dashboard .workspace-controls { grid-template-columns:1fr 1fr; } .page-dashboard .workspace-controls > div:nth-child(3) { grid-column:1/-1; } .page-dashboard .start-button,.page-dashboard .cancel-button { min-height:46px; } }
+    @media (max-width:560px) { .page-dashboard .app-toolbar h2,.page-dashboard .app-toolbar-actions > .status-label { display:none; } .page-dashboard .app-toolbar-actions { width:auto; margin-left:auto; justify-content:flex-end; } .page-dashboard .language-switch { min-width:112px; } .page-dashboard .workspace-hero.compact-hero { display:block; } .page-dashboard .workspace-meta { justify-items:start; margin-top:14px; } .page-dashboard .composer { padding:15px 14px 11px; border-radius:16px; } .page-dashboard .goal-box { min-height:96px; font-size:16px; } .page-dashboard .quick-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .page-dashboard .quick-row-label { display:block; } .page-dashboard .quick-chip,.page-dashboard .quick-chip:nth-child(4),.page-dashboard .quick-chip:nth-child(5),.page-dashboard .quick-chip:nth-child(7) { border-right:1px solid var(--theme-border); border-top:1px solid var(--theme-border); } .page-dashboard .quick-chip:nth-child(2),.page-dashboard .quick-chip:nth-child(3) { border-top:0; } .page-dashboard .quick-chip:nth-child(odd) { border-right:0; } .page-dashboard .conversation-stream { min-height:180px; padding:24px 0 14px; } .page-dashboard .welcome-message { align-items:flex-start; min-height:120px; } .page-dashboard .welcome-mark { margin-top:3px; } .page-dashboard .flow-rail { display:none; } .page-dashboard .timeline-strip { justify-content:space-between; } .page-dashboard .workspace-controls { grid-template-columns:1fr; } .page-dashboard .workspace-controls > div:nth-child(3) { grid-column:auto; } }
     @media (max-width: 1100px) { .domain-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media (max-width: 1200px) { .domain-capability-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
     @media (max-width: 1000px) { .portfolio-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
