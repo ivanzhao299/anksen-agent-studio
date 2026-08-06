@@ -57,6 +57,20 @@ test("the primary workstation applies the prompt-first mission canvas", async ()
   assert.doesNotMatch(html, /Personal AI Workstation/);
 });
 
+test("the cockpit uses a compact theme-native command deck", async () => {
+  const html = await renderConsolePage("/cockpit", owner);
+  for (const value of [
+    "data-interface-model=\"command-deck\"",
+    "Command deck: operational launch surface",
+    "grid-template-columns:minmax(360px,.85fr) minmax(480px,1.15fr)",
+    "background:var(--theme-surface)",
+    "box-shadow:none",
+    "从常用任务开始",
+    "目标、背景与预期结果",
+  ]) assert.ok(html.includes(value), `missing cockpit contract: ${value}`);
+  assert.doesNotMatch(html, /min-height:calc\(100vh - 190px\)/);
+});
+
 test("theme personalization is shared by authenticated and access surfaces", async () => {
   const [workstation, login] = await Promise.all([
     renderConsolePage("/", owner),
