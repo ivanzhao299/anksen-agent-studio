@@ -612,6 +612,19 @@
       "risk_level": "MEDIUM"
     },
     {
+      "skill_id": "skill-frontend-product-design",
+      "skill_type": "frontend_product_design",
+      "display_name": "Frontend Product Design",
+      "purpose": "Turn product intent into an explicit art direction, information hierarchy, responsive interaction model, production UI implementation and browser-verified quality evidence without generic card-grid composition.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "claude-code",
+      "default_agent": "agent-4",
+      "expected_output_types": ["design brief", "design system", "responsive frontend implementation", "visual QA evidence"],
+      "required_inputs": ["product goal", "target users", "content and task hierarchy", "authorized brand assets", "technical stack"],
+      "validation_commands": ["frontend repository quality gates", "desktop and mobile browser inspection", "accessibility and interaction-state review"],
+      "risk_level": "MEDIUM"
+    },
+    {
       "skill_id": "skill-photoshop-document-generation",
       "skill_type": "photoshop_document_generation",
       "display_name": "Photoshop Document Generation",

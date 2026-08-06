@@ -45,7 +45,7 @@ test("graphic design is routed as an independent domain with Photoshop as one ex
   const contract = buildAutonomousIntakeContract({ goal: programPlan.goal, projectId: "anksen-agent-studio", programPlan });
   assert.equal(contract.routing.workstreams[0].applicationName, "平面设计工作室");
   const html = await renderConsolePage("/design", { authenticated: true, capabilities: ["*"], roles: [], user: { username: "owner" } });
-  for (const value of ["平面设计工作室", "创意 Brief", "设计系统", "Photoshop 精修", "多格式交付", "74 个参考"]) assert.match(html, new RegExp(value));
+  for (const value of ["平面设计工作室", "创意 Brief", "设计系统", "Photoshop 精修", "多格式交付", "多源已注册", "桌面/移动端视觉验收"]) assert.match(html, new RegExp(value));
 });
 
 test("root route is the persistent conversation workstation while cockpit remains independent", async () => {

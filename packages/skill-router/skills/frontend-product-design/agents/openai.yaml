@@ -1,0 +1,4 @@
+interface:
+  display_name: "前端产品设计"
+  short_description: "从信息架构、视觉方向到响应式验收的产品级界面设计能力"
+  default_prompt: "使用 $frontend-product-design 设计并实现一个有明确视觉观点、可响应且可验证的产品界面。"
