@@ -33,26 +33,16 @@ const fallbackProjects = [
     config_path: "examples/jinhu-smart-park/project.config.example.json"
   },
   {
-    project_id: "phoenix-erp",
-    project_name: "Phoenix ERP",
+    project_id: "phoenix-erp-v3",
+    project_name: "Phoenix ERP V3",
     connection_status: "NOT_CONNECTED",
     doctor_status: "NOT_CONNECTED",
     execution_route: "managed_project_repo",
     repo_branch: "planned",
     repo_clean: "not_connected",
     write_policy: "disabled",
-    config_path: "examples/phoenix-erp/project.config.example.json"
-  },
-  {
-    project_id: "group-portal",
-    project_name: "Group Portal",
-    connection_status: "NOT_CONNECTED",
-    doctor_status: "NOT_CONNECTED",
-    execution_route: "managed_project_repo",
-    repo_branch: "planned",
-    repo_clean: "not_connected",
-    write_policy: "disabled",
-    config_path: "examples/group-portal/project.config.example.json"
+    config_path: "examples/phoenix-erp/project.config.example.json",
+    repo_path_display: "/Users/mac/Documents/phoenix-erp-v3"
   }
 ];
 
@@ -148,12 +138,9 @@ function buildRegistry(workspace, states, bindings) {
   const workspaceProjects = Array.isArray(workspace?.projects) ? workspace.projects : [];
   const workspaceMap = new Map(workspaceProjects.map((project) => [project.project_id, project]));
   const fallbackMap = new Map(fallbackProjects.map((project) => [project.project_id, project]));
-  const ids = new Set([
-    ...workspaceProjects.map((project) => project.project_id),
-    ...states.keys(),
-    ...bindings.keys(),
-    ...fallbackProjects.map((project) => project.project_id)
-  ]);
+  const ids = workspaceProjects.length > 0
+    ? new Set(workspaceProjects.map((project) => project.project_id))
+    : new Set([...states.keys(), ...bindings.keys(), ...fallbackProjects.map((project) => project.project_id)]);
   const registry = [...ids].sort((left, right) => left.localeCompare(right)).map((projectId) =>
     normalizeProjectRecord(projectId, workspaceMap.get(projectId) ?? fallbackMap.get(projectId), states.get(projectId), bindings.get(projectId))
   );

@@ -9,7 +9,8 @@ const aliases={
   "intelligent-manufacturing-erp":["生产","制造","工厂","bom","sop","wms","制造erp"],
   "smart-park-platform":["智慧园区","园区","招商","租赁","园区服务","smart park"],
   "software-factory":["studio开发","软件开发","代码开发","software factory"],
-  "video-factory":["视频工厂","视频制作","剪辑","video factory"]
+  "video-factory":["视频工厂","视频制作","剪辑","video factory"],
+  "graphic-design-studio":["平面设计","视觉设计","品牌设计","海报","画册","展板","宣传单","修图","图片精修","psd","photoshop","graphic design","poster"]
 };
 const normalize=value=>String(value??"").trim().toLowerCase().replace(/\s+/g," ");
 const contains=(text,value)=>text.includes(normalize(value));

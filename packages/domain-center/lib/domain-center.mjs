@@ -149,6 +149,15 @@ export const studioApplications = Object.freeze([
     domainIds: ["video-production"]
   },
   {
+    id: "graphic-design-studio",
+    name: "平面设计工作室",
+    nameEn: "Graphic Design Studio",
+    icon: "DES",
+    summary: "面向品牌视觉、海报、社媒、宣传物料、图片精修和印刷交付的 AI 平面设计领域；Photoshop 是专业执行器之一。",
+    evidence: "PHOTOSHOP_UXP_FOUNDATION",
+    domainIds: ["graphic-design"]
+  },
+  {
     id: "enterprise-strategy-platform",
     name: "集团战略执行平台",
     nameEn: "Enterprise Strategy Platform",
@@ -256,6 +265,25 @@ export const studioDomains = Object.freeze([
       stage("GENERATE", "生成可审计视频构图与成片", "video_generation", "agent-media-generator", "SCRIPT", "video_generation"),
       stage("VALIDATE", "验证编码、尺寸、时长、音轨和文件完整性", "media_validation", "agent-media-qa", "GENERATE", "media_validation"),
       stage("REPORT", "生成媒体交付报告", "document_generation", "agent-1", "VALIDATE", "media_delivery_reporting")
+    ])
+  },
+  {
+    id: "graphic-design",
+    applicationId: "graphic-design-studio",
+    name: "平面设计",
+    nameEn: "Graphic Design",
+    icon: "DESIGN",
+    summary: "把创意 Brief 转换为设计系统、视觉方案、可编辑 Photoshop 文档、预览和印刷/数字交付物。",
+    riskLevel: "MEDIUM",
+    skillPack: ["design_briefing", "design_system_direction", "visual_concept_generation", "photoshop_document_generation", "design_quality_validation", "design_delivery_reporting"],
+    keywords: ["平面设计", "视觉设计", "品牌设计", "海报", "宣传单", "画册", "展板", "社媒图片", "图片精修", "修图", "psd", "photoshop", "design", "poster"],
+    workflow: Object.freeze([
+      stage("BRIEF", "分析品牌、受众、渠道、尺寸和交付目标", "document_generation", "agent-1", null, "design_briefing"),
+      stage("SYSTEM", "选择并适配设计系统、字体、色彩和版式", "document_generation", "agent-1", "BRIEF", "design_system_direction"),
+      stage("CONCEPT", "生成可审查的视觉概念与素材方案", "image_generation", "platform-image-runtime", "SYSTEM", "visual_concept_generation"),
+      stage("PHOTOSHOP", "生成和精修可编辑 Photoshop 文档", "photoshop_document_generation", "agent-graphic-design", "CONCEPT", "photoshop_document_generation"),
+      stage("VALIDATE", "验证尺寸、分辨率、色彩、图层和导出完整性", "validation_testing", "agent-2", "PHOTOSHOP", "design_quality_validation"),
+      stage("DELIVER", "交付 PSD、PNG、PDF 与设计说明", "document_generation", "agent-1", "VALIDATE", "design_delivery_reporting")
     ])
   },
   {

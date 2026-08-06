@@ -771,7 +771,7 @@ export async function loadConsoleLocalData(options = {}) {
       deploy: "disabled",
       production_operations: "disabled",
       model_invocation: "disabled",
-      phoenix_erp_local_path: projectRegistry.find((project) => project.project_id === "phoenix-erp")?.repo_path_display ?? "not_connected",
+      phoenix_erp_local_path: projectRegistry.find((project) => project.project_id === "phoenix-erp-v3")?.repo_path_display ?? "not_connected",
       anonymous_console_access: accessBundle.policy.allow_anonymous_console_read ? "enabled" : "disabled"
     },
     release_consistency: releaseConsistency ?? {}

@@ -207,9 +207,26 @@
       "isolation_policy_id": "media-artifact-worker-isolation",
       "process_probe": {"label": "manim_capability_probe", "match_any": ["manim", "ffmpeg", "uv"], "on_demand_ok": true},
       "notes": "Technical animation worker hydrated from the installed Manim Skill and CLI probe."
+    },
+    {
+      "worker_id": "local-photoshop-uxp-1",
+      "display_name": "Local Photoshop UXP Worker",
+      "worker_kind": "local-interactive",
+      "worker_os": "macOS",
+      "runtime_id": "photoshop-uxp",
+      "adapter_id": "photoshop-uxp",
+      "status": "unavailable",
+      "supported_skills": ["photoshop_document_generation"],
+      "capability_tags": ["graphic-design", "photoshop"],
+      "max_parallel_tasks": 1,
+      "risk": "MEDIUM",
+      "execution_mode": "human_confirmed",
+      "isolation_policy_id": "design-artifact-worker-isolation",
+      "process_probe": {"label": "photoshop_uxp_capability_probe", "match_any": ["Adobe Photoshop", "UXP Developer Tool"], "on_demand_ok": false},
+      "notes": "Available only while Photoshop is running, the ANKSEN UXP plugin is loaded and an interactive user session can confirm document writes."
     }
   ],
-  "required_capability_tags": ["codex", "mobile-ios", "mobile-android", "web", "backend", "discovery", "production-dry-run", "media-generation", "media-editing", "media-qa", "engineering-cad"],
+  "required_capability_tags": ["codex", "mobile-ios", "mobile-android", "web", "backend", "discovery", "production-dry-run", "media-generation", "media-editing", "media-qa", "engineering-cad", "graphic-design", "photoshop"],
   "future_worker_classes": [
     {
       "worker_kind": "local",

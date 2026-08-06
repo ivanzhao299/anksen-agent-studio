@@ -33,6 +33,7 @@ function navIcon(id) {
     outcomes: '<path d="M3 17V9m5 8V4m5 13v-6m4 6V7"/><path d="m3 7 5-4 5 5 4-3"/>',
     domains: '<path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z"/>',
     cad: '<path d="M3 3h14v14H3zM6 14l3-8 3 8m-5-3h4M14 6v8"/>',
+    graphicDesign: '<path d="M4 16 14.5 5.5l2 2L6 18H4z"/><path d="m12.5 7.5 2 2M3 4h6M3 8h3"/>',
     projects: '<path d="M2.5 6.5h6l1.5 2h7.5v7a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2z"/><path d="M2.5 8.5v-3a2 2 0 0 1 2-2h3l1.5 2h4"/>',
     autopilot: '<path d="M3 17V9m5 8V5m5 12v-6m5 6V3"/>',
     actions: '<rect x="3" y="3" width="5" height="5" rx="1"/><rect x="12" y="3" width="5" height="5" rx="1"/><rect x="3" y="12" width="5" height="5" rx="1"/><path d="M12 14.5h5m-2.5-2.5v5"/>',
@@ -45,7 +46,7 @@ function navIcon(id) {
 
 function nav(activeId, auth = {}, activeProjectId = "") {
   const visibleRoutes = new Set(visibleConsoleRouteIds(auth));
-  const primaryIds = ["cockpit", "work", "strategy", "hr", "finance", "growthSales", "manufacturing", "smartPark", "video", "cad"];
+  const primaryIds = ["cockpit", "work", "strategy", "hr", "finance", "growthSales", "manufacturing", "smartPark", "video", "graphicDesign", "cad"];
   const renderLinks = (ids) => ids.map((id) => consoleWebRoutes.find((route) => route.id === id)).filter((route) => route && visibleRoutes.has(route.id)).map((route) => {
     const active = route.id === activeId ? "active" : "";
     return `<a class="${active}" href="${routeHref(route.navPath, activeProjectId)}" title="${escapeHtml(route.label)}"><span class="nav-icon">${navIcon(route.id)}</span><span class="nav-label">${escapeHtml(route.label)}</span></a>`;
@@ -351,7 +352,7 @@ function accessRegisterPage(_data) {
   </section>`;
 }
 
-function actionWorkbench(data, title = "统一 AI 开发工作台") {
+function actionWorkbench(data, title = "ANKSEN 工作站") {
   const activeProjectId = data.active_project_id
     ?? data.actionServer.projects[0]?.project_id
     ?? data.project_router.projects?.[0]?.project_id
@@ -362,59 +363,51 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
     <strong>${escapeHtml(item.label)}</strong>
     <span>${escapeHtml(projectStatusText(item))}</span>
   </button>`);
-  const flowSteps = ["已理解目标", "选择项目", "Agent/Runtime", "生成计划", "Governance", "执行/审批", "结果报告"];
+  const flowSteps = ["理解", "定位项目", "规划", "执行", "验证", "交付"];
   const quickActions = [
-    ["context-summary", "读取上下文"],
-    ["project-inspect", "检查当前项目"],
-    ["project-dispatch", "生成派发计划"],
-    ["proposal-review", "待审批 Proposal"],
-    ["release-local-preview", "本地预览"],
-    ["release-server-preview", "服务器预览"],
-    ["release-reviewed-publish", "发布确认"],
-    ["worker-health", "Worker 状态"],
-    ["ai-runtime-status", "Codex / Claude"]
+    ["agent-real-plan", "制定战略", "制定公司战略目标、关键指标和执行计划"],
+    ["agent-real-plan", "推进销售", "分析销售目标并形成获客、转化和跟进工作流"],
+    ["agent-real-plan", "人力规划", "分析组织与人力需求并形成可执行方案"],
+    ["agent-real-plan", "平面设计", "创建平面设计任务并交付可编辑 PSD、PNG 和 PDF"],
+    ["agent-real-plan", "开发产品", `分析并推进 ${activeProjectLabel} 的产品开发任务`],
+    ["project-inspect", "检查项目", `检查 ${activeProjectLabel} 当前状态和阻断项`],
+    ["context-summary", "整理进展", `整理 ${activeProjectLabel} 最近任务、结果和下一步`]
   ];
   return `<section class="workspace-shell">
     <aside class="project-rail">
       <div class="rail-header">
         <span class="rail-label">项目</span>
-        <span class="pill">Pilot</span>
+        <span class="pill">${data.actionServer.projects.length}</span>
       </div>
       <div class="project-list">${projectCards.join("")}</div>
     </aside>
     <div class="ai-workspace chat-workspace">
       <div class="workspace-hero compact-hero">
         <div class="workspace-title">
-          <span class="eyebrow">Antigravity Mode</span>
+          <span class="eyebrow">Personal AI Workstation</span>
           <h2>${escapeHtml(title)}</h2>
         </div>
         <div class="workspace-meta">
-          <span class="meta-chip">127.0.0.1</span>
-          <span class="meta-chip">LOCAL</span>
-          <span class="meta-chip">READ-SAFE</span>
+          <span class="meta-chip">${escapeHtml(activeProjectLabel)}</span>
+          <span class="meta-chip">AI 协作中</span>
         </div>
       </div>
       ${accessEntitlementPanel(data.renderAuth ?? {})}
       <div class="quick-row compact-quick-row">
-        ${quickActions.map(([id, label]) => {
-          const goal = id === "project-inspect"
-            ? `检查 ${activeProjectLabel}`
-            : id === "project-dispatch"
-              ? `为 ${activeProjectLabel} 生成派发计划`
-              : id === "proposal-review"
-                ? `查看 ${activeProjectLabel} 待审批 Proposal`
-                : id === "ai-runtime-status"
-                  ? "检查 Codex / Claude 接入状态"
-                  : label;
+        ${quickActions.map(([id, label, suggestedGoal]) => {
+          const goal = suggestedGoal ?? label;
           return `<button type="button" class="quick-chip" data-quick-action="${escapeHtml(id)}" data-goal="${escapeHtml(goal)}">${escapeHtml(label)}</button>`;
         }).join("")}
       </div>
       <div id="conversation-stream" class="conversation-stream" aria-live="polite">
-        <div class="terminal-line assistant">$ READY</div>
+        <div class="welcome-message">
+          <span class="welcome-mark">A</span>
+          <div><strong>今天想推进什么？</strong><p>描述目标即可。我会定位仓库、拆解任务、调用合适的 Agent，并持续汇报执行结果。</p></div>
+        </div>
       </div>
       <div class="execution-console">
         <div class="timeline-strip">
-          <span class="timeline-label">执行</span>
+          <span class="timeline-label">进度</span>
           <span id="run-state" class="timeline-state ready">待操作</span>
           <div id="flow-rail" class="flow-rail">${flowSteps.map((name, index) => `<span class="flow-step pending"><span class="flow-dot"></span><strong>${escapeHtml(name)}</strong></span>${index < flowSteps.length - 1 ? '<span class="flow-separator">→</span>' : ""}`).join("")}</div>
         </div>
@@ -435,16 +428,16 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
         </details>
       </div>
       <div class="composer">
-        <label for="action-goal">目标</label>
-        <textarea id="action-goal" class="goal-box command-input" placeholder="输入目标，例如：继续推进当前项目巡检闭环">继续推进 ${escapeHtml(activeProjectLabel)}</textarea>
+        <label class="sr-only" for="action-goal">任务</label>
+        <textarea id="action-goal" class="goal-box command-input" placeholder="交给 Studio 一项任务……"></textarea>
         <div class="attachment-toolbar">
           <div class="attachment-toolbar-head">
-            <label class="attachment-label" for="action-attachments">图片 / 文件</label>
-            <button type="button" id="attachment-trigger" class="secondary attach-button">上传附件</button>
+            <label class="attachment-label" for="action-attachments">上下文</label>
+            <button type="button" id="attachment-trigger" class="secondary attach-button">＋ 添加文件</button>
             <input id="action-attachments" type="file" multiple accept="image/*,.pdf,.txt,.md,.json,.csv,.log,.doc,.docx,.xls,.xlsx" hidden>
           </div>
           <div id="attachment-list" class="attachment-list empty">
-            <span class="attachment-empty">未添加附件。上传图片后会生成预览，开始执行时会把文件写入本地 action log 附件目录并交给 Agent 读取。</span>
+            <span class="attachment-empty">可添加图片、文档或数据文件</span>
           </div>
         </div>
         <div class="workspace-controls">
@@ -462,24 +455,24 @@ function actionWorkbench(data, title = "统一 AI 开发工作台") {
           </div>
           <input type="hidden" id="action-type" value="workspace-default">
           <input type="hidden" id="proposal-task-id" value="">
-          <button type="button" class="primary-action start-button" data-console-action="start">开始</button>
+          <button type="button" class="primary-action start-button" data-console-action="start">发送 ↑</button>
           <button type="button" class="danger cancel-button" data-console-action="cancel">停止</button>
         </div>
       </div>
     </div>
     <aside class="advanced-config">
       <div class="rail-header">
-        <span class="rail-label">侧栏</span>
-        <span class="pill">折叠信息</span>
+        <span class="rail-label">工作站状态</span>
+        <span class="pill">按需查看</span>
       </div>
       <div class="side-stack">
         <div class="side-panel">
-          <span class="side-kicker">当前策略</span>
-          <div class="policy-strip compact-policy">
-            <span>${riskBadge("LOW")} 直执</span>
-            <span>${riskBadge("MEDIUM")} 直执</span>
-            <span>${riskBadge("HIGH")} Proposal</span>
-            <span>${riskBadge("CRITICAL")} 审批</span>
+          <span class="side-kicker">自动执行范围</span>
+          <div class="policy-strip compact-policy workstation-automation-summary">
+            <span><b>自动</b> 分析与规划</span>
+            <span><b>自动</b> 测试与报告</span>
+            <span><b>按项目</b> 提交与发布</span>
+            <span><b>资格控制</b> 生产部署</span>
           </div>
         </div>
         <div class="side-panel">
@@ -2073,6 +2066,127 @@ function shell(content, activeId, model, data, auth = {}) {
     .metric,.panel,.workbench,.smart-entry,.output-card { box-shadow:none; }
     button.primary-action,.primary-link { background:var(--primary); border-color:rgba(255,255,255,.12); box-shadow:0 8px 24px rgba(79,124,255,.18); }
     button.primary-action:hover,.primary-link:hover { background:var(--primary-hover); }
+    /* Workstation visual system: conversation first, operational detail on demand. */
+    :root { color-scheme:light; --canvas:#f6f7f9; --surface-1:#ffffff; --surface-2:#ffffff; --surface-3:#f2f4f7; --elevated:#ffffff; --bg:var(--canvas); --nav:#ffffff; --panel:#ffffff; --panel-2:#f2f4f7; --text:#101828; --muted:#667085; --line:#e4e7ec; --primary:#2563eb; --primary-hover:#1d4ed8; --blue:#2563eb; --cyan:#0891b2; --purple:#7c3aed; --green:#059669; --yellow:#d97706; --red:#dc2626; --shadow:rgba(16,24,40,.06); --sidebar-width:220px; }
+    body:not(.login-gated) { background:linear-gradient(180deg,#fff 0,#f8fafc 34%,#f5f7fa 100%); color:var(--text); }
+    .sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important; }
+    body:not(.login-gated) header:not(.login-header) { background:rgba(255,255,255,.9); border-right-color:#eaecf0; backdrop-filter:blur(24px); }
+    body:not(.login-gated) header:not(.login-header) .top-nav a { color:#667085; }
+    body:not(.login-gated) header:not(.login-header) .top-nav a:hover { color:#101828; background:#f2f4f7; }
+    body:not(.login-gated) header:not(.login-header) .top-nav a.active { background:#eef4ff; border-color:#dbe7ff; color:#175cd3; }
+    body:not(.login-gated) header:not(.login-header) .top-status-pill { color:#667085; }
+    body:not(.login-gated) header:not(.login-header) .auth-identity strong { color:#344054; }
+    .app-toolbar { background:rgba(255,255,255,.86); border-bottom-color:#eaecf0; }
+    .workspace-shell { max-width:1440px; margin:0 auto; grid-template-columns:188px minmax(0,1fr) 196px; gap:18px; }
+    .ai-workspace,.advanced-config,.project-rail { background:rgba(255,255,255,.82); border:1px solid #eaecf0; border-radius:18px; box-shadow:0 12px 36px rgba(16,24,40,.04); }
+    .ai-workspace { padding:18px; }
+    .project-rail,.advanced-config { padding:14px; }
+    .project-row { color:#667085; border-radius:10px; padding:10px 11px; }
+    .project-row:hover { background:#f7f9fc; color:#344054; }
+    .project-row.active { border-color:#d6e4ff; background:#f0f5ff; color:#1849a9; }
+    .rail-label,.eyebrow,.side-kicker { color:#667085; }
+    .pill,.meta-chip { background:#f8fafc; border-color:#e4e7ec; color:#475467; }
+    .chat-workspace { min-height:calc(100vh - 114px); }
+    .workspace-hero.compact-hero { padding:2px 2px 14px; border-bottom-color:#f0f1f3; }
+    .workspace-hero h2 { font-size:22px; letter-spacing:-.02em; }
+    .quick-row { gap:8px; margin:12px 0; }
+    .quick-chip { min-height:34px; padding:7px 12px; background:#fff; border-color:#e4e7ec; color:#475467; box-shadow:0 1px 2px rgba(16,24,40,.03); }
+    .quick-chip:hover { color:#175cd3; border-color:#b2ccff; background:#f5f8ff; }
+    .conversation-stream { min-height:360px; max-height:56vh; padding:28px; border:0; border-radius:16px; background:linear-gradient(180deg,#fbfcfe,#fff); box-shadow:inset 0 0 0 1px #f0f1f3; font-family:inherit; }
+    .welcome-message { min-height:280px; display:flex; align-items:center; justify-content:center; gap:14px; color:#344054; }
+    .welcome-message > div { max-width:520px; }
+    .welcome-message strong { display:block; margin-bottom:5px; font-size:21px; letter-spacing:-.02em; }
+    .welcome-message p { font-size:14px; }
+    .welcome-mark { display:grid; place-items:center; width:42px; height:42px; flex:0 0 auto; border-radius:14px; color:#fff; background:linear-gradient(145deg,#2563eb,#7c3aed); font-weight:850; box-shadow:0 10px 24px rgba(37,99,235,.2); }
+    .terminal-line { color:#344054; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .terminal-line.assistant { color:#344054; }
+    .message-body { border-color:#eaecf0; background:#fff; }
+    .chat-message.user .message-body { background:#eff6ff; border-color:#dbeafe; }
+    .message-avatar,.assistant-avatar { background:#ecfdf3; color:#027a48; border-color:#abefc6; }
+    .chat-message.user .message-avatar { background:#eff4ff; color:#175cd3; border-color:#b2ccff; }
+    .execution-console { margin:12px 0 0; padding:8px 12px; border-color:#eaecf0; background:#fafbfc; }
+    .timeline-state,.flow-step { background:transparent; color:#667085; }
+    .flow-step.pending { color:#98a2b3; }
+    .flow-separator { color:#d0d5dd; }
+    .composer { margin-top:12px; padding:14px; border:1px solid #dfe3e8; border-radius:16px; background:#fff; box-shadow:0 16px 42px rgba(16,24,40,.09); }
+    .command-input,.goal-box { min-height:104px; border:0; padding:4px; background:#fff; color:#101828; resize:none; font-size:16px; box-shadow:none; }
+    .command-input:focus,.goal-box:focus { outline:0; border:0; }
+    .command-input::placeholder { color:#98a2b3; }
+    .attachment-toolbar { margin-top:8px; padding:8px 0; border:0; border-top:1px solid #f0f1f3; border-radius:0; background:transparent; }
+    .attachment-toolbar-head { margin-bottom:4px; }
+    .attachment-empty { color:#98a2b3; }
+    .workspace-controls { grid-template-columns:minmax(150px,1fr) minmax(110px,.65fr) minmax(140px,.8fr) auto auto; }
+    input,select,textarea { color:#101828; background:#fff; border-color:#d0d5dd; }
+    select { min-height:40px; }
+    button { border-color:#d0d5dd; background:#fff; color:#344054; }
+    button:hover { background:#f9fafb; }
+    button.secondary { background:#fff; color:#475467; }
+    button.primary-action { background:#2563eb; border-color:#2563eb; color:#fff; box-shadow:0 4px 12px rgba(37,99,235,.18); }
+    button.primary-action:hover { background:#1d4ed8; }
+    button.danger { border-color:transparent; color:#b42318; background:#fff; }
+    .side-panel,.advanced-config details { background:#fff; border-color:#eaecf0; }
+    .advanced-config summary { color:#475467; }
+    .risk-badge.low,.status-label.pass,.status-label.ready,.status-label.direct-execute-ready { color:#027a48; background:#ecfdf3; border-color:#abefc6; }
+    .risk-badge.medium,.status-label.local,.status-label.recorded,.status-label.draft-dry-run { color:#175cd3; background:#eff4ff; border-color:#b2ccff; }
+    .risk-badge.high,.status-label.proposal-only,.status-label.yes { color:#b54708; background:#fffaeb; border-color:#fedf89; }
+    .risk-badge.critical,.status-label.blocked,.status-label.cancelled { color:#b42318; background:#fef3f2; border-color:#fecdca; }
+    .run-details pre,pre { background:#101828; color:#f2f4f7; border-color:#1d2939; }
+    .command-center-hero { max-width:980px; min-height:calc(100vh - 190px); display:flex; flex-direction:column; justify-content:center; padding:40px 28px 80px; }
+    .command-center-copy { margin-bottom:26px; }
+    .command-center-copy h2 { font-size:40px; color:#101828; }
+    .command-box { max-width:820px; width:100%; padding:12px; border-color:#dfe3e8; border-radius:22px; background:#fff; box-shadow:0 20px 60px rgba(16,24,40,.12); }
+    .command-box > textarea { min-height:156px; color:#101828; background:#fff; font-size:17px; }
+    .command-box > textarea::placeholder { color:#98a2b3; }
+    .command-compose-footer { padding:12px 8px 2px 12px; border-top-color:#f0f1f3; }
+    .suggestion-row button { background:#f7f8fa; color:#667085; }
+    .suggestion-row button:hover { color:#175cd3; border-color:#dbe7ff; background:#f0f5ff; }
+    .page-dashboard { --sidebar-width:76px; }
+    .page-dashboard header:not(.login-header) { width:76px; padding:20px 12px; }
+    .page-dashboard header:not(.login-header) .brand-copy,
+    .page-dashboard header:not(.login-header) .nav-label,
+    .page-dashboard header:not(.login-header) .nav-group-label,
+    .page-dashboard header:not(.login-header) .nav-spacer,
+    .page-dashboard header:not(.login-header) .top-status,
+    .page-dashboard header:not(.login-header) .auth-strip { display:none!important; }
+    .page-dashboard header:not(.login-header) .brand-row { justify-content:center; }
+    .page-dashboard header:not(.login-header) .logo-frame { width:42px; height:38px; }
+    .page-dashboard header:not(.login-header) .top-nav { align-items:center; gap:7px; margin-top:22px; overflow:hidden; }
+    .page-dashboard header:not(.login-header) .top-nav a { justify-content:center; width:44px; height:42px; padding:0; }
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/strategy"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/hr"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/finance"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/growth-sales"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/manufacturing"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/smart-park"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/video"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/cad"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/execution"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/portfolio"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/outcomes"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/credentials"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/account"],
+    .page-dashboard header:not(.login-header) .top-nav a[href^="/config"] { display:none; }
+    .page-dashboard main { margin-left:76px; max-width:none; padding-bottom:0; }
+    .page-dashboard .app-toolbar { border-bottom-color:transparent; background:rgba(255,255,255,.62); }
+    .page-dashboard .portfolio-cockpit,
+    .page-dashboard .current-run-strip,
+    .page-dashboard .recent-outcomes,
+    .page-dashboard .home-diagnostics { display:none; }
+    .page-dashboard main { padding:0 24px 24px; }
+    .page-dashboard .app-toolbar { height:64px; margin:0 -24px 18px; padding:0 24px; }
+    .page-dashboard .workspace-shell { grid-template-columns:190px minmax(520px,1fr) 210px; max-width:1500px; min-height:calc(100vh - 104px); gap:14px; }
+    .page-dashboard .chat-workspace { min-height:calc(100vh - 104px); }
+    .page-dashboard .conversation-stream { max-height:none; min-height:300px; }
+    .page-dashboard .advanced-config,.page-dashboard .project-rail { top:82px; }
+    .page-dashboard .access-entitlement-panel { display:none; }
+    .page-dashboard .quick-row { margin-top:14px; }
+    .page-dashboard .conversation-stream { min-height:340px; }
+    .workstation-field-guide { display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; max-width:980px; margin:14px auto 0; }
+    .workstation-field-guide span { padding:5px 10px; border:1px solid #e4e7ec; border-radius:999px; background:rgba(255,255,255,.72); color:#667085; font-size:11px; }
+    .workstation-automation-summary { display:grid; gap:7px; }
+    .workstation-automation-summary span { justify-content:space-between; padding:7px 0; border-bottom:1px solid #f0f1f3; }
+    .workstation-automation-summary span:last-child { border-bottom:0; }
+    .workstation-automation-summary b { color:#344054; font-size:11px; }
     table { box-shadow:none; }
     @media (max-width: 1100px) { .domain-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media (max-width: 1000px) { .portfolio-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
@@ -2083,7 +2197,7 @@ function shell(content, activeId, model, data, auth = {}) {
     @media (max-width: 900px) { body:not(.login-gated) header:not(.login-header) { position:fixed; inset:0 auto 0 0; width:260px; height:100vh; padding:18px 14px; transform:translateX(-105%); transition:transform .2s ease; z-index:20; } body.sidebar-open header:not(.login-header) { transform:translateX(0); } body.sidebar-open .sidebar-scrim { display:block; position:fixed; inset:0; z-index:19; border:0; border-radius:0; background:rgba(0,0,0,.56); backdrop-filter:blur(2px); } body:not(.login-gated) header:not(.login-header) .brand-row { padding:0 4px 16px; } body:not(.login-gated) header:not(.login-header) .top-nav { flex-direction:column; overflow-y:auto; margin-top:12px; } body:not(.login-gated) header:not(.login-header) .nav-group-label,body:not(.login-gated) header:not(.login-header) .nav-spacer,body:not(.login-gated) header:not(.login-header) .top-status,body:not(.login-gated) header:not(.login-header) .auth-strip { display:flex; } body:not(.login-gated) main,body.sidebar-collapsed main { margin-left:0; padding:0 16px 40px; } .app-toolbar { height:60px; margin:0 -16px 20px; padding:0 16px; } .mobile-sidebar-toggle { display:inline-flex; } .sidebar-toggle { display:none; } .form-grid,.workspace-controls,.workspace-shell,.auth-shell,.auth-entry-shell { grid-template-columns:1fr; } .advanced-config,.project-rail { position:static; } .auth-side { order:-1; justify-self:stretch; } }
   </style>
 </head>
-<body class="${useAuthLayout ? "login-gated" : ""}">
+<body class="${useAuthLayout ? "login-gated" : `page-${escapeHtml(activeId)}`}">
   <header class="${headerClass}">
     <div class="brand-row">
       <div class="brand-lockup">
@@ -2239,7 +2353,7 @@ function pageDashboard(_model, data) {
   const goalTitle = data.autopilot.latest_summary?.goal ?? data.autopilot.latest_summary?.title ?? "完善 Runtime 文档";
   const executionHref = routeHref("/actions", data.active_project_id);
   const portfolio = domainCenterSummary();
-  const portfolioCards = portfolio.applications.map((application) => {const app=getEnterpriseApplication(application.id),path=app?.path??"/domains";return `<a class="portfolio-card" data-portfolio-app="${escapeHtml(application.id)}" href="${routeHref(path, data.active_project_id)}"><div class="portfolio-card-head"><span class="portfolio-icon">${escapeHtml(application.icon)}</span><span class="portfolio-state pending" data-portfolio-state>读取业务信号</span></div><h3>${escapeHtml(application.name)}</h3><p>${escapeHtml(application.summary)}</p><div class="portfolio-signal-grid"><span><strong data-portfolio-campaigns>0</strong> 运行计划</span><span><strong data-portfolio-actions>0</strong> 人工断点</span><span><strong data-portfolio-exceptions>0</strong> 业务异常</span><span><strong data-portfolio-professional>0</strong> 专业结果</span></div><div class="portfolio-entry-footer"><span data-portfolio-result>业务结果待接入</span><strong>进入业务应用 →</strong></div></a>`;}).join("");
+  const portfolioCards = portfolio.applications.map((application) => {const app=getEnterpriseApplication(application.id),path=app?.path??(application.id==="graphic-design-studio"?"/design":"/domains");return `<a class="portfolio-card" data-portfolio-app="${escapeHtml(application.id)}" href="${routeHref(path, data.active_project_id)}"><div class="portfolio-card-head"><span class="portfolio-icon">${escapeHtml(application.icon)}</span><span class="portfolio-state pending" data-portfolio-state>读取业务信号</span></div><h3>${escapeHtml(application.name)}</h3><p>${escapeHtml(application.summary)}</p><div class="portfolio-signal-grid"><span><strong data-portfolio-campaigns>0</strong> 运行计划</span><span><strong data-portfolio-actions>0</strong> 人工断点</span><span><strong data-portfolio-exceptions>0</strong> 业务异常</span><span><strong data-portfolio-professional>0</strong> 专业结果</span></div><div class="portfolio-entry-footer"><span data-portfolio-result>业务结果待接入</span><strong>进入业务应用 →</strong></div></a>`;}).join("");
   return `<section class="command-center-hero">
     <div class="command-orb command-orb-a"></div><div class="command-orb command-orb-b"></div>
     <div class="command-center-copy"><span class="eyebrow">自主工作区</span><h2>想让 Studio 完成什么？</h2><p>描述结果，Studio 会负责规划、调度、执行和报告。</p></div>
@@ -2265,6 +2379,13 @@ function pageDashboard(_model, data) {
     <div class="diagnostic-links"><a href="${routeHref("/actions", data.active_project_id)}"><span class="diagnostic-link-icon">${navIcon("actions")}</span><div><strong>任务与队列</strong><p>查看完整生命周期、调度与审计证据</p></div><span>→</span></a><a href="${routeHref("/runtime", data.active_project_id)}"><span class="diagnostic-link-icon">${navIcon("projects")}</span><div><strong>Runtime</strong><p>查看执行模式、Adapter 和安全边界</p></div><span>→</span></a><a href="${routeHref("/autopilot", data.active_project_id)}"><span class="diagnostic-link-icon">${navIcon("autopilot")}</span><div><strong>执行报告</strong><p>查看结果、决策事项和验证记录</p></div><span>→</span></a></div>
   </div></details>
   <script>(()=>{const input=document.getElementById('command-goal'),run=document.getElementById('command-run');const openRun=()=>{const goal=input.value.trim();if(!goal){input.focus();return;}const url=new URL('${executionHref}',location.origin);url.searchParams.set('goal',goal);location.href=url.pathname+url.search;};run.addEventListener('click',openRun);input.addEventListener('keydown',event=>{if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();openRun();}});document.querySelectorAll('[data-command-suggestion]').forEach(button=>button.addEventListener('click',()=>{input.value=button.dataset.commandSuggestion;input.focus();}));const source=document.getElementById('portfolio-source'),set=(card,selector,value)=>{const node=card.querySelector(selector);if(node)node.textContent=value;};fetch('/api/portfolio/dashboard',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('portfolio unavailable');return response.json();}).then(body=>{for(const app of body.applications){const card=document.querySelector('[data-portfolio-app="'+CSS.escape(app.id)+'"]');if(!card)continue;const operations=app.operations??{},state=card.querySelector('[data-portfolio-state]'),signal=operations.signal??'IDLE',labels={ACTION_REQUIRED:'需要处理',RUNNING:'正在运行',RESULT_AVAILABLE:'有新结果',IDLE:'暂无运行任务'},classes={ACTION_REQUIRED:'blocked',RUNNING:'active',RESULT_AVAILABLE:'pass',IDLE:'planned'};card.dataset.signal=signal;state.textContent=labels[signal]??labels.IDLE;state.className='portfolio-state '+(classes[signal]??classes.IDLE);set(card,'[data-portfolio-campaigns]',operations.activeCampaigns??operations.campaigns??0);set(card,'[data-portfolio-actions]',operations.humanActions??0);set(card,'[data-portfolio-exceptions]',operations.exceptions??0);set(card,'[data-portfolio-professional]',operations.professional?.total??0);const outcome=app.businessResults,primary=outcome.latest?.values?.[0],result=card.querySelector('[data-portfolio-result]');result.textContent=outcome.status==='VERIFIED'&&primary?primary.name+' '+primary.value+(primary.unit==='PERCENT'?'%':''):operations.professional?.reviewRequired?'专业结果待复核':operations.professional?.blocked?'专业结果被阻塞':operations.professional?.pass?'专业检查已通过':operations.humanActions?'有业务事项等待人工批准':operations.exceptions?'存在需要处理的业务异常':'尚无可验证业务结果';card.title=(operations.initiatives??0)+' 项当前业务计划 · 点击进入业务应用';}source.textContent='数据源：Autonomous Portfolio + 业务事务记录 + 专业 Runner · '+new Date(body.generatedAt).toLocaleString();}).catch(()=>{source.textContent='业务运行数据暂不可用；未展示的数据不会被推测或伪造。';});})();</script>`;
+}
+
+function pageWorkstation(data) {
+  return `${actionWorkbench(data, "个人 AI 工作站")}
+  <section class="workstation-field-guide" aria-label="工作站能力">
+    <span>战略</span><span>业务</span><span>销售</span><span>人力</span><span>软件开发</span><span>平面设计</span><span>视频</span><span>工程 CAD</span>
+  </section>`;
 }
 
 function pageOutcomes() {
@@ -3275,6 +3396,23 @@ function pageCadCenter() {
   <script>(()=>{const input=document.getElementById('cad-file'),dropzone=document.getElementById('cad-dropzone'),button=document.getElementById('cad-analyze'),pasteButton=document.getElementById('cad-paste'),removeButton=document.getElementById('cad-file-remove'),card=document.getElementById('cad-file-card'),name=document.getElementById('cad-file-name'),detail=document.getElementById('cad-file-detail'),type=document.getElementById('cad-file-type'),message=document.getElementById('cad-message'),stats=document.getElementById('cad-stats'),preview=document.getElementById('cad-preview'),output=document.getElementById('cad-json'),allowed=new Set(['dxf','dwg','ifc','pdf']),maxBytes=10*1024*1024,esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),extension=value=>String(value??'').split('.').pop().toLowerCase(),formatBytes=value=>value<1024?value+' B':value<1048576?(value/1024).toFixed(1)+' KB':(value/1048576).toFixed(1)+' MB';let selected=null;const setMessage=(text,state='')=>{message.textContent=text;message.className='help cad-message '+state;},resetResults=()=>{stats.innerHTML='';preview.innerHTML='<span class="help">DXF 分析完成后将在这里显示预览</span>';output.textContent='{}';},selectFile=candidate=>{const ext=extension(candidate?.name);if(!candidate||!allowed.has(ext)){setMessage('仅支持 DXF、DWG、IFC 或 PDF 文件。','error');return false;}if(candidate.size>maxBytes){setMessage('文件超过 10MB 上限，请选择较小文件。','error');return false;}selected=candidate;name.textContent=candidate.name;detail.textContent=formatBytes(candidate.size)+' · '+ext.toUpperCase()+(ext==='dxf'?' · 可分析':' · 可检测，解析适配器未启用');type.textContent=ext.toUpperCase();card.classList.add('visible');button.disabled=false;setMessage(ext==='dxf'?'文件已就绪，可以开始分析。':'文件已接收；将执行格式检测，但当前不能生成解析结果。',ext==='dxf'?'success':'warning');resetResults();return true;},clearFile=()=>{selected=null;input.value='';card.classList.remove('visible');button.disabled=true;setMessage('等待添加工程图纸');resetResults();};dropzone.onclick=()=>input.click();dropzone.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();input.click();}};input.onchange=()=>selectFile(input.files[0]);['dragenter','dragover'].forEach(eventName=>dropzone.addEventListener(eventName,event=>{event.preventDefault();dropzone.classList.add('drag-active');}));['dragleave','drop'].forEach(eventName=>dropzone.addEventListener(eventName,event=>{event.preventDefault();dropzone.classList.remove('drag-active');}));dropzone.addEventListener('drop',event=>{const files=[...(event.dataTransfer?.files??[])];if(files.length>1)setMessage('一次仅处理一个文件，已选取第一个支持的工程图纸。','warning');const candidate=files.find(item=>allowed.has(extension(item.name)))??files[0];selectFile(candidate);});const acceptPaste=event=>{const files=[...(event.clipboardData?.files??[])];if(!files.length)return;event.preventDefault();const candidate=files.find(item=>allowed.has(extension(item.name)))??files[0];selectFile(candidate);};dropzone.addEventListener('paste',acceptPaste);document.addEventListener('paste',event=>{if(document.activeElement?.matches('input,textarea,[contenteditable=true]'))return;acceptPaste(event);});pasteButton.onclick=async()=>{try{if(!navigator.clipboard?.read)throw new Error('CLIPBOARD_API_UNAVAILABLE');const items=await navigator.clipboard.read();for(const item of items){const mime=item.types.find(value=>value!=='text/plain'&&value!=='text/html');if(mime){const blob=await item.getType(mime),ext=mime==='application/pdf'?'pdf':'';return selectFile(new File([blob],blob.name||('clipboard-file'+(ext?'.'+ext:'')),{type:mime}));}}setMessage('剪贴板中没有可用的工程图纸文件。','warning');}catch(error){setMessage('浏览器未授权直接读取剪贴板。请先复制文件，再在上传区域按 Cmd/Ctrl+V。','warning');dropzone.focus();}};removeButton.onclick=clearFile;button.onclick=async()=>{if(!selected){setMessage('请先添加工程图纸。','error');return;}button.disabled=true;setMessage(extension(selected.name)==='dxf'?'正在安全解析…':'正在检测文件与适配器状态…');try{const bytes=new Uint8Array(await selected.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));const response=await fetch('/api/cad/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({filename:selected.name,contentBase64:btoa(binary)})}),body=await response.json();if(!response.ok){const friendly=body.status==='CAD_ADAPTER_UNAVAILABLE'?'格式有效，但 '+extension(selected.name).toUpperCase()+' 解析适配器尚未启用。':body.reason;throw new Error(body.status+': '+friendly);}const s=body.document.statistics;stats.innerHTML=[['实体',s.entityCount],['图层',Object.keys(s.byLayer).length],['总长度',s.totalLength.toFixed(3)],['总面积',s.totalArea.toFixed(3)]].map(x=>'<div class="summary-card"><span>'+x[0]+'</span><strong>'+esc(x[1])+'</strong></div>').join('');preview.innerHTML=body.previewSvg;output.textContent=JSON.stringify(body.document,null,2);setMessage('分析完成 · '+body.document.metadata.parser,'success');}catch(error){setMessage(error.message,'error');stats.innerHTML='';preview.innerHTML='<span class="help">当前文件无法生成预览</span>';}finally{button.disabled=!selected;}};})();</script>`;
 }
 
+function pageGraphicDesign(data) {
+  const project = data.active_project_id ?? "anksen-agent-studio";
+  const createHref = routeHref("/actions", project) + `&goal=${encodeURIComponent("创建平面设计任务：请分析 Brief、选择设计系统、生成视觉方案，并交付可编辑 PSD、PNG 预览和 PDF")}`;
+  const stages = [
+    ["01", "创意 Brief", "品牌、受众、渠道、尺寸与交付目标"],
+    ["02", "设计系统", "色彩、字体、网格、层级与风格参考"],
+    ["03", "视觉概念", "构图、素材、文案与可审查方向稿"],
+    ["04", "Photoshop 精修", "可编辑图层、智能对象、调色与版式"],
+    ["05", "质量验证", "尺寸、分辨率、色彩模式、图层和文件完整性"],
+    ["06", "多格式交付", "PSD、PNG、PDF、预览和交付说明"]
+  ];
+  return `<section class="product-hero"><div><span class="eyebrow">Graphic Design Studio</span><h2>平面设计工作室</h2><p>从一句自然语言 Brief 开始，统一编排设计系统、视觉生成、Photoshop 可编辑生产、质量验证和多格式交付。Photoshop 是专业执行器，任务和状态仍由 Studio 统一管理。</p></div><a class="primary-link" href="${escapeHtml(createHref)}">新建设计任务</a></section>
+  <section><div class="section-head"><div><h2>设计生产流</h2><p class="help">一个领域工作流，共享 Studio Planner、Kernel、Scheduler、Worker、审批与报告。</p></div><span class="status-label local">领域已注册</span></div><div class="domain-grid">${stages.map(([index,title,detail])=>`<article class="domain-card"><div class="domain-card-head"><span class="domain-icon">${index}</span><span class="status-label ${index==="04"?"blocked":"ready"}">${index==="04"?"等待节点":"已定义"}</span></div><h3>${title}</h3><p>${detail}</p></article>`).join("")}</div></section>
+  <section class="grid"><div class="panel"><div class="section-head small"><h3>Photoshop UXP</h3><span class="status-label blocked">未激活</span></div><p>插件、任务 Schema、PSD/PNG/PDF 构建和产物校验已经具备；真实执行需要 Photoshop 运行、UXP 插件加载和交互会话确认。</p></div><div class="panel"><div class="section-head small"><h3>设计系统资源</h3><span class="status-label pass">74 个参考</span></div><p>可从 awesome-design-md 选择风格参考；内容按不可信只读资源加载，不覆盖项目 DESIGN.md，也不复制品牌身份。</p></div><div class="panel"><div class="section-head small"><h3>交付标准</h3><span class="status-label ready">可验证</span></div><p>默认要求可编辑 PSD、PNG 预览、印刷/数字 PDF、设计说明和 SHA256 产物清单。</p></div></section>
+  <details class="advanced-section"><summary>领域边界与运行条件</summary><div class="advanced-body"><p>平面设计领域负责创意和交付合同；Photoshop UXP 只执行已批准的白名单文档操作。当前 Adapter 保持 disabled，因此系统会如实阻塞 Photoshop 阶段，不会用预览或模拟结果冒充真实 PSD 生产。</p></div></details>`;
+}
+
 export async function renderConsolePage(pathname = "/", auth = null, options = {}) {
   const data = await loadConsoleLocalData(options);
   const resolvedAuth = normalizeRenderAuth(auth, data);
@@ -3285,7 +3423,7 @@ export async function renderConsolePage(pathname = "/", auth = null, options = {
   const gated = data.access?.summary?.allow_anonymous_console_read !== true && !resolvedAuth.authenticated;
   const route = consoleWebRoutes.find((item) => item.path === pathname) ?? consoleWebRoutes[0];
   const contentById = {
-    dashboard: () => pageDashboard(model, data),
+    dashboard: () => pageWorkstation(data),
     cockpit: () => pageDashboard(model, data),
     work: () => pageMyWork(data),
     strategy: () => pageBusinessApplication(getEnterpriseApplication("enterprise-strategy-platform"),data),
@@ -3295,6 +3433,7 @@ export async function renderConsolePage(pathname = "/", auth = null, options = {
     manufacturing: () => pageBusinessApplication(getEnterpriseApplication("intelligent-manufacturing-erp"),data),
     smartPark: () => pageBusinessApplication(getEnterpriseApplication("smart-park-platform"),data),
     video: () => pageBusinessApplication(getEnterpriseApplication("video-factory"),data),
+    graphicDesign: () => pageGraphicDesign(data),
     cad: () => pageCadCenter(),
     development: () => pageDevelopment(data),
     execution: () => pageExecution(),

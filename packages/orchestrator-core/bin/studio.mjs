@@ -9758,25 +9758,16 @@ async function consoleSmoke(args) {
   const unauthHtml = await renderModule.renderConsolePage("/", { authenticated: false });
   const unauthLoginHtml = await renderModule.renderConsolePage("/login", { authenticated: false });
   const interactiveControlsPresent = [
-    "操作中心",
-    "目标",
-    "项目",
-    "模式",
-    "Agent",
-    "图片 / 文件",
-    "上传附件",
-    "自动选择",
-    "Codex CLI",
-    "Claude Code",
-    "Gemini",
-    "OpenHands",
-    "Aider",
-    "Local Agent",
-    "开始",
-    "停止",
-    "$ READY",
+    "Personal AI Workstation",
+    "今天想推进什么？",
+    "描述目标即可",
+    "conversation-stream",
+    "flow-rail",
+    "action-goal",
+    "data-console-action=\"start\"",
+    "data-console-action=\"cancel\"",
     "展开详情"
-  ].every((text) => actionsHtml.includes(text));
+  ].every((text) => dashboardHtml.includes(text));
   const workspaceQuickEntriesPresent = [
     "检查当前项目",
     "生成派发计划",
@@ -9786,25 +9777,27 @@ async function consoleSmoke(args) {
     "Phoenix ERP",
     "jinhu-smart-park"
   ].every((text) => actionsHtml.includes(text));
-  const controlTowerPresent = [
-    "自主工作区",
+  const workstationPresent = [
+    "Personal AI Workstation",
     "/assets/anksen-logo.svg",
-    "想让 Studio 完成什么？",
-    "command-center-hero",
-    "command-goal",
-    "command-run",
-    "集团业务驾驶舱",
-    "当前运行",
-    "最近结果",
-    "高级运行信息",
-    "任务与队列",
-    "Runtime",
-    "执行报告"
+    "制定战略",
+    "推进销售",
+    "人力规划",
+    "平面设计",
+    "开发产品",
+    "检查项目",
+    "整理进展",
+    "理解",
+    "定位项目",
+    "规划",
+    "执行",
+    "验证",
+    "交付"
   ].every((text) => dashboardHtml.includes(text));
-  const darkThemePresent = dashboardHtml.includes("color-scheme: dark")
-    && dashboardHtml.includes("--canvas: #070a10")
-    && dashboardHtml.includes("--surface-1:#0d121c")
-    && dashboardHtml.includes("--text:#f7f8fa");
+  const lightWorkstationThemePresent = dashboardHtml.includes("color-scheme:light")
+    && dashboardHtml.includes("--canvas:#f6f7f9")
+    && dashboardHtml.includes("--surface-1:#ffffff")
+    && dashboardHtml.includes("--text:#101828");
   const configCenterPresent = [
     "项目配置",
     "Runtime 配置",
@@ -9839,8 +9832,8 @@ async function consoleSmoke(args) {
     && dashboardGenerated
     && interactiveControlsPresent
     && workspaceQuickEntriesPresent
-    && controlTowerPresent
-    && darkThemePresent
+    && workstationPresent
+    && lightWorkstationThemePresent
     && configCenterPresent
     && authGatePresent
     && safetyPass
@@ -9859,8 +9852,8 @@ async function consoleSmoke(args) {
   console.log(`dashboard_model_generated: ${dashboardGenerated ? "yes" : "no"}`);
   console.log(`interactive_controls: ${interactiveControlsPresent ? "yes" : "no"}`);
   console.log(`workspace_quick_entries: ${workspaceQuickEntriesPresent ? "yes" : "no"}`);
-  console.log(`control_tower_modules: ${controlTowerPresent ? "yes" : "no"}`);
-  console.log(`dark_professional_theme: ${darkThemePresent ? "yes" : "no"}`);
+  console.log(`autonomous_workstation: ${workstationPresent ? "yes" : "no"}`);
+  console.log(`light_workstation_theme: ${lightWorkstationThemePresent ? "yes" : "no"}`);
   console.log(`config_center: ${configCenterPresent ? "yes" : "no"}`);
   console.log(`auth_gate: ${authGatePresent ? "yes" : "no"}`);
   console.log(`action_log_dir: ${data.actionServer.action_log_dir}`);

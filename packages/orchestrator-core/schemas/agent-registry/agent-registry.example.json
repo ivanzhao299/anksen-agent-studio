@@ -378,6 +378,23 @@
       "supported_skills": ["media_validation"],
       "preferred_runtime": "media-quality-control",
       "fallback_runtime": null
+    },
+    {
+      "agent_id": "agent-graphic-design",
+      "display_name": "Graphic Design Agent",
+      "role": "Translate approved briefs and design systems into editable Photoshop documents and validated design deliverables.",
+      "domains": ["graphic-design"],
+      "keywords": ["平面设计", "品牌视觉", "海报", "画册", "展板", "修图", "photoshop", "psd"],
+      "allowed_paths": ["runtime/artifacts/design/**", "design-assets/**"],
+      "forbidden_paths": [".env", ".env.*", ".git/**", "database/**", "migrations/**", "deploy/**", "infra/**"],
+      "max_parallel_tasks": 1,
+      "risk_limit": "MEDIUM",
+      "status": "ACTIVE",
+      "priority": 10,
+      "fallback_order": 1,
+      "supported_skills": ["photoshop_document_generation"],
+      "preferred_runtime": "photoshop-uxp",
+      "fallback_runtime": null
     }
   ]
 }
