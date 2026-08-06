@@ -79,3 +79,17 @@ test("theme personalization is shared by authenticated and access surfaces", asy
   assert.match(workstation, /--theme-accent:#c45d2d/);
   assert.match(login, /login-theme-switch/);
 });
+
+test("dark appearance keeps business hero and legacy surfaces on semantic theme colors", async () => {
+  const html = await renderConsolePage("/hr", owner);
+
+  for (const contract of [
+    "html[data-theme] .product-hero {",
+    "background:linear-gradient(135deg,var(--theme-surface)",
+    "html[data-theme] .product-hero h2 { color:var(--theme-text); }",
+    "html[data-theme] .product-hero p { color:var(--theme-text-soft); }",
+    "html[data-theme] .application-badge",
+    "html[data-theme] .advanced-section > summary",
+    "html[data-theme] .simple-row",
+  ]) assert.match(html, new RegExp(contract.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+});
