@@ -9759,8 +9759,8 @@ async function consoleSmoke(args) {
   const unauthLoginHtml = await renderModule.renderConsolePage("/login", { authenticated: false });
   const interactiveControlsPresent = [
     "data-workstation=\"personal-ai\"",
-    "今天想完成什么？",
-    "直接描述目标、约束和期望结果",
+    "任务会在这里持续推进",
+    "描述目标、背景、约束和完成标准",
     "conversation-stream",
     "flow-rail",
     "action-goal",
@@ -9779,7 +9779,7 @@ async function consoleSmoke(args) {
   ].every((text) => actionsHtml.includes(text));
   const workstationPresent = [
     "data-workstation=\"personal-ai\"",
-    "data-interface-model=\"cardless-editorial\"",
+    "data-interface-model=\"mission-canvas\"",
     "/assets/anksen-logo.svg",
     "制定战略",
     "推进销售",
