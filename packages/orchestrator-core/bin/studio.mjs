@@ -9758,9 +9758,9 @@ async function consoleSmoke(args) {
   const unauthHtml = await renderModule.renderConsolePage("/", { authenticated: false });
   const unauthLoginHtml = await renderModule.renderConsolePage("/login", { authenticated: false });
   const interactiveControlsPresent = [
-    "Personal AI Workstation",
-    "今天想推进什么？",
-    "描述目标即可",
+    "data-workstation=\"personal-ai\"",
+    "今天想完成什么？",
+    "直接描述目标、约束和期望结果",
     "conversation-stream",
     "flow-rail",
     "action-goal",
@@ -9778,7 +9778,8 @@ async function consoleSmoke(args) {
     "jinhu-smart-park"
   ].every((text) => actionsHtml.includes(text));
   const workstationPresent = [
-    "Personal AI Workstation",
+    "data-workstation=\"personal-ai\"",
+    "data-interface-model=\"cardless-editorial\"",
     "/assets/anksen-logo.svg",
     "制定战略",
     "推进销售",

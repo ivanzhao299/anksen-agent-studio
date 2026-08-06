@@ -38,3 +38,19 @@ test("the visual system covers legacy operational surfaces instead of only the c
   }
   assert.match(html, /@keyframes studio-aurora/);
 });
+
+test("the primary workstation applies the cardless product-design capability", async () => {
+  const html = await renderConsolePage("/", owner);
+  for (const value of [
+    "cardless editorial workstation",
+    "data-workstation=\"personal-ai\"",
+    "data-interface-model=\"cardless-editorial\"",
+    "workspace-orientation",
+    "workspace-live-state",
+    "常用意图",
+    "直接描述目标、约束和期望结果",
+    "grid-template-columns:196px minmax(520px,1fr) 232px",
+    "project-rail,.page-dashboard .advanced-config { display:none",
+  ]) assert.match(html, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(html, /Personal AI Workstation/);
+});
