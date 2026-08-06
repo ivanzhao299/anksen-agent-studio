@@ -1,0 +1,4 @@
+interface:
+  display_name: "前端交付工程"
+  short_description: "从产品设计、React 实现到浏览器、CI 与评审闭环的端到端能力"
+  default_prompt: "使用 $frontend-delivery-engineering 完成从设计、实现到浏览器测试和 CI 修复的产品级前端交付。"

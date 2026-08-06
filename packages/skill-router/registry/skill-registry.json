@@ -625,6 +625,19 @@
       "risk_level": "MEDIUM"
     },
     {
+      "skill_id": "skill-frontend-delivery-engineering",
+      "skill_type": "frontend_delivery_engineering",
+      "display_name": "Frontend Delivery Engineering",
+      "purpose": "Deliver production frontend work from requirements and design structure through React/Next.js implementation, accessibility review, Playwright and real-browser verification, GitHub Actions repair, and PR review closure with evidence.",
+      "default_runtime": "codex-cli",
+      "fallback_runtime": "claude-code",
+      "default_agent": "agent-4",
+      "expected_output_types": ["design contract", "production frontend implementation", "E2E tests", "browser evidence", "CI diagnosis", "review closure report"],
+      "required_inputs": ["product goal and user journey", "repository path and instructions", "allowed change scope", "design or requirement evidence", "validation and release boundaries"],
+      "validation_commands": ["repository lint, typecheck, tests and production build", "Playwright or real-browser critical journey", "desktop and mobile accessibility review", "required CI checks when applicable"],
+      "risk_level": "MEDIUM"
+    },
+    {
       "skill_id": "skill-photoshop-document-generation",
       "skill_type": "photoshop_document_generation",
       "display_name": "Photoshop Document Generation",
