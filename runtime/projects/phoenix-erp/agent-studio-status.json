@@ -4,7 +4,7 @@
   "project_id": "phoenix-erp",
   "local_orchestrator_status": {
     "exists": false,
-    "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3/ops/agent-orchestrator",
+    "path": "/Users/mac/Documents/phoenix-erp-v3/ops/agent-orchestrator",
     "doctor_can_run": false,
     "doctor_status": "unknown",
     "check_status_can_run": false,
@@ -19,7 +19,7 @@
   },
   "queue_summary": {
     "available": "no",
-    "queue_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3/ops/agent-orchestrator/queue/task-queue.json",
+    "queue_path": "/Users/mac/Documents/phoenix-erp-v3/ops/agent-orchestrator/queue/task-queue.json",
     "updated_at": "unknown",
     "read_model_only": "unknown",
     "task_count": 0,
@@ -29,12 +29,12 @@
   },
   "event_summary": {
     "available": "no",
-    "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3/ops/agent-orchestrator/events",
+    "path": "/Users/mac/Documents/phoenix-erp-v3/ops/agent-orchestrator/events",
     "event_file_count": 0,
     "event_types": {}
   },
   "runtime_memory_status": {
-    "directory": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3/runtime/projects/phoenix-erp",
+    "directory": "/Users/mac/Documents/phoenix-erp-v3/runtime/projects/phoenix-erp",
     "exists": "no",
     "summary": "missing",
     "platform_state": "missing",

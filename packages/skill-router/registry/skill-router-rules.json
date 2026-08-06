@@ -576,6 +576,17 @@
       "selected_agent": "agent-media-qa",
       "confidence_boost": 45,
       "reason": "Media validation is an isolated read-only QA responsibility."
+    },
+    {
+      "rule_id": "RULE-PHOTOSHOP-DOCUMENT-GENERATION",
+      "skill_type": "photoshop_document_generation",
+      "task_type": "graphic_design_production",
+      "keywords": ["平面设计", "视觉设计", "品牌设计", "海报", "画册", "展板", "宣传单", "修图", "图片精修", "psd", "photoshop", "poster"],
+      "expected_output_type": "editable PSD + preview + delivery manifest",
+      "runtime": "photoshop-uxp",
+      "selected_agent": "agent-graphic-design",
+      "confidence_boost": 75,
+      "reason": "Editable layered design production routes through the governed Photoshop UXP adapter after creative direction and asset approval."
     }
   ]
 }

@@ -4,8 +4,8 @@
   "project_name": "Phoenix ERP",
   "project_type": "business-repository",
   "description": "Phoenix ERP V3 business project adapter for ANKSEN Agent Studio.",
-  "project_root": "../phoenix-erp-v3",
-  "local_path": "../phoenix-erp-v3",
+  "project_root": "/Users/mac/Documents/phoenix-erp-v3",
+  "local_path": "/Users/mac/Documents/phoenix-erp-v3",
   "git_url": "https://github.com/ivanzhao299/phoenix-erp-v3.git",
   "state_dir": "ops/agent-orchestrator",
   "mode": "external-project-adapter-example",
@@ -14,7 +14,7 @@
   "default_branch": "main",
   "package_manager": "pnpm",
   "worktrees": {
-    "main": "../phoenix-erp-v3"
+    "main": "/Users/mac/Documents/phoenix-erp-v3"
   },
   "repo_metadata": {
     "repository_exists": true,

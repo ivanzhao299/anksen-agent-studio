@@ -268,7 +268,7 @@
       "ok": true,
       "status": "PASS",
       "exit_code": 0,
-      "stdout": "# Console Smoke dry-run\n\nstatus: PASS\nroutes_count: 12\nmissing_routes: none\ndata_files_readable: yes\nmissing_data_files: none\ndata_dirs_readable: yes\nmissing_data_dirs: none\ndashboard_model_generated: yes\ninteractive_controls: yes\nworkspace_quick_entries: yes\ncontrol_tower_modules: yes\ndark_professional_theme: yes\nconfig_center: yes\nauth_gate: yes\naction_log_dir: autopilot-runs/console-actions\nlatest_autopilot_source: autopilot-runs/autopilot-batch-2026-06-24T054415256Z-9010ec56.json\nphoenix_erp_local_path: /Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3\nexternal_calls: disabled\ncredential_values_read: no\nmanaged_project_writes: disabled\ndeploy: disabled\nproduction_operations: disabled\nmodel_invocation: disabled\n\npages:\n- AI 工作台: /\n- 项目: /projects\n- Agent: /workers\n- 任务: /actions\n- 报告: /autopilot\n- 配置: /config\n- 运行时: /runtime\n- 凭证: /credentials\n- 治理: /governance\n- 规划: /planning\n- 记忆中心: /memory\n- 试运行状态: /pilot-status",
+      "stdout": "# Console Smoke dry-run\n\nstatus: PASS\nroutes_count: 12\nmissing_routes: none\ndata_files_readable: yes\nmissing_data_files: none\ndata_dirs_readable: yes\nmissing_data_dirs: none\ndashboard_model_generated: yes\ninteractive_controls: yes\nworkspace_quick_entries: yes\ncontrol_tower_modules: yes\ndark_professional_theme: yes\nconfig_center: yes\nauth_gate: yes\naction_log_dir: autopilot-runs/console-actions\nlatest_autopilot_source: autopilot-runs/autopilot-batch-2026-06-24T054415256Z-9010ec56.json\nphoenix_erp_local_path: /Users/mac/Documents/phoenix-erp-v3\nexternal_calls: disabled\ncredential_values_read: no\nmanaged_project_writes: disabled\ndeploy: disabled\nproduction_operations: disabled\nmodel_invocation: disabled\n\npages:\n- AI 工作台: /\n- 项目: /projects\n- Agent: /workers\n- 任务: /actions\n- 报告: /autopilot\n- 配置: /config\n- 运行时: /runtime\n- 凭证: /credentials\n- 治理: /governance\n- 规划: /planning\n- 记忆中心: /memory\n- 试运行状态: /pilot-status",
       "stderr": "",
       "summary": {
         "status": "PASS",
@@ -287,7 +287,7 @@
         "auth_gate": "yes",
         "action_log_dir": "autopilot-runs/console-actions",
         "latest_autopilot_source": "autopilot-runs/autopilot-batch-2026-06-24T054415256Z-9010ec56.json",
-        "phoenix_erp_local_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3",
+        "phoenix_erp_local_path": "/Users/mac/Documents/phoenix-erp-v3",
         "external_calls": "disabled",
         "credential_values_read": "no",
         "managed_project_writes": "disabled",

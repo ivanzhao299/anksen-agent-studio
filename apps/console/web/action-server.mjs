@@ -13,6 +13,9 @@ import {
   resolveSessionContext
 } from "../../../packages/access-center/lib/access-center-utils.mjs";
 import { loadProjectRegistrySync } from "./project-registry.mjs";
+import { EnterpriseProgramPlanner } from "../../../packages/domain-center/lib/enterprise-program-planner.mjs";
+import { loadDomainRuntimeRegistry } from "../../../packages/domain-center/lib/domain-center.mjs";
+import { buildAutonomousIntakeContract } from "../../../packages/domain-center/lib/autonomous-intake-contract.mjs";
 
 const execFileAsync = promisify(execFile);
 const webDir = dirname(fileURLToPath(import.meta.url));
@@ -1274,8 +1277,17 @@ async function preparePlan(input, options = {}) {
   const access = await resolveActionAccess(input, actionId, meta, options);
   const plan = buildPlan(input, access);
   const attachments = await materializeAttachments(input, plan.plan_id);
+  const domainRegistry = await loadDomainRuntimeRegistry();
+  const programPlan = new EnterpriseProgramPlanner({ registry: domainRegistry }).plan(plan.goal_summary);
+  const autonomousIntake = buildAutonomousIntakeContract({
+    goal: plan.goal_summary,
+    projectId: plan.target_project,
+    requestedRuntime: plan.agent,
+    programPlan
+  });
   return {
     ...plan,
+    autonomous_intake: autonomousIntake,
     attachment_count: attachments.length,
     attachments,
     access: {
@@ -2107,13 +2119,18 @@ function flushTranscript(run, source) {
 }
 
 function runMessagesForPlan(plan) {
+  const intake = plan.autonomous_intake;
+  const routedDomains = intake?.routing?.workstreams?.flatMap(item => item.domainNames ?? []) ?? [];
   const messages = [
     { role: "user", content: plan.goal_summary, at: plan.created_at },
     { role: "assistant", content: `已理解目标：${plan.goal_summary}`, at: plan.created_at, phase: "understood" },
+    ...(routedDomains.length > 0
+      ? [{ role: "assistant", content: `已分派领域：${routedDomains.join("、")}；将按 ${intake.routing.dependencyMode === "EXPLICIT_SEQUENCE" ? "顺序依赖" : "可并行"} 展开工作流。`, at: plan.created_at, phase: "routing" }]
+      : [{ role: "assistant", content: intake?.routing?.clarification?.message ?? "正在识别业务领域与预期成果。", at: plan.created_at, phase: "routing" }]),
     { role: "assistant", content: `正在选择项目：${plan.target_project}（${plan.target_project_status}）`, at: plan.created_at, phase: "project" },
     { role: "assistant", content: `正在选择 Agent/Runtime：${plan.agent} / ${plan.workspace_mode}`, at: plan.created_at, phase: "agent" },
     { role: "assistant", content: `正在生成计划：${plan.action_label}`, at: plan.created_at, phase: "planning" },
-    { role: "assistant", content: `正在通过 Governance 检查：${plan.governance_gate}，风险 ${plan.risk}`, at: plan.created_at, phase: "governance" }
+    { role: "assistant", content: `执行链已建立：规划 → 执行 → 测试 → 交付 → 发布决策 → 反馈闭环。当前风险 ${plan.risk}。`, at: plan.created_at, phase: "governance" }
   ];
   if (plan.agent_fallback) {
     messages.push({ role: "assistant", content: plan.agent_fallback, at: plan.created_at, phase: "agent" });

@@ -610,6 +610,19 @@
       "required_inputs": ["approved master", "channel specifications", "variant policy", "artifact root"],
       "validation_commands": ["media quality control"],
       "risk_level": "MEDIUM"
+    },
+    {
+      "skill_id": "skill-photoshop-document-generation",
+      "skill_type": "photoshop_document_generation",
+      "display_name": "Photoshop Document Generation",
+      "purpose": "Create and refine governed editable PSD documents and export approved PNG/PDF deliverables through the Photoshop UXP adapter.",
+      "default_runtime": "photoshop-uxp",
+      "fallback_runtime": null,
+      "default_agent": "agent-graphic-design",
+      "expected_output_types": ["editable psd", "png preview", "print pdf", "artifact manifest"],
+      "required_inputs": ["approved design brief", "design system direction", "canvas specification", "authorized assets", "output specification"],
+      "validation_commands": ["photoshop artifact verification", "design delivery manifest validation"],
+      "risk_level": "MEDIUM"
     }
   ]
 }

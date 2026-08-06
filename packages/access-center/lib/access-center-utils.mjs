@@ -147,6 +147,7 @@ const consoleRouteCatalog = {
   manufacturing: ["console.access", "manufacturing.read"],
   smartPark: ["console.access", "smart_park.workspace"],
   video: ["console.access", "media.read"],
+  graphicDesign: ["console.access", "media.read"],
   cad: ["console.access"],
   execution: ["console.access", "autopilot.plan"],
   domains: ["console.access"],

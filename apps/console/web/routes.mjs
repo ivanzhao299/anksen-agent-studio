@@ -3,7 +3,7 @@ import { getConsoleMessages } from "./i18n/index.mjs";
 const messages = getConsoleMessages();
 
 export const consoleWebRoutes = [
-  { id: "dashboard", label: messages.nav.dashboard, path: "/", navPath: "/" },
+  { id: "dashboard", label: "工作台", path: "/", navPath: "/" },
   { id: "cockpit", label: "集团驾驶舱", path: "/cockpit", navPath: "/cockpit" },
   { id: "work", label: "我的工作", path: "/work", navPath: "/work" },
   { id: "strategy", label: "战略执行", path: "/strategy", navPath: "/strategy" },
@@ -13,6 +13,7 @@ export const consoleWebRoutes = [
   { id: "manufacturing", label: "制造 ERP", path: "/manufacturing", navPath: "/manufacturing" },
   { id: "smartPark", label: "智慧园区", path: "/smart-park", navPath: "/smart-park" },
   { id: "video", label: "视频工厂", path: "/video", navPath: "/video" },
+  { id: "graphicDesign", label: "平面设计", path: "/design", navPath: "/design" },
   { id: "cad", label: "工程 CAD", path: "/cad", navPath: "/cad" },
   { id: "execution", label: "运行", path: "/execution", navPath: "/execution" },
   { id: "development", label: "自主开发", path: "/development", navPath: "/development" },

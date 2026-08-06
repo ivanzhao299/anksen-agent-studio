@@ -10,7 +10,7 @@ This repository is **ANKSEN Agent Studio**. It is not Smart Park, ERP, Video Fac
 
 Studio is the Enterprise AI Operating System and AI Control Plane. Business systems connect to Studio instead of embedding platform code.
 
-- Repository: `/Users/mac/Documents/jinhu-smart-park/anksen-agent-studio`
+- Repository: `/Users/mac/Documents/anksen-agent-studio`
 - GitHub: `https://github.com/ivanzhao299/anksen-agent-studio.git`
 
 ## 2. Long-term Architecture
