@@ -18,8 +18,8 @@
   },
   "execution": {
     "execution_route": "managed_project_repo",
-    "repo_path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3",
-    "repo_path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3",
+    "repo_path": "/Users/mac/Documents/phoenix-erp-v3",
+    "repo_path_display": "/Users/mac/Documents/phoenix-erp-v3",
     "repo_resolved": true,
     "repo_branch": "main",
     "repo_head": "85a3c6b fix(ops): parse agent result headings for bug writeback",
@@ -29,14 +29,14 @@
   },
   "workspace": {
     "state_dir": "ops/agent-orchestrator",
-    "runtime_memory_dir": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3/runtime/projects/phoenix-erp",
-    "runtime_memory_dir_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3/runtime/projects/phoenix-erp",
+    "runtime_memory_dir": "/Users/mac/Documents/phoenix-erp-v3/runtime/projects/phoenix-erp",
+    "runtime_memory_dir_display": "/Users/mac/Documents/phoenix-erp-v3/runtime/projects/phoenix-erp",
     "worktree_count": 1,
     "worktrees": [
       {
         "slot": "main",
-        "path": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3",
-        "path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3",
+        "path": "/Users/mac/Documents/phoenix-erp-v3",
+        "path_display": "/Users/mac/Documents/phoenix-erp-v3",
         "exists": true
       }
     ]

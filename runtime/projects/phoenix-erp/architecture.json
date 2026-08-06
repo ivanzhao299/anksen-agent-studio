@@ -44,7 +44,7 @@
     "**"
   ],
   "runtime_memory_status": {
-    "directory": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3/runtime/projects/phoenix-erp",
+    "directory": "/Users/mac/Documents/phoenix-erp-v3/runtime/projects/phoenix-erp",
     "exists": "no",
     "summary": "missing",
     "platform_state": "missing",

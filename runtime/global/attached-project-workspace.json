@@ -55,7 +55,7 @@
       "connection_status": "CONNECTED",
       "doctor_status": "unknown",
       "execution_route": "managed_project_repo",
-      "repo_path_display": "/Users/mac/Documents/Codex/2026-05-13/monorepo-next-js-app-router-react/phoenix-erp-v3",
+      "repo_path_display": "/Users/mac/Documents/phoenix-erp-v3",
       "repo_branch": "main",
       "repo_clean": "yes",
       "write_policy": "disabled",
