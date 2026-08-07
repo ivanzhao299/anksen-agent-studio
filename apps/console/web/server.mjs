@@ -46,6 +46,7 @@ import { CapabilityResourceRegistry } from "../../../packages/skill-router/lib/c
 import { implementedProfessionalAdapterIds } from "../../../packages/skill-router/lib/professional-media-adapters.mjs";
 import { projectProfessionalArtifacts } from "../../../packages/skill-router/lib/professional-artifact-projection.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
+import { AvernetProviderGateway, AvernetGatewayError, FileAvernetBridgeStore } from "../../../packages/orchestrator-core/lib/avernet-provider-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
 import { createStudioMcpRequestHandler } from "../../../packages/orchestrator-core/lib/studio-mcp-server.mjs";
 import { loadIdentityRuntimeConfig, proxyIdentityRequest } from "./identity-service.mjs";
@@ -147,6 +148,12 @@ const studioGateway = new StudioGateway({
   authenticator: new GatewayAuthenticator({ serviceTokens: entries(process.env.STUDIO_GATEWAY_SERVICE_TOKENS), signingSecrets: entries(process.env.STUDIO_GATEWAY_SIGNING_SECRETS) }),
   rateLimiter: new SlidingWindowRateLimiter({ limit: Number(process.env.STUDIO_GATEWAY_RATE_LIMIT ?? 30) })
 });
+const avernetProviderGateway = process.env.AVERNET_PROVIDER_TOKEN ? new AvernetProviderGateway({
+  studioGateway,
+  store: new FileAvernetBridgeStore(resolve(repoRoot, "runtime/avernet/provider-bridge.json")),
+  providerId: process.env.AVERNET_PROVIDER_ID ?? "anksen-studio",
+  providerToken: process.env.AVERNET_PROVIDER_TOKEN
+}) : null;
 
 function localOnly(request) {
   return ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.socket.remoteAddress ?? "");
@@ -205,7 +212,7 @@ const server = createServer(async (request, response) => {
   try {
     if (identityRuntime && proxyIdentityRequest(request, response, { upstreamOrigin: identityRuntime.upstreamOrigin, publicOrigin: new URL(identityRuntime.publicUrl).origin })) return;
     if (studioMcpHandler && await studioMcpHandler(request, response)) return;
-    if (!localOnly(request) && !String(request.url ?? "").startsWith("/api/v1/")) {
+    if (!localOnly(request) && !String(request.url ?? "").startsWith("/api/v1/") && !String(request.url ?? "").startsWith("/api/avernet/")) {
       sendJson(response, 403, { status: "BLOCKED", reason: "Console Action Server only accepts local 127.0.0.1 requests." });
       return;
     }
@@ -237,6 +244,14 @@ const server = createServer(async (request, response) => {
     const gatewaySessionMatch = pathname.match(/^\/api\/v1\/night-shift\/sessions\/([^/]+)$/);
     const gatewayReportMatch = pathname.match(/^\/api\/v1\/night-shift\/sessions\/([^/]+)\/morning-report$/);
     const gatewayContext = (body = {}) => ({ method: request.method ?? "GET", pathname, headers: request.headers, body, sessionContext: accessContext });
+    if (pathname.startsWith("/api/avernet/")) {
+      if (!avernetProviderGateway) { sendJson(response, 503, { ok:false,error:{code:"provider_not_configured",message:"Avernet Provider Gateway is disabled until its credential reference is configured.",retryable:true} }); return; }
+      try {
+        if (request.method === "GET" && pathname === "/api/avernet/provider/manifest") { avernetProviderGateway.authenticate(request.headers);sendJson(response,200,avernetProviderGateway.botManifest());return; }
+        if (request.method === "POST" && pathname === "/api/avernet/provider/messages") { const body=await readJsonBody(request),projectIds=String(process.env.AVERNET_ALLOWED_PROJECT_IDS??"").split(",").map(value=>value.trim()).filter(Boolean),result=await avernetProviderGateway.handle(body,{headers:request.headers,actor:{userId:`avernet:${process.env.AVERNET_PROVIDER_ID??"anksen-studio"}`,organizationId:process.env.AVERNET_ORGANIZATION_ID??"studio-org",workspaceId:process.env.AVERNET_WORKSPACE_ID??"studio-workspace",projectIds}});sendJson(response,200,result);return; }
+        sendJson(response,404,{ok:false,error:{code:"not_found",message:"Avernet provider route not found",retryable:false}});return;
+      } catch (error) { const known=error instanceof AvernetGatewayError;sendJson(response,known?error.status:500,{ok:false,error:{code:known?error.code:"internal_error",message:known?error.message:"Avernet provider request failed",retryable:known?error.retryable:false}});return; }
+    }
     if (pathname.startsWith("/api/v1/")) {
       const requestId = String(request.headers["x-request-id"] ?? randomUUID());
       try {

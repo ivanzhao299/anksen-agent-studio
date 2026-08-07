@@ -107,6 +107,7 @@ async function execute(job) {
   try {
     if(job.approvalScopeDigest!==approvalScopeDigest(job.approvalScope))throw Object.assign(new Error("APPROVAL_SCOPE_CHANGED"),{code:"APPROVAL_SCOPE_CHANGED"});
     if(!job.approvalExpiresAt||new Date(job.approvalExpiresAt).getTime()<=Date.now())throw Object.assign(new Error("JOB_APPROVAL_EXPIRED"),{code:"JOB_APPROVAL_EXPIRED"});
+    if(job.isolatedWorkspace)await jobs.workspaceIsolation.verifyTaskWorkspace({projectId:job.projectId,taskId:job.id});
     assertWorkspaceWithinScope(captureGitWorkspace(job.projectRoot),job.allowedPaths);
     const plannerPrompt=`You are the PLANNER agent in an autonomous development pipeline. Inspect the repository read-only. Produce a concise implementation plan for this goal. Do not modify files. Goal: ${job.goal}\nAllowed paths: ${job.allowedPaths.join(", ")}\nAcceptance criteria and evidence: ${JSON.stringify(job.acceptanceEvidence)}\nClarification: ${job.clarification.answer||"none"}`;
     const plan=await role(job,"PLANNER",plannerPrompt);
@@ -125,6 +126,7 @@ async function execute(job) {
       await jobs.artifact(job,"repair-hypothesis",JSON.stringify({attempt:job.repairAttemptsUsed,errorClass,failedCommands:failedChecks.map(check=>check.command)},null,2));
       attempt=await governedAttempt(job,{instruction:repairInstruction,attemptKind:"REPAIR",expectedBaselineDigest:snapshot.digest,index:job.repairAttemptsUsed});
     }
+    if(job.isolatedWorkspace)await jobs.workspaceIsolation.claimChangedPaths({projectId:job.projectId,taskId:job.id,ownerId:worker.id});
     const diff=await diffArtifact(job);const validation=await runAcceptance(job);
     const validator=await role(job,"VALIDATOR",`You are an independent VALIDATOR agent. Review this implementation read-only. Goal: ${job.goal}\nAcceptance: ${job.acceptanceCriteria.join("; ")}\nValidation: ${JSON.stringify(validation)}\nDiff:\n${diff.slice(0,60000)}\nReturn PASS or FAIL with reasons.`);
     const review=await role(job,"REVIEWER",`You are an independent REVIEWER agent. Decide whether this job is ready for human diff approval. Do not modify files. Goal: ${job.goal}\nAcceptance: ${job.acceptanceCriteria.join("; ")}\nPlanner: ${plan.slice(0,12000)}\nValidator: ${validator.slice(0,12000)}\nChanged paths: ${job.changedPaths.join(", ")}\nRespond with READY_FOR_HUMAN_APPROVAL or REWORK_REQUIRED and reasons.`);

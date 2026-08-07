@@ -40,6 +40,10 @@ export function approvalScopeDigest(scope) {
   const normalized = {
     projectId: scope.projectId,
     projectRoot: resolve(scope.projectRoot),
+    sourceProjectRoot: scope.sourceProjectRoot ? resolve(scope.sourceProjectRoot) : null,
+    sourceDigest: scope.sourceDigest ?? null,
+    remoteHead: scope.remoteHead ?? null,
+    branch: scope.branch ?? null,
     allowedPaths: [...scope.allowedPaths].sort(),
     blockedPaths: [...scope.blockedPaths].sort(),
     acceptanceCommands: [...scope.acceptanceCommands],

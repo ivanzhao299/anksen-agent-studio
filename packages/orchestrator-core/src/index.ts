@@ -18,6 +18,7 @@ export const orchestratorCoreCapabilities: OrchestratorCapability[] = [
 ];
 
 export * from "./autonomous-kernel/index.js";
+export const avernetCompatibilityGatewayStatus = "provider-gateway-v1";
 
 export interface StudioGatewayGoalRequest {
   readonly title: string;

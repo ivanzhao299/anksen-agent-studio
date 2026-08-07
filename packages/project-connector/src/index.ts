@@ -122,3 +122,21 @@ export {
 } from "./workspace.js";
 
 export const projectConnectorStatus = "multi-project-workspace-mvp";
+
+export interface IsolatedTaskWorkspace {
+  readonly projectId: string;
+  readonly taskId: string;
+  readonly actorId: string;
+  readonly sourceProjectRoot: string;
+  readonly sourceDigest: string;
+  readonly sourceHead: string;
+  readonly remoteHead: string;
+  readonly defaultBranch: string;
+  readonly branch: `codex/${string}`;
+  readonly worktreePath: string;
+  readonly allowedPaths: readonly string[];
+  readonly createdAt: string;
+  readonly status: "ACTIVE" | "COMPLETED" | "ABANDONED";
+}
+
+export const gitWorkspaceIsolationStatus = "worktree-isolation-v1";

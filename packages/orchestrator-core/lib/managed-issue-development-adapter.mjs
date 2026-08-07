@@ -64,10 +64,11 @@ export class ManagedIssueDevelopmentAdapter {
     });
     const criteria = String(claim.acceptanceCriteria ?? "").split("\n").map(value => value.trim()).filter(Boolean);
     const commands = this.project.acceptanceCommands?.length ? this.project.acceptanceCommands : ["git diff --check"];
-    const projectRoot = await this.provisionWorktree(claim.issueNo);
     const job = await this.jobs.create({
       projectId: this.project.projectId,
-      projectRoot,
+      projectRoot: this.project.projectRoot,
+      workspaceIsolation: true,
+      defaultBranch: "main",
       goal: `[${claim.issueNo}] ${claim.title}\n\n${claim.description}\n\n页面：${claim.route}`,
       allowedPaths: this.project.allowedPaths,
       acceptanceCriteria: criteria,
@@ -80,21 +81,6 @@ export class ManagedIssueDevelopmentAdapter {
     await this.jobs.event(job, "MANAGED_ISSUE_LINKED", { system: "jinhu-smart-park", issueNo: claim.issueNo });
     if (job.status === "PENDING_APPROVAL") await this.jobs.approve(job.id, { userId: claim.approvedBy ?? "smart-park-admin" });
     return this.jobs.get(job.id);
-  }
-
-  async provisionWorktree(issueNo) {
-    if (!this.project.worktreeRoot) return this.project.projectRoot;
-    const branch = `runner/${String(issueNo).toLowerCase().replace(/[^a-z0-9-]+/g, "-")}`;
-    const target = resolve(this.project.worktreeRoot, branch.replaceAll("/", "-"));
-    await mkdir(this.project.worktreeRoot, { recursive: true });
-    const run = (args) => spawnSync("git", ["-C", this.project.projectRoot, ...args], { encoding: "utf8" });
-    const fetch = run(["fetch", "origin", "main"]);
-    if (fetch.status !== 0) throw new Error(`MANAGED_PROJECT_FETCH_FAILED:${fetch.stderr}`);
-    const removeBranch = run(["branch", "-D", branch]);
-    if (removeBranch.status !== 0 && !/not found|not exist/i.test(`${removeBranch.stdout}${removeBranch.stderr}`)) throw new Error("MANAGED_PROJECT_STALE_BRANCH_FAILED");
-    const added = run(["worktree", "add", "-b", branch, target, "origin/main"]);
-    if (added.status !== 0) throw new Error(`MANAGED_PROJECT_WORKTREE_FAILED:${added.stderr}`);
-    return target;
   }
 
   async writeBack(job, { releaseEvidence } = {}) {
@@ -119,6 +105,3 @@ export class ManagedIssueDevelopmentAdapter {
     });
   }
 }
-import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
-import { spawnSync } from "node:child_process";

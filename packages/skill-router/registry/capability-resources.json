@@ -95,6 +95,26 @@
       "side_effect_policy": "READ_ONLY_REFERENCE",
       "activation": "FRONTEND_DESIGN_WORKFLOW",
       "governance": {"execute_embedded_commands":false,"copy_to_project_automatically":false,"attribution_required":true}
+    },
+    {
+      "resource_id": "mempalace",
+      "display_name": "MemPalace Long-Term Memory",
+      "capability_type": "LONG_TERM_MEMORY_ENGINE",
+      "provider": "MemPalace",
+      "source_url": "https://github.com/MemPalace/mempalace.git",
+      "source_commit": "1d113e46a2c7db81a00f9e799e0db92bdd37987f",
+      "default_branch": "main",
+      "local_path": "runtime/capability-resources/mempalace",
+      "license": "MIT",
+      "license_path": "LICENSE",
+      "expected_minimum_items": 1,
+      "featured_presets": ["mempalace-readme"],
+      "items": [{"id":"mempalace-readme","display_name":"MemPalace Architecture and Operations","path":"README.md"}],
+      "capabilities": ["verbatim_memory", "semantic_retrieval", "knowledge_graph", "mcp_memory_tools"],
+      "network_policy": "INSTALL_AND_UPDATE_ONLY",
+      "side_effect_policy": "ADAPTER_GOVERNED",
+      "activation": "DISABLED_BY_DEFAULT",
+      "governance": {"authoritative_state":false,"execute_embedded_commands":false,"automatic_conversation_mining":false,"requires_scope_isolation":true,"requires_redaction":true,"requires_delete_support":true}
     }
   ]
 }

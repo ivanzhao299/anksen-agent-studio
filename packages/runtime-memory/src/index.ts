@@ -4,5 +4,10 @@ export interface RuntimeMemorySection {
   readonly sourceFingerprint: string;
 }
 
-export const runtimeMemoryStatus = "skeleton";
+export interface LongTermMemoryScope {
+  readonly organizationId: string;
+  readonly workspaceId: string;
+  readonly projectId: string;
+}
 
+export const runtimeMemoryStatus = "mempalace-derived-index-adapter-v1";
