@@ -27,6 +27,15 @@ function routeHref(path, activeProjectId = "") {
 function navIcon(id) {
   const paths = {
     dashboard: '<path d="M3 10.5 10 4l7 6.5v6a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5z"/><path d="M8 18v-5h4v5"/>',
+    cockpit: '<path d="M3 3h6v6H3zM11 3h6v4h-6zM3 11h6v6H3zM11 9h6v8h-6z"/>',
+    work: '<path d="M5 3h10v14H5z"/><path d="M8 3V2h4v1M8 8l1.2 1.2L12 6.5M8 13h5"/>',
+    strategy: '<circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="3"/><path d="m12 8 5-5M14 3h3v3"/>',
+    hr: '<circle cx="7" cy="7" r="2.5"/><circle cx="14" cy="8" r="2"/><path d="M2.5 17c.4-3.2 2-5 4.5-5s4.1 1.8 4.5 5M11.5 13c2.8-.7 5 .8 5.8 3.5"/>',
+    finance: '<path d="M3 6h14v10H3z"/><path d="M5 6V4h10v2M13 10h4M6 11h3"/>',
+    growthSales: '<path d="m3 15 4-5 3 2 6-7"/><path d="M12 5h4v4M3 17h14"/>',
+    manufacturing: '<path d="M3 17V8l5 3V8l5 3V5h4v12z"/><path d="M6 15h2m3 0h2"/>',
+    smartPark: '<path d="M3 17V6h6v11M11 17V3h6v14M5.5 9h1M5.5 12h1M13.5 6h1M13.5 9h1M13.5 12h1"/><path d="M2 17h16"/>',
+    video: '<rect x="3" y="4" width="11" height="12" rx="2"/><path d="m14 8 4-2v8l-4-2zM7 8l4 2-4 2z"/>',
     execution: '<circle cx="10" cy="10" r="7.5"/><path d="m8.5 7 4.5 3-4.5 3z"/>',
     development: '<path d="m7 6-4 4 4 4M13 6l4 4-4 4M11.5 3l-3 14"/>',
     portfolio: '<path d="M3 5h14v11H3z"/><path d="M7 5V3h6v2M3 9h14M8 9v2h4V9"/>',
@@ -39,6 +48,7 @@ function navIcon(id) {
     actions: '<rect x="3" y="3" width="5" height="5" rx="1"/><rect x="12" y="3" width="5" height="5" rx="1"/><rect x="3" y="12" width="5" height="5" rx="1"/><path d="M12 14.5h5m-2.5-2.5v5"/>',
     agentAdmin: '<circle cx="7" cy="7" r="3"/><path d="M2.5 17c.4-3 1.9-5 4.5-5 1.6 0 2.8.7 3.6 1.8M14.5 10v2m0 4v2m-4-4h2m4 0h2"/><circle cx="14.5" cy="14" r="3.5"/>',
     account: '<circle cx="10" cy="7" r="3"/><path d="M4 17c.5-3.2 2.5-5 6-5s5.5 1.8 6 5"/><path d="M15.5 8.5v-2l1.5-.8 1.5.8v2c0 1.3-.6 2.4-1.5 2.9-.9-.5-1.5-1.6-1.5-2.9Z"/>',
+    credentials: '<circle cx="7" cy="10" r="4"/><path d="M11 10h7M15 10v3M18 10v2"/>',
     config: '<circle cx="10" cy="10" r="2.5"/><path d="M16.4 12.5a1.4 1.4 0 0 0 .3 1.5l.1.1-2.7 2.7-.1-.1a1.4 1.4 0 0 0-1.5-.3 1.4 1.4 0 0 0-.9 1.3V18H8.4v-.3a1.4 1.4 0 0 0-.9-1.3 1.4 1.4 0 0 0-1.5.3l-.1.1-2.7-2.7.1-.1a1.4 1.4 0 0 0 .3-1.5 1.4 1.4 0 0 0-1.3-.9H2V8.4h.3a1.4 1.4 0 0 0 1.3-.9A1.4 1.4 0 0 0 3.3 6l-.1-.1 2.7-2.7.1.1a1.4 1.4 0 0 0 1.5.3 1.4 1.4 0 0 0 .9-1.3V2h3.2v.3a1.4 1.4 0 0 0 .9 1.3A1.4 1.4 0 0 0 14 3.3l.1-.1 2.7 2.7-.1.1a1.4 1.4 0 0 0-.3 1.5 1.4 1.4 0 0 0 1.3.9h.3v3.2h-.3a1.4 1.4 0 0 0-1.3.9Z"/>'
   };
   return `<svg viewBox="0 0 20 20" aria-hidden="true">${paths[id] ?? '<circle cx="10" cy="10" r="2"/>'}</svg>`;
@@ -2194,33 +2204,7 @@ function shell(content, activeId, model, data, auth = {}) {
     .suggestion-row button { min-height:36px; padding:7px 0; border:0; border-bottom:1px solid transparent; border-radius:0; background:transparent; color:var(--theme-text-soft); font-size:11px; font-weight:620; }
     .suggestion-row button + button { margin-left:10px; }
     .suggestion-row button:hover { border-bottom-color:var(--theme-accent); background:transparent; color:var(--theme-accent-strong); }
-    .page-dashboard { --sidebar-width:76px; }
-    .page-dashboard header:not(.login-header) { width:76px; padding:20px 12px; }
-    .page-dashboard header:not(.login-header) .brand-copy,
-    .page-dashboard header:not(.login-header) .nav-label,
-    .page-dashboard header:not(.login-header) .nav-group-label,
-    .page-dashboard header:not(.login-header) .nav-spacer,
-    .page-dashboard header:not(.login-header) .top-status,
-    .page-dashboard header:not(.login-header) .auth-strip { display:none!important; }
-    .page-dashboard header:not(.login-header) .brand-row { justify-content:center; }
-    .page-dashboard header:not(.login-header) .logo-frame { width:42px; height:38px; }
-    .page-dashboard header:not(.login-header) .top-nav { align-items:center; gap:7px; margin-top:22px; overflow:hidden; }
-    .page-dashboard header:not(.login-header) .top-nav a { justify-content:center; width:44px; height:42px; padding:0; }
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/strategy"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/hr"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/finance"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/growth-sales"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/manufacturing"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/smart-park"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/video"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/cad"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/execution"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/portfolio"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/outcomes"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/credentials"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/account"],
-    .page-dashboard header:not(.login-header) .top-nav a[href^="/config"] { display:none; }
-    .page-dashboard main { margin-left:76px; max-width:none; padding-bottom:0; }
+    .page-dashboard main { max-width:none; padding-bottom:0; }
     .page-dashboard .app-toolbar { border-bottom-color:transparent; background:rgba(255,255,255,.62); }
     .page-dashboard .portfolio-cockpit,
     .page-dashboard .current-run-strip,
