@@ -71,6 +71,27 @@ test("the cockpit uses a compact theme-native command deck", async () => {
   assert.doesNotMatch(html, /min-height:calc\(100vh - 190px\)/);
 });
 
+test("sidebar expansion restores labels and every route has a distinct icon contract", async () => {
+  const html = await renderConsolePage("/", owner);
+  for (const label of [
+    "集团驾驶舱",
+    "我的工作",
+    "战略执行",
+    "人力资源",
+    "财务管理",
+    "增长销售",
+    "制造 ERP",
+    "智慧园区",
+    "视频工厂",
+    "凭证",
+  ]) assert.ok(html.includes(`<span class="nav-label">${label}</span>`));
+
+  assert.doesNotMatch(html, /page-dashboard header:not\(\.login-header\) \.nav-label,[\s\S]{0,240}display:none!important/);
+  assert.doesNotMatch(html, /class="nav-icon"><svg[^>]*><circle cx="10" cy="10" r="2"\/><\/svg>/);
+  assert.match(html, /body\.sidebar-collapsed header:not\(\.login-header\) \.brand-copy,body\.sidebar-collapsed header:not\(\.login-header\) \.nav-label/);
+  assert.match(html, /syncSidebarLabel\(\);/);
+});
+
 test("theme personalization is shared by authenticated and access surfaces", async () => {
   const [workstation, login] = await Promise.all([
     renderConsolePage("/", owner),
