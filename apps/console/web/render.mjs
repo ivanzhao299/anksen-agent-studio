@@ -2177,15 +2177,23 @@ function shell(content, activeId, model, data, auth = {}) {
     .risk-badge.high,.status-label.proposal-only,.status-label.yes { color:#b54708; background:#fffaeb; border-color:#fedf89; }
     .risk-badge.critical,.status-label.blocked,.status-label.cancelled { color:#b42318; background:#fef3f2; border-color:#fecdca; }
     .run-details pre,pre { background:#101828; color:#f2f4f7; border-color:#1d2939; }
-    .command-center-hero { max-width:980px; min-height:calc(100vh - 190px); display:flex; flex-direction:column; justify-content:center; padding:40px 28px 80px; }
-    .command-center-copy { margin-bottom:26px; }
-    .command-center-copy h2 { font-size:40px; color:#101828; }
-    .command-box { max-width:820px; width:100%; padding:12px; border-color:#dfe3e8; border-radius:22px; background:#fff; box-shadow:0 20px 60px rgba(16,24,40,.12); }
-    .command-box > textarea { min-height:156px; color:#101828; background:#fff; font-size:17px; }
-    .command-box > textarea::placeholder { color:#98a2b3; }
-    .command-compose-footer { padding:12px 8px 2px 12px; border-top-color:#f0f1f3; }
-    .suggestion-row button { background:#f7f8fa; color:#667085; }
-    .suggestion-row button:hover { color:#175cd3; border-color:#dbe7ff; background:#f0f5ff; }
+    /* Command deck: operational launch surface, not a floating marketing hero. */
+    .command-center-hero { display:grid; grid-template-columns:minmax(360px,.85fr) minmax(480px,1.15fr); align-items:start; gap:clamp(32px,5vw,72px); max-width:1240px; min-height:0; margin:0 auto 42px; padding:54px 0 44px; border-bottom:1px solid var(--theme-border); overflow:visible; }
+    .command-center-copy { max-width:420px; margin:8px 0 0; text-align:left; }
+    .command-center-copy h2 { max-width:440px; margin:12px 0 14px; color:var(--theme-text); font-size:clamp(38px,4vw,56px); font-weight:640; line-height:1.02; letter-spacing:-.055em; text-wrap:balance; }
+    .command-center-copy p { max-width:360px; color:var(--theme-text-soft); font-size:14px; line-height:1.65; }
+    .command-orb { display:none; }
+    .command-box { width:100%; max-width:none; margin:0; padding:0; border:1px solid var(--theme-border-strong); border-radius:16px; background:var(--theme-surface); box-shadow:none; overflow:hidden; }
+    .command-box > textarea { min-height:126px; padding:22px 24px 18px; border:0; border-radius:0; background:transparent; color:var(--theme-text); font-size:17px; line-height:1.6; resize:none; box-shadow:none; }
+    .command-box > textarea:focus { outline:0; box-shadow:inset 3px 0 0 var(--theme-accent); }
+    .command-box > textarea::placeholder { color:var(--theme-text-faint); }
+    .command-compose-footer { display:flex; align-items:flex-end; gap:20px; padding:14px 16px 16px 24px; border-top:1px solid var(--theme-border); background:var(--theme-surface-soft); }
+    .command-compose-footer > .primary-action { flex:0 0 auto; min-height:46px; padding:10px 18px; border-radius:10px; }
+    .suggestion-row { align-items:center; gap:4px 8px; }
+    .suggestion-row > span { flex:0 0 100%; margin:0 0 3px; color:var(--theme-text-faint); font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+    .suggestion-row button { min-height:36px; padding:7px 0; border:0; border-bottom:1px solid transparent; border-radius:0; background:transparent; color:var(--theme-text-soft); font-size:11px; font-weight:620; }
+    .suggestion-row button + button { margin-left:10px; }
+    .suggestion-row button:hover { border-bottom-color:var(--theme-accent); background:transparent; color:var(--theme-accent-strong); }
     .page-dashboard { --sidebar-width:76px; }
     .page-dashboard header:not(.login-header) { width:76px; padding:20px 12px; }
     .page-dashboard header:not(.login-header) .brand-copy,
@@ -2621,15 +2629,50 @@ function shell(content, activeId, model, data, auth = {}) {
     html[data-theme] .page-dashboard .composer { border-color:var(--theme-border-strong); background:var(--theme-surface); box-shadow:0 12px 34px var(--theme-shadow); }
     html[data-theme] .page-dashboard .composer:focus-within { border-color:var(--theme-accent); box-shadow:0 0 0 3px var(--theme-focus); }
     html[data-theme] .page-dashboard .goal-box,html[data-theme] .page-dashboard .workspace-controls select { background:var(--theme-surface); color:var(--theme-text); }
+    html[data-theme] .command-box > textarea:focus { border-color:transparent; box-shadow:inset 3px 0 0 var(--theme-accent); }
+    html[data-theme] .suggestion-row button { border-color:transparent; border-bottom-color:transparent; background:transparent; color:var(--theme-text-soft); }
+    html[data-theme] .suggestion-row button:hover { border-bottom-color:var(--theme-accent); background:transparent; color:var(--theme-accent-strong); }
     html[data-theme] body.login-gated { background:var(--theme-canvas); color:var(--theme-text); }
     html[data-theme] body.login-gated .login-header { border-color:var(--theme-border); background:var(--theme-header); color:var(--theme-text); }
+    html[data-theme] body.login-gated .login-header h1 { color:var(--theme-text); }
+    html[data-theme] body.login-gated .login-header .logo-frame { border-color:var(--theme-border); background:var(--theme-surface); }
     html[data-theme] body.login-gated .login-header .subhead { color:var(--theme-text-soft); }
     html[data-theme] body.login-gated .auth-shell,html[data-theme] body.login-gated .auth-side { border-color:var(--theme-border); background:var(--theme-surface); color:var(--theme-text); }
     html[data-theme] body.login-gated .auth-product-panel { border-color:var(--theme-border); background:var(--theme-accent-soft); }
     html[data-theme] body.login-gated .auth-submit-button,html[data-theme] body.login-gated .auth-link-button.primary-action { background:var(--theme-accent); color:var(--theme-accent-contrast); }
+    /* Auth gateway: theme-native credentials first, cardless product context second. */
+    html[data-theme] body.login-gated main { padding:clamp(22px,4vw,56px); }
+    html[data-theme] body.login-gated .auth-shell { grid-template-columns:minmax(0,1.05fr) minmax(390px,.95fr); width:min(1080px,100%); border-radius:18px; background:var(--theme-surface); box-shadow:0 18px 54px var(--theme-shadow); }
+    html[data-theme] body.login-gated .auth-product-panel { min-height:550px; padding:clamp(36px,4.5vw,58px); border-radius:0; background:var(--theme-surface-soft); }
+    html[data-theme] body.login-gated .auth-product-panel::before { inset:0 auto auto 0; width:72px; height:3px; border-radius:0; background:var(--theme-accent); }
+    html[data-theme] .auth-product-copy { max-width:500px; }
+    html[data-theme] .auth-product-copy .auth-kicker,html[data-theme] body.login-gated .auth-side .auth-kicker { color:var(--theme-accent); }
+    html[data-theme] .auth-product-copy h2 { max-width:480px; margin:16px 0 18px; color:var(--theme-text); font-size:clamp(38px,4vw,52px); line-height:1.06; text-wrap:balance; }
+    html[data-theme] .auth-product-copy p { max-width:460px; color:var(--theme-text-soft); font-size:15px; line-height:1.75; }
+    html[data-theme] .auth-flow-preview { margin:42px 0 28px; padding:20px 0; border:1px solid var(--theme-border); border-width:1px 0; border-radius:0; background:transparent; box-shadow:none; backdrop-filter:none; }
+    html[data-theme] .auth-flow-step { padding:0 14px; }
+    html[data-theme] .auth-flow-step span { color:var(--theme-accent); }
+    html[data-theme] .auth-flow-step strong { color:var(--theme-text); }
+    html[data-theme] .auth-flow-step i { border-color:var(--theme-border-strong); }
+    html[data-theme] .auth-capability-row { gap:10px 20px; }
+    html[data-theme] .auth-capability-row span { position:relative; padding:0; border:0; border-radius:0; background:transparent; color:var(--theme-text-soft); font-size:11px; }
+    html[data-theme] .auth-capability-row span + span::before { content:""; position:absolute; left:-11px; top:50%; width:2px; height:2px; border-radius:50%; background:var(--theme-text-faint); }
+    html[data-theme] body.login-gated .auth-side { padding:clamp(38px,5vw,58px); border-left-color:var(--theme-border); background:var(--theme-surface); }
+    html[data-theme] body.login-gated .auth-card-head h3,html[data-theme] body.login-gated .auth-side h2 { color:var(--theme-text); font-size:31px; }
+    html[data-theme] body.login-gated .auth-card-head p,html[data-theme] body.login-gated .auth-intro { color:var(--theme-text-soft); }
+    html[data-theme] body.login-gated .auth-form { margin-top:32px; }
+    html[data-theme] body.login-gated .auth-form label { color:var(--theme-text-soft); }
+    html[data-theme] body.login-gated .auth-form input,html[data-theme] body.login-gated .auth-form select,html[data-theme] body.login-gated .auth-form textarea { min-height:50px; border-color:var(--theme-border-strong); background:var(--theme-surface-soft); color:var(--theme-text); box-shadow:none; }
+    html[data-theme] body.login-gated .auth-form input::placeholder,html[data-theme] body.login-gated .auth-form textarea::placeholder { color:var(--theme-text-faint); }
+    html[data-theme] body.login-gated .auth-form input:focus,html[data-theme] body.login-gated .auth-form select:focus,html[data-theme] body.login-gated .auth-form textarea:focus { border-color:var(--theme-accent); background:var(--theme-surface); box-shadow:0 0 0 3px var(--theme-focus); }
+    html[data-theme] body.login-gated .auth-status { background:var(--theme-surface-soft); color:var(--theme-text-soft); }
+    html[data-theme] body.login-gated .auth-status a { color:var(--theme-accent); }
     @media (max-width:1100px) { .page-dashboard .workspace-shell { grid-template-columns:156px minmax(480px,1fr); } .page-dashboard .advanced-config { display:none; } .page-dashboard .quick-row { grid-template-columns:repeat(3,minmax(0,1fr)); } .page-dashboard .quick-chip:nth-child(5) { border-right:1px solid var(--theme-border); } .page-dashboard .quick-chip:nth-child(4),.page-dashboard .quick-chip:nth-child(7) { border-right:0; } .page-dashboard .quick-chip:nth-child(n+5) { border-top:1px solid var(--theme-border); } }
     @media (max-width:900px) { .page-dashboard main { padding:0 18px 22px; } .page-dashboard .app-toolbar { margin:0 -18px; padding:0 18px; } .page-dashboard .workspace-shell { display:block; min-height:auto; } .page-dashboard .chat-workspace { min-height:auto; } .page-dashboard .project-rail,.page-dashboard .advanced-config { display:none; } .page-dashboard .ai-workspace { padding:22px 0 0; } .page-dashboard .composer { margin-top:22px; } .page-dashboard .conversation-stream { min-height:210px; padding:30px 0 18px; } .page-dashboard .welcome-message { min-height:132px; } .page-dashboard .workspace-controls { grid-template-columns:1fr 1fr; } .page-dashboard .workspace-controls > div:nth-child(3) { grid-column:1/-1; } .page-dashboard .start-button,.page-dashboard .cancel-button { min-height:46px; } }
     @media (max-width:560px) { .page-dashboard .app-toolbar h2,.page-dashboard .app-toolbar-actions > .status-label { display:none; } .page-dashboard .app-toolbar-actions { width:auto; margin-left:auto; justify-content:flex-end; } .page-dashboard .language-switch { min-width:112px; } .page-dashboard .workspace-hero.compact-hero { display:block; } .page-dashboard .workspace-meta { justify-items:start; margin-top:14px; } .page-dashboard .composer { padding:15px 14px 11px; border-radius:16px; } .page-dashboard .goal-box { min-height:96px; font-size:16px; } .page-dashboard .quick-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .page-dashboard .quick-row-label { display:block; } .page-dashboard .quick-chip,.page-dashboard .quick-chip:nth-child(4),.page-dashboard .quick-chip:nth-child(5),.page-dashboard .quick-chip:nth-child(7) { border-right:1px solid var(--theme-border); border-top:1px solid var(--theme-border); } .page-dashboard .quick-chip:nth-child(2),.page-dashboard .quick-chip:nth-child(3) { border-top:0; } .page-dashboard .quick-chip:nth-child(odd) { border-right:0; } .page-dashboard .conversation-stream { min-height:180px; padding:24px 0 14px; } .page-dashboard .welcome-message { align-items:flex-start; min-height:120px; } .page-dashboard .welcome-mark { margin-top:3px; } .page-dashboard .flow-rail { display:none; } .page-dashboard .timeline-strip { justify-content:space-between; } .page-dashboard .workspace-controls { grid-template-columns:1fr; } .page-dashboard .workspace-controls > div:nth-child(3) { grid-column:auto; } }
+    @media (max-width:980px) { .command-center-hero { grid-template-columns:1fr; gap:28px; padding:36px 0 34px; } .command-center-copy { max-width:680px; margin:0; } .command-center-copy h2 { max-width:none; font-size:clamp(34px,7vw,48px); } .command-center-copy p { max-width:620px; } }
+    @media (max-width:560px) { .command-box > textarea { min-height:124px; padding:18px; font-size:16px; } .command-compose-footer { align-items:stretch; padding:12px 14px 14px 18px; } .suggestion-row button { min-height:44px; } .suggestion-row button + button { margin-left:0; } }
+    @media (max-width:760px) { html[data-theme] body.login-gated main { padding:14px; } html[data-theme] body.login-gated .auth-shell { border-radius:14px; } html[data-theme] body.login-gated .auth-side { padding:30px 24px; } html[data-theme] body.login-gated .auth-product-panel { min-height:0; padding:28px 24px; } html[data-theme] .auth-product-copy h2 { margin:12px 0; font-size:30px; } html[data-theme] .auth-product-copy p { font-size:13px; } html[data-theme] .auth-flow-preview { display:none; } html[data-theme] .auth-capability-row { margin-top:18px; } }
     @media (max-width: 1100px) { .domain-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media (max-width: 1200px) { .domain-capability-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
     @media (max-width: 1000px) { .portfolio-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
@@ -2815,10 +2858,10 @@ function pageDashboard(_model, data) {
   const executionHref = routeHref("/actions", data.active_project_id);
   const portfolio = domainCenterSummary();
   const portfolioCards = portfolio.applications.map((application) => {const app=getEnterpriseApplication(application.id),path=app?.path??(application.id==="graphic-design-studio"?"/design":"/domains");return `<a class="portfolio-card" data-portfolio-app="${escapeHtml(application.id)}" href="${routeHref(path, data.active_project_id)}"><div class="portfolio-card-head"><span class="portfolio-icon">${escapeHtml(application.icon)}</span><span class="portfolio-state pending" data-portfolio-state>读取业务信号</span></div><h3>${escapeHtml(application.name)}</h3><p>${escapeHtml(application.summary)}</p><div class="portfolio-signal-grid"><span><strong data-portfolio-campaigns>0</strong> 运行计划</span><span><strong data-portfolio-actions>0</strong> 人工断点</span><span><strong data-portfolio-exceptions>0</strong> 业务异常</span><span><strong data-portfolio-professional>0</strong> 专业结果</span></div><div class="portfolio-entry-footer"><span data-portfolio-result>业务结果待接入</span><strong>进入业务应用 →</strong></div></a>`;}).join("");
-  return `<section class="command-center-hero">
+  return `<section class="command-center-hero" data-interface-model="command-deck">
     <div class="command-orb command-orb-a"></div><div class="command-orb command-orb-b"></div>
     <div class="command-center-copy"><span class="eyebrow">自主工作区</span><h2>想让 Studio 完成什么？</h2><p>描述结果，Studio 会负责规划、调度、执行和报告。</p></div>
-    <div class="command-box"><textarea id="command-goal" rows="4" placeholder="描述你想完成的目标、背景和预期结果……"></textarea><div class="command-compose-footer"><div class="suggestion-row"><span>试试</span><button type="button" data-command-suggestion="完善 Runtime 文档">完善 Runtime 文档</button><button type="button" data-command-suggestion="检查项目并生成风险报告">生成项目风险报告</button><button type="button" data-command-suggestion="整理最近运行结果">整理最近运行结果</button></div><button id="command-run" class="primary-action" type="button">开始运行 <span aria-hidden="true">→</span></button></div></div>
+    <div class="command-box"><label class="sr-only" for="command-goal">目标、背景与预期结果</label><textarea id="command-goal" rows="4" placeholder="描述你想完成的目标、背景和预期结果……"></textarea><div class="command-compose-footer"><div class="suggestion-row"><span>从常用任务开始</span><button type="button" data-command-suggestion="完善 Runtime 文档">完善 Runtime 文档</button><button type="button" data-command-suggestion="检查项目并生成风险报告">生成项目风险报告</button><button type="button" data-command-suggestion="整理最近运行结果">整理最近运行结果</button></div><button id="command-run" class="primary-action" type="button">开始运行 <span aria-hidden="true">→</span></button></div></div>
   </section>
   <section class="portfolio-cockpit"><div class="section-head"><div><span class="eyebrow">AI Business Portfolio</span><h2>集团业务驾驶舱</h2><p>从集团目标直接进入各独立业务应用，查看当前运行、人工断点、业务异常和专业结果。</p></div><a class="quiet-link" href="${routeHref("/work", data.active_project_id)}">查看跨应用工作 →</a></div><div class="portfolio-grid">${portfolioCards}</div><p class="portfolio-source" id="portfolio-source">正在读取 Campaign、业务记录与专业结果…</p></section>
   <section class="portfolio-cockpit"><div class="section-head"><div><span class="eyebrow">Live Business Operations</span><h2>实时业务运行</h2><p>来自各独立业务应用正式记录的运行概览，可直接下钻，不包含推测指标。</p></div><span id="business-operations-source" class="pill">正在读取事务数据库</span></div><div id="business-operations-grid" class="portfolio-grid"><div class="panel empty-state"><strong>正在汇总业务应用</strong></div></div></section>

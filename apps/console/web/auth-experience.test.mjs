@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderConsolePage } from "./render.mjs";
 
-test("login and registration use the light workstation access experience", async () => {
+test("login and registration use the theme-native workstation access experience", async () => {
   const auth = { authenticated: false };
   const login = await renderConsolePage("/login", auth);
   const register = await renderConsolePage("/register", auth);
@@ -15,6 +15,10 @@ test("login and registration use the light workstation access experience", async
     assert.match(html, /调用 Agent/);
     assert.match(html, /验证交付/);
     assert.match(html, /body\.login-gated \{ color-scheme:light/);
+    assert.match(html, /Auth gateway: theme-native credentials first/);
+    assert.match(html, /auth-form input,html\[data-theme\] body\.login-gated \.auth-form select/);
+    assert.match(html, /background:var\(--theme-surface-soft\)/);
+    assert.match(html, /auth-flow-preview \{ margin:42px 0 28px/);
     assert.doesNotMatch(html, /class="auth-(?:orb|node|line)/);
   }
 
