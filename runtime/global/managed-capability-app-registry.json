@@ -19,7 +19,7 @@
       "boundary": { "integration_mode": "INDEPENDENT_MANAGED_APP", "studio_orchestration": "HANDOFF_ONLY", "progress": "READ_ONLY_PROJECTION", "artifacts": "READ_ONLY_DISCOVERY" },
       "deployment": {
         "repository": "https://github.com/ivanzhao299/OpenMontage.git",
-      "commit": "776d2c7d2f14d379d3b7ce256a47bf6beb9da94d",
+        "commit": "340581e38f109eb576a193d108f308a8abe035a6",
         "root": "/opt/anksen/capabilities/openmontage",
         "service": "anksen-openmontage-backlot",
         "health_url": "http://127.0.0.1:4750/api/health"
