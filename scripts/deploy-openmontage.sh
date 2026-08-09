@@ -127,12 +127,14 @@ import sys
 
 payload = json.load(sys.stdin)
 state = payload.get("state") or {}
-renders = state.get("renders") or []
+renders = (state.get("media") or {}).get("renders") or []
 print(json.dumps({
     "event": "OPENMONTAGE_PROJECT_SNAPSHOT",
     "project_id": payload.get("project_id"),
     "status": state.get("status"),
     "render_count": len(renders),
+    "renders": renders,
+    "final_review_status": ((state.get("artifacts") or {}).get("final_review") or {}).get("status"),
     "render_job": payload.get("render_job"),
 }, ensure_ascii=False, separators=(",", ":")))
 '
