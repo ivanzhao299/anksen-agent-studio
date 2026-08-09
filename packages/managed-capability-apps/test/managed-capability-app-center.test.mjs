@@ -15,10 +15,11 @@ test("registry rejects embedded orchestration and unpinned deployments", () => {
 test("dashboard projects external state without a Studio runtime", async () => {
   const root = await mkdtemp(join(tmpdir(), "capability-app-"));
   await writeFile(join(root, "integration.manifest.json"), "{}\n");
-  const center = createManagedCapabilityAppCenter({ repoRoot: root, env: { TEST_APP_ROOT: root }, registry: { schema_version: 1, registry_id: "test", apps: [app] }, bridgeInvoker: async ({ operation }) => operation === "health" ? { ok: true, status: "READY" } : operation === "projects" ? { ok: true, projects: [{ project_id: "demo" }] } : { ok: true, state: { media: { renders: [] } }, handoff: { handoff_id: "handoff-1" } } });
+  const center = createManagedCapabilityAppCenter({ repoRoot: root, env: { TEST_APP_ROOT: root }, registry: { schema_version: 1, registry_id: "test", apps: [app] }, bridgeInvoker: async ({ operation }) => operation === "health" ? { ok: true, status: "READY" } : operation === "projects" ? { ok: true, projects: [{ project_id: "demo" }] } : { ok: true, state: { media: { renders: [] } }, handoff: { handoff_id: "handoff-1" }, render_job: { status: "RUNNING" } } });
   const dashboard = await center.dashboard({ includeProjectState: true });
   assert.equal(dashboard.architecture, "FEDERATED_INDEPENDENT_APPS");
   assert.equal(dashboard.apps[0].project_states.demo.studio_handoff.handoff_id, "handoff-1");
+  assert.equal(dashboard.apps[0].project_states.demo.render_job.status, "RUNNING");
 });
 
 test("artifact access rejects traversal before reading external files", async () => {
