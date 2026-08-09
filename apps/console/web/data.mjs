@@ -5,9 +5,11 @@ import { fileURLToPath } from "node:url";
 import { actionServerSummary, latestActionLog } from "./action-server.mjs";
 import { loadProjectRegistry, resolveActiveProjectId } from "./project-registry.mjs";
 import { accessInviteSummary, accessSummary, domainCapabilityCatalog, loadAccessCenter, resolveUserProfile } from "../../../packages/access-center/lib/access-center-utils.mjs";
+import { createManagedCapabilityAppCenter } from "../../../packages/managed-capability-apps/lib/managed-capability-app-center.mjs";
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(webDir, "../../..");
+const defaultManagedCapabilityAppCenter = createManagedCapabilityAppCenter({ repoRoot });
 
 const dataFiles = {
   platformState: "runtime/global/platform-state.json",
@@ -539,6 +541,7 @@ function buildProjectRouterLifecycle(dispatchPlans, proposals, audits, controlle
 }
 
 export async function loadConsoleLocalData(options = {}) {
+  const managedCapabilityAppCenter = options.managedCapabilityAppCenter ?? defaultManagedCapabilityAppCenter;
   const [
     platformState,
     roadmapMemory,
@@ -570,7 +573,8 @@ export async function loadConsoleLocalData(options = {}) {
     modelGatewayProposals,
     modelGatewayQueueInjectionAudits,
     controlledWorkerQueuePreflightTasks,
-    workerClaimAudits
+    workerClaimAudits,
+    managedCapabilityApps
   ] = await Promise.all([
     readJson(dataFiles.platformState, {}),
     readJson(dataFiles.roadmapMemory, {}),
@@ -602,7 +606,8 @@ export async function loadConsoleLocalData(options = {}) {
     readModelGatewayProposals(),
     readModelGatewayQueueInjectionAudits(),
     readControlledWorkerQueuePreflightTasks(),
-    readWorkerClaimAudits()
+    readWorkerClaimAudits(),
+    managedCapabilityAppCenter.dashboard({ includeProjectState: true })
   ]);
 
   const runtimeProfiles = runtimeCenterExamples.find((item) => item.path.endsWith("runtime-profiles.example.json"))?.data;
@@ -710,6 +715,7 @@ export async function loadConsoleLocalData(options = {}) {
     accessMemberships,
     accessInvites,
     consoleActions,
+    managedCapabilityApps,
     actionServer: actionServerSummary(),
     runtime: {
       examples: runtimeCenterExamples,

@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { hostname } from "node:os";
@@ -44,6 +45,8 @@ import { CadAgentSdk } from "../../../packages/engineering-cad-center/lib/index.
 import { ProfessionalRunnerCapabilityRegistry } from "../../../packages/skill-router/lib/professional-runner-capabilities.mjs";
 import { CapabilityResourceRegistry } from "../../../packages/skill-router/lib/capability-resource-registry.mjs";
 import { implementedProfessionalAdapterIds } from "../../../packages/skill-router/lib/professional-media-adapters.mjs";
+import { createManagedCapabilityAppCenter } from "../../../packages/managed-capability-apps/lib/managed-capability-app-center.mjs";
+import { createCapabilityUploadStore } from "../../../packages/managed-capability-apps/lib/capability-upload-store.mjs";
 import { projectProfessionalArtifacts } from "../../../packages/skill-router/lib/professional-artifact-projection.mjs";
 import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayErrorResponse } from "../../../packages/orchestrator-core/lib/studio-gateway.mjs";
 import { AvernetProviderGateway, AvernetGatewayError, FileAvernetBridgeStore } from "../../../packages/orchestrator-core/lib/avernet-provider-gateway.mjs";
@@ -80,6 +83,8 @@ const autonomousExecutionCenter = new AutonomousExecutionCenter();
 const cadAgentSdk = new CadAgentSdk();
 const governedRunManager = new GovernedRunManager({ repoRoot });
 const agentAdminService = new AgentAdminService({ repoRoot });
+const managedCapabilityAppCenter = createManagedCapabilityAppCenter({ repoRoot });
+const capabilityUploadStore = createCapabilityUploadStore({ repoRoot, center: managedCapabilityAppCenter });
 const portfolioRegistry = await loadDomainRuntimeRegistry();
 const businessRuntime = await createBusinessApplicationRuntime({ repoRoot });
 const businessApplicationStore = businessRuntime.store;
@@ -168,6 +173,22 @@ function sendJson(response, status, value, extraHeaders = {}) {
   response.end(`${JSON.stringify(value, null, 2)}\n`);
 }
 
+function sendCapabilityArtifact(request, response, artifact) {
+  const range = String(request.headers.range ?? "");
+  let start = 0, end = artifact.size - 1, status = 200;
+  if (range) {
+    const match = range.match(/^bytes=(\d*)-(\d*)$/);
+    if (!match) { response.writeHead(416, { "content-range": `bytes */${artifact.size}` }); response.end(); return; }
+    start = match[1] ? Number(match[1]) : 0;
+    end = match[2] ? Number(match[2]) : artifact.size - 1;
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end >= artifact.size) { response.writeHead(416, { "content-range": `bytes */${artifact.size}` }); response.end(); return; }
+    status = 206;
+  }
+  response.writeHead(status, { "content-type": artifact.contentType, "content-length": String(end - start + 1), "accept-ranges": "bytes", "cache-control": "private, no-store", ...(status === 206 ? { "content-range": `bytes ${start}-${end}/${artifact.size}` } : {}) });
+  if (request.method === "HEAD") { response.end(); return; }
+  createReadStream(artifact.path, { start, end }).on("error", () => response.destroy()).pipe(response);
+}
+
 async function readJsonBody(request) {
   const chunks = [];
   let total = 0;
@@ -180,6 +201,19 @@ async function readJsonBody(request) {
   }
   const text = Buffer.concat(chunks).toString("utf8");
   return text.trim() ? JSON.parse(text) : {};
+}
+
+async function readRawBody(request, limit = 600 * 1024) {
+  const chunks = []; let total = 0;
+  for await (const chunk of request) { total += chunk.length; if (total > limit) throw new Error("Request body exceeds capability upload chunk limit."); chunks.push(chunk); }
+  return Buffer.concat(chunks);
+}
+
+function requireSameOrigin(request) {
+  const expectedOrigin = identityRuntime ? new URL(identityRuntime.publicUrl).origin : `http://${request.headers.host ?? "localhost"}`;
+  const forwardedOrigin = `${String(request.headers["x-forwarded-proto"] ?? "http").split(",")[0].trim()}://${String(request.headers["x-forwarded-host"] ?? request.headers.host ?? "localhost").split(",")[0].trim()}`;
+  const origin = String(request.headers.origin ?? "");
+  return Boolean(origin && (origin === expectedOrigin || origin === forwardedOrigin));
 }
 
 function parseCookies(request) {
@@ -342,6 +376,57 @@ const server = createServer(async (request, response) => {
         reason: "Console Action Server requires a local Studio login before invoking actions."
       });
       return;
+    }
+    const capabilityProjectMatch = pathname.match(/^\/api\/capability-apps\/([^/]+)\/projects\/([^/]+)$/);
+    const capabilityMediaMatch = pathname.match(/^\/api\/capability-apps\/([^/]+)\/projects\/([^/]+)\/media\/(.+)$/);
+    const capabilityHandoffMatch = pathname.match(/^\/api\/capability-apps\/([^/]+)\/handoffs$/);
+    const capabilityUploadInitMatch = pathname.match(/^\/api\/capability-apps\/([^/]+)\/uploads$/);
+    const capabilityUploadChunkMatch = pathname.match(/^\/api\/capability-apps\/([^/]+)\/uploads\/([^/]+)\/chunks\/(\d+)$/);
+    const capabilityUploadCompleteMatch = pathname.match(/^\/api\/capability-apps\/([^/]+)\/uploads\/([^/]+)\/complete$/);
+    const capabilityRenderMatch = pathname.match(/^\/api\/capability-apps\/([^/]+)\/projects\/([^/]+)\/render$/);
+    if (request.method === "GET" && pathname === "/api/capability-apps") {
+      const routeAccess = evaluateConsoleRouteAccess("capabilityApps", accessContext); if (!routeAccess.allowed) { sendJson(response, 403, routeAccess); return; }
+      sendJson(response, 200, await managedCapabilityAppCenter.dashboard({ includeProjectState: true })); return;
+    }
+    if (request.method === "GET" && capabilityProjectMatch) {
+      const routeAccess = evaluateConsoleRouteAccess("capabilityApps", accessContext); if (!routeAccess.allowed) { sendJson(response, 403, routeAccess); return; }
+      try { sendJson(response, 200, await managedCapabilityAppCenter.projectState(decodeURIComponent(capabilityProjectMatch[1]), decodeURIComponent(capabilityProjectMatch[2]))); }
+      catch (error) { sendJson(response, 404, { status: error.code ?? "CAPABILITY_APP_PROJECT_FAILED", reason: error.message }); } return;
+    }
+    if ((request.method === "GET" || request.method === "HEAD") && capabilityMediaMatch) {
+      const routeAccess = evaluateConsoleRouteAccess("capabilityApps", accessContext); if (!routeAccess.allowed) { sendJson(response, 403, routeAccess); return; }
+      try { sendCapabilityArtifact(request, response, await managedCapabilityAppCenter.artifact(decodeURIComponent(capabilityMediaMatch[1]), decodeURIComponent(capabilityMediaMatch[2]), decodeURIComponent(capabilityMediaMatch[3]))); }
+      catch (error) { sendJson(response, 404, { status: error.code ?? "CAPABILITY_APP_ARTIFACT_FAILED", reason: error.message }); } return;
+    }
+    if (request.method === "POST" && capabilityHandoffMatch) {
+      if (!requireSameOrigin(request)) { sendJson(response, 403, { status: "BLOCKED", reason: "Same-origin confirmation is required." }); return; }
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "capability-app-handoff", risk: "MEDIUM" }, { user_context: accessContext }); if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      try { const body = await readJsonBody(request); sendJson(response, 201, await managedCapabilityAppCenter.createHandoff(decodeURIComponent(capabilityHandoffMatch[1]), body, { userId: accessContext.user?.user_id, workspaceId: accessContext.workspace_id })); }
+      catch (error) { sendJson(response, 400, { status: error.code ?? "CAPABILITY_APP_HANDOFF_FAILED", reason: error.message }); } return;
+    }
+    if (request.method === "POST" && capabilityUploadInitMatch) {
+      if (!requireSameOrigin(request)) { sendJson(response, 403, { status: "BLOCKED", reason: "Same-origin confirmation is required." }); return; }
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "capability-app-upload", risk: "MEDIUM" }, { user_context: accessContext }); if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      try { const body = await readJsonBody(request); sendJson(response, 201, await capabilityUploadStore.initialize({ ...body, appId: decodeURIComponent(capabilityUploadInitMatch[1]) }, { userId: accessContext.user?.user_id })); }
+      catch (error) { sendJson(response, 400, { status: error.code ?? "CAPABILITY_UPLOAD_FAILED", reason: error.message }); } return;
+    }
+    if (request.method === "PUT" && capabilityUploadChunkMatch) {
+      if (!requireSameOrigin(request)) { sendJson(response, 403, { status: "BLOCKED", reason: "Same-origin confirmation is required." }); return; }
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "capability-app-upload", risk: "MEDIUM" }, { user_context: accessContext }); if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      try { sendJson(response, 200, await capabilityUploadStore.putChunk(decodeURIComponent(capabilityUploadChunkMatch[2]), capabilityUploadChunkMatch[3], await readRawBody(request))); }
+      catch (error) { sendJson(response, 400, { status: error.code ?? "CAPABILITY_UPLOAD_FAILED", reason: error.message }); } return;
+    }
+    if (request.method === "POST" && capabilityUploadCompleteMatch) {
+      if (!requireSameOrigin(request)) { sendJson(response, 403, { status: "BLOCKED", reason: "Same-origin confirmation is required." }); return; }
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "capability-app-upload", risk: "MEDIUM" }, { user_context: accessContext }); if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      try { sendJson(response, 200, await capabilityUploadStore.complete(decodeURIComponent(capabilityUploadCompleteMatch[2]))); }
+      catch (error) { sendJson(response, 400, { status: error.code ?? "CAPABILITY_UPLOAD_FAILED", reason: error.message }); } return;
+    }
+    if (request.method === "POST" && capabilityRenderMatch) {
+      if (!requireSameOrigin(request)) { sendJson(response, 403, { status: "BLOCKED", reason: "Same-origin confirmation is required." }); return; }
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "capability-app-render", risk: "MEDIUM" }, { user_context: accessContext }); if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      try { sendJson(response, 202, await managedCapabilityAppCenter.startRender(decodeURIComponent(capabilityRenderMatch[1]), decodeURIComponent(capabilityRenderMatch[2]))); }
+      catch (error) { sendJson(response, 400, { status: error.code ?? "CAPABILITY_RENDER_FAILED", reason: error.message }); } return;
     }
     const domainCapabilityMemberMatch = pathname.match(/^\/api\/access\/members\/([^/]+)\/domain-capabilities$/);
     if (domainCapabilityMemberMatch) {

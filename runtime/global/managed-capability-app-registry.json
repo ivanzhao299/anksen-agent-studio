@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "registry_id": "anksen-managed-capability-apps",
+  "apps": [
+    {
+      "app_id": "openmontage",
+      "name": "OpenMontage",
+      "category": "video-and-creative-production",
+      "license": "AGPL-3.0",
+      "capabilities": ["source-media-review", "creative-planning", "video-composition", "remotion-atelier", "hyperframes", "quality-review", "local-export"],
+      "installation": {
+        "root_env": "ANKSEN_OPENMONTAGE_ROOT",
+        "local_path_candidates": ["~/Documents/ANKSEN-Capabilities/OpenMontage", "/opt/anksen/capabilities/openmontage"],
+        "manifest": "integration.manifest.json",
+        "bridge_entry": "scripts/studio_bridge.py",
+        "python": ".venv/bin/python"
+      },
+      "native_ui": { "origin": "http://127.0.0.1:4750", "project_path_template": "/p/{project_id}" },
+      "boundary": { "integration_mode": "INDEPENDENT_MANAGED_APP", "studio_orchestration": "HANDOFF_ONLY", "progress": "READ_ONLY_PROJECTION", "artifacts": "READ_ONLY_DISCOVERY" },
+      "deployment": {
+        "repository": "https://github.com/ivanzhao299/OpenMontage.git",
+      "commit": "776d2c7d2f14d379d3b7ce256a47bf6beb9da94d",
+        "root": "/opt/anksen/capabilities/openmontage",
+        "service": "anksen-openmontage-backlot",
+        "health_url": "http://127.0.0.1:4750/api/health"
+      }
+    }
+  ]
+}
