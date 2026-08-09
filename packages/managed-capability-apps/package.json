@@ -1,0 +1,17 @@
+{
+  "name": "@anksen-agent-studio/managed-capability-apps",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "studio-capability-apps": "./bin/managed-capability-apps.mjs"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./center": "./lib/managed-capability-app-center.mjs"
+  }
+}
