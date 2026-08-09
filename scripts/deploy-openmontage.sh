@@ -53,7 +53,9 @@ if [[ ! -d "$app_root/.git" ]]; then
   git clone --no-checkout "$repo_url" "$app_root"
 fi
 [[ "$(git -C "$app_root" remote get-url origin)" == "$repo_url" ]] || { echo "OpenMontage remote mismatch." >&2; exit 1; }
-[[ -z "$(git -C "$app_root" status --porcelain --untracked-files=no)" ]] || { echo "OpenMontage tracked files are dirty; refusing deployment." >&2; exit 1; }
+if git -C "$app_root" rev-parse --verify HEAD >/dev/null 2>&1; then
+  [[ -z "$(git -C "$app_root" status --porcelain --untracked-files=no)" ]] || { echo "OpenMontage tracked files are dirty; refusing deployment." >&2; exit 1; }
+fi
 git -C "$app_root" fetch --prune origin "$commit_sha"
 git -C "$app_root" cat-file -e "${commit_sha}^{commit}"
 git -C "$app_root" checkout --detach "$commit_sha"
