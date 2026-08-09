@@ -113,4 +113,28 @@ done
 curl --fail --silent --show-error --max-time 3 "http://127.0.0.1:${port}/api/health" >/dev/null
 "$app_root/.venv/bin/python" "$app_root/scripts/studio_bridge.py" health | "$app_root/.venv/bin/python" -c 'import json,sys; data=json.load(sys.stdin); assert data["ok"] and data["status"]=="READY"'
 sudo systemctl is-active --quiet "$service_name"
+
+# Emit a compact, non-secret project snapshot so a deployment run also proves
+# that Studio can still read the independent application's durable state. This
+# is deliberately diagnostic only: it neither starts work nor mutates a project.
+for project_file in "$app_root"/projects/*/project.json; do
+  [[ -f "$project_file" ]] || continue
+  project_id="$(basename "$(dirname "$project_file")")"
+  "$app_root/.venv/bin/python" "$app_root/scripts/studio_bridge.py" project-state --project-id "$project_id" |
+    "$app_root/.venv/bin/python" -c '
+import json
+import sys
+
+payload = json.load(sys.stdin)
+state = payload.get("state") or {}
+renders = state.get("renders") or []
+print(json.dumps({
+    "event": "OPENMONTAGE_PROJECT_SNAPSHOT",
+    "project_id": payload.get("project_id"),
+    "status": state.get("status"),
+    "render_count": len(renders),
+    "render_job": payload.get("render_job"),
+}, ensure_ascii=False, separators=(",", ":")))
+'
+done
 printf 'OPENMONTAGE_DEPLOYMENT=PASS commit=%s root=%s service=%s\n' "$commit_sha" "$app_root" "$service_name"
