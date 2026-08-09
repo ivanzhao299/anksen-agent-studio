@@ -85,7 +85,7 @@ export function createManagedCapabilityAppCenter({ repoRoot = defaultRepoRoot, r
           const [health, projects] = await Promise.all([invoke(app, "health"), invoke(app, "projects")]);
           const summaries = projects.projects ?? [];
           const project_states = includeProjectState ? Object.fromEntries(await Promise.all(summaries.slice(0, 20).map(async (project) => {
-            try { const state = await invoke(app, "project-state", ["--project-id", safeProjectId(project.project_id)]); return [project.project_id, state.state ? { ...state.state, studio_handoff: state.handoff ?? null } : null]; }
+            try { const state = await invoke(app, "project-state", ["--project-id", safeProjectId(project.project_id)]); return [project.project_id, state.state ? { ...state.state, studio_handoff: state.handoff ?? null, render_job: state.render_job ?? null } : null]; }
             catch { return [project.project_id, null]; }
           }))) : {};
           return { ...app, status: health.status, installation, health, projects: summaries, project_states, error: null };
