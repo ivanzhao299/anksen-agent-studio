@@ -25,12 +25,28 @@ done
 [[ "$service_name" =~ ^[a-z0-9-]+$ ]] || { echo "Invalid OpenMontage service name." >&2; exit 2; }
 [[ "$port" =~ ^[0-9]{4,5}$ ]] || { echo "Invalid OpenMontage port." >&2; exit 2; }
 
-for command_name in git python3 node npm ffmpeg curl sudo systemctl; do
+for command_name in git python3 node npm curl sudo systemctl; do
   command -v "$command_name" >/dev/null || { printf 'OpenMontage prerequisite missing: %s\n' "$command_name" >&2; exit 1; }
 done
 python3 -c 'import sys; assert sys.version_info >= (3, 11), "OpenMontage requires Python 3.11+"'
 node -e 'const major=Number(process.versions.node.split(".")[0]);if(major<22)throw new Error("OpenMontage Remotion requires Node.js 22+")'
 sudo -n true
+
+apt_updated=false
+install_apt_package() {
+  local package_name="$1"
+  command -v apt-get >/dev/null || { printf 'Required system package is missing and apt-get is unavailable: %s\n' "$package_name" >&2; exit 1; }
+  if [[ "$apt_updated" != true ]]; then
+    sudo -n env DEBIAN_FRONTEND=noninteractive apt-get update
+    apt_updated=true
+  fi
+  sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$package_name"
+}
+
+command -v ffmpeg >/dev/null || install_apt_package ffmpeg
+if ! dpkg-query -W -f='${Status}' python3-venv 2>/dev/null | grep -q 'install ok installed'; then
+  install_apt_package python3-venv
+fi
 
 sudo install -d -m 0750 -o "$(id -un)" -g "$(id -gn)" "$(dirname "$app_root")"
 if [[ ! -d "$app_root/.git" ]]; then
