@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import vm from "node:vm";
 import { evaluateStudioPassword, evaluateConsoleRouteAccess } from "../../../packages/access-center/lib/access-center-utils.mjs";
 import { renderConsolePage } from "./render.mjs";
 
@@ -32,6 +33,15 @@ test("account page exposes self-service password rotation without exposing secre
     assert.match(html, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
   assert.doesNotMatch(html, /password_hash|session_token|localStorage.*password|默认密码/);
+
+  const inlineScripts = [...html.matchAll(/<script(?:[^>]*)>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
+  assert.ok(inlineScripts.length > 0);
+  for (const [index, source] of inlineScripts.entries()) {
+    assert.doesNotThrow(() => new vm.Script(source, { filename: `account-inline-${index}.js` }));
+  }
+  assert.match(html, /number:\/\\d\/\.test\(value\)/);
+  assert.match(html, /symbol:\/\[\^A-Za-z0-9\\s\]\//);
+  assert.match(html, /space:!\/\\s\/\.test\(value\)/);
 });
 
 test("password API verifies current credentials, enforces same origin, rotates sessions and writes sanitized audit", async () => {
