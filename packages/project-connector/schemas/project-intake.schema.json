@@ -8,7 +8,7 @@
   "properties": {
     "schema_version": { "type": "integer", "minimum": 1 },
     "project_id": { "type": "string", "minLength": 1 },
-    "source_type": { "enum": ["local_path", "git_url", "zip_placeholder"] },
+    "source_type": { "enum": ["new_project", "local_path", "git_url", "zip_placeholder"] },
     "local_path": { "type": "string" },
     "git_url_present": { "type": "boolean" },
     "zip_placeholder_present": { "type": "boolean" },

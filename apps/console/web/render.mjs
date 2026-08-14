@@ -1446,6 +1446,26 @@ function interactiveScript() {
     });
   });
 
+  document.querySelectorAll("[data-project-source]").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll("[data-project-source]").forEach((item) => item.classList.toggle("active", item === button));
+      const source = button.getAttribute("data-project-source") || "local_path";
+      if (projectConnectSource) projectConnectSource.value = source;
+      const isNew = source === "new_project";
+      const isRepository = button.getAttribute("data-project-kind") === "repository";
+      if (projectConnectLocalPath) {
+        projectConnectLocalPath.placeholder = isNew ? "/opt/projects/customer-portal" : isRepository ? "/opt/projects/existing-repository" : "/opt/projects/existing-folder";
+        projectConnectLocalPath.focus();
+      }
+      const help = document.getElementById("project-source-help");
+      if (help) help.textContent = isNew
+        ? "Studio 将创建该文件夹、README、.gitignore，并初始化 main 分支。项目代码写入和部署仍需单独批准。"
+        : isRepository
+          ? "Studio 只读取仓库元数据并建立连接；不会自动提交、推送或修改代码。"
+          : "Studio 将连接该文件夹并探测技术栈；目录内容保持不变，稍后可单独初始化 Git。";
+    });
+  });
+
   document.querySelectorAll("[data-project-select]").forEach((button) => {
     button.addEventListener("click", () => {
       const value = button.getAttribute("data-project-select");
@@ -2960,68 +2980,37 @@ function pageProjects(data) {
   const activeProjectLabel = data.active_project?.project_name ?? data.active_project?.label ?? data.active_project_id ?? "当前项目";
   const activeProjectId = data.active_project_id ?? data.project_router.projects?.[0]?.project_id ?? "workspace";
   const workspaceProjects = data.project_router.workspace?.projects ?? [];
-  const dispatchPlans = data.project_router.dispatch_plans ?? [];
-  const lifecycleMap = new Map(lifecycleRecords(data).map((item) => [item.task_id, item]));
-  const rows = workspaceProjects.map((item) => ({
-    project: item.project_id,
-    status: item.connection_status,
-    route: item.execution_route,
-    branch: item.repo_branch,
-    clean: item.repo_clean,
-    write_policy: item.write_policy
-  }));
+  const knownPaths = [...new Set((data.project_router.projects ?? []).map((item) => item.repo_path_display).filter((item) => item && item !== "not_connected"))];
   const connectedProjectCount = workspaceProjects.filter((item) => item.connection_status === "CONNECTED").length;
-  const plannedProjectCount = workspaceProjects.filter((item) => item.connection_status !== "CONNECTED").length;
-  return `${projectWorkbench(data)}
-  <section>
-    <div class="section-head"><h2>当前项目上下文</h2><span class="pill">${escapeHtml(activeProjectId)}</span></div>
-    <div class="kanban-grid">
-      <div class="panel">
-        <div class="grid">
-          ${metric("当前项目", activeProjectLabel)}
-          ${metric("连接状态", data.active_project?.connection_status ?? "unknown")}
-          ${metric("执行路由", data.active_project?.execution_route ?? "managed_project_repo")}
-          ${metric("写入策略", data.active_project?.write_policy ?? "disabled")}
-        </div>
-        <div class="button-row" style="margin-top:12px;">
-          <button type="button" class="secondary" data-quick-action="project-inspect" data-goal="${escapeHtml(`检查 ${activeProjectLabel}`)}">检查项目</button>
-          <button type="button" class="secondary" data-quick-action="project-dispatch" data-goal="${escapeHtml(`为 ${activeProjectLabel} 生成派发计划`)}">生成派发计划</button>
-          <button type="button" class="secondary" data-quick-action="proposal-review" data-goal="${escapeHtml(`查看 ${activeProjectLabel} 待审批 Proposal`)}">查看 Proposal</button>
-          <a class="secondary link-button" href="${escapeHtml(routeHref("/actions", activeProjectId))}">切到任务台</a>
-        </div>
-      </div>
-    </div>
+  const projectRows = workspaceProjects.map((item) => `<a class="project-simple-row${item.project_id === activeProjectId ? " active" : ""}" href="${escapeHtml(routeHref("/projects", item.project_id))}"><span class="project-simple-mark">${escapeHtml((item.project_name ?? item.project_id).slice(0, 1).toUpperCase())}</span><span><strong>${escapeHtml(item.project_name ?? item.project_id)}</strong><small>${escapeHtml(item.repo_branch ?? "—")} · ${escapeHtml(item.repo_clean === "yes" ? "仓库干净" : item.repo_clean ?? "状态未知")}</small></span><em class="status-label ${item.connection_status === "CONNECTED" ? "pass" : "pending"}">${item.connection_status === "CONNECTED" ? "已连接" : "待连接"}</em></a>`).join("");
+  return `<style>
+  .project-launcher{max-width:980px;margin:0 auto}.project-launcher-hero{padding:20px 0 8px}.project-launcher-hero h1{font-size:30px;letter-spacing:-.04em;margin:5px 0}.project-launcher-hero p{max-width:620px;color:var(--theme-text-soft)}
+  .project-entry-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.project-entry{min-height:128px;text-align:left;padding:18px;border:1px solid var(--theme-border);border-radius:14px;background:var(--theme-surface);box-shadow:none}.project-entry:hover,.project-entry.active{border-color:var(--theme-accent);background:var(--theme-surface-soft)}.project-entry b{display:block;font-size:16px;margin:12px 0 4px}.project-entry small{display:block;color:var(--theme-text-soft);line-height:1.45}.project-entry-icon{font-size:21px}
+  .project-create-panel{padding:20px;border:1px solid var(--theme-border);border-radius:14px;background:var(--theme-surface)}.project-create-primary{display:grid;grid-template-columns:1fr 1.7fr;gap:12px}.project-advanced{margin-top:14px;border-top:1px solid var(--theme-border);padding-top:12px}.project-advanced summary{cursor:pointer;color:var(--theme-text-soft)}
+  .project-simple-list{display:grid;gap:6px}.project-simple-row{display:grid;grid-template-columns:38px 1fr auto;gap:12px;align-items:center;padding:12px;border-radius:12px;color:inherit;text-decoration:none}.project-simple-row:hover,.project-simple-row.active{background:var(--theme-surface-soft)}.project-simple-row small{display:block;color:var(--theme-text-soft);margin-top:3px}.project-simple-row em{font-style:normal}.project-simple-mark{width:34px;height:34px;border-radius:9px;background:var(--theme-accent-soft);display:grid;place-items:center;font-weight:700;color:var(--theme-accent)}
+  @media(max-width:760px){.project-entry-grid,.project-create-primary{grid-template-columns:1fr}.project-entry{min-height:auto}}
+  </style><div class="project-launcher" data-interface-model="project-launcher">
+  <section class="project-launcher-hero"><span class="eyebrow">Projects</span><h1>从项目开始</h1><p>创建一个新项目，或把已有仓库、文件夹连接到 Studio。连接后即可直接对话、检查状态或开始开发。</p></section>
+  <section class="project-entry-grid" aria-label="项目创建方式">
+    <button class="project-entry active" type="button" data-project-source="new_project"><span class="project-entry-icon">＋</span><b>创建新项目</b><small>创建文件夹并初始化 Git 仓库</small></button>
+    <button class="project-entry" type="button" data-project-source="local_path" data-project-kind="repository"><span class="project-entry-icon">⌘</span><b>选择本地仓库</b><small>连接已有 Git 仓库并自动识别技术栈</small></button>
+    <button class="project-entry" type="button" data-project-source="local_path" data-project-kind="folder"><span class="project-entry-icon">▢</span><b>选择项目文件夹</b><small>接入尚未初始化 Git 的现有目录</small></button>
   </section>
-  <section>
-    <div class="section-head"><h2>接入新项目</h2><span class="pill">GitHub / 本地目录 / 链接占位</span></div>
-    <div class="kanban-grid">
-      <div class="panel">
-        <p class="help">支持三种入口：直接绑定本地目录、粘贴 GitHub / Git 仓库地址自动接入，或先登记一个链接地址 / Zip 占位项目。当前只写 Studio 的连接器、绑定和运行记忆，不会写业务仓库。</p>
-        <div class="form-grid">
+  <section class="project-create-panel">
+    <input id="project-connect-source" type="hidden" value="new_project">
+    <div class="project-create-primary">
+      <div><label for="project-connect-name">项目名称</label><input id="project-connect-name" type="text" placeholder="例如：Customer Portal" autocomplete="off"></div>
+      <div><label for="project-connect-local-path">项目文件夹</label><input id="project-connect-local-path" type="text" list="project-path-options" placeholder="/opt/projects/customer-portal" autocomplete="off"><datalist id="project-path-options">${knownPaths.map((path) => `<option value="${escapeHtml(path)}"></option>`).join("")}</datalist></div>
+    </div>
+    <p id="project-source-help" class="help">Studio 将创建该文件夹、README、.gitignore，并初始化 main 分支。项目代码写入和部署仍需单独批准。</p>
+    <details class="project-advanced"><summary>高级选项</summary><div class="form-grid" style="margin-top:12px">
           <div>
             <label for="project-connect-id">项目 ID</label>
             <input id="project-connect-id" type="text" placeholder="可留空，系统自动推断">
           </div>
           <div>
-            <label for="project-connect-name">项目名称</label>
-            <input id="project-connect-name" type="text" placeholder="可留空，自动生成">
-          </div>
-          <div>
-            <label for="project-connect-source">接入方式</label>
-            <select id="project-connect-source">
-              ${formOption("auto", "自动识别地址", true)}
-              ${formOption("local_path", "本地目录")}
-              ${formOption("git_url", "GitHub / Git 仓库")}
-              ${formOption("zip_placeholder", "链接地址 / Zip 占位")}
-            </select>
-          </div>
-          <div>
-            <label for="project-connect-local-path">本地路径</label>
-            <input id="project-connect-local-path" type="text" placeholder="../my-project or /absolute/path">
-          </div>
-          <div>
-            <label for="project-connect-url">地址 / 仓库 URL</label>
-            <input id="project-connect-url" type="text" placeholder="https://github.com/org/repo or https://example.com/archive.zip">
+            <label for="project-connect-url">远端仓库 URL（可选）</label>
+            <input id="project-connect-url" type="text" placeholder="https://github.com/org/repo.git">
           </div>
           <div>
             <label for="project-connect-branch">默认分支</label>
@@ -3039,78 +3028,12 @@ function pageProjects(data) {
             <label for="project-connect-description">说明</label>
             <input id="project-connect-description" type="text" placeholder="可选，记录该项目用途">
           </div>
-        </div>
-        <div class="button-row">
-          <button type="button" class="secondary" data-project-connect-action="project-connect-dry-run">生成连接草稿</button>
-          <button type="button" class="primary" data-project-connect-action="project-connect-apply">写入并接入工作区</button>
-        </div>
-      </div>
-    </div>
+        </div></details>
+    <div class="button-row" style="justify-content:flex-end;margin-top:16px"><button type="button" class="secondary" data-project-connect-action="project-connect-dry-run">预览</button><button type="button" class="primary" data-project-connect-action="project-connect-apply">创建并连接</button></div>
   </section>
-  <section><h2>${messages.pages.projects.title}</h2><div class="grid">
-    ${metric(messages.pages.projects.connectedProject, connectedProjectCount)}
-    ${metric(messages.pages.projects.phoenixErp, plannedProjectCount)}
-    ${metric(messages.pages.projects.writes, data.safety.managed_project_writes)}
-    ${metric("挂接绑定", data.project_router.binding_count)}
-    ${metric("Proposal", data.project_router.proposal_count ?? 0)}
-    ${metric("Queue Audit", data.project_router.queue_injection_audit_count ?? 0)}
-  </div></section>
-  ${projectLifecycleOverview(data)}
-  <section><h2>Attached Project Workspace</h2>${rows.length > 0 ? table(rows, [
-    { key: "project", label: "项目" },
-    { key: "status", label: "连接" },
-    { key: "route", label: "路由" },
-    { key: "branch", label: "分支" },
-    { key: "clean", label: "仓库" },
-    { key: "write_policy", label: "写入策略" }
-  ]) : `<div class="panel"><p class="help">尚未生成绑定快照。先执行 <code>studio project bind --apply</code> 与 <code>studio project workspace --apply</code>。</p></div>`}</section>
-  <section><h2>Project Dispatch Plans</h2>${dispatchPlans.length > 0 ? table(dispatchPlans.slice(0, 8).map((item) => {
-    const taskId = item.data?.task_id ?? "unknown";
-    const lifecycle = lifecycleMap.get(taskId);
-    const isInjected = lifecycle?.lifecycle === "injected";
-    const isManualOnly = lifecycle?.lifecycle === "needs_approval" && ["HIGH", "CRITICAL"].includes(lifecycle?.risk ?? "");
-    return {
-      project: item.project_id,
-      task_id: taskId,
-      stage: item.data?.pipeline_stage ?? "unknown",
-      proposal: statusLabel(lifecycle?.approval_status ?? "missing"),
-      audit: statusLabel(lifecycle?.queue_audit_status ?? "missing"),
-      runtime: item.data?.worker_route?.runtime_id ?? item.data?.task_candidate?.runtime ?? "unknown",
-      worker: item.data?.worker_route?.worker_id ?? "none",
-      closure: toneLabel(lifecycle?.lifecycle_label ?? "待补 proposal", lifecycle?.lifecycle ?? "proposal_missing"),
-      next: `<div class="proposal-evidence">
-        <span class="help">${escapeHtml(lifecycle?.blockers?.[0] ?? item.data?.recommended_next_stage ?? "unknown")}</span>
-        <div class="button-row compact-row">
-          <button type="button" class="secondary" data-proposal-action="proposal-review" data-proposal-task="${escapeHtml(taskId)}">查看</button>
-          ${isInjected
-            ? (lifecycle?.worker_claim_status === "PASS" || lifecycle?.controlled_queue_status === "CLAIMED_DRY_RUN_READY"
-                ? `<span class="help">Worker 已领取</span>`
-                : `<button type="button" class="primary" data-proposal-action="worker-claim-preflight" data-proposal-task="${escapeHtml(taskId)}">领取 Worker</button>`)
-            : isManualOnly
-              ? `<span class="help">人工审批</span>`
-              : `<button type="button" class="primary" data-proposal-action="proposal-approve-apply" data-proposal-task="${escapeHtml(taskId)}">审批并入队</button>`}
-        </div>
-      </div>`,
-      evidence: `<div class="proposal-evidence">
-        ${item.path ? inlineDetails("dispatch", item.data ?? {}) : ""}
-        ${lifecycle?.proposal_path ? inlineDetails("proposal", lifecycle.proposal) : ""}
-        ${lifecycle?.audit_path ? inlineDetails("audit", lifecycle.audit) : ""}
-        ${lifecycle?.worker_claim_path ? inlineDetails("claim", lifecycle.worker_claim) : ""}
-      </div>`
-    };
-  }), [
-    { key: "project", label: "项目" },
-    { key: "task_id", label: "任务" },
-    { key: "stage", label: "阶段" },
-    { key: "proposal", label: "Proposal", html: true },
-    { key: "audit", label: "Queue Audit", html: true },
-    { key: "runtime", label: "Runtime" },
-    { key: "worker", label: "Worker" },
-    { key: "closure", label: "闭环状态", html: true },
-    { key: "next", label: "下一步", html: true },
-    { key: "evidence", label: "证据", html: true }
-  ]) : `<div class="panel"><p class="help">尚未生成派发计划。先执行 <code>studio project dispatch-plan --project ${escapeHtml(data.active_project_id ?? data.project_router.projects?.[0]?.project_id ?? "workspace")} --text "..." --apply</code>。</p></div>`}</section>
-  <section><h2>${escapeHtml(`${activeProjectLabel} 运行记忆`)}</h2>${detailsJson("查看原始运行记忆 JSON", project)}</section>`;
+  <section style="margin-top:28px"><div class="section-head"><div><h2>项目</h2><p class="help">${connectedProjectCount} 个项目已连接</p></div><button type="button" class="secondary" data-quick-action="project-inspect" data-goal="${escapeHtml(`检查 ${activeProjectLabel}`)}">检查当前项目</button></div><div class="project-simple-list">${projectRows || '<div class="empty-state"><strong>还没有项目</strong>从上方创建或选择一个项目文件夹。</div>'}</div></section>
+  <details class="project-advanced" style="margin-top:24px"><summary>项目运行与治理详情</summary><div style="margin-top:14px">${projectLifecycleOverview(data)}${detailsJson("查看当前项目运行记忆", project)}</div></details>
+  </div>`;
 }
 
 function pageRuntime(data) {

@@ -23,7 +23,7 @@ Usage:
   node packages/orchestrator-core/bin/studio.mjs project intake --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project stack --config <file> --dry-run
   node packages/orchestrator-core/bin/studio.mjs project commands --config <file> --dry-run
-  node packages/orchestrator-core/bin/studio.mjs project connect [--project-id <project_id>] [--project-name <name>] [--source-type auto|local_path|git_url|zip_placeholder] [--local-path <path>] [--git-url <url>] [--url <url>] [--description <text>] [--default-branch <branch>] [--package-manager <pm>] [--dry-run|--apply]
+  node packages/orchestrator-core/bin/studio.mjs project connect [--project-id <project_id>] [--project-name <name>] [--source-type auto|new_project|local_path|git_url|zip_placeholder] [--local-path <path>] [--git-url <url>] [--url <url>] [--description <text>] [--default-branch <branch>] [--package-manager <pm>] [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs project bind --config <file> [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs project workspace [--dry-run|--apply]
   node packages/orchestrator-core/bin/studio.mjs project exec-context --project <project_id> --dry-run
@@ -10702,6 +10702,27 @@ function inferredSourceType(args) {
   return "local_path";
 }
 
+async function createProjectDirectoryIfNeeded(sourceType, projectPath, projectName) {
+  if (sourceType !== "new_project") return { attempted: false, status: "not_required", detail: "existing project source" };
+  const configuredRoots = String(process.env.STUDIO_PROJECT_ROOTS ?? "")
+    .split(":")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => resolve(value));
+  const allowedRoots = configuredRoots.length > 0 ? configuredRoots : [resolve(repoRoot, "..")];
+  const allowed = allowedRoots.some((root) => projectPath === root || projectPath.startsWith(`${root}/`));
+  if (!allowed) {
+    throw new Error(`New project path must be inside an allowed project root: ${allowedRoots.join(", ")}`);
+  }
+  if (existsSync(projectPath)) return { attempted: false, status: "present", detail: "project directory already exists" };
+  await mkdir(projectPath, { recursive: true });
+  await writeFile(join(projectPath, "README.md"), `# ${projectName}\n\nCreated with ANKSEN Agent Studio.\n`, "utf8");
+  await writeFile(join(projectPath, ".gitignore"), ".env\n.env.*\nnode_modules/\ndist/\n.DS_Store\n", "utf8");
+  const init = await execReadOnly(projectPath, "git", ["init", "-b", "main"], 120000);
+  if (!init.ok) throw new Error(`Unable to initialize project Git repository: ${init.stderr || init.stdout}`);
+  return { attempted: true, status: "created", detail: "directory and Git repository initialized" };
+}
+
 function inferredProjectId(args, sourceType) {
   if (String(args.projectId ?? "").trim()) return safeSegment(args.projectId).toLowerCase();
   const localPath = String(args.localPath ?? "").trim();
@@ -10810,6 +10831,8 @@ function baseProjectConnectConfig({
       package_manager: nextPackageManager,
       repository_kind: sourceType === "git_url"
         ? "git_repository"
+        : sourceType === "new_project"
+          ? "new_git_repository"
         : sourceType === "local_path"
           ? "local_workspace"
           : "linked_placeholder"
@@ -10930,8 +10953,14 @@ async function projectConnect(args) {
     status: initialProjectExists ? "present" : "not_attempted",
     detail: initialProjectExists ? "local path already exists" : "no clone attempted"
   };
+  let createSummary = {
+    attempted: false,
+    status: initialProjectExists ? "present" : "not_attempted",
+    detail: initialProjectExists ? "local path already exists" : "no project creation attempted"
+  };
 
   if (args.apply) {
+    createSummary = await createProjectDirectoryIfNeeded(sourceType, absoluteProjectPath, projectName);
     await mkdir(dirname(configPath), { recursive: true });
     await writeJsonFile(configPath, config);
     filesWritten.push(relativePath(configPath));
@@ -11016,6 +11045,9 @@ async function projectConnect(args) {
   console.log(`clone_attempted: ${cloneSummary.attempted ? "yes" : "no"}`);
   console.log(`clone_status: ${cloneSummary.status}`);
   console.log(`clone_detail: ${cloneSummary.detail}`);
+  console.log(`create_attempted: ${createSummary.attempted ? "yes" : "no"}`);
+  console.log(`create_status: ${createSummary.status}`);
+  console.log(`create_detail: ${createSummary.detail}`);
   console.log("");
   console.log("safety:");
   console.log("- project_writes: disabled");
