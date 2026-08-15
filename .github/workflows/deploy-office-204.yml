@@ -55,7 +55,7 @@ jobs:
     name: Deploy through Aliyun jump host
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - name: Configure jump-host SSH identity
         env:

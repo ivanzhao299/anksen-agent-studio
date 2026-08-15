@@ -26,6 +26,7 @@
             "additionalProperties": false,
             "properties": {
               "root_env": { "type": "string", "minLength": 1 },
+              "adapter": { "enum": ["bridge", "http_health"] },
               "local_path_candidates": { "type": "array", "items": { "type": "string" } },
               "manifest": { "type": "string", "minLength": 1 },
               "bridge_entry": { "type": "string", "minLength": 1 },
@@ -34,7 +35,7 @@
           },
           "native_ui": { "type": "object", "required": ["origin", "project_path_template"], "additionalProperties": false, "properties": { "origin": { "type": "string" }, "project_path_template": { "type": "string" } } },
           "boundary": { "type": "object", "required": ["integration_mode", "studio_orchestration", "progress", "artifacts"], "additionalProperties": false, "properties": { "integration_mode": { "const": "INDEPENDENT_MANAGED_APP" }, "studio_orchestration": { "const": "HANDOFF_ONLY" }, "progress": { "const": "READ_ONLY_PROJECTION" }, "artifacts": { "const": "READ_ONLY_DISCOVERY" } } },
-          "deployment": { "type": "object", "required": ["repository", "commit", "root", "service", "health_url"], "additionalProperties": false, "properties": { "repository": { "type": "string", "pattern": "^https://github.com/" }, "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" }, "root": { "type": "string", "pattern": "^/opt/anksen/" }, "service": { "type": "string" }, "health_url": { "type": "string", "pattern": "^http://127.0.0.1:" } } }
+          "deployment": { "type": "object", "required": ["repository", "commit", "root", "service", "health_url"], "additionalProperties": false, "properties": { "repository": { "type": "string", "pattern": "^https://github.com/" }, "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" }, "root": { "type": "string", "pattern": "^/opt/anksen/" }, "service": { "type": "string" }, "health_url": { "type": "string", "pattern": "^http://127.0.0.1:" }, "version": { "type": "string", "minLength": 1 }, "image": { "type": "string", "pattern": "^ghcr\\.io/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[a-f0-9]{64}$" } } }
         }
       }
     }
