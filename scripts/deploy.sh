@@ -59,6 +59,10 @@ if [[ "$remote_commit" != "$expected_commit" ]]; then
 fi
 
 git merge --ff-only "$expected_commit"
+if [[ "$previous_commit" != "$expected_commit" && "${ANKSEN_DEPLOY_REEXECUTED:-false}" != "true" ]]; then
+  printf 'Deployment script changed with the release; restarting from commit %s.\n' "$expected_commit"
+  exec env ANKSEN_DEPLOY_REEXECUTED=true bash scripts/deploy.sh --commit "$expected_commit"
+fi
 pnpm install --frozen-lockfile
 pnpm typecheck
 pnpm lint:check

@@ -194,9 +194,9 @@ services:
       com.anksen.capability: openclaw
       com.anksen.boundary: independent-managed-app
 YAML
-"${docker_command[@]}" compose --env-file "$env_file" -f "$compose_tmp" config --quiet
 install -m 0600 "$compose_tmp" "$compose_file"
 rm -f "$compose_tmp"
+"${docker_command[@]}" compose --env-file "$env_file" -f "$compose_file" config --quiet
 
 "${docker_command[@]}" compose --env-file "$env_file" -f "$compose_file" pull
 "${docker_command[@]}" compose --env-file "$env_file" -f "$compose_file" run --rm --no-deps --entrypoint node openclaw-gateway dist/index.js config validate >/dev/null
