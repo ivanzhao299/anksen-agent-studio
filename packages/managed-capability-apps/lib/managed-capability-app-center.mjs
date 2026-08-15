@@ -28,6 +28,8 @@ export function validateManagedCapabilityAppRegistry(registry) {
     if (app.boundary?.studio_orchestration !== "HANDOFF_ONLY") errors.push(`${app.app_id}: Studio may only hand off work`);
     if (app.boundary?.progress !== "READ_ONLY_PROJECTION") errors.push(`${app.app_id}: progress must be read-only`);
     if (app.deployment?.commit && !/^[a-f0-9]{40}$/.test(app.deployment.commit)) errors.push(`${app.app_id}: deployment commit must be a full SHA`);
+    if (app.deployment?.image && !/^ghcr\.io\/[a-z0-9_.-]+\/[a-z0-9_.-]+@sha256:[a-f0-9]{64}$/.test(app.deployment.image)) errors.push(`${app.app_id}: deployment image must use an immutable GHCR digest`);
+    if (app.installation?.adapter && !["bridge", "http_health"].includes(app.installation.adapter)) errors.push(`${app.app_id}: unsupported installation adapter`);
   }
   if (errors.length) throw Object.assign(new Error(errors.join("; ")), { code: "MANAGED_CAPABILITY_APP_REGISTRY_INVALID", errors });
   return registry;
@@ -43,7 +45,21 @@ export function resolveCapabilityAppInstallation(app, env = process.env) {
     .filter(Boolean)
     .map((value) => resolve(expandHome(String(value))));
   const root = candidates.find((candidate) => existsSync(resolve(candidate, app.installation.manifest)));
-  return { root: root ?? null, candidates, manifest_found: Boolean(root), python: root ? resolve(root, app.installation.python) : null, bridge: root ? resolve(root, app.installation.bridge_entry) : null };
+  return { adapter: app.installation.adapter ?? "bridge", root: root ?? null, candidates, manifest_found: Boolean(root), python: root && app.installation.python ? resolve(root, app.installation.python) : null, bridge: root && app.installation.bridge_entry ? resolve(root, app.installation.bridge_entry) : null };
+}
+
+async function httpHealth(app) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    const response = await fetch(app.deployment.health_url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const contentType = response.headers.get("content-type") ?? "";
+    const details = contentType.includes("application/json") ? await response.json() : { response: (await response.text()).slice(0, 256) };
+    return { ok: true, status: "READY", details };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function defaultBridgeInvoker({ app, installation, operation, args = [] }) {
@@ -82,6 +98,10 @@ export function createManagedCapabilityAppCenter({ repoRoot = defaultRepoRoot, r
         const installation = resolveCapabilityAppInstallation(app, env);
         if (!installation.root) return { ...app, status: "UNAVAILABLE", installation, health: null, projects: [], error: "installation manifest not found" };
         try {
+          if (installation.adapter === "http_health") {
+            const health = await httpHealth(app);
+            return { ...app, status: health.status, installation, health, projects: [], project_states: {}, error: null };
+          }
           const [health, projects] = await Promise.all([invoke(app, "health"), invoke(app, "projects")]);
           const summaries = projects.projects ?? [];
           const project_states = includeProjectState ? Object.fromEntries(await Promise.all(summaries.slice(0, 20).map(async (project) => {
@@ -94,7 +114,7 @@ export function createManagedCapabilityAppCenter({ repoRoot = defaultRepoRoot, r
       return { schema_version: 1, registry_id: loaded.registry_id, architecture: "FEDERATED_INDEPENDENT_APPS", studio_role: "CONTROL_PLANE_AND_HANDOFF", apps };
     },
     async projectState(appId, projectId) { const loaded = await getRegistry(); return invoke(findApp(loaded, appId), "project-state", ["--project-id", safeProjectId(projectId)]); },
-    async deepLink(appId, projectId = null) { const loaded = await getRegistry(); const app = findApp(loaded, appId); return invoke(app, "deep-link", projectId ? ["--project-id", safeProjectId(projectId)] : []); },
+    async deepLink(appId, projectId = null) { const loaded = await getRegistry(); const app = findApp(loaded, appId); if ((app.installation.adapter ?? "bridge") === "http_health") return { ok: true, url: app.native_ui.origin, access: "SERVER_LOOPBACK_OR_SSH_TUNNEL" }; return invoke(app, "deep-link", projectId ? ["--project-id", safeProjectId(projectId)] : []); },
     async stageAsset(appId, projectId, inputPath, name) {
       const loaded = await getRegistry(), app = findApp(loaded, appId);
       return invoke(app, "stage-asset", ["--project-id", safeProjectId(projectId), "--input", resolve(String(inputPath)), "--name", String(name)]);

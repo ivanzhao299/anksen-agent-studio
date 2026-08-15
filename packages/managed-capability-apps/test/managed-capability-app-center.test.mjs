@@ -10,6 +10,17 @@ const app = { app_id: "openmontage", name: "OpenMontage", category: "video", lic
 test("registry rejects embedded orchestration and unpinned deployments", () => {
   assert.throws(() => validateManagedCapabilityAppRegistry({ schema_version: 1, apps: [{ ...app, boundary: { ...app.boundary, studio_orchestration: "EMBEDDED" } }] }), /hand off/);
   assert.throws(() => validateManagedCapabilityAppRegistry({ schema_version: 1, apps: [{ ...app, deployment: { commit: "main" } }] }), /full SHA/);
+  assert.throws(() => validateManagedCapabilityAppRegistry({ schema_version: 1, apps: [{ ...app, deployment: { image: "ghcr.io/openclaw/openclaw:latest" } }] }), /immutable GHCR digest/);
+});
+
+test("dashboard observes an HTTP-only independent app without embedding its runtime", async () => {
+  const root = await mkdtemp(join(tmpdir(), "capability-http-app-"));
+  await writeFile(join(root, "integration.manifest.json"), "{}\n");
+  const httpApp = { ...app, app_id: "openclaw", installation: { ...app.installation, adapter: "http_health" }, deployment: { ...app.deployment, health_url: "data:application/json,%7B%22ok%22%3Atrue%7D" } };
+  const center = createManagedCapabilityAppCenter({ registry: { schema_version: 1, registry_id: "test", apps: [httpApp] }, env: { TEST_APP_ROOT: root } });
+  const dashboard = await center.dashboard();
+  assert.equal(dashboard.apps[0].status, "READY");
+  assert.deepEqual(dashboard.apps[0].projects, []);
 });
 
 test("dashboard projects external state without a Studio runtime", async () => {

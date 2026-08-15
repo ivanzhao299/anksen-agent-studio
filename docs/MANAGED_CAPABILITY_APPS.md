@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Studio is the control plane for independent professional applications. It does not copy their planner, agents, pipeline, renderer, task queue, or state machine. The first managed application is OpenMontage.
+Studio is the control plane for independent professional applications. It does not copy their planner, agents, pipeline, renderer, task queue, or state machine. Managed applications currently include OpenMontage and OpenClaw.
 
 ## Ownership boundary
 
@@ -11,6 +11,19 @@ Studio owns application discovery, identity and access, coarse handoff, verified
 ## Pinned deployment
 
 `runtime/global/managed-capability-app-registry.json` is the release source of truth. Every deployed application must use an HTTPS repository and a full immutable commit SHA. `scripts/deploy-openmontage.sh` checks prerequisites, rejects dirty tracked files, checks out the exact SHA, installs isolated Python and Node dependencies, binds Backlot to `127.0.0.1:4750`, installs a hardened systemd service, and fails the Studio deployment if health checks do not pass.
+
+OpenClaw uses the same release discipline with a different artifact type: `scripts/deploy-openclaw.sh` accepts only the official `ghcr.io/openclaw/openclaw` image pinned by SHA-256 digest. It records a non-secret deployment manifest under `/opt/anksen/capabilities/openclaw`, binds the gateway only to `127.0.0.1:18789`, and runs health, doctor, and security-audit checks before deployment can pass. Studio observes that loopback health endpoint; it does not embed OpenClaw's agent runtime, sessions, tools, or channels.
+
+## OpenClaw security and access
+
+- The gateway token is generated once on the server, stored with mode `0600`, and never printed into deployment logs.
+- The container runs as UID/GID 1000 with a read-only root filesystem, all Linux capabilities dropped, `no-new-privileges`, bounded CPU/memory/PIDs, and rotated logs.
+- Docker Socket, host filesystem, privileged mode, host networking, host command execution, browser control, elevated tools, and remote session spawning are not enabled.
+- Direct public access is intentionally absent. Administrators reach the Control UI with an authenticated SSH tunnel to `127.0.0.1:18789` or add a separately reviewed authenticated reverse proxy later.
+- The initial deployment contains no model-provider credential and no messaging-channel credential. Those are onboarding operations, not deployment prerequisites, and require explicit credential authorization.
+- `agents.defaults.sandbox.mode` remains `off` because a Docker-backed sandbox would require exposing a container runtime to OpenClaw. The initial tool profile is therefore restricted to messaging while command execution is denied. This trade-off is checked by the persisted OpenClaw security audit.
+
+The server inventory check requires at least 2 GB total memory and 4 GB free under `/opt`, and records OS, CPU, memory, disk, Docker, Compose, relevant listeners, and an existing OpenClaw container status without disclosing secrets.
 
 ## End-to-end regression
 

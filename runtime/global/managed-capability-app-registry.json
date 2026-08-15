@@ -24,6 +24,32 @@
         "service": "anksen-openmontage-backlot",
         "health_url": "http://127.0.0.1:4750/api/health"
       }
+    },
+    {
+      "app_id": "openclaw",
+      "name": "OpenClaw",
+      "category": "personal-ai-assistant-gateway",
+      "license": "MIT",
+      "capabilities": ["multi-channel-assistant", "model-provider-routing", "tool-governance", "session-isolation", "local-control-ui"],
+      "installation": {
+        "adapter": "http_health",
+        "root_env": "ANKSEN_OPENCLAW_ROOT",
+        "local_path_candidates": ["/opt/anksen/capabilities/openclaw"],
+        "manifest": "deployment.json",
+        "bridge_entry": "not-applicable",
+        "python": "not-applicable"
+      },
+      "native_ui": { "origin": "http://127.0.0.1:18789", "project_path_template": "/" },
+      "boundary": { "integration_mode": "INDEPENDENT_MANAGED_APP", "studio_orchestration": "HANDOFF_ONLY", "progress": "READ_ONLY_PROJECTION", "artifacts": "READ_ONLY_DISCOVERY" },
+      "deployment": {
+        "repository": "https://github.com/openclaw/openclaw",
+        "commit": "0790d9f593ad30c940ed93b5872a8cf6d6f3cf8c",
+        "version": "2026.7.1-2",
+        "image": "ghcr.io/openclaw/openclaw@sha256:8789721d2e9b24b780a1504b56deb4c6bd5c7dbf96a1dd117e7c45c2ed72c8ac",
+        "root": "/opt/anksen/capabilities/openclaw",
+        "service": "anksen-openclaw-gateway",
+        "health_url": "http://127.0.0.1:18789/healthz"
+      }
     }
   ]
 }
