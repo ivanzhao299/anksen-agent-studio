@@ -121,10 +121,10 @@ cat > "$config_baseline" <<'JSON'
 JSON
 python3 -m json.tool "$config_baseline" >/dev/null
 config_merged="$(mktemp)"
-sudo -n python3 - "$config_file" "$config_baseline" "$config_merged" <<'PY'
+sudo -n python3 - "$config_file" "$config_baseline" > "$config_merged" <<'PY'
 import json, os, sys
 
-target, baseline_path, output = sys.argv[1:]
+target, baseline_path = sys.argv[1:]
 current = {}
 if os.path.exists(target):
     with open(target, encoding="utf-8") as handle:
@@ -140,9 +140,8 @@ def merge(destination, source):
             destination[key] = value
 
 merge(current, baseline)
-with open(output, "w", encoding="utf-8") as handle:
-    json.dump(current, handle, ensure_ascii=False, indent=2)
-    handle.write("\n")
+json.dump(current, sys.stdout, ensure_ascii=False, indent=2)
+sys.stdout.write("\n")
 PY
 sudo install -m 0600 -o 1000 -g 1000 "$config_merged" "$config_file"
 rm -f "$config_baseline" "$config_merged"
