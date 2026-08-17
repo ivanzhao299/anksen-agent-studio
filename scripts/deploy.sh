@@ -42,9 +42,10 @@ flock -n 9 || {
 
 cd "$repo_dir"
 
-if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+tracked_dirty="$(git status --porcelain --untracked-files=no | awk '$2 != "runtime/global/access-users.json"')"
+if [[ -n "$tracked_dirty" ]]; then
   printf 'Deployment stopped: tracked files on the server are modified.\n' >&2
-  git status --short
+  printf '%s\n' "$tracked_dirty"
   exit 1
 fi
 
