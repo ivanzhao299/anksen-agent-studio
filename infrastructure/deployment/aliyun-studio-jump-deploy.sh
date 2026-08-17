@@ -24,8 +24,10 @@ elif [[ "$action" == "phoenix-runner" && "$argument" == "probe" && -z "${commit_
   printf -v remote_command 'cd %q && exec bash scripts/deploy-phoenix-runner.sh --probe' "$office_repo"
 elif [[ "$action" == "phoenix-runner" && "$argument" == "deploy" && "$commit_sha" =~ ^[0-9a-f]{40}$ && -z "${unexpected:-}" ]]; then
   printf -v remote_command 'cd %q && exec bash scripts/deploy-phoenix-runner.sh --commit %q --env-stdin' "$office_repo" "$commit_sha"
+elif [[ "$action" == "kingturf-erp" && "$argument" == "deploy" && "$commit_sha" =~ ^[0-9a-f]{40}$ && -z "${unexpected:-}" ]]; then
+  printf -v remote_command 'cd %q && exec bash scripts/deploy-kingturf-erp.sh --commit %q --archive-stdin' "$office_repo" "$commit_sha"
 else
-  printf 'Rejected: allowed commands are deploy SHA, phoenix-runner probe, or phoenix-runner deploy SHA.\n' >&2
+  printf 'Rejected: allowed commands are deploy SHA, phoenix-runner probe, phoenix-runner deploy SHA, or kingturf-erp deploy SHA.\n' >&2
   exit 64
 fi
 

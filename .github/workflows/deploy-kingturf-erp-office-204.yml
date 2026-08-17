@@ -1,0 +1,96 @@
+name: Deploy KingTurf ERP through Office 204
+
+on:
+  workflow_dispatch:
+    inputs:
+      erp_sha:
+        description: "Exact KingTurf ERP commit SHA"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kingturf-erp-office-204
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.7-alpine3.23
+        env:
+          POSTGRES_DB: kingturf_ci
+          POSTGRES_USER: kingturf
+          POSTGRES_PASSWORD: kingturf_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U kingturf -d kingturf_ci"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ivanzhao299/kingturf-bessiness-os
+          ref: ${{ inputs.erp_sha }}
+          path: kingturf-erp
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: kingturf-erp/pnpm-lock.yaml
+      - working-directory: kingturf-erp
+        run: pnpm install --frozen-lockfile
+      - working-directory: kingturf-erp
+        run: pnpm format:check
+      - working-directory: kingturf-erp
+        run: pnpm lint
+      - working-directory: kingturf-erp
+        run: pnpm typecheck
+      - working-directory: kingturf-erp
+        run: pnpm test
+        env:
+          DATABASE_URL: postgresql://kingturf:kingturf_ci_password@127.0.0.1:5432/kingturf_ci
+      - working-directory: kingturf-erp
+        run: pnpm build
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ivanzhao299/kingturf-bessiness-os
+          ref: ${{ inputs.erp_sha }}
+          path: kingturf-erp
+      - name: Configure Studio jump-host identity
+        env:
+          JUMP_SSH_KEY: ${{ secrets.STUDIO_DEPLOY_JUMP_SSH_KEY }}
+          JUMP_KNOWN_HOSTS: ${{ secrets.STUDIO_DEPLOY_JUMP_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$JUMP_SSH_KEY" > "$HOME/.ssh/kingturf-erp-jump"
+          printf '%s\n' "$JUMP_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/kingturf-erp-jump" "$HOME/.ssh/known_hosts"
+      - name: Package exact ERP commit
+        working-directory: kingturf-erp
+        run: git archive --format=tar.gz --output="$RUNNER_TEMP/kingturf-erp-${{ inputs.erp_sha }}.tar.gz" "${{ inputs.erp_sha }}"
+      - name: Deploy ERP through guarded Studio route
+        env:
+          ERP_SHA: ${{ inputs.erp_sha }}
+        run: |
+          cat "$RUNNER_TEMP/kingturf-erp-${ERP_SHA}.tar.gz" | ssh \
+            -i "$HOME/.ssh/kingturf-erp-jump" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            root@123.57.220.65 "kingturf-erp deploy ${ERP_SHA}"
+      - name: Verify ERP public endpoint
+        run: |
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 https://erp.kingturf.cn/health >/dev/null
+          curl --fail --silent --show-error https://erp.kingturf.cn/ready >/dev/null
