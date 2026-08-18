@@ -36,6 +36,7 @@ jobs:
           repository: ivanzhao299/kingturf-bessiness-os
           ref: ${{ inputs.erp_sha }}
           path: kingturf-erp
+          token: ${{ secrets.KINGTURF_REPO_READ_TOKEN }}
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.4
@@ -69,6 +70,7 @@ jobs:
           repository: ivanzhao299/kingturf-bessiness-os
           ref: ${{ inputs.erp_sha }}
           path: kingturf-erp
+          token: ${{ secrets.KINGTURF_REPO_READ_TOKEN }}
       - name: Configure Studio jump-host identity
         env:
           JUMP_SSH_KEY: ${{ secrets.STUDIO_DEPLOY_JUMP_SSH_KEY }}
