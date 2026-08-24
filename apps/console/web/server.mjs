@@ -30,6 +30,7 @@ import { AutonomousPortfolioService } from "../../../packages/domain-center/lib/
 import { BusinessOutcomeCenter } from "../../../packages/domain-center/lib/business-outcome-center.mjs";
 import { AutonomousDevelopmentJobs } from "../../../packages/orchestrator-core/lib/autonomous-development-jobs.mjs";
 import { assessAutonomousDevelopmentReadiness } from "../../../packages/orchestrator-core/lib/autonomous-development-readiness.mjs";
+import { bearerToken, ResidentWorkerBroker, tokenMatches } from "../../../packages/orchestrator-core/lib/resident-worker-broker.mjs";
 import { createBusinessApplicationRuntime } from "../../../packages/domain-center/lib/business-database.mjs";
 import { enterpriseApplicationSummary, getEnterpriseApplication } from "../../../packages/domain-center/lib/enterprise-applications.mjs";
 import { businessApprovalAccepted, businessWorkflowGoal } from "../../../packages/domain-center/lib/business-object-definitions.mjs";
@@ -125,6 +126,10 @@ const autonomousPortfolio = new AutonomousPortfolioService({ repoRoot, registry:
 const enterpriseProgramPlanner=new EnterpriseProgramPlanner({registry:portfolioRegistry});
 const businessOutcomeCenter = new BusinessOutcomeCenter({ repoRoot });
 const autonomousDevelopmentJobs = new AutonomousDevelopmentJobs({ repoRoot });
+const residentWorkerBroker = new ResidentWorkerBroker({
+  storePath: resolve(process.env.STUDIO_RESIDENT_WORKER_STORE ?? join(repoRoot, "runtime/resident-workers/store.json")),
+  leaseMs: Number(process.env.STUDIO_RESIDENT_WORKER_LEASE_MS ?? 45_000)
+});
 const capabilityResourceRegistry=new CapabilityResourceRegistry({repoRoot});
 setInterval(() => autonomousPortfolio.tick().catch((error) => console.error("portfolio tick failed", error?.code ?? error?.message ?? error)), 30000).unref();
 const identityRuntime = await loadIdentityRuntimeConfig();
@@ -246,12 +251,29 @@ const server = createServer(async (request, response) => {
   try {
     if (identityRuntime && proxyIdentityRequest(request, response, { upstreamOrigin: identityRuntime.upstreamOrigin, publicOrigin: new URL(identityRuntime.publicUrl).origin })) return;
     if (studioMcpHandler && await studioMcpHandler(request, response)) return;
-    if (!localOnly(request) && !String(request.url ?? "").startsWith("/api/v1/") && !String(request.url ?? "").startsWith("/api/avernet/")) {
+    if (!localOnly(request) && !String(request.url ?? "").startsWith("/api/v1/") && !String(request.url ?? "").startsWith("/api/avernet/") && !String(request.url ?? "").startsWith("/api/resident-workers/")) {
       sendJson(response, 403, { status: "BLOCKED", reason: "Console Action Server only accepts local 127.0.0.1 requests." });
       return;
     }
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
     const pathname = url.pathname === "/dashboard" ? "/" : url.pathname;
+    if (pathname.startsWith("/api/resident-workers/")) {
+      const configuredToken = String(process.env.STUDIO_RESIDENT_WORKER_TOKEN ?? "");
+      if (configuredToken.length < 32 || !tokenMatches(bearerToken(request), configuredToken)) { sendJson(response, 401, { status: "RESIDENT_WORKER_UNAUTHORIZED" }, { "www-authenticate": "Bearer" }); return; }
+      try {
+        const register = pathname === "/api/resident-workers/register";
+        const heartbeat = pathname.match(/^\/api\/resident-workers\/([^/]+)\/heartbeat$/);
+        const claim = pathname.match(/^\/api\/resident-workers\/([^/]+)\/claim$/);
+        const lease = pathname.match(/^\/api\/resident-workers\/([^/]+)\/tasks\/([^/]+)\/lease$/);
+        const result = pathname.match(/^\/api\/resident-workers\/([^/]+)\/tasks\/([^/]+)\/result$/);
+        if (request.method === "POST" && register) { sendJson(response, 200, await residentWorkerBroker.register(await readJsonBody(request))); return; }
+        if (request.method === "POST" && heartbeat) { sendJson(response, 200, await residentWorkerBroker.heartbeat(decodeURIComponent(heartbeat[1]), await readJsonBody(request))); return; }
+        if (request.method === "POST" && claim) { sendJson(response, 200, { task: await residentWorkerBroker.claim(decodeURIComponent(claim[1])) }); return; }
+        if (request.method === "POST" && lease) { sendJson(response, 200, await residentWorkerBroker.renew(decodeURIComponent(lease[1]), decodeURIComponent(lease[2]), await readJsonBody(request))); return; }
+        if (request.method === "POST" && result) { sendJson(response, 200, await residentWorkerBroker.complete(decodeURIComponent(result[1]), decodeURIComponent(result[2]), await readJsonBody(request))); return; }
+        sendJson(response, 404, { status: "RESIDENT_WORKER_ROUTE_NOT_FOUND" }); return;
+      } catch (error) { sendJson(response, error?.code === "LEASE_LOST" ? 409 : 400, { status: error?.code ?? "RESIDENT_WORKER_REQUEST_FAILED", reason: error instanceof Error ? error.message : String(error) }); return; }
+    }
     const accessBundle = await loadAccessCenter();
     const sessionToken = sessionTokenFromRequest(request);
     const accessContext = await resolveSessionContext(accessBundle, {
@@ -727,6 +749,19 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === "GET" && pathname === "/api/development/jobs") {
       sendJson(response, 200, { jobs: await autonomousDevelopmentJobs.list(), worker: await autonomousDevelopmentJobs.workerStatus(), readiness: await assessAutonomousDevelopmentReadiness({ root: repoRoot }),operations:await autonomousDevelopmentJobs.operations() });
+      return;
+    }
+    if (request.method === "GET" && pathname === "/api/resident-worker-control") {
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "agent-real-plan", project_id: "anksen-agent-studio", risk: "LOW" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      sendJson(response, 200, await residentWorkerBroker.dashboard()); return;
+    }
+    if (request.method === "POST" && pathname === "/api/resident-worker-control/tasks") {
+      const body = await readJsonBody(request);
+      const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "agent-real-plan", project_id: String(body.projectId ?? ""), risk: body.mode === "GOVERNED_WRITE" ? "HIGH" : "LOW" }, { user_context: accessContext });
+      if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
+      try { sendJson(response, 201, await residentWorkerBroker.enqueue(body, { userId: accessContext.user?.user_id })); }
+      catch (error) { sendJson(response, 400, { status: error?.code ?? "RESIDENT_TASK_INVALID", reason: error instanceof Error ? error.message : String(error) }); }
       return;
     }
     if(request.method==="GET"&&pathname==="/api/development/audit-export"){sendJson(response,200,await autonomousDevelopmentJobs.auditExport());return;}
