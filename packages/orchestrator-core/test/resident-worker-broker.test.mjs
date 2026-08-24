@@ -10,7 +10,8 @@ test("resident worker registration, project claim, lease renewal and fenced resu
   let now = new Date("2026-08-24T00:00:00Z");
   const broker = new ResidentWorkerBroker({ storePath: join(dir, "store.json"), clock: () => now, leaseMs: 1000 });
   try {
-    await broker.register({ workerId: "mac-1", projects: [{ projectId: "studio", pathRef: "local://studio" }], capabilities: ["codex"], credentialReferenceId: "codex-local-session-ref" });
+    const worker = await broker.register({ workerId: "mac-1", projects: [{ projectId: "studio", pathRef: "local://studio" }], capabilities: ["codex"], credentialReferenceId: "codex-local-session-ref", lifecycle: { status: "READY", fingerprint: "fleet-v1", projectCount: 1 } });
+    assert.equal(worker.lifecycle.status, "READY"); assert.equal(worker.lifecycle.fingerprint, "fleet-v1");
     await broker.enqueue({ taskId: "task-1", projectId: "studio", goal: "inspect", mode: "READ_ONLY" });
     const claimed = await broker.claim("mac-1");
     assert.equal(claimed.taskId, "task-1"); assert.ok(claimed.lease.token); assert.equal(claimed.lease.fencingToken, 1);

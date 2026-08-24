@@ -48,7 +48,7 @@ export class ResidentWorkerBroker {
       const projects = Array.isArray(input.projects) ? input.projects.map(item => ({ projectId: cleanId(item.projectId), pathRef: String(item.pathRef ?? "").trim() })).filter(item => item.projectId && item.pathRef) : [];
       if (!projects.length) throw Object.assign(new Error("WORKER_PROJECTS_REQUIRED"), { code: "WORKER_PROJECTS_REQUIRED" });
       const store = await this.load(), at = nowIso(this.clock);
-      store.workers[workerId] = { workerId, status: "ONLINE", registeredAt: store.workers[workerId]?.registeredAt ?? at, lastHeartbeatAt: at, projects, capabilities: [...new Set((input.capabilities ?? []).map(String))], credentialReferenceId: String(input.credentialReferenceId ?? "codex-local-session-ref"), autoExecute: input.autoExecute === true, activeTaskId: null };
+      store.workers[workerId] = { workerId, status: "ONLINE", registeredAt: store.workers[workerId]?.registeredAt ?? at, lastHeartbeatAt: at, projects, capabilities: [...new Set((input.capabilities ?? []).map(String))], credentialReferenceId: String(input.credentialReferenceId ?? "codex-local-session-ref"), lifecycle: input.lifecycle && typeof input.lifecycle === "object" ? { status: String(input.lifecycle.status ?? "UNKNOWN"), fingerprint: String(input.lifecycle.fingerprint ?? ""), inspectedAt: String(input.lifecycle.inspectedAt ?? at), projectCount: Number(input.lifecycle.projectCount ?? projects.length) } : null, autoExecute: input.autoExecute === true, activeTaskId: null };
       await this.save(store);
       return copy(store.workers[workerId]);
     });

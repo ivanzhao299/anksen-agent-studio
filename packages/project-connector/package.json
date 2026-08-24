@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lifecycle:check": "node bin/project-lifecycle-capability.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test \"test/**/*.test.mjs\""
   }
