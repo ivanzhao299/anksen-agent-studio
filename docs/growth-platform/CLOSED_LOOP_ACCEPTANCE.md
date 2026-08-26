@@ -171,6 +171,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Duplicate source-record keys, including overlaps across remote pages, fail at the adapter boundary before the connector can persist a FAILED batch or transition to ERROR.
 - Remote observation timestamps more than five minutes ahead of the validated adapter clock fail before ingestion, matching the connector's future-evidence gate without persisting a FAILED batch.
 - The adapter snapshots and validates its clock before credential resolution or network I/O, so an invalid clock cannot cause even a read-only external call; the same snapshot governs future-record checks and empty-read evidence.
+- Credential origins are bounded native strings and reject control characters or surrounding whitespace, preventing URL-parser normalization from changing the governed origin text before a request.
 - The authoritative acceptance command and Growth CI path filters include the Smart Park reference source and its end-to-end source-to-Runner tests, so source adapter changes cannot bypass the production-loop gate.
 - Smart Park adapter timeouts and pagination controls accept only bounded native integers, and empty reads use an injected native valid Date clock. Control coercion objects and clock impostors fail closed.
 - Smart Park credential-resolution and network-client failures are projected as stable controlled codes without forwarding provider exception messages; existing timeout, HTTP and response-validation codes remain precise.

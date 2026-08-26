@@ -288,6 +288,8 @@ Remote observation timestamps over five minutes ahead of the validated adapter c
 
 The adapter snapshots and validates its clock before credential resolution or network I/O. The same snapshot governs future-record checks and empty-read evidence.
 
+Credential origins are bounded native strings and reject control characters or surrounding whitespace, so URL-parser normalization cannot change the governed origin text before a request.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
