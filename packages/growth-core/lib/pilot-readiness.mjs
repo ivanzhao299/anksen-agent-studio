@@ -29,6 +29,7 @@ export function assessGrowthPilotReadiness({tenantPack,connectors=[],governance=
     observedZero('NO_DELIVERY_FAILURES',operations.failedDeliveries),
     observedZero('RECONCILIATION_MATCHED',operations.reconciliationMismatches),
     check('PRODUCTION_FEATURE_FLAG',governance.productionFeatureFlag===true,{enabled:Boolean(governance.productionFeatureFlag)}),
+    check('PRODUCTION_OPERATIONS_POLICY',governance.productionOperationsPolicyAuthorized===true,{authorized:Boolean(governance.productionOperationsPolicyAuthorized),source:governance.productionOperationsPolicySource??null}),
     check('RUNTIME_ACTIVATION_GATE',governance.runtimeActivationGatePassed===true,{passed:Boolean(governance.runtimeActivationGatePassed)}),
     check('EXPLICIT_PRODUCTION_AUTHORIZATION',governance.explicitProductionAuthorization===true,{authorized:Boolean(governance.explicitProductionAuthorization)}),
   ];

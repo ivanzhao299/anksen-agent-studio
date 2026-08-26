@@ -13,6 +13,8 @@
     "publishingApprovalPolicy": true,
     "businessHandoffApprovalPolicy": true,
     "productionFeatureFlag": false,
+    "productionOperationsPolicyAuthorized": false,
+    "productionOperationsPolicySource": "production-operations-blocked",
     "runtimeActivationGatePassed": false,
     "explicitProductionAuthorization": false
   },

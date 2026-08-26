@@ -1058,6 +1058,8 @@ test("growth endpoint projects fail-closed pilot readiness without activation co
     "assessGrowthPilotReadiness",
     "VERSIONED_PILOT_EVIDENCE",
     "PILOT_ACTIVATION_BLOCKED",
+    "PRODUCTION_OPERATIONS_POLICY",
+    "productionOperationsPolicyAuthorized",
     "EXPLICIT_PRODUCTION_AUTHORIZATION",
     "GROWTH_PILOT_TENANT_NOT_CONFIGURED",
     "PostgresGrowthConnectorEvidence",
