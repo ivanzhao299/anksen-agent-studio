@@ -12,6 +12,8 @@ Connector binding configuration and health-evidence persistence now share a defa
 
 Activation approval proof is version-bound to the exact Business approval transition that produced the current `APPROVED` record. A stale or unrelated historical approval can no longer satisfy connector preflight.
 
+Business Source Governance now resolves latest tenant approval by migration 020's monotonic sequence, including same-clock revoke/reapprove flows. Fresh Business Runtime bootstrap always follows base migrations with the idempotent Growth governance migrations under the shared advisory lock.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

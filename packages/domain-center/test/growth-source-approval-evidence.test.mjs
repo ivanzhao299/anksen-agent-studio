@@ -71,6 +71,56 @@ test("growth data-owner approval is tenant scoped, expiring and credential-value
       credentialValuesRead: false,
       externalCallsPerformed: false,
     });
+    const revoked = await governance.decide(
+      approved.id,
+      {
+        decision: "REVOKED",
+        expectedVersion: approved.version,
+        reason: "Rotate the governed authorization",
+      },
+      owner,
+    );
+    assert.equal(revoked.status, "REVOKED");
+    assert.equal(
+      (
+        await governance.tenantReadiness(scope, {
+          applicationId: "ai-growth-sales-platform",
+        })
+      ).status,
+      "NOT_READY",
+    );
+    const replacementPending = await governance.request(
+        connector.id,
+        {
+          tenantId: scope.tenantId,
+          dataOwnerId: owner.userId,
+          mappingVersion: "growth-map-v2",
+          expiresAt: "2026-08-27T10:00:00Z",
+        },
+        owner,
+      ),
+      replacement = await governance.decide(
+        replacementPending.id,
+        {
+          decision: "APPROVED",
+          expectedVersion: replacementPending.version,
+          reason: "Approve replacement authorization",
+        },
+        owner,
+      ),
+      latest = await governance.tenantReadiness(scope, {
+        applicationId: "ai-growth-sales-platform",
+      });
+    assert.equal(replacement.status, "APPROVED");
+    assert.equal(latest.status, "READY");
+    const sequences = (
+      await pool.query(
+        "SELECT sequence_id FROM business_data_source_approval WHERE connector_id=$1 ORDER BY sequence_id",
+        [connector.id],
+      )
+    ).rows.map((row) => Number(row.sequence_id));
+    assert.equal(sequences.length, 2);
+    assert.ok(sequences[1] > sequences[0]);
     const otherTenant = await governance.tenantReadiness(
       { ...scope, tenantId: "tenant-b" },
       { applicationId: "ai-growth-sales-platform" },

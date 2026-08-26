@@ -116,7 +116,7 @@ export class PostgresBusinessSourceGovernance {
     const connector = await this.connector(connectorId, scope),
       approval = (
         await this.pool.query(
-          "SELECT * FROM business_data_source_approval WHERE connector_id=$1 ORDER BY requested_at DESC LIMIT 1",
+          "SELECT * FROM business_data_source_approval WHERE connector_id=$1 ORDER BY sequence_id DESC LIMIT 1",
           [connector.id],
         )
       ).rows[0],
@@ -175,7 +175,7 @@ export class PostgresBusinessSourceGovernance {
            SELECT id,status,mapping_version,expires_at
            FROM business_data_source_approval
            WHERE connector_id=c.id AND organization_id=c.organization_id AND workspace_id=c.workspace_id AND tenant_id=$3
-           ORDER BY requested_at DESC LIMIT 1
+           ORDER BY sequence_id DESC LIMIT 1
          ) a ON true
          WHERE c.organization_id=$1 AND c.workspace_id=$2 AND c.application_id=$4
          ORDER BY c.id`,
