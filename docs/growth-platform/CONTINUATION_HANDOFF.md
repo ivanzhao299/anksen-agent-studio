@@ -310,6 +310,8 @@ The sync service independently closes injected mapped records to the Smart Park 
 
 Injected source results must be strictly ordered by `(observedAt, sourceRecordKey)` with unique source keys, keeping cursor-keyed payloads deterministic and audit-reproducible.
 
+Smart Park batch idempotency and evidence references bind both the normalized cursor and SHA-256 of the canonical validated record payload. Different payloads at the same cursor cannot be mistaken for an existing batch.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
