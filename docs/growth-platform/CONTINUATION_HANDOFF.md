@@ -200,6 +200,8 @@ Under the source-record row lock, existing ID/type/version/observed-time evidenc
 
 Source connector and batch-history reads validate native tenant/connector controls before SQL and use fixed 100/50-row ceilings. Coercion objects cannot select another scope and read projections remain bounded.
 
+Source connector/batch projections validate bounded references, enums, counts, versions and native dates, canonicalize time to ISO and redact unsafe error summaries. Poisoned rows cannot leak secret-like values.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.
