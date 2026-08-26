@@ -234,6 +234,8 @@ Approval decision validates the returned approval ID and data-owner identity aga
 
 Checkpoint preserves tenant scope through persistence and post-write readiness, and revalidates exact-tenant approval, expiry and mapping version with its checkpoint clock before writing.
 
+Smart Park sync revalidates readiness after remote I/O and before ingest, requiring the same approval ID, version and mapping. Revocation or approval changes during the read produce zero business writes.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
