@@ -1,6 +1,6 @@
 import pg from 'pg';
 import {pathToFileURL} from 'node:url';
-import {assertBusinessDatabaseUrl,resolveBusinessDatabaseUrl} from '../lib/business-database.mjs';
+import {assertBusinessDatabaseUrl,resolveBusinessDatabaseTimeoutMs,resolveBusinessDatabaseUrl} from '../lib/business-database.mjs';
 import {growthMigrationPaths} from '../lib/growth-database.mjs';
 import {inspectGrowthMigrations} from '../lib/growth-migration-runner.mjs';
 
@@ -10,7 +10,7 @@ const safety=Object.freeze({readOnly:true,ddlExecuted:false,migrationsApplied:fa
 export function growthMigrationStatusError(error){const candidate=typeof error?.code==='string'?error.code:typeof error?.message==='string'?error.message:'';const code=/^[A-Z0-9][A-Z0-9_.:-]{2,100}$/.test(candidate)?candidate:'GROWTH_MIGRATION_STATUS_FAILED';return{schemaVersion:1,status:'ERROR',code,safety};}
 
 export async function growthMigrationStatus({env=process.env,pool=null}={}){
-  const database=pool??new Pool({connectionString:assertBusinessDatabaseUrl(resolveBusinessDatabaseUrl(env),{allowRemote:env.BUSINESS_DATABASE_ALLOW_REMOTE==='true'}),max:1,application_name:'anksen-growth-migration-status'});
+  const timeoutMs=pool?null:resolveBusinessDatabaseTimeoutMs(env),database=pool??new Pool({connectionString:assertBusinessDatabaseUrl(resolveBusinessDatabaseUrl(env),{allowRemote:env.BUSINESS_DATABASE_ALLOW_REMOTE==='true'}),max:1,connectionTimeoutMillis:timeoutMs,query_timeout:timeoutMs,statement_timeout:timeoutMs,application_name:'anksen-growth-migration-status'});
   try{const report=await inspectGrowthMigrations(database,growthMigrationPaths);return{schemaVersion:1,...report,safety};}finally{if(!pool)await database.end();}
 }
 

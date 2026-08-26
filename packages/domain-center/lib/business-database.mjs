@@ -50,6 +50,7 @@ export function assertBusinessDatabaseUrl(value, { allowRemote = false } = {}) {
 }
 
 export function resolveBusinessDatabasePoolMax(env=process.env){const value=env.BUSINESS_DATABASE_POOL_MAX===undefined?10:Number(env.BUSINESS_DATABASE_POOL_MAX);if(!Number.isInteger(value)||value<1||value>50)throw new Error("BUSINESS_DATABASE_POOL_MAX_INVALID");return value;}
+export function resolveBusinessDatabaseTimeoutMs(env=process.env){const value=env.BUSINESS_DATABASE_TIMEOUT_MS===undefined?10000:Number(env.BUSINESS_DATABASE_TIMEOUT_MS);if(!Number.isInteger(value)||value<100||value>60000)throw new Error("BUSINESS_DATABASE_TIMEOUT_INVALID");return value;}
 
 export async function createBusinessApplicationRuntime({ repoRoot, env = process.env, pool = null, requirePostgres = env.BUSINESS_DATABASE_REQUIRED === "true" } = {}) {
   const configuredUrl = pool ? null : resolveBusinessDatabaseUrl(env);
@@ -57,7 +58,7 @@ export async function createBusinessApplicationRuntime({ repoRoot, env = process
     if (requirePostgres) throw new Error("BUSINESS_DATABASE_REQUIRED");
     return { backend: "FILE_FALLBACK", pool: null, ownsPool: false, store: new BusinessApplicationStore({ repoRoot }), connectorStore: null, sourceGovernance: null };
   }
-  const databasePool = pool ?? new Pool({ connectionString: assertBusinessDatabaseUrl(configuredUrl, { allowRemote: env.BUSINESS_DATABASE_ALLOW_REMOTE === "true" }), max: resolveBusinessDatabasePoolMax(env), application_name: "anksen-studio-business" });
+  const timeoutMs=pool?null:resolveBusinessDatabaseTimeoutMs(env),databasePool = pool ?? new Pool({ connectionString: assertBusinessDatabaseUrl(configuredUrl, { allowRemote: env.BUSINESS_DATABASE_ALLOW_REMOTE === "true" }), max: resolveBusinessDatabasePoolMax(env),connectionTimeoutMillis:timeoutMs,query_timeout:timeoutMs,statement_timeout:timeoutMs, application_name: "anksen-studio-business" });
   try {
     const state = (await databasePool.query("SELECT to_regclass('ad_goal') kernel, to_regclass('business_application_record') business")).rows[0];
     if (!state.kernel) await migrate(databasePool, "up");
