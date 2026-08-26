@@ -278,6 +278,8 @@ Post-ingest batch evidence must independently match connector, idempotency key, 
 
 Batch evidence counts remain bounded by the 100-record atomic limit. Malformed checkpoint/readiness envelopes collapse to `SMART_PARK_SOURCE_CHECKPOINT_RESULT_INVALID` without executing accessors.
 
+Authorization is revalidated after every remote read, including an empty read. `NO_CHANGES` cannot be returned from an approval revoked or version-changed while the adapter was reading.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
