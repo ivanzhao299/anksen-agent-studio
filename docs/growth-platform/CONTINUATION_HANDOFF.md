@@ -214,6 +214,8 @@ Reconciliation checkpoint input, batch evidence and scope are snapshotted before
 
 Tenant readiness snapshots scope and options before reading application and limit controls, keeping the read-only activation evidence path free from caller-controlled accessors.
 
+The shared governed connector lookup snapshots scope before resolving IDs, so readiness, credential-reference, approval and checkpoint reads inherit one fail-closed accessor boundary.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.

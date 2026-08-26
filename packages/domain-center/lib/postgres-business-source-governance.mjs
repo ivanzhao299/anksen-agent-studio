@@ -10,7 +10,7 @@ export class PostgresBusinessSourceGovernance {
     this.clock = clock;
   }
   async connector(id, scope) {
-    const safeId=safeGovernanceRef(id,"CONNECTOR",160),s={organizationId:safeGovernanceRef(scope?.organizationId,"ORGANIZATION",128),workspaceId:safeGovernanceRef(scope?.workspaceId,"WORKSPACE",128)},
+    scope=governanceEnvelope(scope,"BUSINESS_SOURCE_SCOPE_INVALID",new Set(["organizationId","workspaceId","projectId","tenantId","userId"]));const safeId=safeGovernanceRef(id,"CONNECTOR",160),s={organizationId:safeGovernanceRef(scope.organizationId,"ORGANIZATION",128),workspaceId:safeGovernanceRef(scope.workspaceId,"WORKSPACE",128)},
       row = (
         await this.pool.query(
           "SELECT * FROM business_data_connector WHERE id=$1 AND organization_id=$2 AND workspace_id=$3",
