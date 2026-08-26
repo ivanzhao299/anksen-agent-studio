@@ -1,5 +1,5 @@
 import { defineChannelAdapter, assertAdapterCanExecute } from '../../growth-core/lib/channel-adapter.mjs';
-import {assertCredentialToken,assertOfficialApiConfiguration,cancelResponseBody,readBoundedJson,resolveCredentialWithTimeout,safeRetryAfter} from './official-api-safety.mjs';
+import {assertCredentialToken,assertOfficialApiConfiguration,cancelResponseBody,fetchWithTimeout,readBoundedJson,resolveCredentialWithTimeout,safeRetryAfter} from './official-api-safety.mjs';
 
 const referencePattern = /^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$/;
 const secretPattern = /(?:^sk-|bearer\s+|password\s*=|token\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i;
@@ -38,16 +38,13 @@ export function createOfficialApiPublishingAdapter({
     const safeOperationId=assertReference(operationId,'OPERATION');
     const credential = await resolveCredentialWithTimeout(credentialResolver,{ credentialReferenceId: credentialRef, channel: adapter.channel, adapterId: adapter.id },timeoutMs,'OFFICIAL_API');
     const accessToken=assertCredentialToken(credential?.accessToken,'OFFICIAL_API');
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetchImpl(target, {
+      const response = await fetchWithTimeout(fetchImpl,target,{
         method: 'POST',
         redirect: 'error',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}`, 'idempotency-key': safeOperationId },
         body: JSON.stringify({ assetRef: safeAssetRef, approvalRef, tenant: { organizationId: scope.organizationId, workspaceId: scope.workspaceId, tenantId: scope.tenantId } }),
-        signal: controller.signal,
-      });
+      },timeoutMs);
       if (!response.ok) {
         const code = `OFFICIAL_API_HTTP_${response.status}`;
         const retryAfter=safeRetryAfter(response.headers.get('retry-after'));await cancelResponseBody(response);
@@ -62,8 +59,6 @@ export function createOfficialApiPublishingAdapter({
       if (error?.name === 'AbortError') throw Object.assign(new Error('OFFICIAL_API_TIMEOUT'), { code: 'OFFICIAL_API_TIMEOUT', retryable: true });
       if(String(error?.code??'').startsWith('OFFICIAL_API_'))throw error;
       throw Object.assign(new Error('OFFICIAL_API_NETWORK_FAILED'),{code:'OFFICIAL_API_NETWORK_FAILED',retryable:true});
-    } finally {
-      clearTimeout(timeout);
     }
   }
 

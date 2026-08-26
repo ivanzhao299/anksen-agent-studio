@@ -30,6 +30,8 @@ export async function readBoundedJson(response,maxResponseBytes,errorPrefix){
 export const safeRetryAfter=value=>typeof value==='string'&&/^\d{1,8}$/.test(value)?value:null;
 export async function cancelResponseBody(response){try{await response?.body?.cancel?.();}catch{}}
 
+export async function fetchWithTimeout(fetchImpl,target,options,timeoutMs){const controller=new AbortController();let timer;try{return await Promise.race([Promise.resolve().then(()=>fetchImpl(target,{...options,signal:controller.signal})),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();const error=new Error('FETCH_TIMEOUT');error.name='AbortError';reject(error);},timeoutMs);})]);}finally{clearTimeout(timer);}}
+
 export function assertCredentialToken(value,errorPrefix){if(typeof value!=='string'||value.length<1||value.length>8192||/[\u0000-\u001f\u007f]/.test(value))throw Object.assign(new Error(`${errorPrefix}_CREDENTIAL_UNAVAILABLE`),{code:`${errorPrefix}_CREDENTIAL_UNAVAILABLE`,retryable:false});return value;}
 
 export async function resolveCredentialWithTimeout(resolver,input,timeoutMs,errorPrefix){let timer;try{return await Promise.race([Promise.resolve().then(()=>resolver(input)),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Object.assign(new Error(`${errorPrefix}_CREDENTIAL_TIMEOUT`),{code:`${errorPrefix}_CREDENTIAL_TIMEOUT`,retryable:true})),timeoutMs);})]);}catch(error){if(error?.code===`${errorPrefix}_CREDENTIAL_TIMEOUT`)throw error;throw Object.assign(new Error(`${errorPrefix}_CREDENTIAL_RESOLUTION_FAILED`),{code:`${errorPrefix}_CREDENTIAL_RESOLUTION_FAILED`,retryable:true});}finally{clearTimeout(timer);}}
