@@ -26,7 +26,8 @@ test('signed website events close a tenant-scoped persistent ingestion loop', as
   const scope = { organizationId: `growth-ingest-${suffix}`, workspaceId: 'growth', tenantId: 'tenant-a' };
   const otherScope = { ...scope, tenantId: 'tenant-b' };
   const adapter = createWebsiteConversionAdapter({ domain: 'example.com', secretProvider: async () => secret, clock: () => '2026-08-26T03:00:00Z' });
-  const service = new PersistentGrowthIngestionService({ pool, scoringPolicy: { version: 'ingestion-v1', base: 5 }, clock: () => '2026-08-26T03:00:00Z' });
+  let serviceClockCalls=0;
+  const service = new PersistentGrowthIngestionService({ pool, scoringPolicy: { version: 'ingestion-v1', base: 5 }, clock: () => {serviceClockCalls+=1;return '2026-08-26T03:00:00Z';} });
   try {
     await migrateGrowthPlatform(pool);
     const firstEvent = await normalizedEvent(adapter, `evt-${suffix}-1`, { eventType: 'RFQ', externalId: `form-${suffix}-1`, contact: { email: 'buyer@example.com', name: 'Buyer', company: 'Example LLC', companyWebsite: 'example.com' }, consent: { marketing: true } });
@@ -50,6 +51,7 @@ test('signed website events close a tenant-scoped persistent ingestion loop', as
     assert.equal(view.scoreHistory.length, 2);
     assert.equal(view.identities.length, 2);
     assert.equal(await new PostgresGrowthStore({ pool }).customer360({ scope: otherScope, leadId: first.leadId }), null);
+    assert.equal(serviceClockCalls,4);
   } finally {
     for (const table of ['growth_revenue_attribution','growth_opportunity','growth_score_snapshot','growth_engagement','growth_identity','growth_event','growth_lead']) {
       await pool.query(`DELETE FROM ${table} WHERE organization_id=$1`, [scope.organizationId]).catch(() => {});

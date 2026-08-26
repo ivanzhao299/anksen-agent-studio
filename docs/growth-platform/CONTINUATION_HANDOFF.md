@@ -128,4 +128,6 @@ Growth's shared tenant source-approval readiness projection validates scope/appl
 
 Publishing connector evidence validates up to 20 requested platform labels and a finite clock before querying at most 100 accounts. Unsafe credential references are excluded in SQL, and channel authorization must expire within 366 days. The projection contains counts and platform requirements only; no credential reference or value is returned.
 
+Persistent website ingestion now captures one validated time snapshot per call and injects it into the transactional Store and scoring engine. All fallback occurrence/creation times and any identity-review record created after rollback reuse the snapshot, so a non-monotonic clock provider cannot split one event across inconsistent timestamps.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

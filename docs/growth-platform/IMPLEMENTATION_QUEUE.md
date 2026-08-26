@@ -92,6 +92,8 @@ Tenant source-approval readiness now validates scope/application/clock before SQ
 
 Publishing readiness now bounds platform inputs (20), account evidence rows (100) and authorization age (366 days), rejects bad clocks before SQL and excludes unsafe credential-reference rows without exposing reference IDs or values.
 
+Persistent ingestion now uses one validated clock snapshot across transaction Store, scoring, lead/engagement/event timestamps and post-rollback review creation. Tests assert one clock-provider call per ingress invocation.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
