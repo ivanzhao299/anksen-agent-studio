@@ -8,6 +8,8 @@ Current evidence snapshot (2026-08-26): GA-000~GA-017 executable acceptance is g
 
 An optional tenant Runtime binding now has an immutable seven-field CODEX schema aligned to the existing Activation Gate. Missing binding remains the safe KingTurf state; incomplete or non-CODEX configuration fails during tenant-pack definition rather than degrading into ambiguous runtime evidence.
 
+Connector binding configuration and health-evidence persistence now share a default-deny injected mutation authorization. Read-only health probing has its own pre-adapter default-deny authorization. Readiness remains available to Console, while direct calls cannot silently create bindings, contact probe targets or promote health without an explicitly authorized integration context.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

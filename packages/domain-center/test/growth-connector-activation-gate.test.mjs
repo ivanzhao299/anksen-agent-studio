@@ -71,7 +71,7 @@ test("connector activation consumes an existing business approval exactly once w
       pool,
     });
     await migrateGrowthPlatform(pool);
-    const bindings = new PostgresGrowthConnectorBindingStore({ pool, clock }),
+    const bindings = new PostgresGrowthConnectorBindingStore({ pool, clock, authorizeMutation: async () => true }),
       configured = await bindings.configure({
         scope,
         kind: "WEBSITE_INBOUND",
@@ -83,6 +83,7 @@ test("connector activation consumes an existing business approval exactly once w
       probe = new GrowthConnectorHealthProbeService({
         store: bindings,
         clock,
+        authorizeProbe: async (input) => input.actorId === "health-probe",
         probes: {
           "website-health-v1": {
             mode: "READ_ONLY_HEALTH_PROBE",
