@@ -240,6 +240,8 @@ The read adapter cancels non-2xx, non-JSON and invalid/oversized declared respon
 
 Business Source pagination requires a native date cursor, object payload, items no larger than configured page size and an integer total bounded to 1,000,000. String totals and oversized pages fail closed.
 
+Source work-order mapping accepts only JSON scalar fields and native string/number/Date timestamps. Arrays and coercion-capable objects cannot become IDs, titles, SLA values or evidence times.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.
