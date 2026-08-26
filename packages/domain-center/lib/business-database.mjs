@@ -19,6 +19,7 @@ const businessRunnerNodesMigration = resolve(fileURLToPath(new URL("../../orches
 const businessWorkResultsMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/009_business_work_results.up.sql", import.meta.url)));
 const businessDataConnectorsMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/010_business_data_connectors.up.sql", import.meta.url)));
 const businessSourceGovernanceMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/011_business_source_governance.up.sql", import.meta.url)));
+const growthSourceApprovalScopeMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/018_growth_source_approval_scope.up.sql", import.meta.url)));
 export const defaultBusinessDatabaseUrlFile = "/opt/anksen/business-data/database-url";
 
 export function resolveBusinessDatabaseUrl(env = process.env) {
@@ -48,14 +49,24 @@ export async function createBusinessApplicationRuntime({ repoRoot, env = process
     const state = (await databasePool.query("SELECT to_regclass('ad_goal') kernel, to_regclass('business_application_record') business")).rows[0];
     if (!state.kernel) await migrate(databasePool, "up");
     else {
-      await databasePool.query(await readFile(businessMigration, "utf8"));
-      await databasePool.query(await readFile(businessApprovalMigration, "utf8"));
-      await databasePool.query(await readFile(businessWorkControlMigration, "utf8"));
-      await databasePool.query(await readFile(businessRecordRelationsMigration, "utf8"));
-      await databasePool.query(await readFile(businessRunnerNodesMigration, "utf8"));
-      await databasePool.query(await readFile(businessWorkResultsMigration, "utf8"));
-      await databasePool.query(await readFile(businessDataConnectorsMigration, "utf8"));
-      await databasePool.query(await readFile(businessSourceGovernanceMigration, "utf8"));
+      const client = await databasePool.connect();
+      try {
+        await client.query("SELECT pg_advisory_lock($1)", [16012027]);
+        await client.query(await readFile(businessMigration, "utf8"));
+        await client.query(await readFile(businessApprovalMigration, "utf8"));
+        await client.query(await readFile(businessWorkControlMigration, "utf8"));
+        await client.query(await readFile(businessRecordRelationsMigration, "utf8"));
+        await client.query(await readFile(businessRunnerNodesMigration, "utf8"));
+        await client.query(await readFile(businessWorkResultsMigration, "utf8"));
+        await client.query(await readFile(businessDataConnectorsMigration, "utf8"));
+        await client.query(await readFile(businessSourceGovernanceMigration, "utf8"));
+        await client.query(await readFile(growthSourceApprovalScopeMigration, "utf8"));
+      } catch (error) {
+        throw error;
+      } finally {
+        await client.query("SELECT pg_advisory_unlock($1)", [16012027]).catch(() => {});
+        client.release();
+      }
     }
     return { backend: "POSTGRESQL", pool: databasePool, ownsPool: !pool, store: new PostgresBusinessApplicationStore({ pool: databasePool }), connectorStore: new PostgresBusinessDataConnectorStore({ pool: databasePool }), sourceGovernance: new PostgresBusinessSourceGovernance({ pool: databasePool }) };
   } catch (error) {

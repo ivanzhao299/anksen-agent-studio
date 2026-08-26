@@ -13,18 +13,17 @@ const migrationPaths = [
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/015_growth_delivery_audit.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/016_growth_identity_review.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/017_growth_connector_binding.up.sql', import.meta.url))),
+  resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/018_growth_source_approval_scope.up.sql', import.meta.url))),
 ];
 
 export async function migrateGrowthPlatform(pool) {
   if (!pool) throw new Error('pool is required');
   const client=typeof pool.connect==='function'?await pool.connect():pool,release=client!==pool&&typeof client.release==='function';
   try{
-    await client.query('BEGIN');
-    await client.query('SELECT pg_advisory_xact_lock($1)',[16012026]);
+    await client.query('SELECT pg_advisory_lock($1)',[16012027]);
     for (const migrationPath of migrationPaths) await client.query(await readFile(migrationPath, 'utf8'));
-    await client.query('COMMIT');
     return true;
-  }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error;}finally{if(release)client.release();}
+  }catch(error){throw error;}finally{await client.query('SELECT pg_advisory_unlock($1)',[16012027]).catch(()=>{});if(release)client.release();}
 }
 
 export async function createGrowthDatabaseRuntime({ env = process.env, pool = null } = {}) {

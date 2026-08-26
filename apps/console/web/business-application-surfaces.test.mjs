@@ -1051,7 +1051,15 @@ test("growth endpoint projects fail-closed pilot readiness without activation co
       ),
       "utf8",
     ),
-    source = html + server + readiness + connectorEvidence + binding;
+    sourceGovernance = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/postgres-business-source-governance.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source =
+      html + server + readiness + connectorEvidence + binding + sourceGovernance;
   for (const value of [
     "KingTurf Pilot 就绪度",
     "/api/business/growth-sales/pilot-readiness",
@@ -1060,6 +1068,9 @@ test("growth endpoint projects fail-closed pilot readiness without activation co
     "PILOT_ACTIVATION_BLOCKED",
     "PRODUCTION_OPERATIONS_POLICY",
     "productionOperationsPolicyAuthorized",
+    "tenantReadiness",
+    "TENANT_SCOPED_BUSINESS_SOURCE_APPROVALS",
+    "dataOwnerApproval:sourceApproval.status==='READY'",
     "EXPLICIT_PRODUCTION_AUTHORIZATION",
     "GROWTH_PILOT_TENANT_NOT_CONFIGURED",
     "PostgresGrowthConnectorEvidence",
