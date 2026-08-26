@@ -324,6 +324,8 @@ A FAILED/NOT_READY checkpoint still requires the exact approval to remain APPROV
 
 Sync scope identifiers and readiness approval/mapping references use field-specific native bounds and the same character/secret screening as connector controls before credential resolution or remote I/O.
 
+Connector, approval, mapping, and credential-reference controls reuse full secret-material screening, including JWT-like values. Raw credentials cannot masquerade as governed references or reach a resolver.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
