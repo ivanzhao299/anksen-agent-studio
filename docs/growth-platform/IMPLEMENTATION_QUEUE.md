@@ -90,6 +90,8 @@ Runtime readiness now rejects unsafe exact-binding and credential-reference fiel
 
 Tenant source-approval readiness now validates scope/application/clock before SQL and caps connector evidence at 100. Growth continues to reuse the shared business source governance workflow rather than introducing a second approval lifecycle.
 
+Publishing readiness now bounds platform inputs (20), account evidence rows (100) and authorization age (366 days), rejects bad clocks before SQL and excludes unsafe credential-reference rows without exposing reference IDs or values.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

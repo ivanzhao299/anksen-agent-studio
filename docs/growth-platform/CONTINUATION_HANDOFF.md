@@ -126,4 +126,6 @@ Runtime readiness validates every exact binding reference before SQL. Unsafe bin
 
 Growth's shared tenant source-approval readiness projection validates scope/application identifiers and clock before SQL, and returns at most 100 connectors. Request and decision semantics remain owned by the shared business governance component; do not fork a Growth-specific approval state machine.
 
+Publishing connector evidence validates up to 20 requested platform labels and a finite clock before querying at most 100 accounts. Unsafe credential references are excluded in SQL, and channel authorization must expire within 366 days. The projection contains counts and platform requirements only; no credential reference or value is returned.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
