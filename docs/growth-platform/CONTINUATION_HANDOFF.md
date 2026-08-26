@@ -118,4 +118,6 @@ Delivery control methods now share pre-authorization validation for operation/ac
 
 Identity review decisions validate case/actor/selected-lead references, positive versions, clocks, reasons and dismissal selection rules before authorization or SQL; review audit is capped at 500 recent rows. Migration 039 bounds candidate/evidence arrays, source/hash/idempotency roots and resolution actors for new direct rows. It preserves the existing human-only decision boundary.
 
+Production feature-flag control now validates the actor and optional CAS version before invoking production authorization or opening a transaction. Migration 040 ensures a disabled flag/event cannot retain an authorization reference/hash or expiry, and bounds control IDs/versions. No flag was enabled by this implementation work.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

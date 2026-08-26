@@ -138,6 +138,10 @@ test("growth production feature flag is tenant scoped, expiring, CAS and audited
         ),
       (error) => error.code === "23514",
     );
+    await assert.rejects(
+      () => pool.query("UPDATE growth_tenant_feature_flag SET enabled=false WHERE id=$1", [enabled.id]),
+      (error) => error.code === "23514",
+    );
     assert.equal((await store.readiness(scope)).enabled, true);
     assert.equal(
       (await store.readiness({ ...scope, tenantId: "tenant-b" })).enabled,
@@ -151,7 +155,7 @@ test("growth production feature flag is tenant scoped, expiring, CAS and audited
           expectedVersion: enabled.version - 1,
           actorId: "prod-operator",
         }),
-      (error) => error.code === "GROWTH_FEATURE_FLAG_VERSION_CONFLICT",
+      (error) => error.code === "GROWTH_FEATURE_FLAG_VERSION_INVALID",
     );
     now = new Date("2026-08-27T10:00:01Z");
     assert.equal((await store.readiness(scope)).enabled, false);
@@ -166,7 +170,6 @@ test("growth production feature flag is tenant scoped, expiring, CAS and audited
       authorizedOperations.map((item) => item.operation),
       [
         "GROWTH_PRODUCTION_FEATURE_FLAG_ENABLE",
-        "GROWTH_PRODUCTION_FEATURE_FLAG_DISABLE",
         "GROWTH_PRODUCTION_FEATURE_FLAG_DISABLE",
       ],
     );
@@ -209,3 +212,5 @@ test("growth production feature flag is tenant scoped, expiring, CAS and audited
     await pool.end();
   }
 });
+
+test("feature flag controls validate before production authorization or SQL",async()=>{let authorizationCalls=0,connectCalls=0;const store=new PostgresGrowthFeatureFlagStore({pool:{async connect(){connectCalls+=1;throw new Error("must not connect");},async query(){throw new Error("must not query");}},clock:()=>new Date("2026-08-26T10:00:00Z"),authorizeProductionOperation:async()=>{authorizationCalls+=1;return true;}}),scope={organizationId:"org",workspaceId:"growth",tenantId:"tenant"};await assert.rejects(()=>store.set({scope,enabled:false,expectedVersion:0,actorId:"operator"}),error=>error.code==="GROWTH_FEATURE_FLAG_VERSION_INVALID");await assert.rejects(()=>store.set({scope,enabled:false,actorId:"token=secret"}),error=>error.code==="GROWTH_FEATURE_FLAG_ACTOR_INVALID");assert.equal(authorizationCalls,0);assert.equal(connectCalls,0);});

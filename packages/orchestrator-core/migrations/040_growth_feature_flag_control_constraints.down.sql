@@ -1,0 +1,2 @@
+ALTER TABLE growth_tenant_feature_flag_event DROP CONSTRAINT IF EXISTS growth_feature_flag_event_control_valid;
+ALTER TABLE growth_tenant_feature_flag DROP CONSTRAINT IF EXISTS growth_feature_flag_control_valid;

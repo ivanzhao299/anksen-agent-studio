@@ -18,6 +18,8 @@ const assertFlagKey = (value) => {
     throw fail("GROWTH_FEATURE_FLAG_KEY_INVALID");
   return key;
 };
+const assertControlRef=(value,label)=>{const ref=String(value??'').trim();if(!safeRef(ref))throw fail(`GROWTH_FEATURE_FLAG_${label}_INVALID`);return ref;};
+const assertExpectedVersion=value=>{if(value==null)return null;const version=Number(value);if(!Number.isInteger(version)||version<1)throw fail('GROWTH_FEATURE_FLAG_VERSION_INVALID');return version;};
 
 export class PostgresGrowthFeatureFlagStore {
   constructor({
@@ -83,11 +85,12 @@ export class PostgresGrowthFeatureFlagStore {
   }) {
     const scope = assertTenantScope(scopeValue),
       safeFlagKey = assertFlagKey(flagKey),
+      safeActorId=assertControlRef(actorId,'ACTOR'),
+      safeExpectedVersion=assertExpectedVersion(expectedVersion),
       now = this.clock(),
       expiry = expiresAt ? new Date(expiresAt) : null;
     if (!(now instanceof Date) || !Number.isFinite(now.getTime()))
       throw fail("GROWTH_FEATURE_FLAG_CLOCK_INVALID");
-    if (!actorId) throw fail("GROWTH_FEATURE_FLAG_ACTOR_REQUIRED");
     if (typeof enabled !== "boolean")
       throw fail("GROWTH_FEATURE_FLAG_ENABLED_BOOLEAN_REQUIRED");
     if (
@@ -103,13 +106,13 @@ export class PostgresGrowthFeatureFlagStore {
     if (
       (await this.authorizeProductionOperation({
         scope,
-        actorId: String(actorId),
+        actorId: safeActorId,
         operation: enabled
           ? "GROWTH_PRODUCTION_FEATURE_FLAG_ENABLE"
           : "GROWTH_PRODUCTION_FEATURE_FLAG_DISABLE",
         flagKey: safeFlagKey,
         authorizationReferenceId: enabled ? authorizationReferenceId : null,
-        expectedVersion: expectedVersion ?? null,
+        expectedVersion: safeExpectedVersion,
       })) !== true
     )
       throw fail("GROWTH_FEATURE_FLAG_PRODUCTION_OPERATION_NOT_AUTHORIZED");
@@ -122,9 +125,9 @@ export class PostgresGrowthFeatureFlagStore {
           [scope.organizationId, scope.workspaceId, scope.tenantId, safeFlagKey],
         )
       ).rows[0];
-      if (existing && Number(existing.version) !== Number(expectedVersion))
+      if (existing && Number(existing.version) !== safeExpectedVersion)
         throw fail("GROWTH_FEATURE_FLAG_VERSION_CONFLICT");
-      if (!existing && expectedVersion != null)
+      if (!existing && safeExpectedVersion != null)
         throw fail("GROWTH_FEATURE_FLAG_VERSION_CONFLICT");
       const id = existing?.id ?? `growth-flag-${randomUUID()}`,
         version = existing ? Number(existing.version) + 1 : 1,
@@ -144,7 +147,7 @@ export class PostgresGrowthFeatureFlagStore {
               enabled ? authorizationReferenceId : null,
               enabled ? expiry : null,
               version,
-              String(actorId),
+              safeActorId,
               now,
             ],
           )
@@ -159,7 +162,7 @@ export class PostgresGrowthFeatureFlagStore {
           safeFlagKey,
           Boolean(enabled),
           version,
-          String(actorId),
+          safeActorId,
           enabled ? hash(authorizationReferenceId) : null,
           enabled ? expiry : null,
           now,

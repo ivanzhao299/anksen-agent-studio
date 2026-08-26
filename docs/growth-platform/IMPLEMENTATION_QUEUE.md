@@ -82,6 +82,8 @@ Delivery controls now validate operation/actor/external references, positive ver
 
 Identity review list/decision/audit paths now validate controls before authorization or SQL and cap audit history at 500. Migration 039 bounds case roots, candidate leads, identity type evidence and resolution actors for new direct rows without automating the human decision.
 
+Tenant feature-flag mutations now validate actor/version controls before production authorization or database access. Migration 040 forbids disabled rows/events from retaining authorization material and constrains IDs, actors, versions and hashes; production remains disabled.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
