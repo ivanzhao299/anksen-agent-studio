@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { createWebsiteConversionAdapter } from '../lib/website-conversion-adapter.mjs';
+import { createWebsiteConversionAdapter,verifyWebhookSignature } from '../lib/website-conversion-adapter.mjs';
 
 const secret='test-secret';
 const timestamp='1787755200';
@@ -49,3 +49,5 @@ test('website webhook headers are bounded before secret resolution',async()=>{le
 test('website webhook validates native body and signature before secrets',async()=>{let secretCalls=0;const adapter=createWebsiteConversionAdapter({domain:'example.com',secretProvider:async()=>{secretCalls+=1;return secret;},clock:()=>new Date(Number(timestamp)*1000).toISOString()}),headers={'x-growth-event-id':'native-body','x-growth-timestamp':timestamp,'x-growth-signature':'not-hex'};await assert.rejects(()=>adapter.ingestWebhook({rawBody:{eventType:'PAGE_VIEW'},headers}),/rawBody is required/);await assert.rejects(()=>adapter.ingestWebhook({rawBody:'{}',headers}),/SIGNATURE_INVALID/);await assert.rejects(()=>adapter.ingestWebhook({rawBody:'{}',headers:null}),/HEADERS_INVALID/);assert.equal(secretCalls,0);});
 
 test('website webhook normalizes a native clock before secret resolution',async()=>{let secretCalls=0;const body=JSON.stringify({eventType:'PAGE_VIEW'}),eventId='native-clock',headers={'x-growth-event-id':eventId,'x-growth-timestamp':timestamp,'x-growth-signature':sign(body,eventId)},invalid=createWebsiteConversionAdapter({domain:'example.com',secretProvider:async()=>{secretCalls+=1;return secret;},clock:()=>({toString:()=>new Date(Number(timestamp)*1000).toISOString()})});await assert.rejects(()=>invalid.ingestWebhook({rawBody:body,headers}),/CLOCK_INVALID/);assert.equal(secretCalls,0);const date=new Date(Number(timestamp)*1000),valid=createWebsiteConversionAdapter({domain:'example.com',secretProvider:async()=>secret,clock:()=>date}),result=await valid.ingestWebhook({rawBody:body,headers});assert.equal(result.event.provenance.receivedAt,date.toISOString());assert.notEqual(result.event.provenance.receivedAt,date);});
+
+test('webhook signature verifier denies algorithm and type coercion',()=>{const rawBody='{}',eventId='verify-1',signature=sign(rawBody,eventId);assert.equal(verifyWebhookSignature({rawBody,signature,secret,eventId,timestamp}),true);assert.throws(()=>verifyWebhookSignature({rawBody,signature,secret,eventId,timestamp,algorithm:'sha1'}),/algorithm must be sha256/);assert.throws(()=>verifyWebhookSignature({rawBody,signature:{toString:()=>signature},secret,eventId,timestamp}),/required/);assert.throws(()=>verifyWebhookSignature({rawBody,signature,secret:{toString:()=>secret},eventId,timestamp}),/required/);assert.equal(verifyWebhookSignature({rawBody,signature:'g'.repeat(64),secret,eventId,timestamp}),false);});

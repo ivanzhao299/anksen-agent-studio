@@ -16,9 +16,12 @@ function normalizeHeaders(headers={}) {
 
 export function verifyWebhookSignature({ rawBody, signature, secret, eventId, timestamp, algorithm='sha256' }={}) {
   if (typeof rawBody !== 'string' && !Buffer.isBuffer(rawBody)) throw new TypeError('rawBody is required');
-  if (!signature || !secret || !eventId || !timestamp) throw new TypeError('signature, secret, eventId and timestamp are required');
-  const expected=createHmac(algorithm,secret).update(`${timestamp}.${eventId}.`).update(rawBody).digest('hex');
-  const supplied=String(signature).replace(/^sha256=/i,'').trim().toLowerCase();
+  if (typeof signature!=='string'||(typeof secret!=='string'&&!Buffer.isBuffer(secret))||typeof eventId!=='string'||typeof timestamp!=='string') throw new TypeError('signature, secret, eventId and timestamp are required');
+  if(algorithm!=='sha256')throw new TypeError('algorithm must be sha256');
+  if(!/^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/.test(eventId)||!/^[0-9]{10}$/.test(timestamp)||!secret.length||Buffer.byteLength(secret)>4096)return false;
+  const supplied=signature.replace(/^sha256=/i,'').trim().toLowerCase();
+  if(!/^[a-f0-9]{64}$/.test(supplied))return false;
+  const expected=createHmac('sha256',secret).update(`${timestamp}.${eventId}.`).update(rawBody).digest('hex');
   if (supplied.length!==expected.length) return false;
   return timingSafeEqual(Buffer.from(supplied,'utf8'),Buffer.from(expected,'utf8'));
 }

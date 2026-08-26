@@ -174,6 +174,8 @@ Website ingress accepts only native string/Buffer bodies and object/standard Hea
 
 Website ingress samples its clock once, accepts only native strings or Dates and records a canonical ISO timestamp. Clock-like coercion objects fail before secret resolution and cannot influence freshness or provenance.
 
+Website signature verification is fixed to SHA-256 and requires native signature, secret, event ID and timestamp controls with exact bounded shapes. Algorithm selection and object coercion are denied.
+
 Tenant data-owner approval request/decision paths validate native scope and bounded connector, owner, mapping, approval, version, reason and expiry controls with one clock sample before SQL. Invalid work cannot even query the connector.
 
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
