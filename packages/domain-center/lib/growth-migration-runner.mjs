@@ -56,8 +56,11 @@ export async function applyGrowthMigrations(client, migrationPaths,{strictManife
   }
 }
 
-export async function withGrowthMigrationLock(client, operation) {
-  await client.query("SELECT pg_advisory_lock($1)", [16012027]);
+export async function withGrowthMigrationLock(client,operation,{waitMs=5000,pollMs=25}={}) {
+  if(!Number.isInteger(waitMs)||waitMs<0||waitMs>30000||!Number.isInteger(pollMs)||pollMs<10||pollMs>1000)throw new TypeError("GROWTH_SCHEMA_MIGRATION_LOCK_WAIT_INVALID");
+  const deadline=Date.now()+waitMs;let acquired=false;
+  do{acquired=(await client.query("SELECT pg_try_advisory_lock($1) acquired",[16012027])).rows[0]?.acquired===true;if(acquired)break;if(Date.now()>=deadline)break;await new Promise(resolve=>setTimeout(resolve,Math.min(pollMs,Math.max(1,deadline-Date.now()))));}while(true);
+  if(!acquired)throw Object.assign(new Error("GROWTH_SCHEMA_MIGRATION_LOCK_BUSY"),{code:"GROWTH_SCHEMA_MIGRATION_LOCK_BUSY",retryable:true});
   try {
     return await operation();
   } finally {

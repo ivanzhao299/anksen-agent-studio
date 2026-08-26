@@ -148,6 +148,8 @@ Inspection limits the ledger SELECT to 1,001 rows for 1,000-row overflow detecti
 
 The canonical `migrateGrowthPlatform` path runs strict manifest inspection inside the advisory lock before applying pending migrations. It cannot bypass drift/unexpected/invalid ledger blockers when the separate status command was skipped. The business-database subset migration call remains non-strict because it intentionally owns only its five shared files.
 
+The migration advisory lock uses `pg_try_advisory_lock` polling bounded to 5 seconds by default (25 ms interval; wait configurable only from 0–30 seconds). This tolerates brief parallel startup, then returns retryable `GROWTH_SCHEMA_MIGRATION_LOCK_BUSY` without executing migrations or an unmatched unlock.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.
