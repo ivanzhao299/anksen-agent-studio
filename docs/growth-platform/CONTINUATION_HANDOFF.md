@@ -332,6 +332,8 @@ The Smart Park CLI parses controls before database creation, rejects unknown arg
 
 Smart Park CLI failures emit only a stable JSON status/code and close owned pools. Filesystem, database, provider messages, local paths, and stack traces are not written to command output.
 
+CLI subprocess acceptance exercises both preflight rejection and a runtime-initialization failure after valid controls, proving that database configuration errors remain behind the same stable JSON boundary.
+
 Growth CI path filters explicitly include the Smart Park command entrypoint, so CLI-only governance/error-handling changes still run Domain typecheck and the authoritative acceptance gate.
 
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.

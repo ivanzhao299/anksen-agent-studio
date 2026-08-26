@@ -193,6 +193,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Smart Park source IDs and work-order codes reject surrounding whitespace and non-finite numeric identities instead of silently normalizing distinct upstream keys into one authoritative record.
 - The Smart Park CLI parses controls before database creation, rejects unknown arguments/accessor-backed environment values, requires explicit organization/workspace for `--apply`, and carries optional tenant/project scope into the same governed sync service.
 - Smart Park CLI failures emit only a stable JSON status/code and close owned pools; filesystem, database, provider messages, local paths, and stack traces are not written to command output.
+- CLI subprocess acceptance covers both control preflight rejection and a post-preflight runtime-initialization failure with no database configuration, proving that the stable JSON error boundary is not limited to argument parsing.
 - Growth CI path filters explicitly include the Smart Park command entrypoint, so CLI-only governance/error-handling changes still run Domain typecheck and the authoritative acceptance gate.
 - The authoritative acceptance command and Growth CI path filters include the Smart Park reference source and its end-to-end source-to-Runner tests, so source adapter changes cannot bypass the production-loop gate.
 - Smart Park adapter timeouts and pagination controls accept only bounded native integers, and empty reads use an injected native valid Date clock. Control coercion objects and clock impostors fail closed.
