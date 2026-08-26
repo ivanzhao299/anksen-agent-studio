@@ -220,6 +220,8 @@ Source readiness checkpoint projection requires scoped closed database evidence,
 
 Approval rows are closed database-evidence snapshots before presentation. Status, date and reference validation cannot invoke row accessors or accept undeclared columns.
 
+Governed connector lookup validates a closed tenant-scoped database row, connector enums, bounded configuration, references and native/string dates before readiness or approval code receives it.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
