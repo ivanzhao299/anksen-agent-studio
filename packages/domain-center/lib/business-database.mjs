@@ -30,7 +30,7 @@ function businessEnvironmentValue(env,name){if(!env||typeof env!=="object"||env!
 
 export function resolveBusinessDatabaseUrl(env = process.env) {
   const inline=businessEnvironmentValue(env,"BUSINESS_DATABASE_URL");
-  if (inline){if(inline.trim()!==inline)throw new Error("BUSINESS_DATABASE_URL_INVALID");return inline;}
+  if (inline!==undefined){if(!inline||inline.trim()!==inline)throw new Error("BUSINESS_DATABASE_URL_INVALID");return inline;}
   const path = businessEnvironmentValue(env,"BUSINESS_DATABASE_URL_FILE") ?? defaultBusinessDatabaseUrlFile;
   if(path.length<1||Buffer.byteLength(path)>1024||!isAbsolute(path)||/[\u0000-\u001f\u007f]/.test(path))throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");
   if(!existsSync(path))return null;

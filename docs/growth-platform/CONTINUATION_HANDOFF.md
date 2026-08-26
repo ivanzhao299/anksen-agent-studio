@@ -344,6 +344,8 @@ Connection strings are not silently trimmed. Inline values must be exact; creden
 
 The database URL file path is an absolute native string capped at 1 KiB of UTF-8. Multibyte paths are byte-bounded before `existsSync` or any other filesystem access.
 
+Inline URL precedence distinguishes absence from an empty value. Only an absent `BUSINESS_DATABASE_URL` may fall back to the URL file; an explicitly empty value is invalid and cannot silently switch credential provenance.
+
 The database path is a single lowercase alphanumeric/underscore name with an exact `business`, `test`, or `fixture` segment. Do not broaden it back to substring matching: extra paths, encoded separators, mixed case, and lookalike production names must remain denied.
 
 Connection query parameters are closed to one `sslmode` with a reviewed enum value. Host/port overrides, certificate/key paths, repeated parameters and arbitrary driver options remain denied so the loopback host gate cannot be bypassed through the query string.
