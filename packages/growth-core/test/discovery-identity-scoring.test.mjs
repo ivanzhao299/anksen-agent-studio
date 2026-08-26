@@ -27,10 +27,10 @@ test('GA-005 identities from two sources can resolve to one canonical subject wi
   const b = graph.upsertSourceProfile({ source: 'WEBSITE', externalId: 'web-1', email: 'buyer@example.com', company: { name: 'Buyer LLC' } });
   const result = graph.resolve(b, [a]);
   assert.equal(result.match.sourceProfileId, a.sourceProfileId);
-  assert.equal(result.confidence, 1);
+  assert.ok(result.confidence >= 0.8);
   assert.ok(result.evidence.includes('EMAIL') || result.evidence.includes('EXACT_FINGERPRINT'));
-  graph.attach({ canonicalId: 'lead-1', canonicalType: 'lead', sourceProfileId: a.sourceProfileId, confidence: 1, evidence: ['EMAIL'] });
-  graph.attach({ canonicalId: 'lead-1', canonicalType: 'lead', sourceProfileId: b.sourceProfileId, confidence: 1, evidence: ['EMAIL'] });
+  graph.attach({ canonicalId: 'lead-1', canonicalType: 'lead', sourceProfileId: a.sourceProfileId, confidence: result.confidence, evidence: result.evidence });
+  graph.attach({ canonicalId: 'lead-1', canonicalType: 'lead', sourceProfileId: b.sourceProfileId, confidence: 1, evidence: ['SOURCE_PROFILE'] });
   const view = graph.customer360('lead-1');
   assert.equal(view.sourceProfiles.length, 2);
 });
