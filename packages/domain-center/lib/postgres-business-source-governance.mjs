@@ -149,7 +149,8 @@ export class PostgresBusinessSourceGovernance {
         : null,
     };
   }
-  async tenantReadiness(scope = {}, { applicationId,limit=100 } = {}) {
+  async tenantReadiness(scope = {}, options = {}) {
+    scope=governanceEnvelope(scope,"BUSINESS_SOURCE_TENANT_READINESS_SCOPE_REQUIRED",new Set(["organizationId","workspaceId","projectId","tenantId","userId"]));options=governanceEnvelope(options,"BUSINESS_SOURCE_TENANT_READINESS_OPTIONS_INVALID",new Set(["applicationId","limit"]));const applicationId=options.applicationId,limit=options.limit??100;
     const values=[scope.organizationId,scope.workspaceId,scope.tenantId,applicationId];
     if(!values.every(value=>typeof value==='string'&&/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(value.trim())))
       throw fail("BUSINESS_SOURCE_TENANT_READINESS_SCOPE_REQUIRED");

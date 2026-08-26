@@ -212,6 +212,8 @@ Data-owner approval request and decision inputs plus actor scopes are closed pla
 
 Reconciliation checkpoint input, batch evidence and scope are snapshotted before destructuring. Accessors cannot execute before validation or change the evidence between hashing and persistence.
 
+Tenant readiness snapshots scope and options before reading application and limit controls, keeping the read-only activation evidence path free from caller-controlled accessors.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
