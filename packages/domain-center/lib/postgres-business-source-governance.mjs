@@ -5,6 +5,7 @@ const fail = (code) => Object.assign(new Error(code), { code }),
     workspaceId: String(value.workspaceId ?? ""),
   }),
   hash = (value) => createHash("sha256").update(String(value)).digest("hex");
+const secretLike=value=>/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(value),safeSourceRef=(value,label,max=160)=>{if(typeof value!=="string")throw fail(`BUSINESS_SOURCE_APPROVAL_${label}_INVALID`);const text=value.trim();if(!text||text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||secretLike(text))throw fail(`BUSINESS_SOURCE_APPROVAL_${label}_INVALID`);return text;},safeSourceScope=value=>({organizationId:safeSourceRef(value?.organizationId,"ORGANIZATION",128),workspaceId:safeSourceRef(value?.workspaceId,"WORKSPACE",128)}),safeSourceClock=value=>{if(!(value instanceof Date)||!Number.isFinite(value.getTime()))throw fail("BUSINESS_SOURCE_APPROVAL_CLOCK_INVALID");return value;};
 export class PostgresBusinessSourceGovernance {
   constructor({ pool, clock = () => new Date() } = {}) {
     if (!pool) throw fail("BUSINESS_SOURCE_GOVERNANCE_POOL_REQUIRED");
@@ -46,22 +47,16 @@ export class PostgresBusinessSourceGovernance {
     };
   }
   async request(connectorId, input, actor = {}) {
-    const connector = await this.connector(connectorId, actor),
-      owner = String(input.dataOwnerId ?? "").trim(),
-      mapping = String(input.mappingVersion ?? "").trim(),
-      tenantId = String(input.tenantId ?? "").trim() || null,
-      expiresAt = input.expiresAt ? new Date(input.expiresAt) : null;
-    if (!owner || !mapping || mapping.length > 80)
-      throw fail("BUSINESS_SOURCE_APPROVAL_INPUT_INVALID");
+    const safeConnectorId=safeSourceRef(connectorId,"CONNECTOR"),scope=safeSourceScope(actor),requester=safeSourceRef(actor.userId,"ACTOR",128),owner=safeSourceRef(input?.dataOwnerId,"DATA_OWNER",128),mapping=safeSourceRef(input?.mappingVersion,"MAPPING",80),tenantId=input?.tenantId==null||input.tenantId===""?null:safeSourceRef(input.tenantId,"TENANT",80),expiresAt=input?.expiresAt?new Date(input.expiresAt):null,now=safeSourceClock(this.clock());
     if (
       tenantId &&
-      (!/^[a-z0-9][a-z0-9._-]{1,79}$/i.test(tenantId) ||
-        !expiresAt ||
+      (!expiresAt ||
         !Number.isFinite(expiresAt.getTime()) ||
-        expiresAt.getTime() <= this.clock().getTime() ||
-        expiresAt.getTime() > this.clock().getTime() + 366 * 86400000)
+        expiresAt.getTime() <= now.getTime() ||
+        expiresAt.getTime() > now.getTime() + 366 * 86400000)
     )
       throw fail("BUSINESS_SOURCE_APPROVAL_TENANT_SCOPE_INVALID");
+    const connector = await this.connector(safeConnectorId, scope);
     const existing = (
       await this.pool.query(
         "SELECT * FROM business_data_source_approval WHERE connector_id=$1 AND tenant_id IS NOT DISTINCT FROM $2 AND status='PENDING'",
@@ -81,31 +76,32 @@ export class PostgresBusinessSourceGovernance {
           owner,
           mapping,
           expiresAt,
-          actor.userId ?? "unknown",
-          this.clock(),
+          requester,
+          now,
         ],
       )
     ).rows[0];
     return this.present(row);
   }
   async decide(approvalId, input, actor = {}) {
-    const s = scopeOf(actor),
-      decision = String(input.decision ?? "").toUpperCase();
+    const s=safeSourceScope(actor),safeApprovalId=safeSourceRef(approvalId,"APPROVAL"),owner=safeSourceRef(actor.userId,"ACTOR",128),decision=typeof input?.decision==='string'?input.decision.toUpperCase():'',version=input?.expectedVersion,reason=input?.reason==null?null:typeof input.reason==='string'?input.reason.trim():null,now=safeSourceClock(this.clock());
     if (!["APPROVED", "REJECTED", "REVOKED"].includes(decision))
       throw fail("BUSINESS_SOURCE_APPROVAL_DECISION_INVALID");
+    if(!Number.isInteger(version)||version<1)throw fail("BUSINESS_SOURCE_APPROVAL_VERSION_INVALID");
+    if(reason!=null&&(reason.length>240||/[\u0000-\u001f\u007f]/.test(reason)||secretLike(reason)))throw fail("BUSINESS_SOURCE_APPROVAL_REASON_INVALID");
     const row = (
       await this.pool.query(
         "UPDATE business_data_source_approval SET status=$1,decided_by=$2,decided_at=$3,decision_reason=$4,version=version+1 WHERE id=$5 AND organization_id=$6 AND workspace_id=$7 AND status=CASE WHEN $1='REVOKED' THEN 'APPROVED' ELSE 'PENDING' END AND version=$8 AND data_owner_id=$9 RETURNING *",
         [
           decision,
-          actor.userId ?? "unknown",
-          this.clock(),
-          String(input.reason ?? "").slice(0, 240) || null,
-          approvalId,
+          owner,
+          now,
+          reason||null,
+          safeApprovalId,
           s.organizationId,
           s.workspaceId,
-          Number(input.expectedVersion),
-          actor.userId ?? "",
+          version,
+          owner,
         ],
       )
     ).rows[0];

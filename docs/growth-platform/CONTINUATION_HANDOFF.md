@@ -170,6 +170,8 @@ Official publishing/business credential resolvers likewise receive an AbortSigna
 
 Website ingress accepts only native string/Buffer bodies and object/standard Headers collections. Event/timestamp and exact 64-hex SHA-256 signature shape are checked before secret resolution, so malformed requests cannot call the secret provider.
 
+Tenant data-owner approval request/decision paths validate native scope and bounded connector, owner, mapping, approval, version, reason and expiry controls with one clock sample before SQL. Invalid work cannot even query the connector.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.
