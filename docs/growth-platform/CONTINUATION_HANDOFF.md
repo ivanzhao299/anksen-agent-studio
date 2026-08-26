@@ -334,7 +334,9 @@ Smart Park CLI failures emit only a stable JSON status/code and close owned pool
 
 CLI subprocess acceptance exercises both preflight rejection and a runtime-initialization failure after valid controls, proving that database configuration errors remain behind the same stable JSON boundary.
 
-The CLI creates its database runtime with `initializeSchema: false`. Both readiness-only and apply modes therefore bind to existing stores without schema queries, migration DDL, or migration-lock acquisition. Prepare and verify schema through the separate governed migration workflow; a missing schema must remain a controlled command failure.
+The CLI creates its database runtime with `initializeSchema: false`. Both readiness-only and apply modes therefore bind to existing stores without schema-initialization queries, migration DDL, or migration-lock acquisition; their ordinary scoped readiness/sync SQL still runs. Prepare and verify schema through the separate governed migration workflow; a missing schema must remain a controlled command failure.
+
+Database URL credential files must be private regular files owned by root or the current process user. Resolution opens the final path with `O_NOFOLLOW`, validates and reads the same descriptor under a 4 KiB ceiling, and rejects public, symlinked, empty, malformed UTF-8, or oversized files before pool creation.
 
 Growth CI path filters explicitly include the Smart Park command entrypoint, so CLI-only governance/error-handling changes still run Domain typecheck and the authoritative acceptance gate.
 
