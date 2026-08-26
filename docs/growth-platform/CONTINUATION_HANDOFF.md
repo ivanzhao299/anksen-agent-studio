@@ -320,6 +320,8 @@ Returned batches expose a bounded native ID, canonical ordered creation/completi
 
 APPLIED checkpoint results must remain READY. An authorized FAILED batch may correctly return NOT_READY because the connector atomically transitioned to ERROR; approval, batch, counts, and reconciliation evidence remain fully verified and are returned as a failed sync outcome.
 
+A FAILED/NOT_READY checkpoint still requires the exact approval to remain APPROVED. Connector error state never broadens into accepting revoked authorization evidence.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
