@@ -1098,6 +1098,8 @@ test("growth endpoint projects fail-closed pilot readiness without activation co
     "PostgresGrowthRuntimeGateEvidence",
     "EXACT_RUNTIME_BINDING_MISSING",
     "runtimeActivationGatePassed:runtimeGate.status==='READY'",
+    "GOVERNED_CONNECTOR_ACTIVATION_PREFLIGHTS",
+    "explicitProductionAuthorization:activationAuthorization.summary.productionAuthorizationCovered===true",
     "EXPLICIT_PRODUCTION_AUTHORIZATION",
     "GROWTH_PILOT_TENANT_NOT_CONFIGURED",
     "PostgresGrowthConnectorEvidence",

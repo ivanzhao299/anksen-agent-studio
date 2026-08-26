@@ -10,6 +10,28 @@ const fail = (code, details = {}) =>
 const hash = (value) =>
   createHash("sha256").update(String(value)).digest("hex");
 
+export const summarizeGrowthActivationPreflights = (items = []) => {
+  const requiredKinds = ["WEBSITE_INBOUND", "PUBLISHING", "BUSINESS_HANDOFF"],
+    readyKinds = [
+      ...new Set(
+        items
+          .filter((item) => item.status === "READY")
+          .map((item) => item.binding?.kind)
+          .filter(Boolean),
+      ),
+    ].sort();
+  return Object.freeze({
+    total: items.length,
+    ready: items.filter((item) => item.status === "READY").length,
+    blocked: items.filter((item) => item.status === "BLOCKED").length,
+    readyKinds: Object.freeze(readyKinds),
+    requiredKinds: Object.freeze(requiredKinds),
+    productionAuthorizationCovered: requiredKinds.every((kind) =>
+      readyKinds.includes(kind),
+    ),
+  });
+};
+
 export class GrowthConnectorActivationGate {
   constructor({
     pool,
@@ -145,11 +167,7 @@ export class GrowthConnectorActivationGate {
       );
     return {
       items,
-      summary: {
-        total: items.length,
-        ready: items.filter((item) => item.status === "READY").length,
-        blocked: items.filter((item) => item.status === "BLOCKED").length,
-      },
+      summary: summarizeGrowthActivationPreflights(items),
       generatedAt: this.clock().toISOString(),
       safety: {
         credentialValuesRead: false,

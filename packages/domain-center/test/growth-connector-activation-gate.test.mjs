@@ -12,7 +12,10 @@ import {
   PostgresGrowthConnectorBindingStore,
   GrowthConnectorHealthProbeService,
 } from "../lib/postgres-growth-connector-binding-store.mjs";
-import { GrowthConnectorActivationGate } from "../lib/growth-connector-activation-gate.mjs";
+import {
+  GrowthConnectorActivationGate,
+  summarizeGrowthActivationPreflights,
+} from "../lib/growth-connector-activation-gate.mjs";
 import { evaluateConsoleActionAccess } from "../../access-center/lib/access-center-utils.mjs";
 
 const accessPolicy = JSON.parse(
@@ -24,6 +27,28 @@ const accessPolicy = JSON.parse(
     "utf8",
   ),
 );
+
+test("activation authorization coverage requires every governed connector kind", () => {
+  const ready = (kind) => ({ status: "READY", binding: { kind } }),
+    complete = summarizeGrowthActivationPreflights([
+      ready("WEBSITE_INBOUND"),
+      ready("PUBLISHING"),
+      ready("BUSINESS_HANDOFF"),
+      ready("PUBLISHING"),
+    ]),
+    incomplete = summarizeGrowthActivationPreflights([
+      ready("WEBSITE_INBOUND"),
+      { status: "BLOCKED", binding: { kind: "PUBLISHING" } },
+      ready("BUSINESS_HANDOFF"),
+    ]);
+  assert.equal(complete.productionAuthorizationCovered, true);
+  assert.deepEqual(complete.readyKinds, [
+    "BUSINESS_HANDOFF",
+    "PUBLISHING",
+    "WEBSITE_INBOUND",
+  ]);
+  assert.equal(incomplete.productionAuthorizationCovered, false);
+});
 
 test("connector activation consumes an existing business approval exactly once with no external call", async () => {
   await ensurePostgresFixture();
@@ -201,7 +226,14 @@ test("connector activation consumes an existing business approval exactly once w
     assert.equal(preflight.status, "READY");
     assert.equal(preflight.safety.connectorEnabled, false);
     const listing = await gate.listPreflights({ scope });
-    assert.deepEqual(listing.summary, { total: 1, ready: 1, blocked: 0 });
+    assert.deepEqual(listing.summary, {
+      total: 1,
+      ready: 1,
+      blocked: 0,
+      readyKinds: ["WEBSITE_INBOUND"],
+      requiredKinds: ["WEBSITE_INBOUND", "PUBLISHING", "BUSINESS_HANDOFF"],
+      productionAuthorizationCovered: false,
+    });
     assert.deepEqual(listing.safety, {
       credentialValuesRead: false,
       externalCallsPerformed: false,
