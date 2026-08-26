@@ -346,7 +346,7 @@ The database path is a single lowercase alphanumeric/underscore name with an exa
 
 Connection query parameters are closed to one `sslmode` with a reviewed enum value. Host/port overrides, certificate/key paths, repeated parameters and arbitrary driver options remain denied so the loopback host gate cannot be bypassed through the query string.
 
-Database userinfo is percent-decoded before its length/control checks. Encoded newline/NUL bytes and malformed escapes fail before pool creation with stable codes that do not include the connection string.
+Database userinfo is percent-decoded before its UTF-8 byte-length/control checks. Encoded newline/NUL bytes, malformed escapes and decoded username/password values over 1 KiB fail before pool creation with stable codes that do not include the connection string.
 
 Database protocols are exact lowercase `postgresql://` or `postgres://` prefixes, and explicit ports are canonical 1–65535 integers. Do not rely on URL parser normalization for either connection-target control.
 
