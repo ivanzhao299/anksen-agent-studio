@@ -26,19 +26,21 @@ export class PostgresBusinessSourceGovernance {
     return safeGovernanceRef(connector.credential_reference_id,"CREDENTIAL_REFERENCE",240);
   }
   present(row) {
+    const evidenceFail=()=>{throw fail("BUSINESS_SOURCE_APPROVAL_EVIDENCE_INVALID");},ref=(value,max=160,{optional=false}={})=>{if(optional&&value==null)return null;try{return safeGovernanceRef(value,"APPROVAL_EVIDENCE",max);}catch{return evidenceFail();}},date=(value,{optional=false}={})=>{if(optional&&value==null)return null;if(typeof value!=="string"&&!(value instanceof Date))return evidenceFail();const parsed=new Date(value);if(!Number.isFinite(parsed.getTime()))return evidenceFail();return parsed.toISOString();},reason=row?.decision_reason;
+    if(!row||typeof row!=="object"||!['PENDING','APPROVED','REJECTED','REVOKED'].includes(row.status)||!Number.isInteger(row.version)||row.version<1||reason!=null&&(typeof reason!=="string"||reason.length>240||/[\u0000-\u001f\u007f]/.test(reason)||secretLike(reason)))evidenceFail();
     return {
-      id: row.id,
-      connectorId: row.connector_id,
-      tenantId: row.tenant_id ?? null,
-      dataOwnerId: row.data_owner_id,
-      mappingVersion: row.mapping_version,
-      expiresAt: row.expires_at?.toISOString?.() ?? row.expires_at ?? null,
+      id: ref(row.id),
+      connectorId: ref(row.connector_id),
+      tenantId: ref(row.tenant_id,80,{optional:true}),
+      dataOwnerId: ref(row.data_owner_id,128),
+      mappingVersion: ref(row.mapping_version,80),
+      expiresAt: date(row.expires_at,{optional:true}),
       status: row.status,
-      requestedBy: row.requested_by,
-      requestedAt: row.requested_at?.toISOString?.() ?? row.requested_at,
-      decidedBy: row.decided_by,
-      decidedAt: row.decided_at?.toISOString?.() ?? row.decided_at,
-      decisionReason: row.decision_reason,
+      requestedBy: ref(row.requested_by,128),
+      requestedAt: date(row.requested_at),
+      decidedBy: ref(row.decided_by,128,{optional:true}),
+      decidedAt: date(row.decided_at,{optional:true}),
+      decisionReason: reason??null,
       version: row.version,
     };
   }
