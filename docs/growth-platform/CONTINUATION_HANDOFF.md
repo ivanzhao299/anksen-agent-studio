@@ -164,4 +164,6 @@ Delivery ledger controls no longer coerce IDs, capabilities, actors, authoritati
 
 Delivery dashboard/audit limits require native positive integers and are capped at 100/500. Dashboard clock validation and its single generated-at sample occur before either read query.
 
+Identity review list/audit controls require native positive integer limits (capped at 100/500), a known status and bounded native references/versions before authorization or SQL.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
