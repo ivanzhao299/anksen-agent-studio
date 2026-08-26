@@ -322,6 +322,8 @@ APPLIED checkpoint results must remain READY. An authorized FAILED batch may cor
 
 A FAILED/NOT_READY checkpoint still requires the exact approval to remain APPROVED. Connector error state never broadens into accepting revoked authorization evidence.
 
+Sync scope identifiers and readiness approval/mapping references use field-specific native bounds and the same character/secret screening as connector controls before credential resolution or remote I/O.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
