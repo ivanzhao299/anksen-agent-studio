@@ -1,4 +1,5 @@
 const loopbackHosts=new Set(['127.0.0.1','localhost','[::1]']);
+const hostnamePattern=/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 export function assertOfficialApiConfiguration({endpoint,allowedHostnames,allowHttpForTest,enabled,requiresApproval,timeoutMs,maxResponseBytes,errorPrefix}){
   const target=new URL(endpoint);
@@ -7,7 +8,10 @@ export function assertOfficialApiConfiguration({endpoint,allowedHostnames,allowH
   if(!Number.isInteger(maxResponseBytes)||maxResponseBytes<1||maxResponseBytes>1024*1024)throw new TypeError(`${errorPrefix}_RESPONSE_LIMIT_INVALID`);
   if(target.username||target.password||target.search||target.hash)throw new Error(`${errorPrefix}_ENDPOINT_INVALID`);
   if(target.protocol!=='https:'&&!(allowHttpForTest===true&&target.protocol==='http:'&&loopbackHosts.has(target.hostname)))throw new Error(`${errorPrefix}_HTTPS_REQUIRED`);
-  if(!Array.isArray(allowedHostnames)||!allowedHostnames.map(value=>String(value).toLowerCase()).includes(target.hostname.toLowerCase()))throw new Error(`${errorPrefix}_HOST_DENIED`);
+  if(!Array.isArray(allowedHostnames)||allowedHostnames.length<1||allowedHostnames.length>50)throw new Error(`${errorPrefix}_HOST_ALLOWLIST_INVALID`);
+  const normalizedHosts=allowedHostnames.map(value=>{if(typeof value!=='string')throw new Error(`${errorPrefix}_HOST_ALLOWLIST_INVALID`);const host=value.trim().toLowerCase();if(!hostnamePattern.test(host)&&!loopbackHosts.has(host))throw new Error(`${errorPrefix}_HOST_ALLOWLIST_INVALID`);return host;});
+  if(new Set(normalizedHosts).size!==normalizedHosts.length)throw new Error(`${errorPrefix}_HOST_ALLOWLIST_INVALID`);
+  if(!normalizedHosts.includes(target.hostname.toLowerCase()))throw new Error(`${errorPrefix}_HOST_DENIED`);
   return target;
 }
 
