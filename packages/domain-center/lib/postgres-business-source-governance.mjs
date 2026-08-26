@@ -224,20 +224,31 @@ export class PostgresBusinessSourceGovernance {
     },
     scope = {},
   ) {
-    const connector = await this.connector(connectorId, scope),
+    const checkpointRef=(value,label,max=240,{optional=false}={})=>{if(optional&&(value==null||value===""))return null;if(typeof value!=="string")throw fail(`BUSINESS_SOURCE_CHECKPOINT_${label}_INVALID`);const text=value.trim();if(!text||text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||secretLike(text))throw fail(`BUSINESS_SOURCE_CHECKPOINT_${label}_INVALID`);return text;},
+      safeConnectorId=checkpointRef(connectorId,"CONNECTOR",160),
+      safeScope={organizationId:checkpointRef(scope?.organizationId,"ORGANIZATION",128),workspaceId:checkpointRef(scope?.workspaceId,"WORKSPACE",128)},
+      batchId=checkpointRef(batch?.id,"BATCH",160),
+      cursor=checkpointRef(sourceCursor,"CURSOR",240,{optional:true}),
+      safeMappingVersion=checkpointRef(mappingVersion,"MAPPING",80),
+      counts=[sourceCount,mappedCount,rejectedCount],
+      observedAt=new Date(batch?.observedAt),
+      now=safeSourceClock(this.clock());
+    if(!counts.every(value=>Number.isInteger(value)&&value>=0&&value<=1000000))throw fail("BUSINESS_SOURCE_CHECKPOINT_COUNT_INVALID");
+    if(!Number.isFinite(observedAt.getTime())||observedAt.getTime()>now.getTime()+300000)throw fail("BUSINESS_SOURCE_CHECKPOINT_OBSERVED_AT_INVALID");
+    const connector = await this.connector(safeConnectorId, safeScope),
       reconciliationStatus =
-        Number(sourceCount) === Number(mappedCount) + Number(rejectedCount)
+        sourceCount === mappedCount + rejectedCount
           ? "MATCHED"
           : "MISMATCH",
       reconciliationHash = hash(
         JSON.stringify({
-          connectorId,
-          mappingVersion,
-          sourceCursor,
+          connectorId:safeConnectorId,
+          mappingVersion:safeMappingVersion,
+          sourceCursor:cursor,
           sourceCount,
           mappedCount,
           rejectedCount,
-          batchId: batch.id,
+          batchId,
         }),
       );
     await this.pool.query(
@@ -246,17 +257,17 @@ export class PostgresBusinessSourceGovernance {
         connector.id,
         connector.organization_id,
         connector.workspace_id,
-        sourceCursor || null,
-        batch.observedAt,
-        batch.id,
+        cursor,
+        observedAt,
+        batchId,
         sourceCount,
         mappedCount,
         rejectedCount,
         reconciliationStatus,
         reconciliationHash,
-        this.clock(),
+        now,
       ],
     );
-    return this.readiness(connectorId, scope);
+    return this.readiness(safeConnectorId, safeScope);
   }
 }
