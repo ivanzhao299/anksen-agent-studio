@@ -64,7 +64,7 @@ const brief=createContentBrief({...scope,brandId:'brand',marketId:'market',icpId
 const approvedBrief=approveContentBrief(brief,{reviewerId:'reviewer-1'});const productionJob=createContentProductionJob({brief:approvedBrief});assert.equal(productionJob.factory,'VIDEO_FACTORY');
 evidence.ga['GA-008/009']={status:'PASS',briefId:brief.briefId,approval:approvedBrief.status,factory:productionJob.factory,variants:productionJob.variants.length};
 
-const publishAdapter=createMockPublishingAdapter({channel:'MOCK'});const publishing=createPublishingService({scope,tenantPack:tenant,adapter:publishAdapter});const publishPlan=publishing.createPlan({assetRef:'asset:video-1'});assert.equal(publishPlan.status,'WAITING_APPROVAL');publishing.approve(publishPlan.planId,{reviewerId:'reviewer-1'});const published=await publishing.execute(publishPlan.planId);assert.equal(published.status,'COMPLETED');
+const publishAdapter=createMockPublishingAdapter({channel:'MOCK'});const publishing=createPublishingService({scope,tenantPack:tenant,adapter:publishAdapter});const publishPlan=publishing.createPlan({assetRef:'asset:video-1'});assert.equal(publishPlan.status,'WAITING_APPROVAL');publishing.approve(publishPlan.planId,{reviewerId:'reviewer-1',approvalRef:'approval:acceptance-publish'});const published=await publishing.execute(publishPlan.planId);assert.equal(published.status,'COMPLETED');
 evidence.ga['GA-010']={status:'PASS',approvalGated:true,resultRef:published.resultRef};
 
 evidence.ga['GA-011']={status:'PASS',responseRecommendation:engagementIngestion.recommendResponse('lead-1').action};

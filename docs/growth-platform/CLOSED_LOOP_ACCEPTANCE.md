@@ -23,6 +23,13 @@ A tenant must be able to execute: discovery → identity resolution → lead →
 - Score snapshots are immutable and event-idempotent, while distinct events at the same timestamp remain distinct history.
 - Customer 360 reads tenant-scoped identities, engagements, score history, opportunities, revenue and audit timeline; cross-tenant reads return no record.
 
+## Governed GA-010 delivery evidence
+
+- The first official-API publishing adapter is disabled by default, HTTPS-only outside tests, host-allowlisted and credential-reference based.
+- Every external write carries an idempotency key and an existing approval reference; credential values and content bodies are not persisted.
+- The PostgreSQL delivery ledger records request fingerprints, CAS versions, bounded attempts, retry classification, external IDs and reconciliation state without creating a second Scheduler or Queue.
+- Rate limits and server failures may become `RETRYABLE`; policy/approval failures become terminal. Completed writes can be reconciled as `MATCHED` or `MISMATCH`.
+
 ## GA-000~017 definition of done
 GA-000 architecture/boundaries; GA-001 tenant/domain model; GA-002 channel contract; GA-003 events/audit; GA-004 discovery; GA-005 identity graph; GA-006 scoring; GA-007 360 projection; GA-008 content strategy contract; GA-009 media-factory adapter; GA-010 publishing contract; GA-011 engagement ingestion; GA-012 qualification/NBA; GA-013 downstream opportunity handoff; GA-014 follow-up action; GA-015 revenue attribution; GA-016 optimization inputs/decision action; GA-017 executive closed-loop report.
 

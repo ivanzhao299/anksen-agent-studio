@@ -11,6 +11,7 @@ on:
       - 'packages/domain-center/package.json'
       - 'packages/orchestrator-core/migrations/012_growth_platform.up.sql'
       - 'packages/orchestrator-core/migrations/013_growth_score_history.up.sql'
+      - 'packages/orchestrator-core/migrations/014_growth_delivery_ledger.up.sql'
       - 'docs/growth-platform/**'
       - '.github/workflows/growth-platform-ci.yml'
   push:
@@ -25,6 +26,7 @@ on:
       - 'packages/domain-center/package.json'
       - 'packages/orchestrator-core/migrations/012_growth_platform.up.sql'
       - 'packages/orchestrator-core/migrations/013_growth_score_history.up.sql'
+      - 'packages/orchestrator-core/migrations/014_growth_delivery_ledger.up.sql'
       - 'docs/growth-platform/**'
       - '.github/workflows/growth-platform-ci.yml'
 

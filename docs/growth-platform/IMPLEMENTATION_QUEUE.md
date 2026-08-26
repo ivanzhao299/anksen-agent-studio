@@ -4,7 +4,7 @@ Status: ACTIVE
 Branch: `feature/anksen-ai-growth-platform`
 Execution rule: work in ordered slices; each item must produce code/tests/docs/evidence before advancing.
 
-Current evidence snapshot (2026-08-26): GA-000~GA-017 executable acceptance is green. GA-004~007 now have signed-event transactional PostgreSQL evidence including replay protection, identity conflict rollback, immutable score history and tenant-scoped Customer 360. Production authorization, additional real connectors, reconciliation, UI/operations and pilot evidence remain open. Continue from `CONTINUATION_HANDOFF.md` and run `pnpm growth-platform:acceptance` before advancing.
+Current evidence snapshot (2026-08-26): GA-000~GA-017 executable acceptance is green. GA-004~007 have signed-event transactional PostgreSQL evidence. GA-010 has a default-disabled official API adapter plus a durable, retry-bounded and reconcilable delivery ledger. Production authorization, named-platform connectors, GA-013 ledger reuse, UI/operations and pilot evidence remain open. Continue from `CONTINUATION_HANDOFF.md` and run `pnpm growth-platform:acceptance` before advancing.
 
 ## Program objective
 

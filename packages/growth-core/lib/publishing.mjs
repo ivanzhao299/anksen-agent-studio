@@ -16,12 +16,13 @@ export function createPublishingService({scope:rawScope,tenantPack,adapter,clock
     return operations.get(plan.planId);
   }
 
-  function approve(planId,{reviewerId}={}){
+  function approve(planId,{reviewerId,approvalRef}={}){
     const plan=requirePlan(planId);
     if(!plan.approvalRequired)return plan;
     if(!reviewerId)throw new TypeError('reviewerId is required');
+    if(!approvalRef)throw new TypeError('approvalRef is required');
     if(plan.status!=='WAITING_APPROVAL')throw new Error(`publish plan cannot be approved from ${plan.status}`);
-    Object.assign(plan,{status:'READY',approvedBy:reviewerId,approvedAt:clock()});
+    Object.assign(plan,{status:'READY',approvedBy:reviewerId,approvalRef,approvedAt:clock()});
     return Object.freeze({...plan});
   }
 
@@ -34,7 +35,7 @@ export function createPublishingService({scope:rawScope,tenantPack,adapter,clock
     if(typeof adapter.publish!=='function')throw new Error('adapter publish implementation required');
     plan.status='RUNNING';plan.attempts+=1;plan.updatedAt=clock();
     try{
-      const result=await adapter.publish({scope,operationId,assetRef:plan.assetRef,channel:plan.channel});
+      const result=await adapter.publish({scope,operationId,assetRef:plan.assetRef,channel:plan.channel,approvalRef:plan.approvalRef??null});
       Object.assign(plan,{status:'COMPLETED',result,resultRef:result?.externalId??result?.url??null,completedAt:clock(),updatedAt:clock()});
       return Object.freeze({...plan});
     }catch(error){
