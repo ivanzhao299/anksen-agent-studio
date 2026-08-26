@@ -30,7 +30,7 @@ export async function readBoundedJson(response,maxResponseBytes,errorPrefix){
 export const safeRetryAfter=value=>typeof value==='string'&&/^\d{1,8}$/.test(value)?value:null;
 export async function cancelResponseBody(response){try{await response?.body?.cancel?.();}catch{}}
 
-export async function fetchWithTimeout(fetchImpl,target,options,timeoutMs){const controller=new AbortController();let timer;try{return await Promise.race([Promise.resolve().then(()=>fetchImpl(target,{...options,signal:controller.signal})),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();const error=new Error('FETCH_TIMEOUT');error.name='AbortError';reject(error);},timeoutMs);})]);}finally{clearTimeout(timer);}}
+export async function fetchWithTimeout(fetchImpl,target,options,timeoutMs,consume=null){const controller=new AbortController();let timer;try{const operation=Promise.resolve().then(async()=>{const response=await fetchImpl(target,{...options,signal:controller.signal});return typeof consume==='function'?consume(response):response;});return await Promise.race([operation,new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();const error=new Error('FETCH_TIMEOUT');error.name='AbortError';reject(error);},timeoutMs);})]);}finally{clearTimeout(timer);}}
 
 export function assertCredentialToken(value,errorPrefix){if(typeof value!=='string'||value.length<1||value.length>8192||/[\u0000-\u001f\u007f]/.test(value))throw Object.assign(new Error(`${errorPrefix}_CREDENTIAL_UNAVAILABLE`),{code:`${errorPrefix}_CREDENTIAL_UNAVAILABLE`,retryable:false});return value;}
 

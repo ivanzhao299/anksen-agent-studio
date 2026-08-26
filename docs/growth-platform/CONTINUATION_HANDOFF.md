@@ -162,6 +162,8 @@ New business, Growth and migration-status pools apply the same `BUSINESS_DATABAS
 
 Official publishing and business API fetches use a shared wall-clock Promise timeout as well as AbortSignal. Custom fetch implementations that ignore abort still resolve into sanitized retryable `*_TIMEOUT` failures within the configured 100–30,000 ms.
 
+That timeout covers fetch, HTTP status handling and complete bounded JSON body consumption. A peer that returns headers then stalls its stream cannot hold the delivery worker past the same deadline.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.

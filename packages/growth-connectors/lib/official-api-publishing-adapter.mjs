@@ -39,12 +39,12 @@ export function createOfficialApiPublishingAdapter({
     const credential = await resolveCredentialWithTimeout(credentialResolver,{ credentialReferenceId: credentialRef, channel: adapter.channel, adapterId: adapter.id },timeoutMs,'OFFICIAL_API');
     const accessToken=assertCredentialToken(credential?.accessToken,'OFFICIAL_API');
     try {
-      const response = await fetchWithTimeout(fetchImpl,target,{
+      return await fetchWithTimeout(fetchImpl,target,{
         method: 'POST',
         redirect: 'error',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}`, 'idempotency-key': safeOperationId },
         body: JSON.stringify({ assetRef: safeAssetRef, approvalRef, tenant: { organizationId: scope.organizationId, workspaceId: scope.workspaceId, tenantId: scope.tenantId } }),
-      },timeoutMs);
+      },timeoutMs,async response=>{
       if (!response.ok) {
         const code = `OFFICIAL_API_HTTP_${response.status}`;
         const retryAfter=safeRetryAfter(response.headers.get('retry-after'));await cancelResponseBody(response);
@@ -55,6 +55,7 @@ export function createOfficialApiPublishingAdapter({
       const externalId = payload.id ?? payload.externalId;
       if (!externalId) throw Object.assign(new Error('OFFICIAL_API_EXTERNAL_ID_REQUIRED'), { code: 'OFFICIAL_API_EXTERNAL_ID_REQUIRED', retryable: false });
       return Object.freeze({ externalId: assertReference(externalId,'EXTERNAL_ID'), status: assertReference(payload.status??'PUBLISHED','EXTERNAL_STATUS'), adapterId: adapter.id, channel: adapter.channel, operationId:safeOperationId, retryable: false });
+      });
     } catch (error) {
       if (error?.name === 'AbortError') throw Object.assign(new Error('OFFICIAL_API_TIMEOUT'), { code: 'OFFICIAL_API_TIMEOUT', retryable: true });
       if(String(error?.code??'').startsWith('OFFICIAL_API_'))throw error;
