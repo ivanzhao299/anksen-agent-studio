@@ -248,6 +248,8 @@ Managed-source duplicate detection runs only after the transaction acquires the 
 
 Managed authorization is a closed native envelope whose tenant must equal the actor tenant. Accessors, coerced versions and cross-tenant evidence fail before SQL.
 
+Invalid managed payloads acquire the same approval lock before failed-batch or connector-error persistence, preventing forged authorization from poisoning connector state.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
