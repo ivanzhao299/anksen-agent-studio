@@ -107,6 +107,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Official API success JSON must be a plain object, and authoritative IDs/statuses must already be safe strings. Null, arrays and numeric/boolean coercion are protocol failures marked non-retryable rather than network failures.
 - Outbound operation, approval, asset, lead and payload controls are validated as bounded safe native values before credential resolution. Invalid work cannot touch the credential provider or network.
 - Delivery ledger IDs, capabilities, actors, external references and CAS versions require their native string/integer types. Numeric/boolean/string-number coercion is rejected before authorization or SQL.
+- Delivery dashboard and audit reads validate native positive integer limits before SQL (then cap at 100/500). Dashboard time is sampled once and validated before its parallel queries.
 - The snapshot truthfully remains `PILOT_ACTIVATION_BLOCKED` while credential references, connector health, data-owner approval, production feature flag, Runtime Activation Gate or explicit production authorization are absent.
 - Readiness assessment is pure and read-only: it cannot resolve credential values, invoke connectors, mutate production, or enable a Runtime.
 - The authenticated Growth Console projects the same versioned report and its blockers through a read-only endpoint; it exposes no activation control and rejects an explicitly different tenant context.

@@ -162,4 +162,6 @@ Official outbound work validates operation, approval, asset, lead and bounded pa
 
 Delivery ledger controls no longer coerce IDs, capabilities, actors, authoritative references or CAS versions. Native bounded strings and positive integer versions are required before authorization or SQL.
 
+Delivery dashboard/audit limits require native positive integers and are capped at 100/500. Dashboard clock validation and its single generated-at sample occur before either read query.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
