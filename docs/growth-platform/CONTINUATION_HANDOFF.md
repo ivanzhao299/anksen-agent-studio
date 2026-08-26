@@ -302,6 +302,8 @@ Response media types are closed to JSON or `+json`, with no charset or explicit 
 
 Smart Park mapping enforces connector identity and scalar-field length/control-character limits before ingestion, so oversized upstream content cannot create a FAILED batch or connector ERROR transition.
 
+Smart Park chronology is evidence-ordered: creation cannot follow the source observation, and optional completion must fall between creation and observation before SLA/completion evidence is mapped.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
