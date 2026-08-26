@@ -16,7 +16,9 @@ Business Source Governance now resolves latest tenant approval by migration 020'
 
 Migration 021 enforces production feature-flag event immutability in PostgreSQL. Store tests prove both UPDATE and DELETE fail with SQLSTATE `55000`; the authorization hash remains the only retained authorization evidence.
 
-Growth migrations 012–021 now use a shared database ledger plus the existing advisory lock across both initialization paths. Concurrent processes skip already-applied DDL instead of repeatedly rebuilding triggers while business transactions are active.
+Growth migrations 012–022 now use a shared database ledger plus the existing advisory lock across initialization paths. Concurrent processes skip already-applied DDL instead of repeatedly rebuilding triggers while business transactions are active.
+
+Migration 022 makes the remaining authoritative Growth event and score-history tables database-immutable. The root acceptance gate checks all triggers and proves canonical event UPDATE/DELETE rejection.
 
 ## Program objective
 

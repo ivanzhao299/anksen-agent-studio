@@ -54,4 +54,6 @@ Business Source approval latest-wins semantics use migration 020's monotonic `se
 
 Migration 021 makes production feature-flag events database-immutable: direct UPDATE and DELETE, including a parent cascade, are rejected. The Business Runtime and Growth migration runner both apply it after migration 020 through the shared `growth_schema_migration` ledger. Retention or erasure must therefore be an explicit governed schema operation, not an application-store side effect.
 
+Migration 022 extends database immutability to `growth_event`, score snapshots, delivery events, identity-review events and connector-binding events. It is applied by the Growth migration runner after all source tables exist and is part of root Growth acceptance. Do not bypass these triggers for normal cleanup or application workflows.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
