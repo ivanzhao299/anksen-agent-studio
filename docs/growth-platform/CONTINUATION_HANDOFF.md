@@ -80,4 +80,6 @@ Outbound retry state is now schedule-bound. Only literal `retryable: true` plus 
 
 Retry and reconciliation are default-deny at the delivery store seam. Console supplies its evaluated Access Center action decision, and the injected integrations verify the action-specific capability (`business.work.control` for retry, `proposal.approve` for reconciliation). Keep both route and store checks; do not revert to trusting a non-empty actor ID.
 
+Identity-review decisions are likewise default-deny in the store, with Console injecting its evaluated `proposal.approve` decision. Human resolution reasons are bounded and reject controls/common raw-secret shapes before authorization. Migration 027 repeats the reason constraint in PostgreSQL and is Growth-runner-only because it depends on identity-review migration 016.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

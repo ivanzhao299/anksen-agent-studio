@@ -44,6 +44,8 @@ Delivery retries require literal boolean intent, remaining attempt budget and a 
 
 Delivery retry and reconciliation mutations now default-deny at the PostgreSQL store seam. Console passes its already evaluated Access Center decision into narrow capability-specific authorization callbacks, preventing internal callers from bypassing route-only governance.
 
+Identity-review decisions now default-deny at the store seam and require Console's evaluated approval capability. Decision reasons are bounded/non-secret at the application boundary, while migration 027 provides matching direct-SQL enforcement.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

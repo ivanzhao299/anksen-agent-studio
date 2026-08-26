@@ -1,0 +1,2 @@
+ALTER TABLE growth_identity_review_case
+  DROP CONSTRAINT IF EXISTS growth_identity_review_reason_valid;
