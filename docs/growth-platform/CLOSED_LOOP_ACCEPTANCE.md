@@ -63,3 +63,4 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - The KingTurf snapshot proves the tenant pack, scoped channel mix, signed website connector, official publishing/business adapter boundaries, persistence migrations, delivery audit/ledger and unrelated second-tenant validation.
 - The snapshot truthfully remains `PILOT_ACTIVATION_BLOCKED` while credential references, connector health, data-owner approval, production feature flag, Runtime Activation Gate or explicit production authorization are absent.
 - Readiness assessment is pure and read-only: it cannot resolve credential values, invoke connectors, mutate production, or enable a Runtime.
+- The authenticated Growth Console projects the same versioned report and its blockers through a read-only endpoint; it exposes no activation control and rejects an explicitly different tenant context.

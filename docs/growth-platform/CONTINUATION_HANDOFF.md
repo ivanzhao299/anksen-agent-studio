@@ -35,8 +35,9 @@ The gate runs Core unit and GA acceptance tests, the evidence-based Pilot readin
 2. Keep GA-004~007 transaction, identity-review and score-history evidence green as connector inputs expand.
 3. Governed retry/reconciliation APIs now use existing Console RBAC, CAS and immutable delivery audit. Keep the current browser surface read-only until end-to-end authenticated API evidence and existing Worker connector dispatch are proven.
 4. Keep the Pilot readiness report fail-closed: implementation evidence is green, while activation remains blocked until every credential, health, approval, feature-flag, Runtime Gate and explicit production-authorization check is independently proven.
-5. Project the sanitized Pilot readiness evidence into the authenticated Growth Console without adding an activation action.
-6. Validate KingTurf through governed connectors and downstream mappings only after the existing gates authorize it.
-7. Keep the second non-KingTurf tenant proof green without a Core or schema fork.
+5. The sanitized Pilot readiness evidence is now projected into the authenticated Growth Console without an activation action; keep its tenant isolation and fail-closed API evidence green.
+6. Derive live operational counts for identity review and delivery/reconciliation blockers from the existing PostgreSQL stores, while keeping deployment/configuration authorization as separately supplied governance evidence.
+7. Validate KingTurf through governed connectors and downstream mappings only after the existing gates authorize it.
+8. Keep the second non-KingTurf tenant proof green without a Core or schema fork.
 
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

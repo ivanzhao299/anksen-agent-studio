@@ -253,6 +253,7 @@ Wave 3:
 1. Keep the unified local and CI acceptance gate green.
 2. Harden persistent GA-004 discovery, GA-005 identity resolution, GA-006 score history and GA-007 Customer 360 evidence.
 3. Harden GA-008~GA-017 connector reconciliation, retry, approval/failure paths, UI and operational evidence.
-4. Expose sanitized Pilot readiness and blockers through the authenticated Growth Console without an activation control.
-5. Validate the KingTurf pilot without moving tenant-specific logic into Core or bypassing activation gates.
-6. Keep the second non-KingTurf tenant validation green without a schema or Core fork.
+4. Keep the authenticated, sanitized Pilot readiness Console projection and tenant fail-closed boundary green; it must not gain an activation control.
+5. Replace static operational zeroes with scoped PostgreSQL identity-review and delivery/reconciliation evidence, without treating repository configuration as production truth.
+6. Validate the KingTurf pilot without moving tenant-specific logic into Core or bypassing activation gates.
+7. Keep the second non-KingTurf tenant validation green without a schema or Core fork.

@@ -33,6 +33,8 @@ import { assessAutonomousDevelopmentReadiness } from "../../../packages/orchestr
 import { bearerToken, ResidentWorkerBroker, tokenMatches } from "../../../packages/orchestrator-core/lib/resident-worker-broker.mjs";
 import { createBusinessApplicationRuntime } from "../../../packages/domain-center/lib/business-database.mjs";
 import { PostgresGrowthDeliveryStore } from "../../../packages/domain-center/lib/postgres-growth-delivery-store.mjs";
+import { assessGrowthPilotReadiness } from "../../../packages/growth-core/lib/pilot-readiness.mjs";
+import { defineTenantPack } from "../../../packages/growth-core/lib/tenant-kit.mjs";
 import { enterpriseApplicationSummary, getEnterpriseApplication } from "../../../packages/domain-center/lib/enterprise-applications.mjs";
 import { businessApprovalAccepted, businessWorkflowGoal } from "../../../packages/domain-center/lib/business-object-definitions.mjs";
 import { projectBusinessNotifications } from "../../../packages/domain-center/lib/business-notifications.mjs";
@@ -93,6 +95,8 @@ const businessApplicationStore = businessRuntime.store;
 const businessDataConnectorStore = businessRuntime.connectorStore;
 const businessSourceGovernance = businessRuntime.sourceGovernance;
 const growthDeliveryStore = businessRuntime.pool ? new PostgresGrowthDeliveryStore({ pool: businessRuntime.pool }) : null;
+const kingTurfPilotReadinessInput = JSON.parse(await readFile(join(repoRoot, "packages/growth-core/examples/kingturf.pilot-readiness.json"), "utf8"));
+const kingTurfTenantPack = defineTenantPack(JSON.parse(await readFile(join(repoRoot, "packages/growth-core/examples/kingturf.tenant-pack.json"), "utf8")));
 const passwordChangeFailures = new Map();
 const passwordChangeWindowMs = 15 * 60 * 1000;
 const passwordChangeAttemptLimit = 5;
@@ -672,6 +676,9 @@ const server = createServer(async (request, response) => {
     }
     if(request.method==="GET"&&pathname==="/api/business/growth-sales/delivery-dashboard"){
       const access=evaluateConsoleRouteAccess("growthSales",accessContext);if(!access.allowed){sendJson(response,403,access);return;}if(!growthDeliveryStore){sendJson(response,503,{status:"GROWTH_DELIVERY_REQUIRES_POSTGRESQL"});return;}const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace",tenantId:accessContext.tenant_id??"default"};try{sendJson(response,200,{...await growthDeliveryStore.dashboard(scope,{limit:url.searchParams.get("limit")}),backend:"POSTGRESQL"});}catch(error){if(error?.code==="42P01"){sendJson(response,503,{status:"GROWTH_DELIVERY_MIGRATION_REQUIRED"});return;}throw error;}return;
+    }
+    if(request.method==="GET"&&pathname==="/api/business/growth-sales/pilot-readiness"){
+      const access=evaluateConsoleRouteAccess("growthSales",accessContext);if(!access.allowed){sendJson(response,403,access);return;}if(accessContext.tenant_id&&accessContext.tenant_id!==kingTurfTenantPack.tenantId){sendJson(response,404,{status:"GROWTH_PILOT_TENANT_NOT_CONFIGURED"});return;}const report=assessGrowthPilotReadiness({tenantPack:kingTurfTenantPack,...kingTurfPilotReadinessInput});sendJson(response,200,{organizationId:report.organizationId,workspaceId:report.workspaceId,tenantId:report.tenantId,status:report.status,implementationReady:report.implementationReady,activationReady:report.activationReady,implementation:report.implementation,activation:report.activation,blockers:report.blockers,safety:report.safety,generatedAt:report.generatedAt,source:"VERSIONED_PILOT_EVIDENCE"});return;
     }
     const growthDeliveryRetry=pathname.match(/^\/api\/business\/growth-sales\/deliveries\/([^/]+)\/retry$/),growthDeliveryReconcile=pathname.match(/^\/api\/business\/growth-sales\/deliveries\/([^/]+)\/reconcile$/);
     if(request.method==="POST"&&(growthDeliveryRetry||growthDeliveryReconcile)){
