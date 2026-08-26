@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync,statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { isAbsolute,resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
@@ -30,7 +30,10 @@ export const defaultBusinessDatabaseUrlFile = "/opt/anksen/business-data/databas
 export function resolveBusinessDatabaseUrl(env = process.env) {
   if (env.BUSINESS_DATABASE_URL) return String(env.BUSINESS_DATABASE_URL).trim();
   const path = String(env.BUSINESS_DATABASE_URL_FILE ?? defaultBusinessDatabaseUrlFile);
-  return existsSync(path) ? readFileSync(path, "utf8").trim() : null;
+  if(path.length<1||path.length>1024||!isAbsolute(path)||/[\u0000-\u001f\u007f]/.test(path))throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");
+  if(!existsSync(path))return null;
+  const metadata=statSync(path);if(!metadata.isFile()||metadata.size<1||metadata.size>4096)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");
+  return readFileSync(path, "utf8").trim();
 }
 
 export function assertBusinessDatabaseUrl(value, { allowRemote = false } = {}) {

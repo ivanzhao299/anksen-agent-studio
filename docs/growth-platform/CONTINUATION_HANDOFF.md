@@ -156,6 +156,8 @@ Both business and Growth PostgreSQL runtimes use the same bounded pool-size pars
 
 Business database URLs are capped at 4 KiB and produce stable errors without retaining malformed input. Controls, fragments, secret-like query keys and oversized userinfo are denied; normal non-secret PostgreSQL options such as `sslmode` remain allowed. Remote hosts still require the existing explicit allow flag.
 
+`BUSINESS_DATABASE_URL_FILE` accepts only an absolute control-free path up to 1,024 characters whose target is a regular 1–4,096 byte file. Relative paths, directories, empty and oversized secret files are rejected before URL parsing.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.

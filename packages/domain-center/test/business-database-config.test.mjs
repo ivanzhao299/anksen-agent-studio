@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import {mkdtemp,readFile,rm,writeFile} from "node:fs/promises";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
 import { assertBusinessDatabaseUrl, resolveBusinessDatabasePoolMax,resolveBusinessDatabaseUrl } from "../lib/business-database.mjs";
 
 test("business database configuration is local, explicit and credential-backed", () => {
@@ -15,6 +17,8 @@ test("business database configuration is local, explicit and credential-backed",
 });
 
 test("business database pool size is explicitly bounded",()=>{assert.equal(resolveBusinessDatabasePoolMax({}),10);assert.equal(resolveBusinessDatabasePoolMax({BUSINESS_DATABASE_POOL_MAX:'50'}),50);for(const value of ['0','51','1.5','Infinity','many'])assert.throws(()=>resolveBusinessDatabasePoolMax({BUSINESS_DATABASE_POOL_MAX:value}),/BUSINESS_DATABASE_POOL_MAX_INVALID/);});
+
+test("business database URL files are bounded absolute regular files",async()=>{const directory=await mkdtemp(join(tmpdir(),'anksen-db-url-')),path=join(directory,'database-url'),url='postgresql://business:password@127.0.0.1/anksen_business';try{await writeFile(path,url);assert.equal(resolveBusinessDatabaseUrl({BUSINESS_DATABASE_URL_FILE:path}),url);await writeFile(path,'x'.repeat(4097));assert.throws(()=>resolveBusinessDatabaseUrl({BUSINESS_DATABASE_URL_FILE:path}),/URL_FILE_INVALID/);assert.throws(()=>resolveBusinessDatabaseUrl({BUSINESS_DATABASE_URL_FILE:'relative/database-url'}),/URL_FILE_INVALID/);assert.throws(()=>resolveBusinessDatabaseUrl({BUSINESS_DATABASE_URL_FILE:directory}),/URL_FILE_INVALID/);}finally{await rm(directory,{recursive:true,force:true});}});
 
 test("Office deployment provisions and verifies isolated business PostgreSQL before restart", async () => {
   const compose = await readFile(new URL("../../../infrastructure/business-data/docker-compose.yml", import.meta.url), "utf8");
