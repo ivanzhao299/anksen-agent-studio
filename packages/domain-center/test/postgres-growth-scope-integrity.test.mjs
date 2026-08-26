@@ -8,7 +8,7 @@ import {createLead} from '../../growth-core/lib/domain-model.mjs';
 
 test('canonical growth relations and event idempotency fail closed across tenants',async()=>{
   await ensurePostgresFixture();
-  const pool=createTestPool(),suffix=randomUUID(),scope={organizationId:`scope-integrity-${suffix}`,workspaceId:'growth',tenantId:'tenant-a'},other={...scope,tenantId:'tenant-b'},leadId=`lead-${suffix}`,store=new PostgresGrowthStore({pool});
+  const pool=createTestPool(),suffix=randomUUID(),scope={organizationId:`scope-integrity-${suffix}`,workspaceId:'growth',tenantId:'tenant-a'},other={...scope,tenantId:'tenant-b'},leadId=`lead-${suffix}`,store=new PostgresGrowthStore({pool,clock:()=>new Date('2026-08-27T01:00:00Z')});
   await migrateGrowthPlatform(pool);
   await store.upsertLead({scope,lead:createLead({...scope,leadId,source:'WEBSITE'})});
   await assert.rejects(()=>store.resolveIdentity({scope:other,identityType:'EMAIL',value:`${suffix}@example.com`,leadId}),error=>error.code==='GROWTH_IDENTITY_TENANT_LEAD_REQUIRED_OR_CONFLICT');
@@ -22,6 +22,7 @@ test('canonical growth relations and event idempotency fail closed across tenant
   const constraintNames=(await pool.query("SELECT conname FROM pg_constraint WHERE conname LIKE 'growth_%_tenant_%_fk' ORDER BY conname")).rows.map(row=>row.conname);for(const name of ['growth_engagement_tenant_lead_fk','growth_identity_tenant_lead_fk','growth_opportunity_tenant_lead_fk','growth_revenue_tenant_lead_fk','growth_revenue_tenant_opportunity_fk','growth_score_tenant_lead_fk'])assert.ok(constraintNames.includes(name));
   await assert.rejects(()=>pool.query(`INSERT INTO growth_event(event_id,organization_id,workspace_id,tenant_id,event_type,subject_id,source,idempotency_key,payload,occurred_at) VALUES($1,'bad scope','growth','tenant','growth.engagement.received',$2,'DIRECT',$3,'{}',now())`,[`invalid-scope-${suffix}`,leadId,`invalid-scope-${suffix}`]),error=>error.code==='23514');
   assert.equal(Number((await pool.query("SELECT count(*) count FROM pg_constraint WHERE conname LIKE 'growth_%_tenant_scope_valid'")).rows[0].count),15);
+  await assert.rejects(()=>pool.query(`INSERT INTO growth_event(event_id,organization_id,workspace_id,tenant_id,event_type,subject_id,source,idempotency_key,payload,occurred_at) VALUES($1,$2,$3,$4,'growth.unknown',$5,'DIRECT',$6,'{}',now())`,[`invalid-contract-${suffix}`,scope.organizationId,scope.workspaceId,scope.tenantId,leadId,`invalid-contract-${suffix}`]),error=>error.code==='23514');
   const event={eventId:`event-${suffix}`,eventType:'growth.engagement.received',subjectType:'lead',subjectId:leadId,source:'WEBSITE',idempotencyKey:`website:${suffix}`,payload:{kind:'RFQ'},schemaVersion:1,occurredAt:'2026-08-27T00:00:00Z'},first=await store.appendEvent({scope,event}),duplicate=await store.appendEvent({scope,event:{...event,eventId:`duplicate-id-${suffix}`}});
   assert.equal(first.inserted,true);assert.deepEqual(duplicate,{inserted:false,eventId:event.eventId});
   await assert.rejects(()=>store.appendEvent({scope,event:{...event,eventId:`mismatch-${suffix}`,payload:{kind:'PAGE_VIEW'}}}),error=>error.code==='GROWTH_EVENT_IDEMPOTENCY_MISMATCH_OR_SCOPE_CONFLICT');

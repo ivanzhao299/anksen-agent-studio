@@ -29,7 +29,7 @@ test("authoritative Growth audit streams reject database update and delete", asy
       ).rows.map((row) => row.relname);
     assert.deepEqual(new Set(triggers), new Set(tables));
     await pool.query(
-      "INSERT INTO growth_event(event_id,organization_id,workspace_id,tenant_id,event_type,subject_id,source,idempotency_key,occurred_at) VALUES($1,$2,'growth','tenant','TEST_EVENT','subject','TEST',$3,now())",
+      "INSERT INTO growth_event(event_id,organization_id,workspace_id,tenant_id,event_type,subject_id,source,idempotency_key,occurred_at) VALUES($1,$2,'growth','tenant','growth.signal.observed','subject','TEST',$3,now())",
       [eventId, `audit-${suffix}`, `immutable-${suffix}`],
     );
     await assert.rejects(

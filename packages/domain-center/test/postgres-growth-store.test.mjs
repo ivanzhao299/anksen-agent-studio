@@ -63,3 +63,5 @@ test('score history is append-only and idempotent within tenant scope', async ()
   assert.match(calls[0].sql, /ON CONFLICT\(id\) DO NOTHING/);
   assert.deepEqual(calls[1].values.slice(1, 5), ['org-1', 'workspace-1', 'tenant-1', 'lead-1']);
 });
+
+test('canonical events validate immutable input before SQL',async()=>{let queries=0;const store=new PostgresGrowthStore({pool:{async query(){queries+=1;throw new Error('must not query');}},clock:()=>new Date('2026-08-27T00:00:00Z')}),event={eventId:'event-1',eventType:'growth.engagement.received',subjectType:'lead',subjectId:'lead-1',source:'WEBSITE',idempotencyKey:'website:event-1',payload:{kind:'RFQ'},schemaVersion:1,occurredAt:'2026-08-27T00:00:00Z'};for(const invalid of [{...event,eventType:'growth.unknown'},{...event,eventId:'sk-secret'},{...event,payload:{text:'x'.repeat(65537)}},{...event,occurredAt:'2026-08-27T00:05:01Z'}])await assert.rejects(()=>store.appendEvent({scope,event:invalid}));assert.equal(queries,0);});

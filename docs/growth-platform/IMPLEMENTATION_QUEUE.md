@@ -62,6 +62,8 @@ Canonical identity now has an explicit EMAIL/PHONE/DOMAIN contract with type-spe
 
 All Growth tenant scope identifiers now share a bounded 1–128 index-safe grammar in Core. Migration 030 mirrors it across the 15 authoritative scope-bearing PostgreSQL tables, with root acceptance proving complete constraint coverage and direct-SQL rejection.
 
+New immutable canonical events now require controlled types/references/schema, object payloads at most 64 KiB and non-future application timestamps. Migration 031 enforces new writes as `NOT VALID` for rollout compatibility with historic immutable test rows; legacy validation remains a governed retention task.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

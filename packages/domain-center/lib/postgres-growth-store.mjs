@@ -1,15 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { assertTenantScope } from '../../growth-core/lib/domain-model.mjs';
+import {GROWTH_EVENT_TYPES} from '../../growth-core/lib/growth-events.mjs';
 
 const json = (value, fallback) => JSON.stringify(value ?? fallback);
 const fail=code=>Object.assign(new Error(code),{code});
 const normalizeIdentity=(identityType,value,{optional=false}={})=>{if(!['EMAIL','PHONE','DOMAIN'].includes(identityType))throw fail('GROWTH_IDENTITY_TYPE_INVALID');const raw=String(value??'').trim().toLowerCase();if(!raw&&optional)return null;let normalized=raw;if(identityType==='PHONE')normalized=raw.replace(/[\s().-]/g,'');if(identityType==='DOMAIN')normalized=raw.replace(/\.$/,'');const valid=identityType==='EMAIL'?normalized.length<=320&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized):identityType==='PHONE'?/^\+?\d{7,20}$/.test(normalized):/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(normalized);if(!valid)throw fail('GROWTH_IDENTITY_VALUE_INVALID');return normalized;};
 const assertIdentitySource=value=>{const source=String(value??'');if(!/^[A-Z][A-Z0-9_]{1,63}$/.test(source))throw fail('GROWTH_IDENTITY_SOURCE_INVALID');return source;};
+const safeEventRef=(value,{optional=false,max=255}={})=>{if(optional&&(value==null||value===''))return null;const text=String(value??'');if(text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(text))throw fail('GROWTH_EVENT_REFERENCE_INVALID');return text;};
+const safeEventPayload=value=>{if(!value||typeof value!=='object'||Array.isArray(value))throw fail('GROWTH_EVENT_PAYLOAD_INVALID');let serialized;try{serialized=JSON.stringify(value);}catch{throw fail('GROWTH_EVENT_PAYLOAD_INVALID');}if(Buffer.byteLength(serialized)>65536)throw fail('GROWTH_EVENT_PAYLOAD_INVALID');return serialized;};
 
 export class PostgresGrowthStore {
-  constructor({ pool }) {
+  constructor({ pool,clock=()=>new Date() }) {
     if (!pool) throw new Error('pool is required');
     this.pool = pool;
+    this.clock=clock;
   }
 
   async upsertLead({ scope, lead }) {
@@ -73,14 +77,19 @@ export class PostgresGrowthStore {
   }
 
   async appendEvent({ scope, event }) {
-    const s = assertTenantScope(scope);
+    const s = assertTenantScope(scope),now=this.clock(),occurredAt=new Date(event?.occurredAt);
+    if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw fail('GROWTH_EVENT_CLOCK_INVALID');
+    if(!event||!GROWTH_EVENT_TYPES.includes(event.eventType))throw fail('GROWTH_EVENT_TYPE_INVALID');
+    const eventId=safeEventRef(event.eventId,{max:160}),subjectType=safeEventRef(event.subjectType,{optional:true,max:64}),subjectId=safeEventRef(event.subjectId,{max:160}),source=safeEventRef(event.source,{max:64}),idempotencyKey=safeEventRef(event.idempotencyKey),payload=safeEventPayload(event.payload??{}),schemaVersion=Number(event.schemaVersion??1);
+    if(!Number.isInteger(schemaVersion)||schemaVersion<1||schemaVersion>100)throw fail('GROWTH_EVENT_SCHEMA_VERSION_INVALID');
+    if(!Number.isFinite(occurredAt.getTime())||occurredAt.getTime()>now.getTime()+300000)throw fail('GROWTH_EVENT_TIME_INVALID');
     const result = await this.pool.query(
       `INSERT INTO growth_event(event_id,organization_id,workspace_id,tenant_id,event_type,subject_type,subject_id,source,idempotency_key,payload,schema_version,occurred_at)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12) ON CONFLICT DO NOTHING RETURNING event_id`,
-      [event.eventId, s.organizationId, s.workspaceId, s.tenantId, event.eventType, event.subjectType, event.subjectId, event.source, event.idempotencyKey, json(event.payload, {}), event.schemaVersion ?? 1, event.occurredAt]
+      [eventId, s.organizationId, s.workspaceId, s.tenantId, event.eventType, subjectType, subjectId, source, idempotencyKey, payload, schemaVersion, occurredAt]
     );
     if(result.rowCount)return{inserted:true,eventId:result.rows[0].event_id};
-    const existing=await this.pool.query(`SELECT event_id FROM growth_event WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND idempotency_key=$4 AND event_type=$5 AND subject_type IS NOT DISTINCT FROM $6 AND subject_id=$7 AND source=$8 AND payload=$9::jsonb AND schema_version=$10 AND occurred_at=$11`,[s.organizationId,s.workspaceId,s.tenantId,event.idempotencyKey,event.eventType,event.subjectType,event.subjectId,event.source,json(event.payload,{}),event.schemaVersion??1,event.occurredAt]);
+    const existing=await this.pool.query(`SELECT event_id FROM growth_event WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND idempotency_key=$4 AND event_type=$5 AND subject_type IS NOT DISTINCT FROM $6 AND subject_id=$7 AND source=$8 AND payload=$9::jsonb AND schema_version=$10 AND occurred_at=$11`,[s.organizationId,s.workspaceId,s.tenantId,idempotencyKey,event.eventType,subjectType,subjectId,source,payload,schemaVersion,occurredAt]);
     if(!existing.rowCount)throw Object.assign(new Error('GROWTH_EVENT_IDEMPOTENCY_MISMATCH_OR_SCOPE_CONFLICT'),{code:'GROWTH_EVENT_IDEMPOTENCY_MISMATCH_OR_SCOPE_CONFLICT'});
     return{inserted:false,eventId:existing.rows[0].event_id};
   }

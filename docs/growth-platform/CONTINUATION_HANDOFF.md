@@ -98,4 +98,6 @@ Migration 029 and `PostgresGrowthStore` constrain canonical identity to EMAIL/PH
 
 Tenant scope IDs are a shared security primitive: Growth Core accepts only 1–128 index-safe ASCII reference characters. Migration 030 dynamically installs matching checks on all 15 complete-Growth scope tables; it must remain full-Growth-only so the ledger cannot mark it applied before later tables exist. Root PostgreSQL acceptance asserts all 15 constraints.
 
+Canonical immutable events are bounded in `PostgresGrowthStore` and migration 031: controlled event vocabulary, reference IDs, schema 1–100, object payload at most 64 KiB and application-side future-time rejection. The database check is intentionally `NOT VALID` so historic pre-contract immutable `TEST_EVENT` fixture rows do not block migration, but PostgreSQL enforces it for every new row. Do not validate or delete legacy rows outside an explicit governed retention operation.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
