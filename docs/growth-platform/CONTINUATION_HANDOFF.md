@@ -354,6 +354,8 @@ Inline database URL and URL-file environment controls are own data-descriptor sn
 
 Pool size, connection timeout, required-database and remote-access controls share that descriptor boundary. Environment numerics are decimal strings, switches are exactly `true|false`, and explicit runtime/schema flags are native booleans; invalid or accessor-backed controls fail before SQL or pool connection.
 
+`pnpm growth-platform:acceptance` includes `business-database-config.test.mjs`, and both that test plus `business-database.mjs` are explicit Growth CI paths for pull requests and branch pushes. Preserve this coverage when splitting database runtime code.
+
 Growth CI path filters explicitly include the Smart Park command entrypoint, so CLI-only governance/error-handling changes still run Domain typecheck and the authoritative acceptance gate.
 
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
