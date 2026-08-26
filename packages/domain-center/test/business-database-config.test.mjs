@@ -51,6 +51,8 @@ test("Office deployment provisions and verifies isolated business PostgreSQL bef
   assert.match(compose, /business-db-data/);
   assert.match(deployData, /openssl rand -hex 32/);
   assert.match(deployData, /BUSINESS_DATABASE_REQUIRED=true/);
+  assert.match(deployData,/install -d -m 700 "\$data_dir"/);
+  assert.match(deployData,/chmod 600 "\$database_url_file"/);
   assert.match(deployData, /already occupied by another service/);
   assert.match(deployData, /business-database-migrate\.mjs/);
   assert.match(deploy, /deploy-business-data\.sh/);
