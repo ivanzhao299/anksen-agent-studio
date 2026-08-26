@@ -13,7 +13,7 @@ import {
   withGrowthMigrationLock,
 } from "../lib/growth-migration-runner.mjs";
 import {growthMigrationPaths} from "../lib/growth-database.mjs";
-import {growthMigrationStatus} from "../bin/growth-migration-status.mjs";
+import {growthMigrationStatus,growthMigrationStatusError} from "../bin/growth-migration-status.mjs";
 
 test("growth migration ledger records checksums and rejects drift", async () => {
   await ensurePostgresFixture();
@@ -66,3 +66,5 @@ test("growth migration inspection blocks ledger entries absent from the manifest
 test("growth migration inspection bounds and sanitizes malformed ledger data",async()=>{const fixturePath=fileURLToPath(new URL("./fixtures/999_growth_checksum_fixture.up.sql",import.meta.url)),rows=Array.from({length:1001},(_,index)=>({name:index===0?'token=secret':`unexpected_${index}.up.sql`,checksum:'a'.repeat(64)})),report=await inspectGrowthMigrations({async query(){return{rows};}},[fixturePath]);assert.equal(report.status,"BLOCKED");assert.equal(report.summary.invalidLedgerEntries,1);assert.equal(report.summary.ledgerLimitExceeded,true);assert.equal(report.items.some(item=>JSON.stringify(item).includes('token=secret')),false);assert.equal(report.items.at(-1).status,'LEDGER_LIMIT_EXCEEDED');});
 
 test("growth migration status command stays read-only with an injected pool",async()=>{let calls=0;const report=await growthMigrationStatus({pool:{async query(sql){calls+=1;assert.match(sql,/^SELECT name,checksum/);return{rows:[]};}}});assert.equal(report.schemaVersion,1);assert.equal(report.status,"PENDING");assert.equal(report.summary.total,growthMigrationPaths.length);assert.deepEqual(report.safety,{readOnly:true,ddlExecuted:false,migrationsApplied:false,credentialsReturned:false});assert.equal(calls,1);});
+
+test("growth migration status errors are versioned and sanitized",()=>{assert.equal(growthMigrationStatusError(Object.assign(new Error('safe'),{code:'42P01'})).code,'42P01');const report=growthMigrationStatusError(new Error('password=database-secret at remote host'));assert.equal(report.schemaVersion,1);assert.equal(report.code,'GROWTH_MIGRATION_STATUS_FAILED');assert.equal(report.safety.readOnly,true);assert.doesNotMatch(JSON.stringify(report),/database-secret|remote host/);});
