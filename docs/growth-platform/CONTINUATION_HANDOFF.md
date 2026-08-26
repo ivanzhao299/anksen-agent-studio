@@ -424,6 +424,8 @@ The migration-status bin is an explicit Growth CI path for both pull requests an
 
 All numbered `0*_growth_*` up/down migrations are covered by the same PR/push path filter, including 021–041. Keep the broad migration glob alongside the source-governance-specific business migration paths so later SQL-only constraints cannot bypass CI.
 
+`business-database-config.test.mjs` also asserts these workflow paths occur in both trigger blocks and that the suite remains in the root acceptance command. Treat failures as a CI contract regression, not as a fixture update opportunity.
+
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.
 
 ERROR output uses the same versioned safety envelope. Only bounded uppercase error codes are retained; arbitrary exception/database text is replaced with `GROWTH_MIGRATION_STATUS_FAILED` to avoid operator-log leakage.

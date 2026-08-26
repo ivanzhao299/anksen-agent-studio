@@ -55,3 +55,5 @@ test("Office deployment provisions and verifies isolated business PostgreSQL bef
   assert.match(server, /createBusinessApplicationRuntime/);
   assert.match(server, /businessRuntime\.pool/);
 });
+
+test("Growth CI gates shared database and migration control changes",async()=>{const workflow=await readFile(new URL("../../../.github/workflows/growth-platform-ci.yml",import.meta.url),"utf8"),rootPackage=JSON.parse(await readFile(new URL("../../../package.json",import.meta.url),"utf8")),twice=value=>assert.equal(workflow.split(value).length-1,2);twice("packages/domain-center/lib/business-database.mjs");twice("packages/domain-center/test/business-database-config.test.mjs");twice("packages/domain-center/bin/growth-migration-status.mjs");twice("packages/orchestrator-core/migrations/0*_growth_*.*.sql");assert.match(rootPackage.scripts["growth-platform:acceptance"],/packages\/domain-center\/test\/business-database-config\.test\.mjs/);});
