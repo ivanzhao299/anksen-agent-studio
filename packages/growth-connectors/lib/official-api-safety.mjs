@@ -16,9 +16,12 @@ export function assertOfficialApiConfiguration({endpoint,allowedHostnames,allowH
 }
 
 export async function readBoundedJson(response,maxResponseBytes,errorPrefix){
-  const contentType=String(response.headers?.get?.('content-type')??'').toLowerCase();
+  const contentTypeHeader=response?.headers?.get?.('content-type');
+  if(typeof contentTypeHeader!=='string'){await cancelResponseBody(response);throw Object.assign(new Error(`${errorPrefix}_RESPONSE_CONTENT_TYPE_INVALID`),{code:`${errorPrefix}_RESPONSE_CONTENT_TYPE_INVALID`,retryable:false});}
+  const contentType=contentTypeHeader.toLowerCase();
   if(!/^application\/(?:[a-z0-9.+-]*\+)?json(?:\s*;|$)/.test(contentType)){await cancelResponseBody(response);throw Object.assign(new Error(`${errorPrefix}_RESPONSE_CONTENT_TYPE_INVALID`),{code:`${errorPrefix}_RESPONSE_CONTENT_TYPE_INVALID`,retryable:false});}
   const declaredHeader=response.headers?.get?.('content-length');
+  if(declaredHeader!=null&&typeof declaredHeader!=='string'){await cancelResponseBody(response);throw Object.assign(new Error(`${errorPrefix}_RESPONSE_CONTENT_LENGTH_INVALID`),{code:`${errorPrefix}_RESPONSE_CONTENT_LENGTH_INVALID`,retryable:false});}
   if(declaredHeader!=null&&!/^(?:0|[1-9][0-9]*)$/.test(declaredHeader)){await cancelResponseBody(response);throw Object.assign(new Error(`${errorPrefix}_RESPONSE_CONTENT_LENGTH_INVALID`),{code:`${errorPrefix}_RESPONSE_CONTENT_LENGTH_INVALID`,retryable:false});}
   const declared=declaredHeader==null?null:Number(declaredHeader);
   if(declared!=null&&(!Number.isSafeInteger(declared)||declared>maxResponseBytes)){await cancelResponseBody(response);throw Object.assign(new Error(`${errorPrefix}_RESPONSE_TOO_LARGE`),{code:`${errorPrefix}_RESPONSE_TOO_LARGE`,retryable:false});}

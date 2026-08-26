@@ -170,6 +170,8 @@ Official publishing/business credential resolvers likewise receive an AbortSigna
 
 Official API JSON response readers reject malformed, negative, fractional, unsafe or oversized declared content lengths before consuming the body, cancel rejected streams and independently enforce the actual streamed-byte limit.
 
+Official API content type and length metadata must be native strings returned by the response header interface. Coercion-capable objects fail closed and rejected streams are cancelled.
+
 Website ingress accepts only native string/Buffer bodies and object/standard Headers collections. Event/timestamp and exact 64-hex SHA-256 signature shape are checked before secret resolution, so malformed requests cannot call the secret provider.
 
 Website ingress samples its clock once, accepts only native strings or Dates and records a canonical ISO timestamp. Clock-like coercion objects fail before secret resolution and cannot influence freshness or provenance.

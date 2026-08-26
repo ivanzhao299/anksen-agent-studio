@@ -111,6 +111,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Website secret providers receive an AbortSignal; the existing 100–5,000ms resolution deadline aborts the underlying vault/reference lookup before returning the uniform unavailable error.
 - Official API credential resolvers also receive an AbortSignal; their shared 100–30,000ms deadline aborts publishing/business vault lookups before returning sanitized retryable credential-timeout codes.
 - Official API JSON readers require a canonical non-negative integer `Content-Length` when the header is present, reject unsafe or oversized declarations, cancel rejected streams and still enforce the actual streamed-byte ceiling.
+- Official API response content metadata must be native strings from the response header interface. Object coercion cannot select JSON parsing or declare a trusted body size.
 - Website ingress requires a native string/Buffer body, object/Headers collection and exact optional-prefix 64-hex SHA-256 signature before secret resolution. Coerced bodies and malformed signatures cannot touch the secret provider.
 - Website ingress accepts only native string/Date clock samples, samples once before secret resolution and stores a canonical ISO timestamp in provenance; coercion-capable objects cannot influence freshness or persisted evidence.
 - Website HMAC verification is fixed to SHA-256, requires native signature/secret/event/timestamp controls and validates exact shapes before hashing. Callers cannot select weaker algorithms or inject coercion behavior.
