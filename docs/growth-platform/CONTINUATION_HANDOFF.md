@@ -208,6 +208,8 @@ Smart Park adapter timeout/pagination controls are bounded native integers, and 
 
 Smart Park credential resolver and network client exceptions are sanitized to controlled adapter codes. Provider error messages cannot escape, while timeout, HTTP and response validation errors keep their established codes.
 
+Smart Park records are converted from bounded plain data descriptors before timestamp or mapping access. Getters/setters, symbols, unsafe keys and exotic prototypes fail without executing source-controlled code.
+
 Source ingestion takes one native valid Date clock sample before SQL and reuses it for freshness checks plus failed/success audit timestamps. Clock coercion and intra-operation timestamp drift are denied.
 
 Under the source-record row lock, existing ID/type/version/observed-time evidence is validated before stale-write comparison. Invalid or coercion-capable timestamps fail the transaction instead of producing `NaN` and permitting an overwrite.
