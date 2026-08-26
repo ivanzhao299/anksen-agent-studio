@@ -214,6 +214,8 @@ Failed source-batch insertion and the connector `ERROR` transition execute in on
 
 Concurrent success-batch idempotency conflicts roll back speculative record work and re-read the winning batch only for the exact named batch constraint. Other uniqueness errors remain failures.
 
+Failed-batch creation applies the same exact-constraint recovery after rollback, so concurrent invalid deliveries converge on one durable failure without double connector transitions.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.
