@@ -107,6 +107,7 @@ export class GrowthConnectorActivationGate {
       if (
         binding.health_status !== "HEALTHY" ||
         !observed ||
+        observed.getTime() > now.getTime() ||
         now.getTime() - observed.getTime() > this.maxHealthAgeSeconds * 1000
       )
         reasons.push("CONNECTOR_HEALTH_NOT_FRESH");

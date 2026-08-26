@@ -26,6 +26,8 @@ Migration 023 and delivery-store validation prevent secret-like idempotency, ada
 
 Migration 024 constrains external delivery IDs/statuses, while the completion path converts unsafe adapter responses into sanitized terminal failures rather than persisted remote content.
 
+Future-dated connector health is now stale in readiness and independently blocked by the activation Gate, closing a clock-skew freshness bypass.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

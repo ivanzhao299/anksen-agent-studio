@@ -62,4 +62,6 @@ Outbound delivery registration now validates every persisted reference before fi
 
 Migration 024 and `complete()` apply the same trust boundary to adapter-returned external ID/status. A token-like adapter response cannot complete an operation or enter the ledger; execution records only the sanitized validation error and direct SQL is constraint-rejected.
 
+Connector readiness and the activation Gate both reject health observations later than their local assessment clock. The write path may accept bounded clock skew for transport tolerance, but future evidence stays `STALE` and cannot authorize activation until time catches up.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

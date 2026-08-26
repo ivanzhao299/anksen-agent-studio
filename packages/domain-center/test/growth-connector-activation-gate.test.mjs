@@ -50,6 +50,42 @@ test("activation authorization coverage requires every governed connector kind",
   assert.equal(incomplete.productionAuthorizationCovered, false);
 });
 
+test("activation Gate rejects future connector health evidence", () => {
+  const gate = new GrowthConnectorActivationGate({
+      pool: { connect() {} },
+      clock: () => new Date("2026-08-26T10:00:00Z"),
+    }),
+    result = gate.evaluate(
+      { organizationId: "org", workspaceId: "growth", tenantId: "tenant" },
+      {
+        activation: {
+          id: "activation",
+          version: 1,
+          status: "APPROVED",
+          approval_proven: true,
+          fields: {
+            tenantId: "tenant",
+            bindingVersion: 1,
+            connectorKind: "WEBSITE_INBOUND",
+            explicitAuthorizationRef: "PROD-AUTH-001",
+            expiresAt: "2026-08-27T10:00:00Z",
+          },
+        },
+        binding: {
+          id: "binding",
+          kind: "WEBSITE_INBOUND",
+          version: 1,
+          enabled: false,
+          health_status: "HEALTHY",
+          health_observed_at: new Date("2026-08-26T10:01:00Z"),
+        },
+      },
+      1,
+    );
+  assert.equal(result.status, "BLOCKED");
+  assert.ok(result.reasons.includes("CONNECTOR_HEALTH_NOT_FRESH"));
+});
+
 test("connector activation consumes an existing business approval exactly once with no external call", async () => {
   await ensurePostgresFixture();
   const pool = createTestPool(),
