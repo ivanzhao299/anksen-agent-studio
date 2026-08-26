@@ -58,4 +58,6 @@ Migration 022 extends database immutability to `growth_event`, score snapshots, 
 
 Authorization-reference validation for connector activation and the tenant production feature flag now rejects `sk-`, GitHub-token, Bearer, PEM and JWT-like secret shapes as well as explicit secret key/value strings. Keep identifiers opaque and reference-only; never place credential material in an authorization field.
 
+Outbound delivery registration now validates every persisted reference before fingerprinting. Migration 023 adds PostgreSQL reference-only and secret-material constraints to the ledger; both store-level and direct-SQL rejection are in acceptance. This migration is Growth-runner-only because it depends on delivery migration 014.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

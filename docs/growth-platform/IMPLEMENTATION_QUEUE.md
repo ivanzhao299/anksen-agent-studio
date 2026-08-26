@@ -22,6 +22,8 @@ Migration 022 makes the remaining authoritative Growth event and score-history t
 
 Production authorization reference validators now reject common raw-secret formats across connector activation and feature flags, with direct PostgreSQL/store integration evidence.
 
+Migration 023 and delivery-store validation prevent secret-like idempotency, adapter, asset or approval references from entering the outbound ledger, including direct database bypass attempts.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

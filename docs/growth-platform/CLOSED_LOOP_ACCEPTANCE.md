@@ -27,6 +27,7 @@ A tenant must be able to execute: discovery → identity resolution → lead →
 
 - The first official-API publishing adapter is disabled by default, HTTPS-only outside tests, host-allowlisted and credential-reference based.
 - Every external write carries an idempotency key and an existing validated approval reference; credential values, content bodies and raw error messages are not persisted.
+- Delivery registration validates idempotency, adapter, asset and approval references before computing or persisting the request fingerprint. Migration 023 repeats reference-shape and secret-material checks in PostgreSQL, so direct writes containing raw token/JWT-like material fail with a constraint violation before an operation or audit event exists.
 - The PostgreSQL delivery ledger records request fingerprints, CAS versions, bounded attempts, retry classification, external IDs and reconciliation state without creating a second Scheduler or Queue.
 - Rate limits and server failures may become `RETRYABLE`; policy/approval failures become terminal. Completed writes can be reconciled as `MATCHED` or `MISMATCH`.
 

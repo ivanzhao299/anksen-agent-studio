@@ -12,6 +12,8 @@ test('delivery ledger is idempotent, retryable, CAS-protected and reconcilable',
     await migrateGrowthPlatform(pool);
     const store=new PostgresGrowthDeliveryStore({pool,clock:()=>new Date('2026-08-26T04:00:00Z')});
     const input={scope,idempotencyKey:`publish-${suffix}`,adapterId:'official-v1',assetRef:'asset/ref-1',approvalRef:'approval/ref-1',maxAttempts:3};
+    for(const [field,value,code] of [['approvalRef','sk-production-secret','DELIVERY_APPROVAL_REFERENCE_INVALID'],['assetRef','eyJheader.payload.signature','DELIVERY_ASSET_REFERENCE_INVALID']])await assert.rejects(()=>store.register({...input,[field]:value,idempotencyKey:`malicious-${field}-${suffix}`}),error=>error.code===code);
+    await assert.rejects(()=>pool.query(`INSERT INTO growth_delivery_operation(id,organization_id,workspace_id,tenant_id,idempotency_key,operation_type,adapter_id,capability,asset_ref,approval_ref,request_fingerprint,status,max_attempts) VALUES($1,$2,$3,$4,$5,'PUBLISH','official-v1','PUBLISH_CONTENT','sk-direct-secret','approval/ref-1','fingerprint','READY',3)`,[`delivery_direct_${suffix}`,scope.organizationId,scope.workspaceId,scope.tenantId,`direct-${suffix}`]),error=>error.code==='23514');
     const registered=await store.register(input),duplicate=await store.register(input);
     assert.equal(registered.duplicate,false);assert.equal(duplicate.duplicate,true);assert.equal(duplicate.operation.id,registered.operation.id);
     await assert.rejects(()=>store.register({...input,assetRef:'asset/ref-2'}),error=>error.code==='DELIVERY_IDEMPOTENCY_PAYLOAD_MISMATCH');

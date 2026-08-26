@@ -3,18 +3,19 @@ import { assertTenantScope } from '../../growth-core/lib/domain-model.mjs';
 
 const fingerprint = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const cleanError = (error) => ({ code: String(error?.code ?? 'DELIVERY_FAILED').replace(/[^A-Z0-9_.:-]/gi,'_').slice(0,100), retryable: Boolean(error?.retryable), status: Number.isInteger(error?.status) ? error.status : null, retryAfter: typeof error?.retryAfter === 'string' && /^\d{1,8}$/.test(error.retryAfter) ? error.retryAfter : null });
+const referencePattern=/^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$/,secretLike=value=>/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(String(value??'')),assertReference=(value,label,{optional=false}={})=>{if(optional&&(value==null||value===''))return null;const text=String(value??'');if(!referencePattern.test(text)||secretLike(text))throw Object.assign(new Error(`DELIVERY_${label}_REFERENCE_INVALID`),{code:`DELIVERY_${label}_REFERENCE_INVALID`});return text;};
 
 export class PostgresGrowthDeliveryStore {
   constructor({ pool, clock = () => new Date() } = {}) { if (!pool) throw new TypeError('pool is required'); this.pool=pool; this.clock=clock; }
 
   async register({ scope: rawScope, idempotencyKey, operationType='PUBLISH', adapterId, capability='PUBLISH_CONTENT', assetRef, approvalRef=null, maxAttempts=3, actorId='SYSTEM' }) {
-    const scope=assertTenantScope(rawScope), id=`delivery_${randomUUID()}`, now=this.clock();
+    const scope=assertTenantScope(rawScope),safeIdempotencyKey=assertReference(idempotencyKey,'IDEMPOTENCY_KEY'),safeAdapterId=assertReference(adapterId,'ADAPTER'),safeAssetRef=assertReference(assetRef,'ASSET'),safeApprovalRef=assertReference(approvalRef,'APPROVAL',{optional:true}),id=`delivery_${randomUUID()}`, now=this.clock();
     if(!idempotencyKey||!adapterId||!assetRef)throw new TypeError('idempotencyKey, adapterId and assetRef are required');
-    const requestFingerprint=fingerprint({operationType,adapterId,capability,assetRef,approvalRef});
+    const requestFingerprint=fingerprint({operationType,adapterId:safeAdapterId,capability,assetRef:safeAssetRef,approvalRef:safeApprovalRef});
     const inserted=await this.pool.query(`INSERT INTO growth_delivery_operation(id,organization_id,workspace_id,tenant_id,idempotency_key,operation_type,adapter_id,capability,asset_ref,approval_ref,request_fingerprint,status,max_attempts,last_actor_id,created_at,updated_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'READY',$12,$13,$14,$14) ON CONFLICT(organization_id,workspace_id,tenant_id,idempotency_key) DO NOTHING RETURNING *`,[id,scope.organizationId,scope.workspaceId,scope.tenantId,idempotencyKey,operationType,adapterId,capability,assetRef,approvalRef,requestFingerprint,maxAttempts,String(actorId),now]);
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'READY',$12,$13,$14,$14) ON CONFLICT(organization_id,workspace_id,tenant_id,idempotency_key) DO NOTHING RETURNING *`,[id,scope.organizationId,scope.workspaceId,scope.tenantId,safeIdempotencyKey,operationType,safeAdapterId,capability,safeAssetRef,safeApprovalRef,requestFingerprint,maxAttempts,String(actorId),now]);
     if(inserted.rowCount)return{duplicate:false,operation:inserted.rows[0]};
-    const existing=await this.getByIdempotencyKey(scope,idempotencyKey);
+    const existing=await this.getByIdempotencyKey(scope,safeIdempotencyKey);
     if(!existing)throw new Error('DELIVERY_IDEMPOTENCY_CONFLICT_UNREADABLE');
     if(existing.request_fingerprint!==requestFingerprint)throw Object.assign(new Error('DELIVERY_IDEMPOTENCY_PAYLOAD_MISMATCH'),{code:'DELIVERY_IDEMPOTENCY_PAYLOAD_MISMATCH'});
     return{duplicate:true,operation:existing};
