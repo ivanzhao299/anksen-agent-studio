@@ -1,57 +1,1474 @@
-import test from "node:test";import assert from "node:assert/strict";import {readFile} from "node:fs/promises";import {renderConsolePage} from "./render.mjs";import {consoleWebRoutes} from "./routes.mjs";import {enterpriseApplications} from "../../../packages/domain-center/lib/enterprise-applications.mjs";
-const owner={authenticated:true,user:{user_id:"owner",display_name:"Owner"},capabilities:["*"],project_allowlist:["*"]};
-test("business applications have independent conventional endpoints",async()=>{const routes=new Map(consoleWebRoutes.map(route=>[route.path,route.id]));for(const app of enterpriseApplications){assert.equal(routes.get(app.path),app.routeId);const html=await renderConsolePage(app.path,owner);if(app.path==="/development")assert.match(html,/真实自主开发/);else{assert.match(html,/业务台账/);assert.match(html,/新建业务记录/);assert.match(html,/Runtime 关闭时/);}}assert.equal(routes.get("/cockpit"),"cockpit");assert.equal(routes.get("/work"),"work");});
-test("application route permission fails closed for the wrong persona",async()=>{const strategyUser={authenticated:true,user:{user_id:"strategy-user"},capabilities:["console.access","work.read","strategy.read"],project_allowlist:["*"]};assert.match(await renderConsolePage("/strategy",strategyUser),/战略执行平台/);const denied=await renderConsolePage("/finance",strategyUser);assert.match(denied,/当前账号未开通此模块/);assert.match(denied,/finance\.read/);});
-test("strategy, HR and finance render domain-specific conventional forms",async()=>{const strategy=await renderConsolePage("/strategy",owner),hr=await renderConsolePage("/hr",owner),finance=await renderConsolePage("/finance",owner);assert.match(strategy,/战略周期/);assert.match(strategy,/责任中心/);assert.match(hr,/用人部门/);assert.match(hr,/招聘岗位/);assert.match(hr,/候选人引用编号/);assert.match(hr,/个人信息授权/);assert.match(hr,/人工选择决定编号/);assert.match(hr,/受控录用文件编号/);assert.match(hr,/最小权限模板编号/);assert.match(finance,/费用日期/);assert.match(finance,/预算科目/);for(const html of [strategy,hr,finance]){assert.match(html,/data-business-field/);assert.match(html,/data-transition/);assert.match(html,/availableTransitions/);assert.match(html,/上下游业务链/);assert.match(html,/data-create-relation/);assert.match(html,/创建下游业务单据/);assert.match(html,/data-create-related-record/);assert.match(html,/data-related-field/);}});
-test("growth, manufacturing and Smart Park render operational domain forms",async()=>{const growth=await renderConsolePage("/growth-sales",owner),manufacturing=await renderConsolePage("/manufacturing",owner),park=await renderConsolePage("/smart-park",owner);assert.match(growth,/线索来源/);assert.match(growth,/联系授权/);assert.match(growth,/赢单概率/);assert.match(growth,/产品主张证据编号/);assert.match(growth,/版权与肖像授权编号/);assert.match(growth,/凭据引用编号/);assert.match(growth,/发布模式/);assert.match(manufacturing,/计划数量/);assert.match(manufacturing,/BOM/);assert.match(manufacturing,/工艺路线与 SOP/);assert.match(manufacturing,/组件需求/);assert.match(manufacturing,/受控作业指导书编号/);assert.match(manufacturing,/严重度/);assert.match(park,/服务企业/);assert.match(park,/统一社会信用代码/);assert.match(park,/计量倍率/);});
-test("group cockpit renders source-backed business chain counts",async()=>{const html=await renderConsolePage("/cockpit",owner);assert.match(html,/businessChains/);assert.match(html,/业务链/);});
-test("group cockpit enters conventional applications and projects actionable runtime signals",async()=>{const html=await renderConsolePage("/cockpit",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8");for(const value of ["href=\"/finance(?:\\?[^\"]*)?\"","href=\"/hr(?:\\?[^\"]*)?\"","href=\"/manufacturing(?:\\?[^\"]*)?\"","href=\"/smart-park(?:\\?[^\"]*)?\"","运行计划","人工断点","业务异常","专业结果","进入业务应用","projectPortfolioCockpit","businessExceptions","professionalResults","projectPortfolioWork"])assert.match(html+server,new RegExp(value));assert.doesNotMatch(html,/data-portfolio-app="finance-platform" href="\/domains/);});
-test("group cockpit renders an idempotent source-backed action feed",async()=>{const html=await renderConsolePage("/cockpit",owner);for(const value of ["行动提醒","/api/business/notifications","关键异常","需要审批","没有虚构“未读”状态"])assert.match(html,new RegExp(value));});
-test("group cockpit searches authoritative records across only visible applications",async()=>{const html=await renderConsolePage("/cockpit",owner);for(const value of ["查找业务记录","/api/business/search","编号、标题或负责人","打开记录","business-search-results"])assert.match(html,new RegExp(value));const source=await readFile(new URL("./server.mjs",import.meta.url),"utf8");for(const value of ["searchRecords","applicationIds","ownerId","evaluateConsoleRouteAccess"])assert.match(source,new RegExp(value));});
-test("business record detail renders authoritative Skill Agent Runner Attempt and sanitized Runtime evidence",async()=>{const html=await renderConsolePage("/finance",owner);for(const value of ["executionEvidence","businessSkillId","skillType","agentId","runner?.workerKey","runtimeType","Attempt","runtimeResult","Result"]){assert.match(html,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));}assert.doesNotMatch(html,/leaseToken/);});
-test("business record detail supports versioned edits only when the source object is editable",async()=>{const html=await renderConsolePage("/finance",owner);for(const value of ["编辑业务记录","data-save-business-record","data-edit-field","expectedVersion","method:'PATCH'","business-edit-owner"])assert.match(html,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));const source=await readFile(new URL("./server.mjs",import.meta.url),"utf8");for(const value of ["business-record-update","updateRecord","request.method===\"PATCH\""])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));});
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { renderConsolePage } from "./render.mjs";
+import { consoleWebRoutes } from "./routes.mjs";
+import { enterpriseApplications } from "../../../packages/domain-center/lib/enterprise-applications.mjs";
+const owner = {
+  authenticated: true,
+  user: { user_id: "owner", display_name: "Owner" },
+  capabilities: ["*"],
+  project_allowlist: ["*"],
+};
+test("business applications have independent conventional endpoints", async () => {
+  const routes = new Map(
+    consoleWebRoutes.map((route) => [route.path, route.id]),
+  );
+  for (const app of enterpriseApplications) {
+    assert.equal(routes.get(app.path), app.routeId);
+    const html = await renderConsolePage(app.path, owner);
+    if (app.path === "/development") assert.match(html, /真实自主开发/);
+    else {
+      assert.match(html, /业务台账/);
+      assert.match(html, /新建业务记录/);
+      assert.match(html, /Runtime 关闭时/);
+    }
+  }
+  assert.equal(routes.get("/cockpit"), "cockpit");
+  assert.equal(routes.get("/work"), "work");
+});
+test("application route permission fails closed for the wrong persona", async () => {
+  const strategyUser = {
+    authenticated: true,
+    user: { user_id: "strategy-user" },
+    capabilities: ["console.access", "work.read", "strategy.read"],
+    project_allowlist: ["*"],
+  };
+  assert.match(
+    await renderConsolePage("/strategy", strategyUser),
+    /战略执行平台/,
+  );
+  const denied = await renderConsolePage("/finance", strategyUser);
+  assert.match(denied, /当前账号未开通此模块/);
+  assert.match(denied, /finance\.read/);
+});
+test("strategy, HR and finance render domain-specific conventional forms", async () => {
+  const strategy = await renderConsolePage("/strategy", owner),
+    hr = await renderConsolePage("/hr", owner),
+    finance = await renderConsolePage("/finance", owner);
+  assert.match(strategy, /战略周期/);
+  assert.match(strategy, /责任中心/);
+  assert.match(hr, /用人部门/);
+  assert.match(hr, /招聘岗位/);
+  assert.match(hr, /候选人引用编号/);
+  assert.match(hr, /个人信息授权/);
+  assert.match(hr, /人工选择决定编号/);
+  assert.match(hr, /受控录用文件编号/);
+  assert.match(hr, /最小权限模板编号/);
+  assert.match(finance, /费用日期/);
+  assert.match(finance, /预算科目/);
+  for (const html of [strategy, hr, finance]) {
+    assert.match(html, /data-business-field/);
+    assert.match(html, /data-transition/);
+    assert.match(html, /availableTransitions/);
+    assert.match(html, /上下游业务链/);
+    assert.match(html, /data-create-relation/);
+    assert.match(html, /创建下游业务单据/);
+    assert.match(html, /data-create-related-record/);
+    assert.match(html, /data-related-field/);
+  }
+});
+test("growth, manufacturing and Smart Park render operational domain forms", async () => {
+  const growth = await renderConsolePage("/growth-sales", owner),
+    manufacturing = await renderConsolePage("/manufacturing", owner),
+    park = await renderConsolePage("/smart-park", owner);
+  assert.match(growth, /线索来源/);
+  assert.match(growth, /联系授权/);
+  assert.match(growth, /赢单概率/);
+  assert.match(growth, /产品主张证据编号/);
+  assert.match(growth, /版权与肖像授权编号/);
+  assert.match(growth, /凭据引用编号/);
+  assert.match(growth, /发布模式/);
+  assert.match(manufacturing, /计划数量/);
+  assert.match(manufacturing, /BOM/);
+  assert.match(manufacturing, /工艺路线与 SOP/);
+  assert.match(manufacturing, /组件需求/);
+  assert.match(manufacturing, /受控作业指导书编号/);
+  assert.match(manufacturing, /严重度/);
+  assert.match(park, /服务企业/);
+  assert.match(park, /统一社会信用代码/);
+  assert.match(park, /计量倍率/);
+});
+test("group cockpit renders source-backed business chain counts", async () => {
+  const html = await renderConsolePage("/cockpit", owner);
+  assert.match(html, /businessChains/);
+  assert.match(html, /业务链/);
+});
+test("group cockpit enters conventional applications and projects actionable runtime signals", async () => {
+  const html = await renderConsolePage("/cockpit", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8");
+  for (const value of [
+    'href="/finance(?:\\?[^"]*)?"',
+    'href="/hr(?:\\?[^"]*)?"',
+    'href="/manufacturing(?:\\?[^"]*)?"',
+    'href="/smart-park(?:\\?[^"]*)?"',
+    "运行计划",
+    "人工断点",
+    "业务异常",
+    "专业结果",
+    "进入业务应用",
+    "projectPortfolioCockpit",
+    "businessExceptions",
+    "professionalResults",
+    "projectPortfolioWork",
+  ])
+    assert.match(html + server, new RegExp(value));
+  assert.doesNotMatch(
+    html,
+    /data-portfolio-app="finance-platform" href="\/domains/,
+  );
+});
+test("group cockpit renders an idempotent source-backed action feed", async () => {
+  const html = await renderConsolePage("/cockpit", owner);
+  for (const value of [
+    "行动提醒",
+    "/api/business/notifications",
+    "关键异常",
+    "需要审批",
+    "没有虚构“未读”状态",
+  ])
+    assert.match(html, new RegExp(value));
+});
+test("group cockpit searches authoritative records across only visible applications", async () => {
+  const html = await renderConsolePage("/cockpit", owner);
+  for (const value of [
+    "查找业务记录",
+    "/api/business/search",
+    "编号、标题或负责人",
+    "打开记录",
+    "business-search-results",
+  ])
+    assert.match(html, new RegExp(value));
+  const source = await readFile(
+    new URL("./server.mjs", import.meta.url),
+    "utf8",
+  );
+  for (const value of [
+    "searchRecords",
+    "applicationIds",
+    "ownerId",
+    "evaluateConsoleRouteAccess",
+  ])
+    assert.match(source, new RegExp(value));
+});
+test("business record detail renders authoritative Skill Agent Runner Attempt and sanitized Runtime evidence", async () => {
+  const html = await renderConsolePage("/finance", owner);
+  for (const value of [
+    "executionEvidence",
+    "businessSkillId",
+    "skillType",
+    "agentId",
+    "runner?.workerKey",
+    "runtimeType",
+    "Attempt",
+    "runtimeResult",
+    "Result",
+  ]) {
+    assert.match(
+      html,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  }
+  assert.doesNotMatch(html, /leaseToken/);
+});
+test("business record detail supports versioned edits only when the source object is editable", async () => {
+  const html = await renderConsolePage("/finance", owner);
+  for (const value of [
+    "编辑业务记录",
+    "data-save-business-record",
+    "data-edit-field",
+    "expectedVersion",
+    "method:'PATCH'",
+    "business-edit-owner",
+  ])
+    assert.match(
+      html,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  const source = await readFile(
+    new URL("./server.mjs", import.meta.url),
+    "utf8",
+  );
+  for (const value of [
+    "business-record-update",
+    "updateRecord",
+    'request.method==="PATCH"',
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+});
 
-test("business record detail adds version-bound audited notes through the existing timeline",async()=>{const html=await renderConsolePage("/finance",owner);for(const value of ["添加处理备注","business-record-note","data-add-business-note","写入时间线","/notes","expectedVersion"])assert.match(html,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));const source=await readFile(new URL("./server.mjs",import.meta.url),"utf8");for(const value of ["business-record-note","addRecordNote","/notes$"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));});
+test("business record detail adds version-bound audited notes through the existing timeline", async () => {
+  const html = await renderConsolePage("/finance", owner);
+  for (const value of [
+    "添加处理备注",
+    "business-record-note",
+    "data-add-business-note",
+    "写入时间线",
+    "/notes",
+    "expectedVersion",
+  ])
+    assert.match(
+      html,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  const source = await readFile(
+    new URL("./server.mjs", import.meta.url),
+    "utf8",
+  );
+  for (const value of ["business-record-note", "addRecordNote", "/notes$"])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+});
 
-test("business workbenches use server-filtered paginated authoritative record lists",async()=>{const html=await renderConsolePage("/finance",owner);for(const value of ["business-filter-query","business-filter-type","business-filter-status","business-filter-owner","data-business-page","pagination.total","URLSearchParams","offset"])assert.match(html,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));const source=await readFile(new URL("./server.mjs",import.meta.url),"utf8");for(const value of ["recordPage","url.searchParams.get(\"q\")","url.searchParams.get(\"ownerId\")","url.searchParams.get(\"offset\")"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));});
+test("business workbenches use server-filtered paginated authoritative record lists", async () => {
+  const html = await renderConsolePage("/finance", owner);
+  for (const value of [
+    "business-filter-query",
+    "business-filter-type",
+    "business-filter-status",
+    "business-filter-owner",
+    "data-business-page",
+    "pagination.total",
+    "URLSearchParams",
+    "offset",
+  ])
+    assert.match(
+      html,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  const source = await readFile(
+    new URL("./server.mjs", import.meta.url),
+    "utf8",
+  );
+  for (const value of [
+    "recordPage",
+    'url.searchParams.get("q")',
+    'url.searchParams.get("ownerId")',
+    'url.searchParams.get("offset")',
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+});
 
-test("Agent delegation shows an exact-version Workflow Skill Agent Runner preflight",async()=>{const html=await renderConsolePage("/finance",owner);for(const value of ["Agent Delegation Preflight","business-delegation-dialog","delegation-preview","通用流程 Agent · Skill · Runner","专业业务 Agent · Runner","expectedObjectVersion","executionRuntime","确认委派","委派方案已确认","business.work.delegation-approved"])assert.match(html,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));const source=await readFile(new URL("./server.mjs",import.meta.url),"utf8");for(const value of ["buildBusinessDelegationPreview","businessDelegationPreview","BUSINESS_DELEGATION_BLOCKED","BUSINESS_CAPABILITY_CHANGED_REAPPROVAL_REQUIRED","approvedContractHash","currentContractHash","expectedObjectVersion","BUSINESS_RECORD_VERSION_CONFLICT","delegationPlan"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));});
-test("approved Agent plans are visibly projected from immutable audit evidence",async()=>{const finance=await renderConsolePage("/finance",owner),work=await renderConsolePage("/work",owner);for(const value of ["已批准智能执行方案","delegationPlan.domainId","delegationPlan.workflowDefinitionId","delegationPlan.stages","delegationPlan.executionRuntime","不可变委派审计"])assert.match(finance+work,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));for(const html of [finance,work]){assert.doesNotMatch(html,/leaseToken/);assert.doesNotMatch(html,/fencingToken/);}});
-test("business users see a Kernel-backed online execution projection",async()=>{const finance=await renderConsolePage("/finance",owner),work=await renderConsolePage("/work",owner),asset=await readFile(new URL("./assets/business-work-execution.js",import.meta.url),"utf8"),projection=await readFile(new URL("../../../packages/domain-center/lib/business-work-execution.mjs",import.meta.url),"utf8");for(const value of ["在线执行状态","Agent 在线执行","business-work-execution.js","work-execution-live","execution.phase","execution.progress","AUTONOMOUS_KERNEL","自动刷新"])assert.match(finance+work+asset+projection,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));for(const source of [finance,work,asset,projection]){assert.doesNotMatch(source,/leaseToken/);assert.doesNotMatch(source,/fencingToken/);}});
-test("My Work hides Agent controls from approval-only users and exposes workspace management to owners",async()=>{const reviewer={authenticated:true,user:{user_id:"finance-reviewer"},capabilities:["console.access","work.read","finance.read","business.operate","proposal.approve"],project_allowlist:["*"]},reviewerHtml=await renderConsolePage("/work",reviewer),ownerHtml=await renderConsolePage("/work",owner);assert.match(reviewerHtml,/#work-list \[data-work-action\]\{display:none\}/);assert.match(ownerHtml,/工作区工作/);assert.doesNotMatch(ownerHtml,/#work-list \[data-work-action\]\{display:none\}/);});
-test("My Work exposes the source-backed cross-application exception center",async()=>{const html=await renderConsolePage("/work",owner);for(const value of ["异常与阻塞","/api/business/exceptions","Agent 阻塞","打开单据","work-exceptions"])assert.match(html,new RegExp(value));const source=await readFile(new URL("./server.mjs",import.meta.url),"utf8");for(const value of ["/api/business/exceptions","businessExceptions","applicationIds","canOperate","canControl"])assert.match(source,new RegExp(value));});
-test("business APIs expose scoped PostgreSQL records and atomically governed assignment without a second scheduler",async()=>{const server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),executor=await readFile(new URL("../../../packages/domain-center/lib/persistent-business-work-executor.mjs",import.meta.url),"utf8"),source=server+executor;for(const route of ["/api/business/applications","/api/business/reports","/api/work","business-record-create","business-record-relate","business-related-record-create","related-records","createRelation","createRelatedRecord","business-work-assign","business-work-control","business.manage","canManageBusiness","business.work.control","canControl","includeAll:canManage","business-approval-request","business-approval-decision","approvalInbox","applicationReport","controlWorkItem","expectedWorkVersion","PersistentDomainWorkflowService","createBusinessTaskBinding","createBusinessApplicationRuntime","completeWorkflow","organizationId","workspaceId","record.schema.workflowDomainId","BUSINESS_RECORD_NOT_READY_FOR_AGENT"])assert.match(source,new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.doesNotMatch(source,/class BusinessScheduler|new BusinessScheduler|domains\?\.\[0\]/);});
-test("Agent assignment returns a durable queue response and a resident runner resumes it",async()=>{const server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),runner=await readFile(new URL("../../../packages/domain-center/lib/resident-business-work-runner.mjs",import.meta.url),"utf8");for(const value of ["enqueueBusinessWork","?\"QUEUED\"","sendJson(response,202","ResidentBusinessWorkRunner","businessWorkRunner.start()","businessWorkRunner.stop()","pg_try_advisory_lock","runnableAgentWorkItems"])assert.match(server+runner,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.doesNotMatch(server,/await service\.runDaemon\(\{pollMs:5,idleTimeoutMs:50/);});
+test("Agent delegation shows an exact-version Workflow Skill Agent Runner preflight", async () => {
+  const html = await renderConsolePage("/finance", owner);
+  for (const value of [
+    "Agent Delegation Preflight",
+    "business-delegation-dialog",
+    "delegation-preview",
+    "通用流程 Agent · Skill · Runner",
+    "专业业务 Agent · Runner",
+    "expectedObjectVersion",
+    "executionRuntime",
+    "确认委派",
+    "委派方案已确认",
+    "business.work.delegation-approved",
+  ])
+    assert.match(
+      html,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  const source = await readFile(
+    new URL("./server.mjs", import.meta.url),
+    "utf8",
+  );
+  for (const value of [
+    "buildBusinessDelegationPreview",
+    "businessDelegationPreview",
+    "BUSINESS_DELEGATION_BLOCKED",
+    "BUSINESS_CAPABILITY_CHANGED_REAPPROVAL_REQUIRED",
+    "approvedContractHash",
+    "currentContractHash",
+    "expectedObjectVersion",
+    "BUSINESS_RECORD_VERSION_CONFLICT",
+    "delegationPlan",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+});
+test("approved Agent plans are visibly projected from immutable audit evidence", async () => {
+  const finance = await renderConsolePage("/finance", owner),
+    work = await renderConsolePage("/work", owner);
+  for (const value of [
+    "已批准智能执行方案",
+    "delegationPlan.domainId",
+    "delegationPlan.workflowDefinitionId",
+    "delegationPlan.stages",
+    "delegationPlan.executionRuntime",
+    "不可变委派审计",
+  ])
+    assert.match(
+      finance + work,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  for (const html of [finance, work]) {
+    assert.doesNotMatch(html, /leaseToken/);
+    assert.doesNotMatch(html, /fencingToken/);
+  }
+});
+test("business users see a Kernel-backed online execution projection", async () => {
+  const finance = await renderConsolePage("/finance", owner),
+    work = await renderConsolePage("/work", owner),
+    asset = await readFile(
+      new URL("./assets/business-work-execution.js", import.meta.url),
+      "utf8",
+    ),
+    projection = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-work-execution.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+  for (const value of [
+    "在线执行状态",
+    "Agent 在线执行",
+    "business-work-execution.js",
+    "work-execution-live",
+    "execution.phase",
+    "execution.progress",
+    "AUTONOMOUS_KERNEL",
+    "自动刷新",
+  ])
+    assert.match(
+      finance + work + asset + projection,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  for (const source of [finance, work, asset, projection]) {
+    assert.doesNotMatch(source, /leaseToken/);
+    assert.doesNotMatch(source, /fencingToken/);
+  }
+});
+test("My Work hides Agent controls from approval-only users and exposes workspace management to owners", async () => {
+  const reviewer = {
+      authenticated: true,
+      user: { user_id: "finance-reviewer" },
+      capabilities: [
+        "console.access",
+        "work.read",
+        "finance.read",
+        "business.operate",
+        "proposal.approve",
+      ],
+      project_allowlist: ["*"],
+    },
+    reviewerHtml = await renderConsolePage("/work", reviewer),
+    ownerHtml = await renderConsolePage("/work", owner);
+  assert.match(reviewerHtml, /#work-list \[data-work-action\]\{display:none\}/);
+  assert.match(ownerHtml, /工作区工作/);
+  assert.doesNotMatch(
+    ownerHtml,
+    /#work-list \[data-work-action\]\{display:none\}/,
+  );
+});
+test("My Work exposes the source-backed cross-application exception center", async () => {
+  const html = await renderConsolePage("/work", owner);
+  for (const value of [
+    "异常与阻塞",
+    "/api/business/exceptions",
+    "Agent 阻塞",
+    "打开单据",
+    "work-exceptions",
+  ])
+    assert.match(html, new RegExp(value));
+  const source = await readFile(
+    new URL("./server.mjs", import.meta.url),
+    "utf8",
+  );
+  for (const value of [
+    "/api/business/exceptions",
+    "businessExceptions",
+    "applicationIds",
+    "canOperate",
+    "canControl",
+  ])
+    assert.match(source, new RegExp(value));
+});
+test("business APIs expose scoped PostgreSQL records and atomically governed assignment without a second scheduler", async () => {
+  const server = await readFile(
+      new URL("./server.mjs", import.meta.url),
+      "utf8",
+    ),
+    executor = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/persistent-business-work-executor.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = server + executor;
+  for (const route of [
+    "/api/business/applications",
+    "/api/business/reports",
+    "/api/work",
+    "business-record-create",
+    "business-record-relate",
+    "business-related-record-create",
+    "related-records",
+    "createRelation",
+    "createRelatedRecord",
+    "business-work-assign",
+    "business-work-control",
+    "business.manage",
+    "canManageBusiness",
+    "business.work.control",
+    "canControl",
+    "includeAll:canManage",
+    "business-approval-request",
+    "business-approval-decision",
+    "approvalInbox",
+    "applicationReport",
+    "controlWorkItem",
+    "expectedWorkVersion",
+    "PersistentDomainWorkflowService",
+    "createBusinessTaskBinding",
+    "createBusinessApplicationRuntime",
+    "completeWorkflow",
+    "organizationId",
+    "workspaceId",
+    "record.schema.workflowDomainId",
+    "BUSINESS_RECORD_NOT_READY_FOR_AGENT",
+  ])
+    assert.match(
+      source,
+      new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.doesNotMatch(
+    source,
+    /class BusinessScheduler|new BusinessScheduler|domains\?\.\[0\]/,
+  );
+});
+test("Agent assignment returns a durable queue response and a resident runner resumes it", async () => {
+  const server = await readFile(
+      new URL("./server.mjs", import.meta.url),
+      "utf8",
+    ),
+    runner = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/resident-business-work-runner.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+  for (const value of [
+    "enqueueBusinessWork",
+    '?"QUEUED"',
+    "sendJson(response,202",
+    "ResidentBusinessWorkRunner",
+    "businessWorkRunner.start()",
+    "businessWorkRunner.stop()",
+    "pg_try_advisory_lock",
+    "runnableAgentWorkItems",
+  ])
+    assert.match(
+      server + runner,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.doesNotMatch(
+    server,
+    /await service\.runDaemon\(\{pollMs:5,idleTimeoutMs:50/,
+  );
+});
 
-test("business runner fleet is persistent, RBAC-governed and safely projected",async()=>{const server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),runner=await readFile(new URL("../../../packages/domain-center/lib/resident-business-work-runner.mjs",import.meta.url),"utf8"),registry=await readFile(new URL("../../../packages/domain-center/lib/business-runner-registry.mjs",import.meta.url),"utf8"),asset=await readFile(new URL("./assets/business-work-execution.js",import.meta.url),"utf8"),projection=await readFile(new URL("../../../packages/domain-center/lib/business-work-execution.mjs",import.meta.url),"utf8");for(const value of ["PostgresBusinessRunnerRegistry","business-runner-control","/api/business/runners","expectedVersion","DRAINING","runnerFleet","Resident Runner Fleet","Morning Report","morningReport"])assert.match(server+runner+registry+asset+projection,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));for(const source of [runner,registry,asset,projection]){assert.doesNotMatch(source,/leaseToken/);assert.doesNotMatch(source,/fencingToken/);}});
+test("business runner fleet is persistent, RBAC-governed and safely projected", async () => {
+  const server = await readFile(
+      new URL("./server.mjs", import.meta.url),
+      "utf8",
+    ),
+    runner = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/resident-business-work-runner.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    registry = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-runner-registry.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    asset = await readFile(
+      new URL("./assets/business-work-execution.js", import.meta.url),
+      "utf8",
+    ),
+    projection = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-work-execution.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+  for (const value of [
+    "PostgresBusinessRunnerRegistry",
+    "business-runner-control",
+    "/api/business/runners",
+    "expectedVersion",
+    "DRAINING",
+    "runnerFleet",
+    "Resident Runner Fleet",
+    "Morning Report",
+    "morningReport",
+  ])
+    assert.match(
+      server + runner + registry + asset + projection,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  for (const source of [runner, registry, asset, projection]) {
+    assert.doesNotMatch(source, /leaseToken/);
+    assert.doesNotMatch(source, /fencingToken/);
+  }
+});
 
-test("My Work exposes truthful professional Runner capability readiness",async()=>{const server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),asset=await readFile(new URL("./assets/business-work-execution.js",import.meta.url),"utf8"),capabilities=await readFile(new URL("../../../packages/skill-router/lib/professional-runner-capabilities.mjs",import.meta.url),"utf8"),execution=await readFile(new URL("../../../packages/skill-router/lib/professional-runner-execution.mjs",import.meta.url),"utf8"),manifest=await readFile(new URL("../../../packages/skill-router/registry/professional-runner-capabilities.json",import.meta.url),"utf8"),source=server+asset+capabilities+execution+manifest;for(const value of ["/api/business/runner-capabilities","/api/business/runner-capabilities/preflight","runnerCapabilities","专业 Runner 能力","installation_readiness","execution_readiness","RUNNER_NOT_ACTIVATED","evidence_hash","capability_version","artifact-manifest.json","professional.execution.succeeded","CREDENTIAL_REFERENCE_MISSING","ARTIFACT_WRITE_ONLY","media-generative-hyperframes","media-quality-control"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.doesNotMatch(source,/ELEVENLABS_API_KEY\s*[:=]\s*["'][^"']+/);});
+test("My Work exposes truthful professional Runner capability readiness", async () => {
+  const server = await readFile(
+      new URL("./server.mjs", import.meta.url),
+      "utf8",
+    ),
+    asset = await readFile(
+      new URL("./assets/business-work-execution.js", import.meta.url),
+      "utf8",
+    ),
+    capabilities = await readFile(
+      new URL(
+        "../../../packages/skill-router/lib/professional-runner-capabilities.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    execution = await readFile(
+      new URL(
+        "../../../packages/skill-router/lib/professional-runner-execution.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    manifest = await readFile(
+      new URL(
+        "../../../packages/skill-router/registry/professional-runner-capabilities.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = server + asset + capabilities + execution + manifest;
+  for (const value of [
+    "/api/business/runner-capabilities",
+    "/api/business/runner-capabilities/preflight",
+    "runnerCapabilities",
+    "专业 Runner 能力",
+    "installation_readiness",
+    "execution_readiness",
+    "RUNNER_NOT_ACTIVATED",
+    "evidence_hash",
+    "capability_version",
+    "artifact-manifest.json",
+    "professional.execution.succeeded",
+    "CREDENTIAL_REFERENCE_MISSING",
+    "ARTIFACT_WRITE_ONLY",
+    "media-generative-hyperframes",
+    "media-quality-control",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.doesNotMatch(source, /ELEVENLABS_API_KEY\s*[:=]\s*["'][^"']+/);
+});
 
-test("business surfaces distinguish execution evidence from real professional outcomes",async()=>{const render=await readFile(new URL("./render.mjs",import.meta.url),"utf8"),asset=await readFile(new URL("./assets/business-work-execution.js",import.meta.url),"utf8"),result=await readFile(new URL("../../../packages/domain-center/lib/business-work-result.mjs",import.meta.url),"utf8");for(const value of ["EXECUTION_EVIDENCE","businessOutcomeProduced","仅执行证据","尚未生成专业业务结论","CONNECT_PROFESSIONAL_SKILL_RUNNER"])assert.match(render+asset+result,new RegExp(value));for(const source of [render,asset,result]){assert.doesNotMatch(source,/rawLog/);assert.doesNotMatch(source,/fencingToken/);}});
+test("business surfaces distinguish execution evidence from real professional outcomes", async () => {
+  const render = await readFile(
+      new URL("./render.mjs", import.meta.url),
+      "utf8",
+    ),
+    asset = await readFile(
+      new URL("./assets/business-work-execution.js", import.meta.url),
+      "utf8",
+    ),
+    result = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-work-result.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+  for (const value of [
+    "EXECUTION_EVIDENCE",
+    "businessOutcomeProduced",
+    "仅执行证据",
+    "尚未生成专业业务结论",
+    "CONNECT_PROFESSIONAL_SKILL_RUNNER",
+  ])
+    assert.match(render + asset + result, new RegExp(value));
+  for (const source of [render, asset, result]) {
+    assert.doesNotMatch(source, /rawLog/);
+    assert.doesNotMatch(source, /fencingToken/);
+  }
+});
 
-test("finance endpoint exposes the registered professional Skill Agent Runner result",async()=>{const render=await readFile(new URL("./render.mjs",import.meta.url),"utf8"),runner=await readFile(new URL("../../../packages/domain-center/lib/professional-business-skill-runner.mjs",import.meta.url),"utf8"),result=await readFile(new URL("../../../packages/domain-center/lib/business-work-result.mjs",import.meta.url),"utf8");for(const value of ["finance-expense-rule-runner-v1","financial_control_validation","finance-control-agent","FINANCE_EXPENSE_BUDGET_CHECK","PROFESSIONAL_RULE_ENGINE","SUBMIT_FOR_HUMAN_APPROVAL"])assert.match(render+runner+result,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.doesNotMatch(runner,/remainingBudget\s*:/);});
-test("finance endpoint projects a scoped budget-to-expense control view without claiming ledger balance",async()=>{const html=await renderConsolePage("/finance",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),projection=await readFile(new URL("../../../packages/domain-center/lib/finance-control-report.mjs",import.meta.url),"utf8"),stores=(await readFile(new URL("../../../packages/domain-center/lib/business-application-store.mjs",import.meta.url),"utf8"))+(await readFile(new URL("../../../packages/domain-center/lib/postgres-business-application-store.mjs",import.meta.url),"utf8")),source=html+server+projection+stores;for(const value of ["预算费用控制台","/api/business/finance/control-report","CONTROLS","已承诺","待审暴露","工作流余量","未挂预算费用","WORKFLOW_RECORDS_NOT_GENERAL_LEDGER","financeControlReport","evaluateConsoleRouteAccess(\"finance\""] )assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.match(html,/最终财务余额仍以权威总账为准/);});
+test("finance endpoint exposes the registered professional Skill Agent Runner result", async () => {
+  const render = await readFile(
+      new URL("./render.mjs", import.meta.url),
+      "utf8",
+    ),
+    runner = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/professional-business-skill-runner.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    result = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-work-result.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+  for (const value of [
+    "finance-expense-rule-runner-v1",
+    "financial_control_validation",
+    "finance-control-agent",
+    "FINANCE_EXPENSE_BUDGET_CHECK",
+    "PROFESSIONAL_RULE_ENGINE",
+    "SUBMIT_FOR_HUMAN_APPROVAL",
+  ])
+    assert.match(
+      render + runner + result,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.doesNotMatch(runner, /remainingBudget\s*:/);
+});
+test("finance endpoint projects a scoped budget-to-expense control view without claiming ledger balance", async () => {
+  const html = await renderConsolePage("/finance", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    projection = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/finance-control-report.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    stores =
+      (await readFile(
+        new URL(
+          "../../../packages/domain-center/lib/business-application-store.mjs",
+          import.meta.url,
+        ),
+        "utf8",
+      )) +
+      (await readFile(
+        new URL(
+          "../../../packages/domain-center/lib/postgres-business-application-store.mjs",
+          import.meta.url,
+        ),
+        "utf8",
+      )),
+    source = html + server + projection + stores;
+  for (const value of [
+    "预算费用控制台",
+    "/api/business/finance/control-report",
+    "CONTROLS",
+    "已承诺",
+    "待审暴露",
+    "工作流余量",
+    "未挂预算费用",
+    "WORKFLOW_RECORDS_NOT_GENERAL_LEDGER",
+    "financeControlReport",
+    'evaluateConsoleRouteAccess("finance"',
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.match(html, /最终财务余额仍以权威总账为准/);
+});
 
-test("manufacturing endpoint exposes BOM SOP WMS evidence and the shared professional Runner",async()=>{const html=await renderConsolePage("/manufacturing",owner),runner=await readFile(new URL("../../../packages/domain-center/lib/professional-business-skill-runner.mjs",import.meta.url),"utf8"),relations=await readFile(new URL("../../../packages/domain-center/lib/business-relation-definitions.mjs",import.meta.url),"utf8"),result=await readFile(new URL("../../../packages/domain-center/lib/business-work-result.mjs",import.meta.url),"utf8"),source=html+runner+relations+result;for(const value of ["routing_sop","componentRequirements","USED_BY","GOVERNS","ALLOCATED_TO","manufacturing-work-order-readiness-runner-v1","production_release_readiness","manufacturing-readiness-agent","MANUFACTURING_WORK_ORDER_READINESS_CHECK","SUBMIT_WORK_ORDER_RELEASE_FOR_HUMAN_APPROVAL"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));for(const value of ["reserve stock","release the work order automatically"])assert.match(runner,new RegExp(value));});
-test("manufacturing endpoint projects a persistent order-to-delivery control chain",async()=>{const html=await renderConsolePage("/manufacturing",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),projection=await readFile(new URL("../../../packages/domain-center/lib/manufacturing-fulfillment-report.mjs",import.meta.url),"utf8"),stores=(await readFile(new URL("../../../packages/domain-center/lib/business-application-store.mjs",import.meta.url),"utf8"))+(await readFile(new URL("../../../packages/domain-center/lib/postgres-business-application-store.mjs",import.meta.url),"utf8")),source=html+server+projection+stores;for(const value of ["订单到交付控制台","/api/business/manufacturing/fulfillment-report","DRIVES_PLAN","SCHEDULES","EXECUTED_AS","COSTED_BY","TRACED_BY","订单履约链","manufacturingFulfillmentReport","AUTHORITATIVE_MANUFACTURING_RECORD_RELATIONS","evaluateConsoleRouteAccess(\"manufacturing\""])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.match(html,/不计算交付率、OEE、库存周转或会计余额/);});
+test("manufacturing endpoint exposes BOM SOP WMS evidence and the shared professional Runner", async () => {
+  const html = await renderConsolePage("/manufacturing", owner),
+    runner = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/professional-business-skill-runner.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    relations = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-relation-definitions.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    result = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-work-result.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = html + runner + relations + result;
+  for (const value of [
+    "routing_sop",
+    "componentRequirements",
+    "USED_BY",
+    "GOVERNS",
+    "ALLOCATED_TO",
+    "manufacturing-work-order-readiness-runner-v1",
+    "production_release_readiness",
+    "manufacturing-readiness-agent",
+    "MANUFACTURING_WORK_ORDER_READINESS_CHECK",
+    "SUBMIT_WORK_ORDER_RELEASE_FOR_HUMAN_APPROVAL",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  for (const value of ["reserve stock", "release the work order automatically"])
+    assert.match(runner, new RegExp(value));
+});
+test("manufacturing endpoint projects a persistent order-to-delivery control chain", async () => {
+  const html = await renderConsolePage("/manufacturing", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    projection = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/manufacturing-fulfillment-report.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    stores =
+      (await readFile(
+        new URL(
+          "../../../packages/domain-center/lib/business-application-store.mjs",
+          import.meta.url,
+        ),
+        "utf8",
+      )) +
+      (await readFile(
+        new URL(
+          "../../../packages/domain-center/lib/postgres-business-application-store.mjs",
+          import.meta.url,
+        ),
+        "utf8",
+      )),
+    source = html + server + projection + stores;
+  for (const value of [
+    "订单到交付控制台",
+    "/api/business/manufacturing/fulfillment-report",
+    "DRIVES_PLAN",
+    "SCHEDULES",
+    "EXECUTED_AS",
+    "COSTED_BY",
+    "TRACED_BY",
+    "订单履约链",
+    "manufacturingFulfillmentReport",
+    "AUTHORITATIVE_MANUFACTURING_RECORD_RELATIONS",
+    'evaluateConsoleRouteAccess("manufacturing"',
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.match(html, /不计算交付率、OEE、库存周转或会计余额/);
+});
 
-test("HR endpoint exposes the governed candidate-to-onboarding chain and non-decision Runner boundary",async()=>{const html=await renderConsolePage("/hr",owner),runner=await readFile(new URL("../../../packages/domain-center/lib/professional-business-skill-runner.mjs",import.meta.url),"utf8"),relations=await readFile(new URL("../../../packages/domain-center/lib/business-relation-definitions.mjs",import.meta.url),"utf8"),executor=await readFile(new URL("../../../packages/domain-center/lib/persistent-business-work-executor.mjs",import.meta.url),"utf8"),source=html+runner+relations+executor;for(const value of ["candidate_application","employment_offer","CONSIDERS","RECEIVES","INITIATES","AUTHORIZES","hr-onboarding-readiness-runner-v1","onboarding_administrative_readiness","hr-onboarding-control-agent","HR_ONBOARDING_ADMINISTRATIVE_READINESS_CHECK","SUBMIT_ONBOARDING_READINESS_FOR_HUMAN_APPROVAL"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));for(const value of ["does not rank candidates","make an employment decision","Does not provision accounts"])assert.match(runner,new RegExp(value,"i"));assert.match(executor,/current\.path\.length>=3/);});
-test("HR endpoint projects a privacy-minimized persistent workforce pipeline",async()=>{const html=await renderConsolePage("/hr",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),projection=await readFile(new URL("../../../packages/domain-center/lib/hr-workforce-pipeline.mjs",import.meta.url),"utf8"),stores=(await readFile(new URL("../../../packages/domain-center/lib/business-application-store.mjs",import.meta.url),"utf8"))+(await readFile(new URL("../../../packages/domain-center/lib/postgres-business-application-store.mjs",import.meta.url),"utf8")),source=html+server+projection+stores;for(const value of ["候选到入职流程控制台","/api/business/hr/workforce-pipeline","岗位编制","招聘需求","候选申请","录用通知","入职流程","员工档案","hrWorkforcePipeline","AUTHORITATIVE_HR_RECORD_RELATIONS","evaluateConsoleRouteAccess(\"hr\""])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));for(const value of ["不执行候选人排名或自动录用","不复制候选人姓名、合同文件、身份核验"] )assert.match(html,new RegExp(value));});
+test("HR endpoint exposes the governed candidate-to-onboarding chain and non-decision Runner boundary", async () => {
+  const html = await renderConsolePage("/hr", owner),
+    runner = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/professional-business-skill-runner.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    relations = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-relation-definitions.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    executor = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/persistent-business-work-executor.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = html + runner + relations + executor;
+  for (const value of [
+    "candidate_application",
+    "employment_offer",
+    "CONSIDERS",
+    "RECEIVES",
+    "INITIATES",
+    "AUTHORIZES",
+    "hr-onboarding-readiness-runner-v1",
+    "onboarding_administrative_readiness",
+    "hr-onboarding-control-agent",
+    "HR_ONBOARDING_ADMINISTRATIVE_READINESS_CHECK",
+    "SUBMIT_ONBOARDING_READINESS_FOR_HUMAN_APPROVAL",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  for (const value of [
+    "does not rank candidates",
+    "make an employment decision",
+    "Does not provision accounts",
+  ])
+    assert.match(runner, new RegExp(value, "i"));
+  assert.match(executor, /current\.path\.length>=3/);
+});
+test("HR endpoint projects a privacy-minimized persistent workforce pipeline", async () => {
+  const html = await renderConsolePage("/hr", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    projection = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/hr-workforce-pipeline.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    stores =
+      (await readFile(
+        new URL(
+          "../../../packages/domain-center/lib/business-application-store.mjs",
+          import.meta.url,
+        ),
+        "utf8",
+      )) +
+      (await readFile(
+        new URL(
+          "../../../packages/domain-center/lib/postgres-business-application-store.mjs",
+          import.meta.url,
+        ),
+        "utf8",
+      )),
+    source = html + server + projection + stores;
+  for (const value of [
+    "候选到入职流程控制台",
+    "/api/business/hr/workforce-pipeline",
+    "岗位编制",
+    "招聘需求",
+    "候选申请",
+    "录用通知",
+    "入职流程",
+    "员工档案",
+    "hrWorkforcePipeline",
+    "AUTHORITATIVE_HR_RECORD_RELATIONS",
+    'evaluateConsoleRouteAccess("hr"',
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  for (const value of [
+    "不执行候选人排名或自动录用",
+    "不复制候选人姓名、合同文件、身份核验",
+  ])
+    assert.match(html, new RegExp(value));
+});
 
-test("growth endpoint exposes product-grounded content and a non-publishing professional Runner",async()=>{const html=await renderConsolePage("/growth-sales",owner),runner=await readFile(new URL("../../../packages/domain-center/lib/professional-business-skill-runner.mjs",import.meta.url),"utf8"),relations=await readFile(new URL("../../../packages/domain-center/lib/business-relation-definitions.mjs",import.meta.url),"utf8"),result=await readFile(new URL("../../../packages/domain-center/lib/business-work-result.mjs",import.meta.url),"utf8"),source=html+runner+relations+result;for(const value of ["content_asset","channel_account","publish_plan","GROUNDS","PRODUCES","SCHEDULES","INCLUDES","AUTHORIZES","growth-publish-readiness-runner-v1","controlled_publish_readiness","growth-publishing-control-agent","GROWTH_CONTROLLED_PUBLISH_READINESS_CHECK","SUBMIT_PUBLISH_PLAN_FOR_HUMAN_APPROVAL"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));for(const value of ["Does not register accounts","publish content","contact customers","PASS is not publication authorization"])assert.match(runner,new RegExp(value,"i"));assert.doesNotMatch(result,/credentialReferenceId:text/);});
-test("growth endpoint projects the persistent product-to-service customer lifecycle",async()=>{const html=await renderConsolePage("/growth-sales",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),projection=await readFile(new URL("../../../packages/domain-center/lib/growth-sales-funnel-report.mjs",import.meta.url),"utf8"),stores=(await readFile(new URL("../../../packages/domain-center/lib/business-application-store.mjs",import.meta.url),"utf8"))+(await readFile(new URL("../../../packages/domain-center/lib/postgres-business-application-store.mjs",import.meta.url),"utf8")),source=html+server+projection+stores;for(const value of ["增长获客与客户全周期控制台","/api/business/growth-sales/funnel-report","PRODUCES_MATRIX","ATTRACTS","HANDS_OFF","SERVICED_BY","客户全周期链","growthSalesFunnelReport","AUTHORITATIVE_GROWTH_SALES_RECORD_RELATIONS","evaluateConsoleRouteAccess(\"growthSales\""])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.match(html,/不推算归因、转化率或收入/);});
-test("growth endpoint exposes sanitized delivery operations and separately governed controls",async()=>{const html=await renderConsolePage("/growth-sales",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),store=await readFile(new URL("../../../packages/domain-center/lib/postgres-growth-delivery-store.mjs",import.meta.url),"utf8"),access=await readFile(new URL("../../../packages/access-center/lib/access-center-utils.mjs",import.meta.url),"utf8"),source=html+server+store+access;for(const value of ["外部投递与对账","/api/business/growth-sales/delivery-dashboard","PostgresGrowthDeliveryStore","reconciliationStatus","errorCode","GROWTH_DELIVERY_REQUIRES_POSTGRESQL","GROWTH_DELIVERY_MIGRATION_REQUIRED","growth-delivery-retry","growth-delivery-reconcile","expectedVersion","business.work.control","proposal.approve"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.match(html,/不暴露凭证、审批引用、请求指纹、来源引用或错误正文/);const projection=String((await import("../../../packages/domain-center/lib/postgres-growth-delivery-store.mjs")).PostgresGrowthDeliveryStore.prototype.dashboard);for(const value of ["approvalRef","requestFingerprint","assetRef","errorMessage"])assert.doesNotMatch(projection,new RegExp(value));});
-test("growth endpoint projects fail-closed pilot readiness without activation controls",async()=>{const html=await renderConsolePage("/growth-sales",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),readiness=await readFile(new URL("../../../packages/growth-core/lib/pilot-readiness.mjs",import.meta.url),"utf8"),connectorEvidence=await readFile(new URL("../../../packages/domain-center/lib/postgres-growth-connector-evidence.mjs",import.meta.url),"utf8"),binding=await readFile(new URL("../../../packages/domain-center/lib/postgres-growth-connector-binding-store.mjs",import.meta.url),"utf8"),source=html+server+readiness+connectorEvidence+binding;for(const value of ["KingTurf Pilot 就绪度","/api/business/growth-sales/pilot-readiness","assessGrowthPilotReadiness","VERSIONED_PILOT_EVIDENCE","PILOT_ACTIVATION_BLOCKED","EXPLICIT_PRODUCTION_AUTHORIZATION","GROWTH_PILOT_TENANT_NOT_CONFIGURED","PostgresGrowthConnectorEvidence","PostgresGrowthConnectorBindingStore","AUTHORITATIVE_CHANNEL_ACCOUNT_RECORDS","CONFIGURED_NOT_PROBED","MISSING_BINDING","credentialValuesRead:false","零外部写入"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.match(html,/不读取凭据值、不调用连接器、不修改生产/);assert.doesNotMatch(html,/id="growth-pilot-activate"|data-pilot-action/);});
-test("growth identity review is read-only in browser and separately governed in API",async()=>{const html=await renderConsolePage("/growth-sales",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),store=await readFile(new URL("../../../packages/domain-center/lib/postgres-growth-identity-review-store.mjs",import.meta.url),"utf8"),migration=await readFile(new URL("../../../packages/orchestrator-core/migrations/016_growth_identity_review.up.sql",import.meta.url),"utf8"),access=await readFile(new URL("../../../packages/access-center/lib/access-center-utils.mjs",import.meta.url),"utf8"),source=html+server+store+migration+access;for(const value of ["身份冲突人工复核","/api/business/growth-sales/identity-reviews","growth-identity-review-decision","expectedVersion","IDENTITY_REVIEW_RESOLVED","PostgresGrowthIdentityReviewStore","proposal.approve","不可变审计"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.match(html,/不显示原始邮箱、电话、域名或外部表单编号/);assert.doesNotMatch(html,/data-identity-review-action|growth-identity-review-resolve/);for(const value of ['external_id_hash','idempotency_key'])assert.doesNotMatch(String((await import("../../../packages/domain-center/lib/postgres-growth-identity-review-store.mjs")).PostgresGrowthIdentityReviewStore.prototype.list),new RegExp(value));});
-test("growth connector activation reuses business approval and exposes read-only preflight without execution",async()=>{const html=await renderConsolePage("/growth-sales",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),gate=await readFile(new URL("../../../packages/domain-center/lib/growth-connector-activation-gate.mjs",import.meta.url),"utf8"),access=await readFile(new URL("../../../packages/access-center/lib/access-center-utils.mjs",import.meta.url),"utf8"),policy=await readFile(new URL("../../../packages/access-center/examples/access-policy.example.json",import.meta.url),"utf8"),source=html+server+gate+access+policy;for(const value of ["连接器激活申请","明确生产授权编号","GrowthConnectorActivationGate","ACTIVATION_APPROVAL_NOT_PROVEN","growth-connector-activate","growth-connector-disable","growth_production_operator","authorizeProductionOperation","GROWTH_CONNECTOR_PRODUCTION_OPERATION_NOT_AUTHORIZED","CONNECTOR_BINDING_EMERGENCY_DISABLED","human_approval_required","production.request","growth.connector.activation.consumed","连接器激活只读预检","/api/business/growth-sales/connector-activation-preflights","listPreflights","零外部调用","页面没有激活按钮"] )assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.doesNotMatch(server,/\/api\/business\/growth-sales\/connectors\/[^'"`]+\/(?:activate|disable)/);assert.doesNotMatch(html,/data-growth-connector-(?:activate|disable)|立即激活连接器|立即停用连接器/);for(const value of ["explicitAuthorizationRef","credentialReferenceId","approval.comment"])assert.doesNotMatch(String((await import("../../../packages/domain-center/lib/growth-connector-activation-gate.mjs")).GrowthConnectorActivationGate.prototype.listPreflights),new RegExp(value));});
+test("growth endpoint exposes product-grounded content and a non-publishing professional Runner", async () => {
+  const html = await renderConsolePage("/growth-sales", owner),
+    runner = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/professional-business-skill-runner.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    relations = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-relation-definitions.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    result = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-work-result.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = html + runner + relations + result;
+  for (const value of [
+    "content_asset",
+    "channel_account",
+    "publish_plan",
+    "GROUNDS",
+    "PRODUCES",
+    "SCHEDULES",
+    "INCLUDES",
+    "AUTHORIZES",
+    "growth-publish-readiness-runner-v1",
+    "controlled_publish_readiness",
+    "growth-publishing-control-agent",
+    "GROWTH_CONTROLLED_PUBLISH_READINESS_CHECK",
+    "SUBMIT_PUBLISH_PLAN_FOR_HUMAN_APPROVAL",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  for (const value of [
+    "Does not register accounts",
+    "publish content",
+    "contact customers",
+    "PASS is not publication authorization",
+  ])
+    assert.match(runner, new RegExp(value, "i"));
+  assert.doesNotMatch(result, /credentialReferenceId:text/);
+});
+test("growth endpoint projects the persistent product-to-service customer lifecycle", async () => {
+  const html = await renderConsolePage("/growth-sales", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    projection = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/growth-sales-funnel-report.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    stores =
+      (await readFile(
+        new URL(
+          "../../../packages/domain-center/lib/business-application-store.mjs",
+          import.meta.url,
+        ),
+        "utf8",
+      )) +
+      (await readFile(
+        new URL(
+          "../../../packages/domain-center/lib/postgres-business-application-store.mjs",
+          import.meta.url,
+        ),
+        "utf8",
+      )),
+    source = html + server + projection + stores;
+  for (const value of [
+    "增长获客与客户全周期控制台",
+    "/api/business/growth-sales/funnel-report",
+    "PRODUCES_MATRIX",
+    "ATTRACTS",
+    "HANDS_OFF",
+    "SERVICED_BY",
+    "客户全周期链",
+    "growthSalesFunnelReport",
+    "AUTHORITATIVE_GROWTH_SALES_RECORD_RELATIONS",
+    'evaluateConsoleRouteAccess("growthSales"',
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.match(html, /不推算归因、转化率或收入/);
+});
+test("growth endpoint exposes sanitized delivery operations and separately governed controls", async () => {
+  const html = await renderConsolePage("/growth-sales", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    store = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/postgres-growth-delivery-store.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    access = await readFile(
+      new URL(
+        "../../../packages/access-center/lib/access-center-utils.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = html + server + store + access;
+  for (const value of [
+    "外部投递与对账",
+    "/api/business/growth-sales/delivery-dashboard",
+    "PostgresGrowthDeliveryStore",
+    "reconciliationStatus",
+    "errorCode",
+    "GROWTH_DELIVERY_REQUIRES_POSTGRESQL",
+    "GROWTH_DELIVERY_MIGRATION_REQUIRED",
+    "growth-delivery-retry",
+    "growth-delivery-reconcile",
+    "expectedVersion",
+    "business.work.control",
+    "proposal.approve",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.match(html, /不暴露凭证、审批引用、请求指纹、来源引用或错误正文/);
+  const projection = String(
+    (
+      await import("../../../packages/domain-center/lib/postgres-growth-delivery-store.mjs")
+    ).PostgresGrowthDeliveryStore.prototype.dashboard,
+  );
+  for (const value of [
+    "approvalRef",
+    "requestFingerprint",
+    "assetRef",
+    "errorMessage",
+  ])
+    assert.doesNotMatch(projection, new RegExp(value));
+});
+test("growth endpoint projects fail-closed pilot readiness without activation controls", async () => {
+  const html = await renderConsolePage("/growth-sales", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    readiness = await readFile(
+      new URL(
+        "../../../packages/growth-core/lib/pilot-readiness.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    connectorEvidence = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/postgres-growth-connector-evidence.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    binding = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/postgres-growth-connector-binding-store.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = html + server + readiness + connectorEvidence + binding;
+  for (const value of [
+    "KingTurf Pilot 就绪度",
+    "/api/business/growth-sales/pilot-readiness",
+    "assessGrowthPilotReadiness",
+    "VERSIONED_PILOT_EVIDENCE",
+    "PILOT_ACTIVATION_BLOCKED",
+    "EXPLICIT_PRODUCTION_AUTHORIZATION",
+    "GROWTH_PILOT_TENANT_NOT_CONFIGURED",
+    "PostgresGrowthConnectorEvidence",
+    "PostgresGrowthConnectorBindingStore",
+    "AUTHORITATIVE_CHANNEL_ACCOUNT_RECORDS",
+    "CONFIGURED_NOT_PROBED",
+    "MISSING_BINDING",
+    "credentialValuesRead:false",
+    "零外部写入",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.match(html, /不读取凭据值、不调用连接器、不修改生产/);
+  assert.doesNotMatch(html, /id="growth-pilot-activate"|data-pilot-action/);
+});
+test("growth identity review is read-only in browser and separately governed in API", async () => {
+  const html = await renderConsolePage("/growth-sales", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    store = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/postgres-growth-identity-review-store.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    migration = await readFile(
+      new URL(
+        "../../../packages/orchestrator-core/migrations/016_growth_identity_review.up.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    access = await readFile(
+      new URL(
+        "../../../packages/access-center/lib/access-center-utils.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = html + server + store + migration + access;
+  for (const value of [
+    "身份冲突人工复核",
+    "/api/business/growth-sales/identity-reviews",
+    "growth-identity-review-decision",
+    "expectedVersion",
+    "IDENTITY_REVIEW_RESOLVED",
+    "PostgresGrowthIdentityReviewStore",
+    "proposal.approve",
+    "不可变审计",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.match(html, /不显示原始邮箱、电话、域名或外部表单编号/);
+  assert.doesNotMatch(
+    html,
+    /data-identity-review-action|growth-identity-review-resolve/,
+  );
+  for (const value of ["external_id_hash", "idempotency_key"])
+    assert.doesNotMatch(
+      String(
+        (
+          await import("../../../packages/domain-center/lib/postgres-growth-identity-review-store.mjs")
+        ).PostgresGrowthIdentityReviewStore.prototype.list,
+      ),
+      new RegExp(value),
+    );
+});
+test("growth connector activation reuses business approval and exposes read-only preflight without execution", async () => {
+  const html = await renderConsolePage("/growth-sales", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    gate = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/growth-connector-activation-gate.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    productionPolicy = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/growth-production-operations-policy.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    access = await readFile(
+      new URL(
+        "../../../packages/access-center/lib/access-center-utils.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    policy = await readFile(
+      new URL(
+        "../../../packages/access-center/examples/access-policy.example.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = html + server + gate + productionPolicy + access + policy;
+  for (const value of [
+    "连接器激活申请",
+    "明确生产授权编号",
+    "GrowthConnectorActivationGate",
+    "GrowthProductionOperationsPolicy",
+    "operation_category",
+    "productionOperations",
+    "全局生产操作",
+    "全局 Production Ops 策略当前保持 disabled",
+    "ACTIVATION_APPROVAL_NOT_PROVEN",
+    "growth-connector-activate",
+    "growth-connector-disable",
+    "growth_production_operator",
+    "authorizeProductionOperation",
+    "GROWTH_CONNECTOR_PRODUCTION_OPERATION_NOT_AUTHORIZED",
+    "CONNECTOR_BINDING_EMERGENCY_DISABLED",
+    "human_approval_required",
+    "production.request",
+    "growth.connector.activation.consumed",
+    "连接器激活只读预检",
+    "/api/business/growth-sales/connector-activation-preflights",
+    "listPreflights",
+    "页面没有激活按钮",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.doesNotMatch(
+    server,
+    /\/api\/business\/growth-sales\/connectors\/[^'"`]+\/(?:activate|disable)/,
+  );
+  assert.doesNotMatch(
+    html,
+    /data-growth-connector-(?:activate|disable)|立即激活连接器|立即停用连接器/,
+  );
+  for (const value of [
+    "explicitAuthorizationRef",
+    "credentialReferenceId",
+    "approval.comment",
+  ])
+    assert.doesNotMatch(
+      String(
+        (
+          await import("../../../packages/domain-center/lib/growth-connector-activation-gate.mjs")
+        ).GrowthConnectorActivationGate.prototype.listPreflights,
+      ),
+      new RegExp(value),
+    );
+});
 
-test("strategy endpoint exposes evidence dates, corrective actions and its governed professional Runner",async()=>{const html=await renderConsolePage("/strategy",owner),runner=await readFile(new URL("../../../packages/domain-center/lib/professional-business-skill-runner.mjs",import.meta.url),"utf8"),relations=await readFile(new URL("../../../packages/domain-center/lib/business-relation-definitions.mjs",import.meta.url),"utf8"),result=await readFile(new URL("../../../packages/domain-center/lib/business-work-result.mjs",import.meta.url),"utf8"),source=html+runner+relations+result;for(const value of ["数据截止日","实际值证据编号","当前进度","纠偏动作","证据截止日","EVIDENCED_IN","ASSESSED_IN","RESULTS_IN","CORRECTED_BY","strategy-review-evidence-runner-v1","strategy_review_evidence_validation","strategy-review-control-agent","STRATEGY_REVIEW_EVIDENCE_CHECK","SUBMIT_STRATEGY_REVIEW_FOR_HUMAN_APPROVAL"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));for(const value of ["does not verify the external source","Does not invent actual values","approve a strategy conclusion","execute corrective actions"])assert.match(runner,new RegExp(value,"i"));assert.doesNotMatch(result,/actualEvidenceRef:text/);});
+test("strategy endpoint exposes evidence dates, corrective actions and its governed professional Runner", async () => {
+  const html = await renderConsolePage("/strategy", owner),
+    runner = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/professional-business-skill-runner.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    relations = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-relation-definitions.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    result = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-work-result.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = html + runner + relations + result;
+  for (const value of [
+    "数据截止日",
+    "实际值证据编号",
+    "当前进度",
+    "纠偏动作",
+    "证据截止日",
+    "EVIDENCED_IN",
+    "ASSESSED_IN",
+    "RESULTS_IN",
+    "CORRECTED_BY",
+    "strategy-review-evidence-runner-v1",
+    "strategy_review_evidence_validation",
+    "strategy-review-control-agent",
+    "STRATEGY_REVIEW_EVIDENCE_CHECK",
+    "SUBMIT_STRATEGY_REVIEW_FOR_HUMAN_APPROVAL",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  for (const value of [
+    "does not verify the external source",
+    "Does not invent actual values",
+    "approve a strategy conclusion",
+    "execute corrective actions",
+  ])
+    assert.match(runner, new RegExp(value, "i"));
+  assert.doesNotMatch(result, /actualEvidenceRef:text/);
+});
 
-test("Smart Park endpoint exposes SLA completion evidence and its non-dispatching professional Runner",async()=>{const html=await renderConsolePage("/smart-park",owner),runner=await readFile(new URL("../../../packages/domain-center/lib/professional-business-skill-runner.mjs",import.meta.url),"utf8"),result=await readFile(new URL("../../../packages/domain-center/lib/business-work-result.mjs",import.meta.url),"utf8"),source=html+runner+result;for(const value of ["受理时间","优先级","责任班组","处理结果","完工证据编号","完成时间","park-service-completion-runner-v1","park_service_completion_validation","park-service-control-agent","PARK_SERVICE_COMPLETION_CHECK","SUBMIT_SERVICE_COMPLETION_FOR_HUMAN_APPROVAL"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));for(const value of ["Does not verify external evidence content","dispatch field staff","mark the order resolved","notify a tenant","create a charge"])assert.match(runner,new RegExp(value,"i"));assert.doesNotMatch(result,/completionEvidenceRef:text/);});
-test("Smart Park endpoint projects a persistent enterprise-to-service operations chain",async()=>{const html=await renderConsolePage("/smart-park",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),projection=await readFile(new URL("../../../packages/domain-center/lib/smart-park-operations-report.mjs",import.meta.url),"utf8"),stores=(await readFile(new URL("../../../packages/domain-center/lib/business-application-store.mjs",import.meta.url),"utf8"))+(await readFile(new URL("../../../packages/domain-center/lib/postgres-business-application-store.mjs",import.meta.url),"utf8")),source=html+server+projection+stores;for(const value of ["园区经营服务控制台","/api/business/smart-park/operations-report","BILLED_BY","CONTRIBUTES_TO","CHARGED_BY","SUMMARIZED_IN","园区运营链","smartParkOperationsReport","AUTHORITATIVE_SMART_PARK_RECORD_RELATIONS","evaluateConsoleRouteAccess(\"smartPark\""])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.match(html,/不推算出租率、收缴率或 SLA/);});
+test("Smart Park endpoint exposes SLA completion evidence and its non-dispatching professional Runner", async () => {
+  const html = await renderConsolePage("/smart-park", owner),
+    runner = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/professional-business-skill-runner.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    result = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-work-result.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = html + runner + result;
+  for (const value of [
+    "受理时间",
+    "优先级",
+    "责任班组",
+    "处理结果",
+    "完工证据编号",
+    "完成时间",
+    "park-service-completion-runner-v1",
+    "park_service_completion_validation",
+    "park-service-control-agent",
+    "PARK_SERVICE_COMPLETION_CHECK",
+    "SUBMIT_SERVICE_COMPLETION_FOR_HUMAN_APPROVAL",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  for (const value of [
+    "Does not verify external evidence content",
+    "dispatch field staff",
+    "mark the order resolved",
+    "notify a tenant",
+    "create a charge",
+  ])
+    assert.match(runner, new RegExp(value, "i"));
+  assert.doesNotMatch(result, /completionEvidenceRef:text/);
+});
+test("Smart Park endpoint projects a persistent enterprise-to-service operations chain", async () => {
+  const html = await renderConsolePage("/smart-park", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    projection = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/smart-park-operations-report.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    stores =
+      (await readFile(
+        new URL(
+          "../../../packages/domain-center/lib/business-application-store.mjs",
+          import.meta.url,
+        ),
+        "utf8",
+      )) +
+      (await readFile(
+        new URL(
+          "../../../packages/domain-center/lib/postgres-business-application-store.mjs",
+          import.meta.url,
+        ),
+        "utf8",
+      )),
+    source = html + server + projection + stores;
+  for (const value of [
+    "园区经营服务控制台",
+    "/api/business/smart-park/operations-report",
+    "BILLED_BY",
+    "CONTRIBUTES_TO",
+    "CHARGED_BY",
+    "SUMMARIZED_IN",
+    "园区运营链",
+    "smartParkOperationsReport",
+    "AUTHORITATIVE_SMART_PARK_RECORD_RELATIONS",
+    'evaluateConsoleRouteAccess("smartPark"',
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.match(html, /不推算出租率、收缴率或 SLA/);
+});
 
-test("cockpit and My Work expose one scoped persistent professional result center",async()=>{const cockpit=await renderConsolePage("/cockpit",owner),work=await renderConsolePage("/work",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),store=await readFile(new URL("../../../packages/domain-center/lib/postgres-business-application-store.mjs",import.meta.url),"utf8"),source=cockpit+work+server+store;for(const value of ["专业业务结果","/api/business/results","professionalResults","applicationIds","evaluateConsoleRouteAccess","规则通过","需人工复核","证据阻塞","不使用任务完成数冒充业务成果"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.match(work,/保留来源、检查项和人工决策边界/);});
-test("outcome center exposes governed authoritative business connectors without credential values",async()=>{const html=await renderConsolePage("/outcomes",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),source=html+server;for(const value of ["权威业务数据连接器","/api/business/data-connectors","business-data-connector-register","business-data-connector-ingest","PostgreSQL · 受治理","Credential Reference 的真实值"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.doesNotMatch(html,/credentialReferenceId.*REFERENCE_CONFIGURED/);});
-test("authoritative source readiness requires data-owner approval and exposes no credential value",async()=>{const server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),governance=await readFile(new URL("../../../packages/domain-center/lib/postgres-business-source-governance.mjs",import.meta.url),"utf8"),adapter=await readFile(new URL("../../../packages/domain-center/lib/smart-park-work-order-source.mjs",import.meta.url),"utf8"),source=server+governance+adapter;for(const value of ["business-data-source-approval-request","business-data-source-approval-decision","DATA_OWNER_APPROVAL","MAPPING_VERSION","SmartParkWorkOrderReadAdapter","SmartParkWorkOrderSyncService","reconciliationStatus"])assert.match(source,new RegExp(value));assert.doesNotMatch(server,/credentialReference\(connectorId/);});
+test("cockpit and My Work expose one scoped persistent professional result center", async () => {
+  const cockpit = await renderConsolePage("/cockpit", owner),
+    work = await renderConsolePage("/work", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    store = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/postgres-business-application-store.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = cockpit + work + server + store;
+  for (const value of [
+    "专业业务结果",
+    "/api/business/results",
+    "professionalResults",
+    "applicationIds",
+    "evaluateConsoleRouteAccess",
+    "规则通过",
+    "需人工复核",
+    "证据阻塞",
+    "不使用任务完成数冒充业务成果",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.match(work, /保留来源、检查项和人工决策边界/);
+});
+test("outcome center exposes governed authoritative business connectors without credential values", async () => {
+  const html = await renderConsolePage("/outcomes", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    source = html + server;
+  for (const value of [
+    "权威业务数据连接器",
+    "/api/business/data-connectors",
+    "business-data-connector-register",
+    "business-data-connector-ingest",
+    "PostgreSQL · 受治理",
+    "Credential Reference 的真实值",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.doesNotMatch(html, /credentialReferenceId.*REFERENCE_CONFIGURED/);
+});
+test("authoritative source readiness requires data-owner approval and exposes no credential value", async () => {
+  const server = await readFile(
+      new URL("./server.mjs", import.meta.url),
+      "utf8",
+    ),
+    governance = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/postgres-business-source-governance.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    adapter = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/smart-park-work-order-source.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = server + governance + adapter;
+  for (const value of [
+    "business-data-source-approval-request",
+    "business-data-source-approval-decision",
+    "DATA_OWNER_APPROVAL",
+    "MAPPING_VERSION",
+    "SmartParkWorkOrderReadAdapter",
+    "SmartParkWorkOrderSyncService",
+    "reconciliationStatus",
+  ])
+    assert.match(source, new RegExp(value));
+  assert.doesNotMatch(server, /credentialReference\(connectorId/);
+});
 
-test("My Work exposes one validated Workflow Skill Agent Runner capability protocol",async()=>{const work=await renderConsolePage("/work",owner),server=await readFile(new URL("./server.mjs",import.meta.url),"utf8"),preview=await readFile(new URL("../../../packages/domain-center/lib/business-delegation-preview.mjs",import.meta.url),"utf8"),protocol=await readFile(new URL("../../../packages/domain-center/lib/business-capability-protocol.mjs",import.meta.url),"utf8"),source=work+server+preview+protocol;for(const value of ["智能能力协议","通用流程 Agent","专业业务 Agent","/api/business/capabilities","buildBusinessCapabilityProtocol","validateBusinessCapabilityProtocol","contractHash","skillContractId","requiredCapabilities","PROFESSIONAL_BUSINESS_OUTCOME","EXECUTION_EVIDENCE_ONLY"])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));assert.match(work,/人(?:工)?审批/);});
+test("My Work exposes one validated Workflow Skill Agent Runner capability protocol", async () => {
+  const work = await renderConsolePage("/work", owner),
+    server = await readFile(new URL("./server.mjs", import.meta.url), "utf8"),
+    preview = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-delegation-preview.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    protocol = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/business-capability-protocol.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    source = work + server + preview + protocol;
+  for (const value of [
+    "智能能力协议",
+    "通用流程 Agent",
+    "专业业务 Agent",
+    "/api/business/capabilities",
+    "buildBusinessCapabilityProtocol",
+    "validateBusinessCapabilityProtocol",
+    "contractHash",
+    "skillContractId",
+    "requiredCapabilities",
+    "PROFESSIONAL_BUSINESS_OUTCOME",
+    "EXECUTION_EVIDENCE_ONLY",
+  ])
+    assert.match(
+      source,
+      new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  assert.match(work, /人(?:工)?审批/);
+});
