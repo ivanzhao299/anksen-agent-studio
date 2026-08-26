@@ -1,6 +1,8 @@
 import { assertTenantScope } from "../../growth-core/lib/domain-model.mjs";
 
 const required = ["projectId", "approvalId", "goalId", "taskId", "runtimeType", "workerId", "policyVersion"];
+const secretLike=value=>/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(String(value??''));
+const safeRef=value=>typeof value==='string'&&/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$/.test(value)&&!secretLike(value);
 
 export class PostgresGrowthRuntimeGateEvidence {
   constructor({ pool, credentialReferenceReady = async () => false, runtimeHealth = async () => ({ status: "UNPROBED" }), env = process.env } = {}) {
@@ -15,6 +17,7 @@ export class PostgresGrowthRuntimeGateEvidence {
     const scope = assertTenantScope(scopeValue);
     if (!binding || required.some((key) => !String(binding[key] ?? "").trim()))
       return this.result("NOT_BOUND", ["EXACT_RUNTIME_BINDING_MISSING"]);
+    if(required.some(key=>!safeRef(binding[key])))return this.result("NOT_BOUND",["EXACT_RUNTIME_BINDING_INVALID"]);
     if (binding.runtimeType !== "CODEX")
       return this.result("NOT_BOUND", ["RUNTIME_TYPE_UNSUPPORTED"]);
     const params = [binding.approvalId, scope.organizationId, scope.workspaceId, binding.projectId, binding.goalId, binding.taskId, binding.runtimeType, binding.workerId, binding.policyVersion],
@@ -23,9 +26,12 @@ export class PostgresGrowthRuntimeGateEvidence {
       worker = (await this.pool.query("SELECT 1 FROM ad_worker WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND runtime_type=$4 AND status NOT IN ('OFFLINE','ERROR')", [binding.workerId, scope.organizationId, scope.workspaceId, binding.runtimeType])).rowCount === 1,
       credential = (await this.pool.query("SELECT credential_reference_id FROM ad_credential_reference_binding WHERE organization_id=$1 AND workspace_id=$2 AND project_id=$3 AND runtime_type=$4 AND status='ACTIVE'", [scope.organizationId, scope.workspaceId, binding.projectId, binding.runtimeType])).rows[0],
       featureFlag = this.env.AUTONOMOUS_RUNTIME_CODEX_ENABLED === "true",
-      prerequisitesReady = approval && policy && worker && Boolean(credential) && featureFlag,
-      credentialReady = prerequisitesReady && (await this.credentialReferenceReady(credential.credential_reference_id)) === true,
-      health = credentialReady ? await this.runtimeHealth(binding.runtimeType) : null,
+      credentialReferenceValid=safeRef(credential?.credential_reference_id),
+      prerequisitesReady = approval && policy && worker && credentialReferenceValid && featureFlag;
+    let credentialReady=false,health=null;
+    if(prerequisitesReady){try{credentialReady=(await this.credentialReferenceReady(credential.credential_reference_id))===true;}catch{credentialReady=false;}}
+    if(credentialReady){try{health=await this.runtimeHealth(binding.runtimeType);}catch{health=null;}}
+    const
       checks = { approval, policy, worker, credentialReferenceReady: credentialReady, runtimeHealth: health?.status === "HEALTHY", featureFlag },
       blockers = Object.entries(checks).filter(([, pass]) => !pass).map(([key]) => key.replace(/[A-Z]/g, (value) => `_${value}`).toUpperCase());
     return { ...this.result(blockers.length ? "NOT_READY" : "READY", blockers), checks };

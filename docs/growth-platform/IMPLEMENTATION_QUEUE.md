@@ -86,6 +86,8 @@ Tenant feature-flag mutations now validate actor/version controls before product
 
 Connector activation preflight/activate/disable now validates all control refs, versions, clocks and emergency reasons before authorization or SQL. No activation UI or Runtime enablement was introduced; the global Production Ops policy remains authoritative and disabled.
 
+Runtime readiness now rejects unsafe exact-binding and credential-reference fields before probes, and converts credential/health probe exceptions into stable NOT_READY blockers. It remains a read-only evidence gate with no approval consumption or Runtime startup.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

@@ -122,4 +122,6 @@ Production feature-flag control now validates the actor and optional CAS version
 
 Connector activation gate inputs are normalized before access checks or SQL: activation/binding/incident/actor refs, positive versions, finite clocks and bounded secret-free emergency reasons. Preflight listing also fails closed on an invalid clock. The Console remains read-only for activation and the independent Production Ops gate remains disabled.
 
+Runtime readiness validates every exact binding reference before SQL. Unsafe binding or credential-reference rows block readiness, while credential/health probe exceptions are converted to `CREDENTIAL_REFERENCE_READY`/`RUNTIME_HEALTH` blockers. The gate remains evidence-only: it never consumes approval, reads a credential value or starts Runtime.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
