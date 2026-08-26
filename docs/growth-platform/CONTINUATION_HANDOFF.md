@@ -296,6 +296,8 @@ Streamed source JSON uses fatal UTF-8 decoding. Malformed wire bytes are rejecte
 
 Smart Park responses must expose a cancelable byte stream. There is no fallback to `response.text()`, which cannot preserve the same byte limit, timeout, and strict decoding guarantees.
 
+Every stream read result is a closed descriptor snapshot with a native boolean completion flag and native `Uint8Array` bytes. Accessor-backed or forged chunks cannot execute or bypass byte accounting.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
