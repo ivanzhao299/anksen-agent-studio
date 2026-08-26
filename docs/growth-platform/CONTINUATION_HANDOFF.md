@@ -206,6 +206,8 @@ The root acceptance command and Growth CI path filters include the Smart Park re
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
 
+Smart Park credential resolver and network client exceptions are sanitized to controlled adapter codes. Provider error messages cannot escape, while timeout, HTTP and response validation errors keep their established codes.
+
 Source ingestion takes one native valid Date clock sample before SQL and reuses it for freshness checks plus failed/success audit timestamps. Clock coercion and intra-operation timestamp drift are denied.
 
 Under the source-record row lock, existing ID/type/version/observed-time evidence is validated before stale-write comparison. Invalid or coercion-capable timestamps fail the transaction instead of producing `NaN` and permitting an overwrite.
