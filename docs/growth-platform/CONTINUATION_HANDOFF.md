@@ -264,6 +264,8 @@ File resolver options likewise accept only a native `baseDir` data property. Con
 
 Smart Park changed-record aggregation is capped at the connector's 100-record atomic batch limit. Larger backlogs fail at the read boundary before failed-batch or connector-state side effects.
 
+Smart Park read controls, sync-service dependencies, and organization/workspace/project/tenant/user scope are closed descriptor snapshots. Accessors and undeclared fields fail before credentials, governance, or remote reads, while all sync phases share the same copied scope values.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
