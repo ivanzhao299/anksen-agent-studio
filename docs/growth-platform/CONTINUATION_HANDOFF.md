@@ -188,4 +188,6 @@ Connector binding controls no longer coerce IDs, endpoint hosts, credential refs
 
 Connector activation controls likewise require native references, actors, positive integer CAS versions/window settings and list limits. Invalid inputs fail before access authorization or SQL; list preflights cap at 100.
 
+Production feature flag controls require native bounded keys/actors, positive integer CAS versions and integer authorization windows before production authorization, SQL or pool connection acquisition.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

@@ -13,13 +13,12 @@ const safeRef = (value) =>
 const hash = (value) =>
   createHash("sha256").update(String(value)).digest("hex");
 const assertFlagKey = (value) => {
-  const key = String(value ?? "");
-  if (!/^[A-Z][A-Z0-9_]{2,79}$/.test(key))
+  if(typeof value!=="string"||!/^[A-Z][A-Z0-9_]{2,79}$/.test(value))
     throw fail("GROWTH_FEATURE_FLAG_KEY_INVALID");
-  return key;
+  return value;
 };
-const assertControlRef=(value,label)=>{const ref=String(value??'').trim();if(!safeRef(ref))throw fail(`GROWTH_FEATURE_FLAG_${label}_INVALID`);return ref;};
-const assertExpectedVersion=value=>{if(value==null)return null;const version=Number(value);if(!Number.isInteger(version)||version<1)throw fail('GROWTH_FEATURE_FLAG_VERSION_INVALID');return version;};
+const assertControlRef=(value,label)=>{if(typeof value!=='string')throw fail(`GROWTH_FEATURE_FLAG_${label}_INVALID`);const ref=value.trim();if(!safeRef(ref))throw fail(`GROWTH_FEATURE_FLAG_${label}_INVALID`);return ref;};
+const assertExpectedVersion=value=>{if(value==null)return null;if(!Number.isInteger(value)||value<1)throw fail('GROWTH_FEATURE_FLAG_VERSION_INVALID');return value;};
 
 export class PostgresGrowthFeatureFlagStore {
   constructor({
@@ -30,7 +29,7 @@ export class PostgresGrowthFeatureFlagStore {
   } = {}) {
     if (!pool) throw fail("GROWTH_FEATURE_FLAG_POOL_REQUIRED");
     if (
-      !Number.isFinite(maxAuthorizationAgeSeconds) ||
+      typeof maxAuthorizationAgeSeconds!=="number" || !Number.isInteger(maxAuthorizationAgeSeconds) ||
       maxAuthorizationAgeSeconds <= 0 ||
       maxAuthorizationAgeSeconds > 366 * 24 * 60 * 60
     )
