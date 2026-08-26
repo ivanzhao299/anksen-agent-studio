@@ -10,10 +10,15 @@ const hash = (value) =>
   createHash("sha256").update(String(value)).digest("hex");
 
 export class PostgresGrowthFeatureFlagStore {
-  constructor({ pool, clock = () => new Date() } = {}) {
+  constructor({
+    pool,
+    clock = () => new Date(),
+    authorizeProductionOperation = async () => false,
+  } = {}) {
     if (!pool) throw fail("GROWTH_FEATURE_FLAG_POOL_REQUIRED");
     this.pool = pool;
     this.clock = clock;
+    this.authorizeProductionOperation = authorizeProductionOperation;
   }
 
   async readiness(scopeValue, flagKey = "GROWTH_PILOT_PRODUCTION_ENABLED") {
@@ -44,13 +49,40 @@ export class PostgresGrowthFeatureFlagStore {
     };
   }
 
-  async set({ scope: scopeValue, flagKey = "GROWTH_PILOT_PRODUCTION_ENABLED", enabled, authorizationReferenceId, expiresAt, expectedVersion, actorId }) {
+  async set({
+    scope: scopeValue,
+    flagKey = "GROWTH_PILOT_PRODUCTION_ENABLED",
+    enabled,
+    authorizationReferenceId,
+    expiresAt,
+    expectedVersion,
+    actorId,
+  }) {
     const scope = assertTenantScope(scopeValue),
       now = this.clock(),
       expiry = expiresAt ? new Date(expiresAt) : null;
     if (!actorId) throw fail("GROWTH_FEATURE_FLAG_ACTOR_REQUIRED");
-    if (enabled && (!safeRef(authorizationReferenceId) || !expiry || !Number.isFinite(expiry.getTime()) || expiry.getTime() <= now.getTime()))
+    if (
+      enabled &&
+      (!safeRef(authorizationReferenceId) ||
+        !expiry ||
+        !Number.isFinite(expiry.getTime()) ||
+        expiry.getTime() <= now.getTime())
+    )
       throw fail("GROWTH_FEATURE_FLAG_AUTHORIZATION_REQUIRED");
+    if (
+      (await this.authorizeProductionOperation({
+        scope,
+        actorId: String(actorId),
+        operation: enabled
+          ? "GROWTH_PRODUCTION_FEATURE_FLAG_ENABLE"
+          : "GROWTH_PRODUCTION_FEATURE_FLAG_DISABLE",
+        flagKey,
+        authorizationReferenceId: enabled ? authorizationReferenceId : null,
+        expectedVersion: expectedVersion ?? null,
+      })) !== true
+    )
+      throw fail("GROWTH_FEATURE_FLAG_PRODUCTION_OPERATION_NOT_AUTHORIZED");
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -72,15 +104,44 @@ export class PostgresGrowthFeatureFlagStore {
              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11)
              ON CONFLICT(id) DO UPDATE SET enabled=EXCLUDED.enabled,authorization_reference_id=EXCLUDED.authorization_reference_id,expires_at=EXCLUDED.expires_at,version=EXCLUDED.version,last_actor_id=EXCLUDED.last_actor_id,updated_at=EXCLUDED.updated_at
              RETURNING id,enabled,expires_at,version`,
-            [id, scope.organizationId, scope.workspaceId, scope.tenantId, flagKey, Boolean(enabled), enabled ? authorizationReferenceId : null, enabled ? expiry : null, version, String(actorId), now],
+            [
+              id,
+              scope.organizationId,
+              scope.workspaceId,
+              scope.tenantId,
+              flagKey,
+              Boolean(enabled),
+              enabled ? authorizationReferenceId : null,
+              enabled ? expiry : null,
+              version,
+              String(actorId),
+              now,
+            ],
           )
         ).rows[0];
       await client.query(
         "INSERT INTO growth_tenant_feature_flag_event(flag_id,organization_id,workspace_id,tenant_id,flag_key,enabled,flag_version,actor_id,authorization_reference_hash,expires_at,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
-        [id, scope.organizationId, scope.workspaceId, scope.tenantId, flagKey, Boolean(enabled), version, String(actorId), enabled ? hash(authorizationReferenceId) : null, enabled ? expiry : null, now],
+        [
+          id,
+          scope.organizationId,
+          scope.workspaceId,
+          scope.tenantId,
+          flagKey,
+          Boolean(enabled),
+          version,
+          String(actorId),
+          enabled ? hash(authorizationReferenceId) : null,
+          enabled ? expiry : null,
+          now,
+        ],
       );
       await client.query("COMMIT");
-      return { id: row.id, enabled: row.enabled, version: Number(row.version), expiresAt: row.expires_at?.toISOString?.() ?? row.expires_at ?? null };
+      return {
+        id: row.id,
+        enabled: row.enabled,
+        version: Number(row.version),
+        expiresAt: row.expires_at?.toISOString?.() ?? row.expires_at ?? null,
+      };
     } catch (error) {
       await client.query("ROLLBACK").catch(() => {});
       throw error;

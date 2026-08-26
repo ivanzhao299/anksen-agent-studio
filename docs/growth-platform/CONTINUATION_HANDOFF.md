@@ -42,4 +42,6 @@ The gate runs Core unit and GA acceptance tests, the evidence-based Pilot readin
 9. Validate KingTurf through governed connectors and downstream mappings only after the existing gates authorize it.
 10. Keep the second non-KingTurf tenant proof green without a Core or schema fork.
 
+The tenant production feature-flag store is also fail-closed at its mutation seam: both enable and disable require separately injected Production Ops authorization, and the default constructor cannot change a flag. The Console instantiates that default-deny form for readiness only and exposes no mutation endpoint.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
