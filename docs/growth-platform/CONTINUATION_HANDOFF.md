@@ -342,6 +342,8 @@ Connection strings are not silently trimmed. Inline values must be exact; creden
 
 The database path is a single lowercase alphanumeric/underscore name with an exact `business`, `test`, or `fixture` segment. Do not broaden it back to substring matching: extra paths, encoded separators, mixed case, and lookalike production names must remain denied.
 
+Connection query parameters are closed to one `sslmode` with a reviewed enum value. Host/port overrides, certificate/key paths, repeated parameters and arbitrary driver options remain denied so the loopback host gate cannot be bypassed through the query string.
+
 Inline database URL and URL-file environment controls are own data-descriptor snapshots. Accessor-backed or non-string values fail without invocation or object coercion before file access or pool creation.
 
 Pool size, connection timeout, required-database and remote-access controls share that descriptor boundary. Environment numerics are decimal strings, switches are exactly `true|false`, and explicit runtime/schema flags are native booleans; invalid or accessor-backed controls fail before SQL or pool connection.
