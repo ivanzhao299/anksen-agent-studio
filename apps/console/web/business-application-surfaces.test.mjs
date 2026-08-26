@@ -1058,8 +1058,21 @@ test("growth endpoint projects fail-closed pilot readiness without activation co
       ),
       "utf8",
     ),
+    featureFlag = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/postgres-growth-feature-flag-store.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
     source =
-      html + server + readiness + connectorEvidence + binding + sourceGovernance;
+      html +
+      server +
+      readiness +
+      connectorEvidence +
+      binding +
+      sourceGovernance +
+      featureFlag;
   for (const value of [
     "KingTurf Pilot 就绪度",
     "/api/business/growth-sales/pilot-readiness",
@@ -1071,6 +1084,9 @@ test("growth endpoint projects fail-closed pilot readiness without activation co
     "tenantReadiness",
     "TENANT_SCOPED_BUSINESS_SOURCE_APPROVALS",
     "dataOwnerApproval:sourceApproval.status==='READY'",
+    "PostgresGrowthFeatureFlagStore",
+    "TENANT_SCOPED_GROWTH_FEATURE_FLAG",
+    "productionFeatureFlag:productionFeatureFlag.enabled===true",
     "EXPLICIT_PRODUCTION_AUTHORIZATION",
     "GROWTH_PILOT_TENANT_NOT_CONFIGURED",
     "PostgresGrowthConnectorEvidence",
