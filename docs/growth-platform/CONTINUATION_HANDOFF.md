@@ -338,6 +338,8 @@ The CLI creates its database runtime with `initializeSchema: false`. Both readin
 
 Database URL credential files and their direct parent directory must be private, real, and owned by root or the current process user. Resolution opens the final path with `O_NOFOLLOW`, validates and reads the same descriptor under a 4 KiB ceiling, and rejects public, symlinked, empty, malformed UTF-8, or oversized files before pool creation.
 
+Connection strings are not silently trimmed. Inline values must be exact; credential files may contain only the one terminal LF/CRLF emitted by the deployment workflow, while leading whitespace or additional trailing bytes fail closed.
+
 Inline database URL and URL-file environment controls are own data-descriptor snapshots. Accessor-backed or non-string values fail without invocation or object coercion before file access or pool creation.
 
 Pool size, connection timeout, required-database and remote-access controls share that descriptor boundary. Environment numerics are decimal strings, switches are exactly `true|false`, and explicit runtime/schema flags are native booleans; invalid or accessor-backed controls fail before SQL or pool connection.
