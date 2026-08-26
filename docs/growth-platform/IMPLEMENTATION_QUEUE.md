@@ -96,6 +96,8 @@ Persistent ingestion now uses one validated clock snapshot across transaction St
 
 Canonical revenue attribution now caps a single amount at 1 trillion currency units in application validation and migration 041, preserving finite/reliable bounded aggregation without inventing exchange-rate conversion.
 
+Customer 360 now aggregates revenue per currency and sets the compatibility scalar total to `null` for multi-currency history. Any future consolidated amount requires governed FX evidence rather than arithmetic across currency codes.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

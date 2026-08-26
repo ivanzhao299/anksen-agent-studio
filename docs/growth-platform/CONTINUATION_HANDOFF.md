@@ -132,4 +132,6 @@ Persistent website ingestion now captures one validated time snapshot per call a
 
 Revenue attribution has an explicit per-row ceiling of 1 trillion currency units in the Store and migration 041. The value remains currency-specific and is never cross-currency summed; the ceiling prevents unbounded PostgreSQL numeric values from degrading the bounded Customer 360 JavaScript aggregate.
 
+Customer 360 returns sorted `revenueByCurrency`. `totalRevenue` is retained for compatibility only when the bounded history has at most one currency; it is `null` for multi-currency history. Do not introduce FX conversion without an authoritative rate source, timestamp and policy.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

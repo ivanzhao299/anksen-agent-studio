@@ -190,7 +190,7 @@ export class PostgresGrowthStore {
       this.pool.query(`SELECT event_type,subject_type,subject_id,payload,occurred_at FROM growth_event WHERE subject_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY occurred_at DESC LIMIT $5`, [safeLeadId,s.organizationId,s.workspaceId,s.tenantId,historyLimit])
     ]);
     if (!lead.rowCount) return null;
-    const totalRevenue = revenue.rows.reduce((sum,row)=>sum+Number(row.amount||0),0);
-    return { scope:s, lead:lead.rows[0], identities:identities.rows, engagements:engagements.rows, scoreHistory:scores.rows, latestScore:scores.rows[0] ?? lead.rows[0].score ?? null, opportunities:opportunities.rows, revenue:revenue.rows, totalRevenue, timeline:events.rows };
+    const revenueByCurrency=Object.fromEntries([...revenue.rows.reduce((totals,row)=>{const currency=String(row.currency??'');totals.set(currency,(totals.get(currency)??0)+Number(row.amount||0));return totals;},new Map())].sort(([a],[b])=>a.localeCompare(b))),currencies=Object.keys(revenueByCurrency),totalRevenue=currencies.length<=1?(revenueByCurrency[currencies[0]]??0):null;
+    return { scope:s, lead:lead.rows[0], identities:identities.rows, engagements:engagements.rows, scoreHistory:scores.rows, latestScore:scores.rows[0] ?? lead.rows[0].score ?? null, opportunities:opportunities.rows, revenue:revenue.rows, revenueByCurrency, totalRevenue, timeline:events.rows };
   }
 }
