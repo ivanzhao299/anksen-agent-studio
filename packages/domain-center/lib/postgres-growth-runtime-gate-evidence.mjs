@@ -3,13 +3,16 @@ import { assertTenantScope } from "../../growth-core/lib/domain-model.mjs";
 const required = ["projectId", "approvalId", "goalId", "taskId", "runtimeType", "workerId", "policyVersion"];
 const secretLike=value=>/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(String(value??''));
 const safeRef=value=>typeof value==='string'&&/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$/.test(value)&&!secretLike(value);
+const boundedProbe=async(fn,args,timeoutMs)=>{const controller=new AbortController();let timer;try{return await Promise.race([Promise.resolve().then(()=>fn(...args,{signal:controller.signal})),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error('GROWTH_RUNTIME_EVIDENCE_PROBE_TIMEOUT'));},timeoutMs);})]);}finally{clearTimeout(timer);}};
 
 export class PostgresGrowthRuntimeGateEvidence {
-  constructor({ pool, credentialReferenceReady = async () => false, runtimeHealth = async () => ({ status: "UNPROBED" }), env = process.env } = {}) {
+  constructor({ pool, credentialReferenceReady = async () => false, runtimeHealth = async () => ({ status: "UNPROBED" }),probeTimeoutMs=5000, env = process.env } = {}) {
     if (!pool) throw new TypeError("pool is required");
+    if(!Number.isInteger(probeTimeoutMs)||probeTimeoutMs<100||probeTimeoutMs>30000)throw new TypeError("GROWTH_RUNTIME_EVIDENCE_PROBE_TIMEOUT_INVALID");
     this.pool = pool;
     this.credentialReferenceReady = credentialReferenceReady;
     this.runtimeHealth = runtimeHealth;
+    this.probeTimeoutMs=probeTimeoutMs;
     this.env = env;
   }
 
@@ -28,16 +31,16 @@ export class PostgresGrowthRuntimeGateEvidence {
       featureFlag = this.env.AUTONOMOUS_RUNTIME_CODEX_ENABLED === "true",
       credentialReferenceValid=safeRef(credential?.credential_reference_id),
       prerequisitesReady = approval && policy && worker && credentialReferenceValid && featureFlag;
-    let credentialReady=false,health=null;
-    if(prerequisitesReady){try{credentialReady=(await this.credentialReferenceReady(credential.credential_reference_id))===true;}catch{credentialReady=false;}}
-    if(credentialReady){try{health=await this.runtimeHealth(binding.runtimeType);}catch{health=null;}}
+    let credentialReady=false,health=null,readOnlyProbesPerformed=0;
+    if(prerequisitesReady){readOnlyProbesPerformed+=1;try{credentialReady=(await boundedProbe(this.credentialReferenceReady,[credential.credential_reference_id],this.probeTimeoutMs))===true;}catch{credentialReady=false;}}
+    if(credentialReady){readOnlyProbesPerformed+=1;try{health=await boundedProbe(this.runtimeHealth,[binding.runtimeType],this.probeTimeoutMs);}catch{health=null;}}
     const
       checks = { approval, policy, worker, credentialReferenceReady: credentialReady, runtimeHealth: health?.status === "HEALTHY", featureFlag },
       blockers = Object.entries(checks).filter(([, pass]) => !pass).map(([key]) => key.replace(/[A-Z]/g, (value) => `_${value}`).toUpperCase());
-    return { ...this.result(blockers.length ? "NOT_READY" : "READY", blockers), checks };
+    return { ...this.result(blockers.length ? "NOT_READY" : "READY", blockers,readOnlyProbesPerformed), checks };
   }
 
-  result(status, blockers) {
-    return { status, blockers, source: "EXISTING_RUNTIME_ACTIVATION_GATE_EVIDENCE", safety: { approvalConsumed: false, runtimeStarted: false, credentialValuesRead: false, externalCallsPerformed: false } };
+  result(status, blockers,readOnlyProbesPerformed=0) {
+    return { status, blockers, source: "EXISTING_RUNTIME_ACTIVATION_GATE_EVIDENCE", safety: { approvalConsumed: false, runtimeStarted: false, credentialValuesRead: false, externalCallsPerformed: readOnlyProbesPerformed>0,externalWritesPerformed:false,readOnlyProbesPerformed } };
   }
 }

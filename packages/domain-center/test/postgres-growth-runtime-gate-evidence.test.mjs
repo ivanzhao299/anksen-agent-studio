@@ -9,7 +9,7 @@ test("growth runtime gate requires an exact existing Runtime binding and perform
   assert.equal(result.status, "NOT_BOUND");
   assert.deepEqual(result.blockers, ["EXACT_RUNTIME_BINDING_MISSING"]);
   assert.equal(queried, false);
-  assert.deepEqual(result.safety, { approvalConsumed: false, runtimeStarted: false, credentialValuesRead: false, externalCallsPerformed: false });
+  assert.deepEqual(result.safety, { approvalConsumed: false, runtimeStarted: false, credentialValuesRead: false, externalCallsPerformed: false,externalWritesPerformed:false,readOnlyProbesPerformed:0 });
   const unsupported = await evidence.readiness(
     { organizationId: "org", workspaceId: "growth", tenantId: "tenant" },
     { projectId: "project", approvalId: "approval", goalId: "goal", taskId: "task", runtimeType: "CONTROLLED_STUB", workerId: "worker", policyVersion: "v1" },
@@ -33,6 +33,7 @@ test("growth runtime gate keeps probes and feature flag fail closed even when da
   assert.equal(credentialChecks, 0);
   assert.equal(healthChecks, 0);
   assert.equal(result.safety.runtimeStarted, false);
+  assert.equal(result.safety.readOnlyProbesPerformed,0);
 });
 
 test("growth runtime evidence probes only after every authoritative prerequisite passes", async () => {
@@ -53,6 +54,11 @@ test("growth runtime evidence probes only after every authoritative prerequisite
   assert.deepEqual(calls, ["credential:codex-runtime-ref", "health:CODEX"]);
   assert.equal(result.safety.approvalConsumed, false);
   assert.equal(result.safety.runtimeStarted, false);
+  assert.equal(result.safety.externalCallsPerformed,true);
+  assert.equal(result.safety.externalWritesPerformed,false);
+  assert.equal(result.safety.readOnlyProbesPerformed,2);
 });
 
 test("growth runtime evidence rejects unsafe bindings and converts probe failures to blockers",async()=>{let queries=0;const scope={organizationId:"org",workspaceId:"growth",tenantId:"tenant"},unsafe=new PostgresGrowthRuntimeGateEvidence({pool:{async query(){queries+=1;throw new Error("must not query");}},env:{AUTONOMOUS_RUNTIME_CODEX_ENABLED:"true"}}),binding={projectId:"project",approvalId:"approval",goalId:"goal",taskId:"task",runtimeType:"CODEX",workerId:"worker",policyVersion:"v1"};assert.deepEqual((await unsafe.readiness(scope,{...binding,workerId:"token=secret"})).blockers,["EXACT_RUNTIME_BINDING_INVALID"]);assert.equal(queries,0);const pool={async query(sql){return sql.includes("credential_reference_id")?{rows:[{credential_reference_id:"codex-runtime-ref"}],rowCount:1}:{rows:[{}],rowCount:1};}},failedCredential=new PostgresGrowthRuntimeGateEvidence({pool,credentialReferenceReady:async()=>{throw new Error("resolver unavailable");},runtimeHealth:async()=>{throw new Error("must not probe");},env:{AUTONOMOUS_RUNTIME_CODEX_ENABLED:"true"}}),result=await failedCredential.readiness(scope,binding);assert.equal(result.status,"NOT_READY");assert.ok(result.blockers.includes("CREDENTIAL_REFERENCE_READY"));assert.ok(result.blockers.includes("RUNTIME_HEALTH"));assert.equal(result.safety.runtimeStarted,false);});
+
+test("growth runtime evidence bounds read-only probes",async()=>{let signal;const pool={async query(sql){return sql.includes('credential_reference_id')?{rows:[{credential_reference_id:'codex-runtime-ref'}],rowCount:1}:{rows:[{}],rowCount:1};}},evidence=new PostgresGrowthRuntimeGateEvidence({pool,probeTimeoutMs:100,credentialReferenceReady:async(_reference,options)=>{signal=options.signal;return new Promise(()=>{});},env:{AUTONOMOUS_RUNTIME_CODEX_ENABLED:'true'}}),binding={projectId:'project',approvalId:'approval',goalId:'goal',taskId:'task',runtimeType:'CODEX',workerId:'worker',policyVersion:'v1'},result=await evidence.readiness({organizationId:'org',workspaceId:'growth',tenantId:'tenant'},binding);assert.equal(result.status,'NOT_READY');assert.equal(signal.aborted,true);assert.equal(result.safety.readOnlyProbesPerformed,1);assert.equal(result.safety.externalCallsPerformed,true);assert.equal(result.safety.externalWritesPerformed,false);assert.throws(()=>new PostgresGrowthRuntimeGateEvidence({pool,probeTimeoutMs:'100'}),/PROBE_TIMEOUT_INVALID/);});
