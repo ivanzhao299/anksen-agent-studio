@@ -166,4 +166,6 @@ Delivery dashboard/audit limits require native positive integers and are capped 
 
 Identity review list/audit controls require native positive integer limits (capped at 100/500), a known status and bounded native references/versions before authorization or SQL.
 
+Connector binding controls no longer coerce IDs, endpoint hosts, credential refs, versions, health windows, audit limits or probe timeouts. Invalid native types fail before authorization, SQL or external probe calls.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
