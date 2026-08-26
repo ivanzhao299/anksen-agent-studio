@@ -164,7 +164,7 @@ export class PostgresGrowthStore {
     if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw fail('GROWTH_REVENUE_CLOCK_INVALID');
     if(!revenue||typeof revenue!=='object')throw fail('GROWTH_REVENUE_INVALID');
     const id=safeCanonicalRef(revenue.id,'REVENUE',{max:160}),opportunityId=safeCanonicalRef(revenue.opportunityId,'REVENUE_OPPORTUNITY',{max:160}),leadId=safeCanonicalRef(revenue.leadId,'REVENUE_LEAD',{max:160}),amount=Number(revenue.amount),currency=String(revenue.currency??''),metadata=safeJson(revenue.metadata??{},'REVENUE_METADATA');
-    if(!Number.isFinite(amount)||amount<0)throw fail('GROWTH_REVENUE_AMOUNT_INVALID');
+    if(!Number.isFinite(amount)||amount<0||amount>1_000_000_000_000)throw fail('GROWTH_REVENUE_AMOUNT_INVALID');
     if(!/^[A-Z]{3}$/.test(currency))throw fail('GROWTH_REVENUE_CURRENCY_INVALID');
     if(!Number.isFinite(attributedAt.getTime())||attributedAt.getTime()>now.getTime()+300000)throw fail('GROWTH_REVENUE_TIME_INVALID');
     const result=await this.pool.query(

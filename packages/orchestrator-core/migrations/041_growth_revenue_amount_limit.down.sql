@@ -1,0 +1,1 @@
+ALTER TABLE growth_revenue_attribution DROP CONSTRAINT IF EXISTS growth_revenue_amount_bounded;

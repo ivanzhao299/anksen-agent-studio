@@ -130,4 +130,6 @@ Publishing connector evidence validates up to 20 requested platform labels and a
 
 Persistent website ingestion now captures one validated time snapshot per call and injects it into the transactional Store and scoring engine. All fallback occurrence/creation times and any identity-review record created after rollback reuse the snapshot, so a non-monotonic clock provider cannot split one event across inconsistent timestamps.
 
+Revenue attribution has an explicit per-row ceiling of 1 trillion currency units in the Store and migration 041. The value remains currency-specific and is never cross-currency summed; the ceiling prevents unbounded PostgreSQL numeric values from degrading the bounded Customer 360 JavaScript aggregate.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

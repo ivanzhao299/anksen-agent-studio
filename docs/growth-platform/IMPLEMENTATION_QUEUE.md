@@ -94,6 +94,8 @@ Publishing readiness now bounds platform inputs (20), account evidence rows (100
 
 Persistent ingestion now uses one validated clock snapshot across transaction Store, scoring, lead/engagement/event timestamps and post-rollback review creation. Tests assert one clock-provider call per ingress invocation.
 
+Canonical revenue attribution now caps a single amount at 1 trillion currency units in application validation and migration 041, preserving finite/reliable bounded aggregation without inventing exchange-rate conversion.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
