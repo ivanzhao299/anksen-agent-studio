@@ -172,6 +172,8 @@ Official API JSON response readers reject malformed, negative, fractional, unsaf
 
 Website ingress accepts only native string/Buffer bodies and object/standard Headers collections. Event/timestamp and exact 64-hex SHA-256 signature shape are checked before secret resolution, so malformed requests cannot call the secret provider.
 
+Website ingress samples its clock once, accepts only native strings or Dates and records a canonical ISO timestamp. Clock-like coercion objects fail before secret resolution and cannot influence freshness or provenance.
+
 Tenant data-owner approval request/decision paths validate native scope and bounded connector, owner, mapping, approval, version, reason and expiry controls with one clock sample before SQL. Invalid work cannot even query the connector.
 
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.

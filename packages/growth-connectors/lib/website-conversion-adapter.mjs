@@ -45,7 +45,10 @@ export function createWebsiteConversionAdapter({ id='website-conversion-v1', dom
     if (!eventId||!/^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/.test(eventId)) throw new Error('WEBSITE_WEBHOOK_EVENT_ID_INVALID');
     if(!/^\d{10}$/.test(timestamp??''))throw new Error('WEBSITE_WEBHOOK_TIMESTAMP_INVALID');
     if(!/^(?:sha256=)?[a-f0-9]{64}$/i.test(signature??''))throw new Error('WEBSITE_WEBHOOK_SIGNATURE_INVALID');
-    const receivedAt=clock(),now=new Date(receivedAt),sentAt=Number(timestamp)*1000;
+    const clockValue=clock();
+    if(typeof clockValue!=='string'&&!(clockValue instanceof Date))throw new Error('WEBSITE_WEBHOOK_CLOCK_INVALID');
+    const now=new Date(clockValue),sentAt=Number(timestamp)*1000;
+    const receivedAt=Number.isFinite(now.getTime())?now.toISOString():null;
     if(!Number.isFinite(now.getTime())||Math.abs(now.getTime()-sentAt)>maxClockSkewSeconds*1000)throw new Error('WEBSITE_WEBHOOK_TIMESTAMP_INVALID');
     const secret=await resolveSecret();
     if (!verifyWebhookSignature({rawBody:bodyBuffer,signature,secret,eventId,timestamp})) throw new Error('WEBSITE_WEBHOOK_SIGNATURE_INVALID');
