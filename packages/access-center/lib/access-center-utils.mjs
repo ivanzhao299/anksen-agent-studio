@@ -63,6 +63,7 @@ const directExecuteActionIds = new Set([
   "business-work-control",
   "growth-delivery-retry",
   "growth-delivery-reconcile",
+  "growth-identity-review-decision",
   "business-runner-control",
   "cad-document-analyze",
   "identity-owner-bootstrap"
@@ -125,6 +126,7 @@ const consoleActionCatalog = {
   "business-work-control": { capabilities: ["console.access", "business.operate", "business.work.control"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "growth-delivery-retry": { capabilities: ["console.access", "sales.read", "business.operate", "business.work.control"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "growth-delivery-reconcile": { capabilities: ["console.access", "sales.read", "business.manage", "proposal.approve"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
+  "growth-identity-review-decision": { capabilities: ["console.access", "sales.read", "business.operate", "proposal.approve"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "business-runner-control": { capabilities: ["console.access", "business.manage", "business.work.control"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "capability-app-handoff": { capabilities: ["console.access", "video.read", "autopilot.plan"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "capability-app-upload": { capabilities: ["console.access", "video.read", "autopilot.execute.local"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },

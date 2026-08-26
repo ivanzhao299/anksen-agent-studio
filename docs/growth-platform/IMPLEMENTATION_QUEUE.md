@@ -254,6 +254,7 @@ Wave 3:
 2. Harden persistent GA-004 discovery, GA-005 identity resolution, GA-006 score history and GA-007 Customer 360 evidence.
 3. Harden GA-008~GA-017 connector reconciliation, retry, approval/failure paths, UI and operational evidence.
 4. Keep the authenticated, sanitized Pilot readiness Console projection and tenant fail-closed boundary green; it must not gain an activation control.
-5. Complete the persisted tenant-scoped identity-review lifecycle with exact-version, auditable human resolution/dismissal; idempotent conflict capture and live backlog readiness evidence are implemented.
-6. Validate the KingTurf pilot without moving tenant-specific logic into Core or bypassing activation gates.
-7. Keep the second non-KingTurf tenant validation green without a schema or Core fork.
+5. Keep the persisted tenant-scoped identity-review lifecycle green: conflict capture, live backlog, exact-version reviewer resolution/dismissal, candidate validation, immutable audit and read-only browser projection are implemented.
+6. Derive connector health and Credential Reference presence from existing governed stores without reading secrets or enabling external writes.
+7. Validate the KingTurf pilot without moving tenant-specific logic into Core or bypassing activation gates.
+8. Keep the second non-KingTurf tenant validation green without a schema or Core fork.
