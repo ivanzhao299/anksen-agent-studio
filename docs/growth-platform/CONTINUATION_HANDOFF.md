@@ -316,6 +316,8 @@ Returned ingest evidence must identify the Smart Park application and expose a n
 
 Returned checkpoint evidence must bind `lastObservedAt` exactly to the source observation and expose a canonical update timestamp in addition to matching cursor, batch, authorization, counts, and reconciliation status.
 
+Returned batches expose a bounded native ID, canonical ordered creation/completion timestamps, and status-consistent sanitized error summaries before reaching Console or audit consumers.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
