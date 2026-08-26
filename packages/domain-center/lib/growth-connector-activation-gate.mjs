@@ -90,7 +90,7 @@ export class GrowthConnectorActivationGate {
       const expires = new Date(fields.expiresAt);
       if (
         !Number.isFinite(expires.getTime()) ||
-        expires.getTime() < now.getTime()
+        expires.getTime() <= now.getTime()
       )
         reasons.push("ACTIVATION_AUTHORIZATION_EXPIRED");
     }

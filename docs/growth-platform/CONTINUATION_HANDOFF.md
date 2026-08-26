@@ -64,4 +64,6 @@ Migration 024 and `complete()` apply the same trust boundary to adapter-returned
 
 Connector readiness and the activation Gate both reject health observations later than their local assessment clock. The write path may accept bounded clock skew for transport tolerance, but future evidence stays `STALE` and cannot authorize activation until time catches up.
 
+Channel-account and connector-activation authorization expiry is strict: equality with the assessment clock is expired. Tests cover both exact boundaries; preserve `expiresAt > now` consistently across production gates.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

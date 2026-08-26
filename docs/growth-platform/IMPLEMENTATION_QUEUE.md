@@ -28,6 +28,8 @@ Migration 024 constrains external delivery IDs/statuses, while the completion pa
 
 Future-dated connector health is now stale in readiness and independently blocked by the activation Gate, closing a clock-skew freshness bypass.
 
+Channel accounts and connector activation now expire at the exact boundary, consistent with source approvals and tenant feature flags.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
