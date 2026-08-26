@@ -105,6 +105,22 @@ test("growth production feature flag is tenant scoped, expiring, CAS and audited
     assert.equal(events.length, 2);
     assert.match(events[0].authorization_reference_hash, /^[a-f0-9]{64}$/);
     assert.equal(events[1].authorization_reference_hash, null);
+    await assert.rejects(
+      () =>
+        pool.query(
+          "UPDATE growth_tenant_feature_flag_event SET actor_id='tampered' WHERE flag_id=$1",
+          [enabled.id],
+        ),
+      (error) => error.code === "55000",
+    );
+    await assert.rejects(
+      () =>
+        pool.query(
+          "DELETE FROM growth_tenant_feature_flag_event WHERE flag_id=$1",
+          [enabled.id],
+        ),
+      (error) => error.code === "55000",
+    );
     assert.doesNotMatch(
       JSON.stringify(await store.readiness(scope)) + JSON.stringify(events),
       /PROD-AUTH-FLAG-001/,

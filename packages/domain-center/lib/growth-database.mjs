@@ -16,6 +16,7 @@ const migrationPaths = [
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/018_growth_source_approval_scope.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/019_growth_tenant_feature_flag.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/020_business_source_approval_sequence.up.sql', import.meta.url))),
+  resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/021_growth_feature_flag_event_immutable.up.sql', import.meta.url))),
 ];
 
 export async function migrateGrowthPlatform(pool) {
@@ -23,7 +24,11 @@ export async function migrateGrowthPlatform(pool) {
   const client=typeof pool.connect==='function'?await pool.connect():pool,release=client!==pool&&typeof client.release==='function';
   try{
     await client.query('SELECT pg_advisory_lock($1)',[16012027]);
-    for (const migrationPath of migrationPaths) await client.query(await readFile(migrationPath, 'utf8'));
+    await client.query('CREATE TABLE IF NOT EXISTS growth_schema_migration(name text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
+    for (const migrationPath of migrationPaths) {
+      const name=migrationPath.split('/').at(-1),applied=(await client.query('SELECT 1 FROM growth_schema_migration WHERE name=$1',[name])).rowCount===1;
+      if(!applied){await client.query(await readFile(migrationPath,'utf8'));await client.query('INSERT INTO growth_schema_migration(name) VALUES($1) ON CONFLICT DO NOTHING',[name]);}
+    }
     return true;
   }catch(error){throw error;}finally{await client.query('SELECT pg_advisory_unlock($1)',[16012027]).catch(()=>{});if(release)client.release();}
 }

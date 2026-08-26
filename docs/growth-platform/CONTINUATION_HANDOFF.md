@@ -52,4 +52,6 @@ Connector activation now binds the reused Business approval to the precise appro
 
 Business Source approval latest-wins semantics use migration 020's monotonic `sequence_id`, not timestamps. Fresh Business Runtime initialization now always applies Growth governance migrations 018–020 after the base schema while holding advisory lock `16012027`; keep this ordering synchronized with `migrateGrowthPlatform`.
 
+Migration 021 makes production feature-flag events database-immutable: direct UPDATE and DELETE, including a parent cascade, are rejected. The Business Runtime and Growth migration runner both apply it after migration 020 through the shared `growth_schema_migration` ledger. Retention or erasure must therefore be an explicit governed schema operation, not an application-store side effect.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

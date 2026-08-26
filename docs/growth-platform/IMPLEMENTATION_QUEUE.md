@@ -14,6 +14,10 @@ Activation approval proof is version-bound to the exact Business approval transi
 
 Business Source Governance now resolves latest tenant approval by migration 020's monotonic sequence, including same-clock revoke/reapprove flows. Fresh Business Runtime bootstrap always follows base migrations with the idempotent Growth governance migrations under the shared advisory lock.
 
+Migration 021 enforces production feature-flag event immutability in PostgreSQL. Store tests prove both UPDATE and DELETE fail with SQLSTATE `55000`; the authorization hash remains the only retained authorization evidence.
+
+Growth migrations 012–021 now use a shared database ledger plus the existing advisory lock across both initialization paths. Concurrent processes skip already-applied DDL instead of repeatedly rebuilding triggers while business transactions are active.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
