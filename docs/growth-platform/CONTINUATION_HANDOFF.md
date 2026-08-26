@@ -254,6 +254,8 @@ Successful and failed idempotency-race recovery reauthorizes in a new transactio
 
 Smart Park credential configuration is a closed plain-data snapshot. Accessors and unknown keys are rejected without invocation, and base origins cannot include query or fragment state.
 
+File credential references are native, opened with no-follow semantics, permission/type checked on the descriptor, read through a 16 KiB cap and parsed as an exact two-field JSON object. Path races, symlinks and parse errors fail closed.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
