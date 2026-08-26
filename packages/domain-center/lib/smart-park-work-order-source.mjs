@@ -16,9 +16,9 @@ const sourceReadData=value=>{
   for(let index=0;index<source.records.length;index+=1){
     const descriptor=Object.getOwnPropertyDescriptor(source.records,String(index));
     if(!descriptor||!Object.hasOwn(descriptor,"value"))throw fail("SMART_PARK_SOURCE_READ_RESULT_INVALID");
-    const item=closedData(descriptor.value,new Set(["observedAt","record"]),"SMART_PARK_SOURCE_READ_RESULT_INVALID"),observedAt=safeDate(item.observedAt);
-    if(records.at(-1)?.observedAt>observedAt)throw fail("SMART_PARK_SOURCE_READ_RESULT_INVALID");
-    records.push({observedAt,record:mappedRecordData(item.record,observedAt)});
+    const item=closedData(descriptor.value,new Set(["observedAt","record"]),"SMART_PARK_SOURCE_READ_RESULT_INVALID"),observedAt=safeDate(item.observedAt),record=mappedRecordData(item.record,observedAt),previous=records.at(-1);
+    if(previous&&(previous.observedAt>observedAt||previous.observedAt===observedAt&&previous.record.sourceRecordKey>=record.sourceRecordKey))throw fail("SMART_PARK_SOURCE_READ_RESULT_INVALID");
+    records.push({observedAt,record});
   }
   const cursor=source.cursor==null?null:safeDate(source.cursor),observedAt=safeDate(source.observedAt),lastObservedAt=records.at(-1)?.observedAt;
   if(records.length&&(!cursor||cursor!==lastObservedAt||observedAt!==lastObservedAt))throw fail("SMART_PARK_SOURCE_READ_RESULT_INVALID");

@@ -181,6 +181,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Smart Park chronology is evidence-ordered: creation cannot follow the source observation, and optional completion must fall between creation and observation before SLA/completion evidence is mapped.
 - `NO_CHANGES` retains the remote `totalAvailable` count after authorization revalidation, distinguishing an empty source from a fully checkpointed non-empty source without creating a batch.
 - The sync service independently closes injected mapped records to the Smart Park `service_order` schema, known statuses/field options, exact completion tuple, native scalar limits, and record-relative timeline before calling the connector store.
+- Injected source results must be strictly ordered by `(observedAt, sourceRecordKey)` with unique source keys, making the cursor-keyed payload deterministic and audit-reproducible.
 - The authoritative acceptance command and Growth CI path filters include the Smart Park reference source and its end-to-end source-to-Runner tests, so source adapter changes cannot bypass the production-loop gate.
 - Smart Park adapter timeouts and pagination controls accept only bounded native integers, and empty reads use an injected native valid Date clock. Control coercion objects and clock impostors fail closed.
 - Smart Park credential-resolution and network-client failures are projected as stable controlled codes without forwarding provider exception messages; existing timeout, HTTP and response-validation codes remain precise.
