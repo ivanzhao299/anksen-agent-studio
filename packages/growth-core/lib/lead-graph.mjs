@@ -39,15 +39,18 @@ export function createLeadGraph({ scope: rawScope, clock = () => new Date().toIS
 
   function resolve(profile, candidates = []) {
     if (profile.scope) assertSameTenant(scope, profile.scope);
+    assertSameTenant(scope, profile);
     const exact = fingerprint(profile);
     const ranked = candidates.map((candidate) => {
       assertSameTenant(scope, candidate);
       const candidateFp = fingerprint(candidate);
       let confidence = 0;
       const evidence = [];
-      if (exact && candidateFp === exact) { confidence = 1; evidence.push('EXACT_FINGERPRINT'); }
-      else {
-        if (profile.email && normalize(profile.email) === normalize(candidate.email)) { confidence += 0.55; evidence.push('EMAIL'); }
+      if (exact && candidateFp === exact) {
+        confidence = 1;
+        evidence.push('EXACT_FINGERPRINT');
+      } else {
+        if (profile.email && normalize(profile.email) === normalize(candidate.email)) { confidence += 0.8; evidence.push('EMAIL'); }
         if (profile.phone && normalize(profile.phone) === normalize(candidate.phone)) { confidence += 0.35; evidence.push('PHONE'); }
         if (profile.website && normalize(profile.website) === normalize(candidate.website)) { confidence += 0.25; evidence.push('WEBSITE'); }
         if (profile.company?.name && normalize(profile.company.name) === normalize(candidate.company?.name)) { confidence += 0.15; evidence.push('COMPANY_NAME'); }
@@ -74,9 +77,18 @@ export function createLeadGraph({ scope: rawScope, clock = () => new Date().toIS
 
   function merge({ fromId, intoId, canonicalType, reason, actor = 'SYSTEM' }) {
     if (!fromId || !intoId || fromId === intoId) throw new TypeError('distinct fromId and intoId are required');
-    const event = Object.freeze({ ...scope, mergeId: `merge_${crypto.randomUUID()}`, fromId, intoId, canonicalType, reason: reason ?? 'IDENTITY_RESOLUTION', actor, mergedAt: clock(), reversedAt: null });
+    const event = { ...scope, mergeId: `merge_${crypto.randomUUID()}`, fromId, intoId, canonicalType, reason: reason ?? 'IDENTITY_RESOLUTION', actor, mergedAt: clock(), reversedAt: null, reversedBy: null };
     mergeHistory.push(event);
-    return event;
+    return Object.freeze({ ...event });
+  }
+
+  function reverseMerge(mergeId, actor = 'SYSTEM') {
+    const event = mergeHistory.find((item) => item.mergeId === mergeId);
+    if (!event) throw new Error('merge not found');
+    if (event.reversedAt) throw new Error('merge already reversed');
+    event.reversedAt = clock();
+    event.reversedBy = actor;
+    return Object.freeze({ ...event });
   }
 
   function customer360(canonicalId) {
@@ -86,9 +98,10 @@ export function createLeadGraph({ scope: rawScope, clock = () => new Date().toIS
       canonicalId,
       sourceProfiles: related.map((l) => sourceProfiles.get(l.sourceProfileId)).filter(Boolean),
       identityLinks: related,
+      mergeHistory: mergeHistory.filter((m) => m.intoId === canonicalId || m.fromId === canonicalId).map((m) => Object.freeze({ ...m })),
       generatedAt: clock(),
     };
   }
 
-  return { upsertSourceProfile, resolve, attach, merge, customer360, people, companies, sourceProfiles, links, mergeHistory };
+  return { upsertSourceProfile, resolve, attach, merge, reverseMerge, customer360, people, companies, sourceProfiles, links, mergeHistory };
 }
