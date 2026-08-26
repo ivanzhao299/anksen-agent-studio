@@ -151,6 +151,12 @@ const definitions = Object.freeze({
       transitions: { DRAFT: ["VERIFYING"], VERIFYING: ["WAITING_APPROVAL", "BLOCKED"], WAITING_APPROVAL: ["ACTIVE", "VERIFYING"], ACTIVE: ["SUSPENDED", "EXPIRED"], SUSPENDED: ["VERIFYING"] },
       workflowGoal: (record) => `校验渠道账号“${record.title}”的主体、Credential Reference、授权期限和发布范围，不读取凭据值。`
     }),
+    connector_activation: definition({
+      label: "连接器激活申请", workflowDomainId: "channel-account-governance",
+      fields: [field("tenantId", "租户编号", "text", { required: true }), field("bindingId", "连接器绑定编号", "text", { required: true }), field("bindingVersion", "绑定版本", "number", { required: true, min: 1 }), field("connectorKind", "连接器类型", "select", { required: true, options: ["WEBSITE_INBOUND", "PUBLISHING", "BUSINESS_HANDOFF"] }), field("expiresAt", "授权到期时间", "date", { required: true }), field("activationReason", "激活原因", "textarea", { required: true }), field("explicitAuthorizationRef", "明确生产授权编号", "text", { required: true })],
+      transitions: { DRAFT: ["WAITING_APPROVAL", "CANCELLED"], WAITING_APPROVAL: ["APPROVED", "DRAFT"], APPROVED: ["CANCELLED"] },
+      workflowGoal: (record) => `复核连接器激活申请“${record.title}”的租户、绑定版本、健康证据、有效期与明确生产授权；审批本身不执行激活。`
+    }),
     publish_plan: definition({
       label: "发布计划", workflowDomainId: "publishing-distribution",
       fields: [field("campaignRef", "Campaign 编号", "text", { required: true }), field("productCode", "产品编码", "text", { required: true }), field("channel", "发布渠道", "select", { required: true, options: ["官网", "微信", "抖音", "视频号", "小红书", "线下活动"] }), field("accountRef", "渠道账号引用", "text", { required: true }), field("scheduledAt", "计划发布时间", "date", { required: true }), field("expectedAssetCount", "计划资产数", "number", { required: true, min: 1 }), field("publishMode", "发布模式", "select", { required: true, options: ["仅人工发布", "人工确认后自动发布"] })],

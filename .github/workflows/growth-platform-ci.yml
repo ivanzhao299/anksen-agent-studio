@@ -66,7 +66,7 @@ jobs:
       - run: pnpm --filter @anksen-agent-studio/growth-core acceptance
       - run: pnpm --filter @anksen-agent-studio/growth-core pilot:readiness
       - run: pnpm --filter @anksen-agent-studio/growth-connectors test
-      - run: node --test --test-name-pattern='sanitized delivery operations|pilot readiness|growth identity review' apps/console/web/business-application-surfaces.test.mjs
+      - run: node --test --test-name-pattern='sanitized delivery operations|pilot readiness|growth identity review|growth connector activation' apps/console/web/business-application-surfaces.test.mjs
 
   growth-postgres:
     needs: growth-core
