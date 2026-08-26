@@ -104,4 +104,6 @@ Canonical lead roots are bounded at both trust boundaries. `PostgresGrowthStore.
 
 Canonical engagements use the same two-boundary contract. `PostgresGrowthStore.recordEngagement` rejects unsafe engagement/lead IDs, uncontrolled kind/channel values, non-object or over-64 KiB payloads, invalid clocks and future evidence before SQL. Migration 033 immediately constrains all new/direct rows while leaving legacy validation to an explicit governed retention operation.
 
+Canonical score history remains append-only and is now exact-replay idempotent. `recordScore` bounds IDs, score type, numeric ranges, model/policy refs, factor/dimension JSON and calculation time before SQL; an existing snapshot ID with different immutable content fails closed. Migration 034 mirrors the structural limits for new/direct rows without rewriting legacy history.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

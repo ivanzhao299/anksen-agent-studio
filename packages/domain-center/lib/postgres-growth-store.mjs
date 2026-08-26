@@ -116,19 +116,25 @@ export class PostgresGrowthStore {
   }
 
   async recordScore({ scope, leadId, score }) {
-    const s = assertTenantScope(scope);
-    const scoreId = score.scoreId ?? randomUUID();
+    const s = assertTenantScope(scope),now=this.clock(),calculatedAt=new Date(score?.calculatedAt);
+    if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw fail('GROWTH_SCORE_CLOCK_INVALID');
+    if(!score||typeof score!=='object')throw fail('GROWTH_SCORE_INVALID');
+    const safeLeadId=safeCanonicalRef(leadId,'SCORE_LEAD',{max:160}),scoreId=safeCanonicalRef(score.scoreId??randomUUID(),'SCORE',{max:160}),scoreType=String(score.scoreType??''),value=Number(score.value),confidence=Number(score.confidence),factors=safeJson(score.factors??[],'SCORE_FACTORS',{kind:'array'}),dimensions=safeJson(score.dimensions??{},'SCORE_DIMENSIONS'),modelVersion=safeCanonicalRef(score.modelVersion,'SCORE_MODEL',{max:160}),policyVersion=safeCanonicalRef(score.policyVersion??score.modelVersion,'SCORE_POLICY',{max:160});
+    if(!/^[A-Z][A-Z0-9_]{1,63}$/.test(scoreType))throw fail('GROWTH_SCORE_TYPE_INVALID');
+    if(!Number.isFinite(value)||value<0||value>100)throw fail('GROWTH_SCORE_VALUE_INVALID');
+    if(!Number.isFinite(confidence)||confidence<0||confidence>1)throw fail('GROWTH_SCORE_CONFIDENCE_INVALID');
+    if(!Number.isFinite(calculatedAt.getTime())||calculatedAt.getTime()>now.getTime()+300000)throw fail('GROWTH_SCORE_TIME_INVALID');
     const result = await this.pool.query(
       `INSERT INTO growth_score_snapshot(id,organization_id,workspace_id,tenant_id,lead_id,score_type,value,confidence,factors,dimensions,model_version,policy_version,calculated_at)
        SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,$12,$13 FROM growth_lead WHERE id=$5 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4
        ON CONFLICT(id) DO NOTHING
        RETURNING *`,
-      [scoreId, s.organizationId, s.workspaceId, s.tenantId, leadId, score.scoreType, score.value, score.confidence, json(score.factors, []), json(score.dimensions, {}), score.modelVersion, score.policyVersion ?? score.modelVersion, score.calculatedAt]
+      [scoreId, s.organizationId, s.workspaceId, s.tenantId, safeLeadId, scoreType, value, confidence, factors, dimensions, modelVersion, policyVersion, calculatedAt]
     );
     if (result.rowCount) return { inserted: true, snapshot: result.rows[0] };
     const existing = await this.pool.query(
-      `SELECT * FROM growth_score_snapshot WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 AND lead_id=$5`,
-      [scoreId, s.organizationId, s.workspaceId, s.tenantId, leadId]
+      `SELECT * FROM growth_score_snapshot WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 AND lead_id=$5 AND score_type=$6 AND value=$7 AND confidence=$8 AND factors=$9::jsonb AND dimensions=$10::jsonb AND model_version=$11 AND policy_version=$12 AND calculated_at=$13`,
+      [scoreId, s.organizationId, s.workspaceId, s.tenantId, safeLeadId, scoreType, value, confidence, factors, dimensions, modelVersion, policyVersion, calculatedAt]
     );
     if (!existing.rowCount) throw Object.assign(new Error('GROWTH_SCORE_TENANT_LEAD_REQUIRED_OR_CONFLICT'),{code:'GROWTH_SCORE_TENANT_LEAD_REQUIRED_OR_CONFLICT'});
     return { inserted: false, snapshot: existing.rows[0] };

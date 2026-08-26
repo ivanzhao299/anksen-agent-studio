@@ -68,6 +68,8 @@ Canonical lead roots now have bounded reference/state/time fields and typed 32/6
 
 Canonical engagement writes now have bounded references, controlled kind/channel syntax, object-only 64 KiB payloads and finite/non-future application timestamps. Migration 033 mirrors structural checks for new direct rows under the same legacy-compatible rollout policy.
 
+Canonical score snapshots now validate bounded identifiers and evidence JSON, numeric ranges and timestamps before SQL. Snapshot ID replay requires all immutable fields to match exactly; migration 034 mirrors the structural contract for new direct writes.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
