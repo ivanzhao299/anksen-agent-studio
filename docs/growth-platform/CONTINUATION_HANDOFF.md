@@ -154,4 +154,6 @@ Official API allowlists are bounded to 1–50 unique explicit hostname strings. 
 
 Official publishing and business API writes set `redirect: error`, so a credential-bearing request cannot follow an allowlisted endpoint to another host. Native/custom fetch failures and denied redirects surface only sanitized retryable `*_NETWORK_FAILED` codes.
 
+The shared bounded JSON reader actively cancels response bodies when media type or declared length is rejected, in addition to cancelling streams that cross the byte limit during reading. Rejected official API responses do not leave unread network streams behind.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
