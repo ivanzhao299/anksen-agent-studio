@@ -108,6 +108,8 @@ The immutable Growth migration manifest now has automated ordering/completeness/
 
 A read-only migration inspector now projects READY/PENDING/BLOCKED and expected/actual checksums without DDL. Production governance can detect pending work and block drift before invoking the transactional runner.
 
+The inspector is available as `pnpm growth-migrations:status`, using guarded database URL policy and non-zero PENDING/BLOCKED exits. The command is read-only and separate from all migration/apply workflows.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

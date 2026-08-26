@@ -144,4 +144,6 @@ Official outbound adapters now require an `application/json` or structured `+jso
 
 Use `inspectGrowthMigrations(client, growthMigrationPaths)` for a read-only deployment preflight. It reports per-file checksums and READY/PENDING/BLOCKED; drift or a legacy null checksum blocks, while a missing ledger is represented as pending. Inspection never creates the ledger or applies DDL.
 
+Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
