@@ -346,6 +346,8 @@ Connection query parameters are closed to one `sslmode` with a reviewed enum val
 
 Database userinfo is percent-decoded before its length/control checks. Encoded newline/NUL bytes and malformed escapes fail before pool creation with stable codes that do not include the connection string.
 
+Database protocols are exact lowercase `postgresql://` or `postgres://` prefixes, and explicit ports are canonical 1–65535 integers. Do not rely on URL parser normalization for either connection-target control.
+
 Inline database URL and URL-file environment controls are own data-descriptor snapshots. Accessor-backed or non-string values fail without invocation or object coercion before file access or pool creation.
 
 Pool size, connection timeout, required-database and remote-access controls share that descriptor boundary. Environment numerics are decimal strings, switches are exactly `true|false`, and explicit runtime/schema flags are native booleans; invalid or accessor-backed controls fail before SQL or pool connection.

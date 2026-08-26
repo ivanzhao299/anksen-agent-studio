@@ -40,11 +40,13 @@ export function resolveBusinessDatabaseUrl(env = process.env) {
 export function assertBusinessDatabaseUrl(value, { allowRemote = false } = {}) {
   if (!value) throw new Error("BUSINESS_DATABASE_URL_REQUIRED");
   if(typeof value!=="string"||value.length>4096||/[\u0000-\u001f\u007f]/.test(value))throw new Error("BUSINESS_DATABASE_URL_INVALID");
+  if(!/^(?:postgresql|postgres):\/\//.test(value))throw new Error("BUSINESS_DATABASE_PROTOCOL_DENIED");
   let url;try{url=new URL(value);}catch{throw new Error("BUSINESS_DATABASE_URL_INVALID");}
   if (url.protocol !== "postgresql:" && url.protocol !== "postgres:") throw new Error("BUSINESS_DATABASE_PROTOCOL_DENIED");
   if(url.hash)throw new Error("BUSINESS_DATABASE_URL_INVALID");
   const queryEntries=[...url.searchParams.entries()];if(queryEntries.length>1||queryEntries.some(([key,value])=>key!=="sslmode"||!["disable","prefer","require","verify-ca","verify-full","no-verify"].includes(value)))throw new Error("BUSINESS_DATABASE_URL_QUERY_DENIED");
   if (!allowRemote && !["127.0.0.1", "localhost"].includes(url.hostname)) throw new Error("BUSINESS_DATABASE_REMOTE_DENIED");
+  if(url.port&&(!/^[1-9][0-9]{0,4}$/.test(url.port)||Number(url.port)>65535))throw new Error("BUSINESS_DATABASE_PORT_DENIED");
   const databaseName=url.pathname.slice(1),nameSegments=databaseName.split("_");
   if (!/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(databaseName)||!nameSegments.some(segment=>["business","test","fixture"].includes(segment))) throw new Error("BUSINESS_DATABASE_NAME_DENIED");
   if(!url.username||!url.password)throw new Error("BUSINESS_DATABASE_CREDENTIAL_REQUIRED");
