@@ -44,7 +44,7 @@ export async function migrateGrowthPlatform(pool) {
   const client=typeof pool.connect==='function'?await pool.connect():pool,release=client!==pool&&typeof client.release==='function';
   try{
     await withGrowthMigrationLock(client, () =>
-      applyGrowthMigrations(client, growthMigrationPaths),
+      applyGrowthMigrations(client, growthMigrationPaths,{strictManifest:true}),
     );
     return true;
   }catch(error){throw error;}finally{if(release)client.release();}
