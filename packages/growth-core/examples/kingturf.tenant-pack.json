@@ -1,0 +1,38 @@
+{
+  "organizationId": "jinhu-group",
+  "workspaceId": "growth-platform",
+  "tenantId": "kingturf",
+  "name": "KingTurf",
+  "locale": "en",
+  "timezone": "Asia/Shanghai",
+  "brands": [
+    {"id":"kingturf","name":"KingTurf","domains":["kingturf.cn"],"locales":["en","zh-CN","ar"]}
+  ],
+  "markets": [
+    {"id":"pilot-gulf","country":"AE","locale":"en","currency":"USD","timezone":"Asia/Dubai"}
+  ],
+  "icps": [
+    {
+      "id":"landscape-contractor",
+      "name":"Landscape contractor / distributor",
+      "roles":["OWNER","PURCHASING","PROJECT_MANAGER"],
+      "industries":["LANDSCAPING","ARTIFICIAL_TURF_DISTRIBUTION"],
+      "companySizes":["SMB","MID_MARKET"],
+      "markets":["pilot-gulf"],
+      "signals":["RFQ","CATALOG_DOWNLOAD","PRODUCT_PAGE_DEPTH","WHATSAPP_INQUIRY"]
+    }
+  ],
+  "productRefs": [
+    {"externalSystem":"kingturf-commerce","productFamily":"LANDSCAPE_GRASS"},
+    {"externalSystem":"kingturf-commerce","productFamily":"SPORTS_GRASS"}
+  ],
+  "channelPolicies": {
+    "WEBSITE": {"enabled":true,"allowedCapabilities":["READ_ENGAGEMENT","RECEIVE_WEBHOOK"],"requiresApproval":[],"dailyWriteLimit":0},
+    "EMAIL": {"enabled":true,"allowedCapabilities":["SEND_MESSAGE","RECEIVE_WEBHOOK"],"requiresApproval":["SEND_MESSAGE"],"dailyWriteLimit":50},
+    "TIKTOK": {"enabled":true,"allowedCapabilities":["READ_PROFILE","READ_CONTENT","READ_ENGAGEMENT","PUBLISH_CONTENT"],"requiresApproval":["PUBLISH_CONTENT"],"dailyWriteLimit":10}
+  },
+  "qualification": {"mqlMinScore":60,"sqlMinScore":80,"humanHandoffAt":80},
+  "attribution": {"model":"POSITION_BASED","windowDays":90},
+  "contentPolicy": {"humanApprovalBeforePublish":true,"forbidUnverifiedClaims":true},
+  "metadata": {"pilot":true}
+}
