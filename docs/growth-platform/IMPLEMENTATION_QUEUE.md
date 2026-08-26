@@ -1,0 +1,256 @@
+# ANKSEN AI Growth Platform — Long-Task Implementation Queue
+
+Status: ACTIVE
+Branch: `feature/anksen-ai-growth-platform`
+Execution rule: work in ordered slices; each item must produce code/tests/docs/evidence before advancing.
+
+## Program objective
+
+Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
+
+## GA-000 — Architecture & Boundary Freeze
+Deliverables:
+- product architecture baseline
+- reusable-core vs tenant-pack boundary
+- package boundaries
+- shared runtime reuse rules
+- security and policy boundaries
+- acceptance criteria
+
+Acceptance:
+- Core contains no KingTurf-specific logic
+- no duplicated Kernel/Scheduler/Worker/Approval/Audit
+- all outbound channel writes routed through adapter contracts
+
+Status: IN PROGRESS
+
+## GA-001 — Growth Domain Model & Tenant Kit
+Deliverables:
+- canonical entity schemas
+- tenant/brand/market/ICP/channel-policy schemas
+- product reference mapping
+- KingTurf example tenant pack
+- validation tests
+
+Acceptance:
+- second unrelated tenant can be represented without schema fork
+- tenant isolation fields mandatory
+
+## GA-002 — Channel Adapter Framework
+Deliverables:
+- capability registry
+- connector interface
+- normalized results/errors
+- health/rate-limit state
+- mock connector
+- idempotency and audit envelope
+
+Acceptance:
+- unsupported capability fails closed
+- mock connector demonstrates publish/read/ingest contract
+
+## GA-003 — Canonical Growth Events & Audit
+Deliverables:
+- event contracts
+- webhook/event ingestion envelope
+- replay protection
+- idempotency keys
+- audit integration
+
+Acceptance:
+- duplicate event cannot create duplicate business mutation
+
+## GA-004 — Prospect Discovery Ingestion
+Deliverables:
+- discovery source contract
+- prospect/company/profile records
+- source provenance
+- deduplication pre-processing
+- discovery workflow
+
+Acceptance:
+- one connector can produce auditable prospects without manual re-entry
+
+## GA-005 — Identity Resolution / Lead Graph
+Deliverables:
+- person/company identity nodes
+- aliases and source profiles
+- deterministic match engine
+- confidence-scored probabilistic matching
+- merge/review/reversal workflow
+
+Acceptance:
+- identities from at least two sources can link to one canonical prospect with evidence
+
+## GA-006 — Signals & Explainable Scoring
+Deliverables:
+- Fit Score
+- Intent Score
+- Engagement Score
+- Opportunity Score
+- time decay
+- factor contribution
+- scoring history
+
+Acceptance:
+- score changes show source factors and timestamps
+- tenant rules configurable without Core modification
+
+## GA-007 — Lead / Customer 360
+Deliverables:
+- lead detail projection
+- company/person graph
+- interaction timeline
+- score history
+- source attribution preview
+- qualification workflow
+
+Acceptance:
+- operator can understand why a lead exists and why it is qualified
+
+## GA-008 — Content Strategy Bridge
+Deliverables:
+- insight -> content brief workflow
+- product/market/ICP context contract
+- brand-policy checks
+- review/approval state
+
+Acceptance:
+- tenant content brief can be generated without hard-coded industry logic
+
+## GA-009 — AI Content / Video Factory Integration
+Deliverables:
+- text/image/video production job contract
+- asset reference model
+- localization variants
+- brand template mapping
+- reusable integration with existing Video Factory
+
+Acceptance:
+- Growth does not duplicate video runtime
+
+## GA-010 — Multi-Channel Publishing
+Deliverables:
+- publish plan
+- scheduled publishing
+- approval gate
+- connector execution
+- retry/failure states
+- performance reference tracking
+
+Acceptance:
+- publish through mock + first production connector behind feature flag
+
+## GA-011 — Engagement Ingestion
+Deliverables:
+- comments/messages/forms/web events normalization
+- lead linking
+- engagement score updates
+- response recommendation contract
+
+Acceptance:
+- an inbound event updates the right scoped lead safely
+
+## GA-012 — Sales Qualification & Next Best Action
+Deliverables:
+- MQL/SQL or tenant-configurable qualification states
+- qualification reasons
+- next-best-action engine
+- human handoff rules
+
+Acceptance:
+- qualified lead can produce a controlled sales action recommendation
+
+## GA-013 — CRM / RFQ / Quote / Order Integration
+Deliverables:
+- business integration adapter interfaces
+- customer/opportunity/RFQ/quote/order references
+- KingTurf Business OS mapping contract
+- sync and reconciliation states
+
+Acceptance:
+- downstream commercial object remains authoritative in target business system
+
+## GA-014 — Follow-up Orchestration
+Deliverables:
+- cadence policy
+- channel preference
+- stop rules
+- response-aware follow-up
+- approval/risk controls
+
+Acceptance:
+- no uncontrolled bulk outreach
+- follow-up stops on conversion, opt-out or policy threshold
+
+## GA-015 — Revenue Attribution Engine
+Deliverables:
+- touchpoints
+- conversion/revenue events
+- attribution window
+- first/last/linear/configurable models
+- source/content/channel/campaign attribution
+
+Acceptance:
+- one order/revenue event traces back to acquisition touches
+
+## GA-016 — Growth Director & Experimentation
+Deliverables:
+- KPI objective model
+- performance analysis
+- recommendation generation
+- experiment design
+- channel/content/ICP optimization suggestions
+
+Acceptance:
+- recommendations optimize toward qualified pipeline/revenue, not vanity metrics
+
+## GA-017 — Executive Dashboard & Autonomous Closed Loop
+Deliverables:
+- Growth cockpit
+- funnel
+- channel/content/market/product performance
+- attribution
+- Agent recommendations
+- exception/approval queue links
+
+Acceptance:
+- executive can trace from revenue -> opportunity -> lead -> touchpoint -> content/channel
+
+## Cross-cutting gates
+
+Every GA item must satisfy:
+- organization/workspace/tenant isolation
+- RBAC
+- audit
+- version/CAS where mutable business state is involved
+- idempotency for external writes
+- no secrets in business records/logs/client APIs
+- failure/retry semantics
+- unit/integration tests
+- compatibility with existing enterprise acceptance gates
+
+## Pilot strategy
+
+Wave 1:
+- one KingTurf export market
+- one or two product families
+- `kingturf.cn` as conversion hub
+- website plus two external channels
+- KingTurf Business OS as downstream sales system
+
+Wave 2:
+- expand markets/channels/products
+- validate second internal tenant
+
+Wave 3:
+- package as reusable external-customer deployment
+
+## Current execution order
+
+1. GA-000 close architecture decisions and package scaffold
+2. GA-001 schemas + KingTurf tenant pack
+3. GA-002 adapter framework + mock connector
+4. GA-003 canonical events
+5. First E2E slice: discovery -> lead -> score
+6. Continue GA-005 onward based on acceptance evidence
