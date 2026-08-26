@@ -10,3 +10,5 @@ export * from './content-strategy.mjs';
 export * from './publishing.mjs';
 export * from './mock-publishing-adapter.mjs';
 export * from './customer-360.mjs';
+export * from './attribution-engine.mjs';
+export * from './growth-director.mjs';
