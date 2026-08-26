@@ -260,6 +260,8 @@ Growth CI explicitly watches the source credential resolver and runs its referen
 
 Smart Park adapter options are a closed descriptor snapshot before defaults are applied. Constructor accessors and undeclared controls cannot execute.
 
+File resolver options likewise accept only a native `baseDir` data property. Constructor accessors and coercion objects fail before path resolution.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
