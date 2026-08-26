@@ -1,6 +1,6 @@
-import { closeSync,constants,existsSync,fstatSync,openSync,readSync } from "node:fs";
+import { closeSync,constants,existsSync,fstatSync,lstatSync,openSync,readSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { isAbsolute,resolve } from "node:path";
+import { dirname,isAbsolute,resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
@@ -34,7 +34,7 @@ export function resolveBusinessDatabaseUrl(env = process.env) {
   const path = businessEnvironmentValue(env,"BUSINESS_DATABASE_URL_FILE") ?? defaultBusinessDatabaseUrlFile;
   if(path.length<1||path.length>1024||!isAbsolute(path)||/[\u0000-\u001f\u007f]/.test(path))throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");
   if(!existsSync(path))return null;
-  let descriptor;try{descriptor=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);const metadata=fstatSync(descriptor),owned=typeof process.getuid!=="function"||metadata.uid===0||metadata.uid===process.getuid();if(!metadata.isFile()||metadata.size<1||metadata.size>4096||(metadata.mode&0o077)!==0||!owned)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");const bytes=Buffer.alloc(4097);let offset=0;while(offset<bytes.length){const count=readSync(descriptor,bytes,offset,bytes.length-offset,null);if(!count)break;offset+=count;}if(offset<1||offset>4096)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");const value=new TextDecoder("utf-8",{fatal:true}).decode(bytes.subarray(0,offset)).trim();if(!value)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");return value;}catch(error){if(error?.message==="BUSINESS_DATABASE_URL_FILE_INVALID")throw error;throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");}finally{if(descriptor!==undefined)closeSync(descriptor);}
+  let descriptor;try{const directory=lstatSync(dirname(path)),directoryOwned=typeof process.getuid!=="function"||directory.uid===0||directory.uid===process.getuid();if(!directory.isDirectory()||(directory.mode&0o077)!==0||!directoryOwned)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");descriptor=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);const metadata=fstatSync(descriptor),owned=typeof process.getuid!=="function"||metadata.uid===0||metadata.uid===process.getuid();if(!metadata.isFile()||metadata.size<1||metadata.size>4096||(metadata.mode&0o077)!==0||!owned)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");const bytes=Buffer.alloc(4097);let offset=0;while(offset<bytes.length){const count=readSync(descriptor,bytes,offset,bytes.length-offset,null);if(!count)break;offset+=count;}if(offset<1||offset>4096)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");const value=new TextDecoder("utf-8",{fatal:true}).decode(bytes.subarray(0,offset)).trim();if(!value)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");return value;}catch(error){if(error?.message==="BUSINESS_DATABASE_URL_FILE_INVALID")throw error;throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");}finally{if(descriptor!==undefined)closeSync(descriptor);}
 }
 
 export function assertBusinessDatabaseUrl(value, { allowRemote = false } = {}) {
