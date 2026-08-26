@@ -10,6 +10,8 @@ test("business database configuration is local, explicit and credential-backed",
   assert.throws(() => assertBusinessDatabaseUrl("postgresql://business:password@db.example.com/prod"), /REMOTE_DENIED/);
   assert.throws(() => assertBusinessDatabaseUrl("postgresql://business:password@127.0.0.1/postgres"), /NAME_DENIED/);
   assert.throws(() => assertBusinessDatabaseUrl("postgresql://127.0.0.1/anksen_business"), /CREDENTIAL_REQUIRED/);
+  assert.equal(assertBusinessDatabaseUrl("postgresql://business:password@127.0.0.1/anksen_business?sslmode=require"),"postgresql://business:password@127.0.0.1/anksen_business?sslmode=require");
+  for(const value of ["not a url password=secret","postgresql://business:password@127.0.0.1/anksen_business#fragment",`postgresql://business:password@127.0.0.1/anksen_business?token=secret`,"x".repeat(4097)])assert.throws(()=>assertBusinessDatabaseUrl(value),error=>!JSON.stringify(error).includes('token=secret')&&!JSON.stringify(error).includes('password=secret'));
 });
 
 test("business database pool size is explicitly bounded",()=>{assert.equal(resolveBusinessDatabasePoolMax({}),10);assert.equal(resolveBusinessDatabasePoolMax({BUSINESS_DATABASE_POOL_MAX:'50'}),50);for(const value of ['0','51','1.5','Infinity','many'])assert.throws(()=>resolveBusinessDatabasePoolMax({BUSINESS_DATABASE_POOL_MAX:value}),/BUSINESS_DATABASE_POOL_MAX_INVALID/);});
