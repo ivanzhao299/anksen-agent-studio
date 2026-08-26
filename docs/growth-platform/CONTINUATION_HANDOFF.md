@@ -280,6 +280,8 @@ Batch evidence counts remain bounded by the 100-record atomic limit. Malformed c
 
 Authorization is revalidated after every remote read, including an empty read. `NO_CHANGES` cannot be returned from an approval revoked or version-changed while the adapter was reading.
 
+Multi-page Smart Park reads require a stable total and matching optional page metadata. Short intermediate pages, total drift, and page/page-size mismatches fail closed instead of producing a partial checkpoint.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
