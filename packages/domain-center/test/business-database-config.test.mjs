@@ -8,6 +8,8 @@ import { assertBusinessDatabaseUrl,createBusinessApplicationRuntime, resolveBusi
 test("business database configuration is local, explicit and credential-backed", () => {
   const url = "postgresql://business:password@127.0.0.1:4330/anksen_studio_business";
   assert.equal(assertBusinessDatabaseUrl(url), url);
+  assert.throws(()=>assertBusinessDatabaseUrl("postgresql://business:password@db.example.com/anksen_business",{allowRemote:"false"}),/OPTIONS_INVALID/);
+  let optionGetterCalls=0;const options=Object.defineProperty({},"allowRemote",{enumerable:true,get(){optionGetterCalls+=1;return true;}});assert.throws(()=>assertBusinessDatabaseUrl(url,options),/OPTIONS_INVALID/);assert.equal(optionGetterCalls,0);
   assert.equal(resolveBusinessDatabaseUrl({ BUSINESS_DATABASE_URL: url }), url);
   assert.throws(()=>resolveBusinessDatabaseUrl({BUSINESS_DATABASE_URL:` ${url}`}),/URL_INVALID/);
   assert.throws(()=>resolveBusinessDatabaseUrl({BUSINESS_DATABASE_URL:{toString:()=>url}}),/ENV_INVALID/);
