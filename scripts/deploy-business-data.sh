@@ -20,6 +20,10 @@ if [[ -L "$data_dir" ]]; then
   exit 1
 fi
 install -d -m 700 "$data_dir"
+if [[ ! -O "$data_dir" ]]; then
+  printf 'Business data directory must be owned by the deployment user.\n' >&2
+  exit 1
+fi
 if [[ -L "$data_env" || -L "$database_url_file" ]]; then
   printf 'Business database credential files must not be symbolic links.\n' >&2
   exit 1
