@@ -196,6 +196,8 @@ Authoritative source ingestion validates native tenant/connector controls, idemp
 
 Source ingestion takes one native valid Date clock sample before SQL and reuses it for freshness checks plus failed/success audit timestamps. Clock coercion and intra-operation timestamp drift are denied.
 
+Under the source-record row lock, existing ID/type/version/observed-time evidence is validated before stale-write comparison. Invalid or coercion-capable timestamps fail the transaction instead of producing `NaN` and permitting an overwrite.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.
