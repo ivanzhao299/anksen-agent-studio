@@ -37,3 +37,11 @@ export async function executeGrowthDelivery({store,scope,operation,adapter,retry
   try{const result=await adapter.publish({scope,operationId:operation.idempotency_key,assetRef:operation.asset_ref,approvalRef:operation.approval_ref});return await store.complete({scope,id:operation.id,expectedVersion:running.version,result});}
   catch(error){return await store.fail({scope,id:operation.id,expectedVersion:running.version,error,retryAt});}
 }
+
+export async function executeBusinessHandoffDelivery({store,scope,operation,adapter,retryAt=null}){
+  const running=await store.beginAttempt({scope,id:operation.id,expectedVersion:operation.version});
+  try{
+    const result=await adapter.execute({...scope,objectType:operation.capability,leadId:operation.asset_ref,payload:{sourceRef:operation.asset_ref},operationId:operation.idempotency_key,approvalRef:operation.approval_ref});
+    return await store.complete({scope,id:operation.id,expectedVersion:running.version,result});
+  }catch(error){return await store.fail({scope,id:operation.id,expectedVersion:running.version,error,retryAt});}
+}

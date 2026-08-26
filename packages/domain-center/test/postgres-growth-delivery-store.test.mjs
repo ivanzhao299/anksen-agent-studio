@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { ensurePostgresFixture, createTestPool } from '../../orchestrator-core/lib/postgres-fixture.mjs';
 import { migrateGrowthPlatform } from '../lib/growth-database.mjs';
-import { PostgresGrowthDeliveryStore, executeGrowthDelivery } from '../lib/postgres-growth-delivery-store.mjs';
+import { PostgresGrowthDeliveryStore, executeGrowthDelivery, executeBusinessHandoffDelivery } from '../lib/postgres-growth-delivery-store.mjs';
 
 test('delivery ledger is idempotent, retryable, CAS-protected and reconcilable', async () => {
   await ensurePostgresFixture();
@@ -40,5 +40,13 @@ test('non-retryable delivery failure becomes terminal without another external c
     const failed=await executeGrowthDelivery({store,scope,operation,adapter:{async publish(){throw Object.assign(new Error('approval rejected'),{code:'OFFICIAL_API_APPROVAL_REQUIRED',retryable:false});}}});
     assert.equal(failed.status,'FAILED');assert.equal(failed.next_attempt_at,null);
     await assert.rejects(()=>executeGrowthDelivery({store,scope,operation:failed,adapter:{async publish(){throw new Error('must not run');}}}),error=>error.code==='DELIVERY_NOT_EXECUTABLE_OR_VERSION_CONFLICT');
+  }finally{await pool.query('DELETE FROM growth_delivery_operation WHERE organization_id=$1',[scope.organizationId]).catch(()=>{});await pool.end();}
+});
+
+test('GA-013 business handoff reuses delivery ledger with source references only',async()=>{
+  await ensurePostgresFixture();const pool=createTestPool(),suffix=randomUUID(),scope={organizationId:`handoff-${suffix}`,workspaceId:'growth',tenantId:'tenant-a'};
+  try{await migrateGrowthPlatform(pool);const store=new PostgresGrowthDeliveryStore({pool}),operation=(await store.register({scope,idempotencyKey:`handoff-${suffix}`,operationType:'BUSINESS_HANDOFF',adapterId:'crm-v1',capability:'RFQ',assetRef:`lead-${suffix}`,approvalRef:`approval-${suffix}`})).operation;
+    const adapter={async execute(request){assert.deepEqual(request.payload,{sourceRef:`lead-${suffix}`});assert.equal(request.approvalRef,`approval-${suffix}`);return{externalId:`RFQ-${suffix}`,status:'OPEN'};}};
+    const completed=await executeBusinessHandoffDelivery({store,scope,operation,adapter});assert.equal(completed.status,'COMPLETED');assert.equal(completed.external_id,`RFQ-${suffix}`);assert.equal(completed.operation_type,'BUSINESS_HANDOFF');assert.equal(completed.asset_ref,`lead-${suffix}`);assert.equal('payload' in completed,false);
   }finally{await pool.query('DELETE FROM growth_delivery_operation WHERE organization_id=$1',[scope.organizationId]).catch(()=>{});await pool.end();}
 });

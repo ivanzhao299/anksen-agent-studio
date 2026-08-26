@@ -15,13 +15,14 @@ export function defineBusinessIntegrationAdapter(definition) {
   });
 }
 
-export async function handoffCommercialObject({ scope: rawScope, adapter, objectType, lead, payload = {}, operationId }) {
+export async function handoffCommercialObject({ scope: rawScope, adapter, objectType, lead, payload = {}, operationId, approvalRef = null }) {
   const scope = assertTenantScope(rawScope);
   assertSameTenant(scope, lead);
   if (!adapter?.execute) throw new Error('integration adapter execute() is required');
   if (!adapter.capabilities?.includes(objectType)) throw new Error(`integration capability denied: ${objectType}`);
   if (!operationId) throw new TypeError('operationId is required');
-  const request = Object.freeze({ ...scope, objectType, leadId: lead.leadId, payload: Object.freeze({ ...payload }), operationId });
+  if (adapter.requiresApproval && !approvalRef) throw new Error('integration approvalRef is required');
+  const request = Object.freeze({ ...scope, objectType, leadId: lead.leadId, payload: Object.freeze({ ...payload }), operationId, approvalRef });
   const result = await adapter.execute(request);
   if (!result?.externalId) throw new Error('downstream system must return authoritative externalId');
   return Object.freeze({
@@ -33,6 +34,7 @@ export async function handoffCommercialObject({ scope: rawScope, adapter, object
     externalId: result.externalId,
     externalStatus: result.status ?? null,
     operationId,
+    approvalRef,
     authoritative: true,
     metadata: Object.freeze({ ...(result.metadata ?? {}) }),
   });

@@ -18,7 +18,7 @@ The executable path covers GA-000~017:
 
 `Discovery -> Identity Resolution -> Lead -> Explainable Score -> Engagement -> Next Best Action -> Opportunity -> Downstream Handoff -> Revenue Attribution -> Executive Report`
 
-The current branch also includes a durable PostgreSQL schema/store, atomic tenant-scoped identity resolution, immutable score history, Customer 360 persistence, KingTurf and unrelated-tenant packs, governed publishing, a signed website conversion webhook connector, a default-disabled official API publishing connector, and a durable outbound-delivery ledger. The webhook-to-lead path runs in one database transaction with replay detection, cross-source identity reuse, cross-tenant isolation and rollback to human review when identities conflict. External publishing requires an approval reference and records bounded attempts, sanitized errors, external IDs and reconciliation without persisting credentials. These are implementation and acceptance slices, not production authorization.
+The current branch also includes a durable PostgreSQL schema/store, atomic tenant-scoped identity resolution, immutable score history, Customer 360 persistence, KingTurf and unrelated-tenant packs, governed publishing, signed website ingestion, default-disabled official publishing and Business API connectors, and a shared outbound-delivery ledger. The webhook-to-lead path runs in one database transaction with replay detection, cross-source identity reuse, cross-tenant isolation and rollback to human review when identities conflict. Publishing and commercial handoff require approval references and record bounded attempts, sanitized errors, authoritative external IDs and reconciliation without persisting credentials or commercial payloads. These are implementation and acceptance slices, not production authorization.
 
 Run the synchronized local gate before continuing:
 
@@ -33,7 +33,7 @@ The gate runs Core unit and GA acceptance tests, production-connector tests, Pos
 
 1. Keep the unified local/CI gate green and close persistence/interface inconsistencies first.
 2. Keep GA-004~007 transaction, identity-review and score-history evidence green as connector inputs expand.
-3. Reuse the delivery ledger for GA-013 downstream CRM/RFQ/quote/order handoff, then harden UI and operational evidence; this is the active implementation priority.
+3. Expose GA-010/013 delivery exceptions, retry eligibility and reconciliation state in a read-only operations projection, then harden pilot UI evidence; this is the active implementation priority.
 4. Validate KingTurf through governed connectors and downstream mappings.
 5. Validate a second non-KingTurf tenant without a Core or schema fork.
 

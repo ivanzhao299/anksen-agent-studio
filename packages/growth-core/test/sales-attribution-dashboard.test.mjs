@@ -25,12 +25,14 @@ test('GA-011/012 engagement drives SQL and a human sales next action',()=>{
   assert.equal(qualification.nextBestAction(result).action,'HUMAN_SALES_CONTACT');
 });
 
-test('GA-013 downstream system remains authoritative',async()=>{
+test('GA-013 downstream system remains authoritative and approval referenced',async()=>{
   const lead=createLead({...scope,leadId:'lead-1',source:'website'});
-  const adapter=defineBusinessIntegrationAdapter({id:'crm-1',system:'CRM',capabilities:['RFQ'],async execute(req){assert.equal(req.leadId,'lead-1');return{externalId:'RFQ-2026-001',status:'OPEN'}}});
-  const ref=await handoffCommercialObject({scope,adapter,objectType:'RFQ',lead,payload:{quantity:1000},operationId:'op-1'});
+  const adapter=defineBusinessIntegrationAdapter({id:'crm-1',system:'CRM',capabilities:['RFQ'],requiresApproval:true,async execute(req){assert.equal(req.leadId,'lead-1');assert.equal(req.approvalRef,'approval:handoff-1');return{externalId:'RFQ-2026-001',status:'OPEN'}}});
+  await assert.rejects(()=>handoffCommercialObject({scope,adapter,objectType:'RFQ',lead,payload:{quantity:1000},operationId:'op-denied'}),/approvalRef/);
+  const ref=await handoffCommercialObject({scope,adapter,objectType:'RFQ',lead,payload:{quantity:1000},operationId:'op-1',approvalRef:'approval:handoff-1'});
   assert.equal(ref.authoritative,true);
   assert.equal(ref.externalId,'RFQ-2026-001');
+  assert.equal(ref.approvalRef,'approval:handoff-1');
 });
 
 test('GA-014 follow-up stops on conversion or opt-out',()=>{
