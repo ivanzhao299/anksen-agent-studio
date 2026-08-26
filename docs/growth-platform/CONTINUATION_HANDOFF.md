@@ -110,4 +110,6 @@ Opportunity and revenue persistence now closes the remaining canonical write bou
 
 Connector binding control inputs are validated before the authorization callback: adapter, binding and actor IDs are bounded and secret-resistant, CAS versions are positive integers, and configuration clocks must be finite. Migration 036 mirrors binding/reference/host/version/hash structure for new direct rows. These checks never activate a binding, resolve a credential value or enable the Runtime.
 
+Read amplification is bounded at the aggregate boundary. Customer 360 validates its lead ID and caps each independent history relation at 200 newest rows; connector audit trails cap the recent window at 500 and then restore chronological presentation. Add cursor pagination before increasing these ceilings rather than returning unbounded tenant history.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

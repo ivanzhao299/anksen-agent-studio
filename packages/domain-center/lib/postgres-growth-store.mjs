@@ -38,10 +38,10 @@ export class PostgresGrowthStore {
   }
 
   async getLead({ scope, leadId }) {
-    const s = assertTenantScope(scope);
+    const s = assertTenantScope(scope),safeLeadId=safeCanonicalRef(leadId,'LEAD',{max:160});
     const result = await this.pool.query(
       `SELECT * FROM growth_lead WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4`,
-      [leadId, s.organizationId, s.workspaceId, s.tenantId]
+      [safeLeadId, s.organizationId, s.workspaceId, s.tenantId]
     );
     return result.rows[0] ?? null;
   }
@@ -57,10 +57,10 @@ export class PostgresGrowthStore {
   }
 
   async findEventByIdempotencyKey({ scope, idempotencyKey }) {
-    const s = assertTenantScope(scope);
+    const s = assertTenantScope(scope),safeKey=safeEventRef(idempotencyKey);
     const result = await this.pool.query(
       `SELECT event_id,subject_id,event_type,occurred_at FROM growth_event WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND idempotency_key=$4`,
-      [s.organizationId, s.workspaceId, s.tenantId, idempotencyKey]
+      [s.organizationId, s.workspaceId, s.tenantId, safeKey]
     );
     return result.rows[0] ?? null;
   }
@@ -179,15 +179,15 @@ export class PostgresGrowthStore {
   }
 
   async customer360({ scope, leadId }) {
-    const s = assertTenantScope(scope);
+    const s = assertTenantScope(scope),safeLeadId=safeCanonicalRef(leadId,'LEAD',{max:160}),historyLimit=200;
     const [lead, identities, engagements, scores, opportunities, revenue, events] = await Promise.all([
-      this.pool.query(`SELECT * FROM growth_lead WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4`, [leadId,s.organizationId,s.workspaceId,s.tenantId]),
-      this.pool.query(`SELECT identity_type,normalized_value,source,created_at FROM growth_identity WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY created_at`, [leadId,s.organizationId,s.workspaceId,s.tenantId]),
-      this.pool.query(`SELECT id,kind,channel,payload,occurred_at FROM growth_engagement WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY occurred_at DESC`, [leadId,s.organizationId,s.workspaceId,s.tenantId]),
-      this.pool.query(`SELECT id,score_type,value,confidence,factors,dimensions,model_version,policy_version,calculated_at FROM growth_score_snapshot WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY calculated_at DESC`, [leadId,s.organizationId,s.workspaceId,s.tenantId]),
-      this.pool.query(`SELECT id,stage,score,downstream_ref,created_at,updated_at FROM growth_opportunity WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY updated_at DESC`, [leadId,s.organizationId,s.workspaceId,s.tenantId]),
-      this.pool.query(`SELECT opportunity_id,amount,currency,attributed_at,metadata FROM growth_revenue_attribution WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY attributed_at DESC`, [leadId,s.organizationId,s.workspaceId,s.tenantId]),
-      this.pool.query(`SELECT event_type,subject_type,subject_id,payload,occurred_at FROM growth_event WHERE subject_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY occurred_at DESC LIMIT 200`, [leadId,s.organizationId,s.workspaceId,s.tenantId])
+      this.pool.query(`SELECT * FROM growth_lead WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4`, [safeLeadId,s.organizationId,s.workspaceId,s.tenantId]),
+      this.pool.query(`SELECT identity_type,normalized_value,source,created_at FROM growth_identity WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY created_at DESC LIMIT $5`, [safeLeadId,s.organizationId,s.workspaceId,s.tenantId,historyLimit]),
+      this.pool.query(`SELECT id,kind,channel,payload,occurred_at FROM growth_engagement WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY occurred_at DESC LIMIT $5`, [safeLeadId,s.organizationId,s.workspaceId,s.tenantId,historyLimit]),
+      this.pool.query(`SELECT id,score_type,value,confidence,factors,dimensions,model_version,policy_version,calculated_at FROM growth_score_snapshot WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY calculated_at DESC LIMIT $5`, [safeLeadId,s.organizationId,s.workspaceId,s.tenantId,historyLimit]),
+      this.pool.query(`SELECT id,stage,score,downstream_ref,created_at,updated_at FROM growth_opportunity WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY updated_at DESC LIMIT $5`, [safeLeadId,s.organizationId,s.workspaceId,s.tenantId,historyLimit]),
+      this.pool.query(`SELECT opportunity_id,amount,currency,attributed_at,metadata FROM growth_revenue_attribution WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY attributed_at DESC LIMIT $5`, [safeLeadId,s.organizationId,s.workspaceId,s.tenantId,historyLimit]),
+      this.pool.query(`SELECT event_type,subject_type,subject_id,payload,occurred_at FROM growth_event WHERE subject_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY occurred_at DESC LIMIT $5`, [safeLeadId,s.organizationId,s.workspaceId,s.tenantId,historyLimit])
     ]);
     if (!lead.rowCount) return null;
     const totalRevenue = revenue.rows.reduce((sum,row)=>sum+Number(row.amount||0),0);

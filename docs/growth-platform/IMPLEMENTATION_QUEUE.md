@@ -74,6 +74,8 @@ Canonical opportunity/revenue writes now constrain relation references, stage/sc
 
 Connector configure/health mutations now validate bounded control identities, CAS versions and clocks before authorization. Migration 036 mirrors reference-only credential, DNS host, version and health-hash constraints for new direct binding rows; activation remains behind the existing independent production gate.
 
+Customer 360 and connector audit read paths now cap each history collection (200 and 500 respectively), validate requested references before SQL and preserve stable newest/chronological ordering. Future expansion requires cursor pagination, not larger unbounded result sets.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
