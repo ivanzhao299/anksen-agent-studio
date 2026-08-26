@@ -234,6 +234,8 @@ Failed-batch hashing uses only prevalidated idempotency, evidence, cursor and re
 
 The reference read-only Business Source adapter requires JSON media types, validates declared size, streams under a 5 MB actual-byte ceiling and applies its wall timeout through body consumption. Abort-ignoring bodies cannot hang sync.
 
+Business Source credential-reference controls are native and bounded. Resolution receives an AbortSignal under an independent 100–5,000 ms deadline, and returned base URL/token values require native bounded shapes before HTTP.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.
