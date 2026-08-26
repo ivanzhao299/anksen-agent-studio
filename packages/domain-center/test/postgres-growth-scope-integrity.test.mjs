@@ -1,0 +1,27 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {ensurePostgresFixture,createTestPool} from '../../orchestrator-core/lib/postgres-fixture.mjs';
+import {migrateGrowthPlatform} from '../lib/growth-database.mjs';
+import {PostgresGrowthStore} from '../lib/postgres-growth-store.mjs';
+import {createLead} from '../../growth-core/lib/domain-model.mjs';
+
+test('canonical growth relations and event idempotency fail closed across tenants',async()=>{
+  await ensurePostgresFixture();
+  const pool=createTestPool(),suffix=randomUUID(),scope={organizationId:`scope-integrity-${suffix}`,workspaceId:'growth',tenantId:'tenant-a'},other={...scope,tenantId:'tenant-b'},leadId=`lead-${suffix}`,store=new PostgresGrowthStore({pool});
+  await migrateGrowthPlatform(pool);
+  await store.upsertLead({scope,lead:createLead({...scope,leadId,source:'WEBSITE'})});
+  await assert.rejects(()=>store.resolveIdentity({scope:other,identityType:'EMAIL',value:`${suffix}@example.com`,leadId}),error=>error.code==='GROWTH_IDENTITY_TENANT_LEAD_REQUIRED_OR_CONFLICT');
+  await assert.rejects(()=>store.recordEngagement({scope:other,engagement:{id:`eng-${suffix}`,leadId,kind:'RFQ',channel:'WEBSITE',payload:{},occurredAt:'2026-08-27T00:00:00Z'}}),error=>error.code==='GROWTH_ENGAGEMENT_TENANT_LEAD_REQUIRED');
+  await assert.rejects(()=>store.recordScore({scope:other,leadId,score:{scoreId:`score-${suffix}`,scoreType:'LEAD_QUALITY',value:80,confidence:1,factors:[],dimensions:{},modelVersion:'v1',calculatedAt:'2026-08-27T00:00:00Z'}}),error=>error.code==='GROWTH_SCORE_TENANT_LEAD_REQUIRED_OR_CONFLICT');
+  const opportunity=await store.upsertOpportunity({scope,opportunity:{id:`opp-${suffix}`,leadId,stage:'QUALIFIED',score:80}});
+  await assert.rejects(()=>store.upsertOpportunity({scope:other,opportunity:{id:`other-opp-${suffix}`,leadId,stage:'QUALIFIED',score:80}}),/cross-tenant growth opportunity update denied/);
+  await assert.rejects(()=>store.recordRevenue({scope:other,revenue:{id:`revenue-${suffix}`,opportunityId:opportunity.id,leadId,amount:100,currency:'USD',attributedAt:'2026-08-27T00:00:00Z'}}),error=>error.code==='GROWTH_REVENUE_TENANT_RELATION_REQUIRED');
+  await assert.rejects(()=>pool.query(`INSERT INTO growth_identity(id,organization_id,workspace_id,tenant_id,lead_id,identity_type,normalized_value,source) VALUES($1,$2,$3,$4,$5,'EMAIL',$6,'DIRECT')`,[randomUUID(),other.organizationId,other.workspaceId,other.tenantId,leadId,`${suffix}@direct.example`]),error=>error.code==='23503');
+  const constraintNames=(await pool.query("SELECT conname FROM pg_constraint WHERE conname LIKE 'growth_%_tenant_%_fk' ORDER BY conname")).rows.map(row=>row.conname);for(const name of ['growth_engagement_tenant_lead_fk','growth_identity_tenant_lead_fk','growth_opportunity_tenant_lead_fk','growth_revenue_tenant_lead_fk','growth_revenue_tenant_opportunity_fk','growth_score_tenant_lead_fk'])assert.ok(constraintNames.includes(name));
+  const event={eventId:`event-${suffix}`,eventType:'growth.engagement.received',subjectType:'lead',subjectId:leadId,source:'WEBSITE',idempotencyKey:`website:${suffix}`,payload:{kind:'RFQ'},schemaVersion:1,occurredAt:'2026-08-27T00:00:00Z'},first=await store.appendEvent({scope,event}),duplicate=await store.appendEvent({scope,event:{...event,eventId:`duplicate-id-${suffix}`}});
+  assert.equal(first.inserted,true);assert.deepEqual(duplicate,{inserted:false,eventId:event.eventId});
+  await assert.rejects(()=>store.appendEvent({scope,event:{...event,eventId:`mismatch-${suffix}`,payload:{kind:'PAGE_VIEW'}}}),error=>error.code==='GROWTH_EVENT_IDEMPOTENCY_MISMATCH_OR_SCOPE_CONFLICT');
+  await assert.rejects(()=>store.appendEvent({scope:other,event}),error=>error.code==='GROWTH_EVENT_IDEMPOTENCY_MISMATCH_OR_SCOPE_CONFLICT');
+  await pool.end();
+});

@@ -56,6 +56,8 @@ Official outbound adapters now share strict booleans, bounded timeout/response/t
 
 Credential resolution now has the same bounded timeout discipline as outbound HTTP. Hangs classify as retryable timeouts, provider errors are sanitized, and invalid token material stops before any external request.
 
+Canonical Growth child records now require same-tenant lead/opportunity parents in both Store SQL and migration 028 composite foreign keys. Event conflict handling verifies exact same-tenant content, rejecting cross-scope primary-key collisions and idempotency payload drift.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

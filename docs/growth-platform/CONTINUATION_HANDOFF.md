@@ -92,4 +92,6 @@ Official publishing and business adapters now use `official-api-safety.mjs`. Act
 
 Credential resolution is included in outbound availability control rather than occurring before all timers. Each official adapter gives the resolver the configured bounded timeout; hangs are retryable, provider exceptions are sanitized, and malformed tokens are terminal before fetch. Do not log or rethrow resolver messages.
 
+Migration 028 closes canonical cross-tenant relationship holes with composite `(id, organization, workspace, tenant)` foreign keys for identity, engagement, score, opportunity and revenue. Matching Store writes also require the scoped parent in their `INSERT ... SELECT`. Event idempotency now verifies exact canonical content after a conflict instead of treating every collision as a duplicate. This migration is full-Growth-only and the dedicated PostgreSQL integrity test is in root acceptance.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

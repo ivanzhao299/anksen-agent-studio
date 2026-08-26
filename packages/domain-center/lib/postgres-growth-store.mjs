@@ -57,7 +57,7 @@ export class PostgresGrowthStore {
     if (!normalizedValue) throw new Error('identity value is required');
     const inserted = await this.pool.query(
       `INSERT INTO growth_identity(id,organization_id,workspace_id,tenant_id,lead_id,identity_type,normalized_value,source)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8 FROM growth_lead WHERE id=$5 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4
        ON CONFLICT(organization_id,workspace_id,tenant_id,identity_type,normalized_value) DO NOTHING
        RETURNING lead_id`,
       [randomUUID(), s.organizationId, s.workspaceId, s.tenantId, leadId, identityType, normalizedValue, source]
@@ -67,7 +67,7 @@ export class PostgresGrowthStore {
       `SELECT lead_id FROM growth_identity WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND identity_type=$4 AND normalized_value=$5`,
       [s.organizationId, s.workspaceId, s.tenantId, identityType, normalizedValue]
     );
-    if (!existing.rowCount) throw new Error('identity resolution conflict could not be read');
+    if (!existing.rowCount) throw Object.assign(new Error('GROWTH_IDENTITY_TENANT_LEAD_REQUIRED_OR_CONFLICT'),{code:'GROWTH_IDENTITY_TENANT_LEAD_REQUIRED_OR_CONFLICT'});
     return { leadId: existing.rows[0].lead_id, matched: true };
   }
 
@@ -78,15 +78,19 @@ export class PostgresGrowthStore {
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12) ON CONFLICT DO NOTHING RETURNING event_id`,
       [event.eventId, s.organizationId, s.workspaceId, s.tenantId, event.eventType, event.subjectType, event.subjectId, event.source, event.idempotencyKey, json(event.payload, {}), event.schemaVersion ?? 1, event.occurredAt]
     );
-    return { inserted: Boolean(result.rowCount), eventId: result.rows[0]?.event_id ?? event.eventId };
+    if(result.rowCount)return{inserted:true,eventId:result.rows[0].event_id};
+    const existing=await this.pool.query(`SELECT event_id FROM growth_event WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND idempotency_key=$4 AND event_type=$5 AND subject_type IS NOT DISTINCT FROM $6 AND subject_id=$7 AND source=$8 AND payload=$9::jsonb AND schema_version=$10 AND occurred_at=$11`,[s.organizationId,s.workspaceId,s.tenantId,event.idempotencyKey,event.eventType,event.subjectType,event.subjectId,event.source,json(event.payload,{}),event.schemaVersion??1,event.occurredAt]);
+    if(!existing.rowCount)throw Object.assign(new Error('GROWTH_EVENT_IDEMPOTENCY_MISMATCH_OR_SCOPE_CONFLICT'),{code:'GROWTH_EVENT_IDEMPOTENCY_MISMATCH_OR_SCOPE_CONFLICT'});
+    return{inserted:false,eventId:existing.rows[0].event_id};
   }
 
   async recordEngagement({ scope, engagement }) {
     const s = assertTenantScope(scope);
-    await this.pool.query(
-      `INSERT INTO growth_engagement(id,organization_id,workspace_id,tenant_id,lead_id,kind,channel,payload,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)`,
+    const result=await this.pool.query(
+      `INSERT INTO growth_engagement(id,organization_id,workspace_id,tenant_id,lead_id,kind,channel,payload,occurred_at) SELECT $1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9 FROM growth_lead WHERE id=$5 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 RETURNING id`,
       [engagement.id, s.organizationId, s.workspaceId, s.tenantId, engagement.leadId, engagement.kind, engagement.channel ?? null, json(engagement.payload, {}), engagement.occurredAt]
     );
+    if(!result.rowCount)throw Object.assign(new Error('GROWTH_ENGAGEMENT_TENANT_LEAD_REQUIRED'),{code:'GROWTH_ENGAGEMENT_TENANT_LEAD_REQUIRED'});
   }
 
   async recordScore({ scope, leadId, score }) {
@@ -94,7 +98,7 @@ export class PostgresGrowthStore {
     const scoreId = score.scoreId ?? randomUUID();
     const result = await this.pool.query(
       `INSERT INTO growth_score_snapshot(id,organization_id,workspace_id,tenant_id,lead_id,score_type,value,confidence,factors,dimensions,model_version,policy_version,calculated_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,$12,$13)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,$12,$13 FROM growth_lead WHERE id=$5 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4
        ON CONFLICT(id) DO NOTHING
        RETURNING *`,
       [scoreId, s.organizationId, s.workspaceId, s.tenantId, leadId, score.scoreType, score.value, score.confidence, json(score.factors, []), json(score.dimensions, {}), score.modelVersion, score.policyVersion ?? score.modelVersion, score.calculatedAt]
@@ -104,7 +108,7 @@ export class PostgresGrowthStore {
       `SELECT * FROM growth_score_snapshot WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 AND lead_id=$5`,
       [scoreId, s.organizationId, s.workspaceId, s.tenantId, leadId]
     );
-    if (!existing.rowCount) throw new Error('score snapshot conflict could not be read');
+    if (!existing.rowCount) throw Object.assign(new Error('GROWTH_SCORE_TENANT_LEAD_REQUIRED_OR_CONFLICT'),{code:'GROWTH_SCORE_TENANT_LEAD_REQUIRED_OR_CONFLICT'});
     return { inserted: false, snapshot: existing.rows[0] };
   }
 
@@ -112,7 +116,7 @@ export class PostgresGrowthStore {
     const s = assertTenantScope(scope);
     const result = await this.pool.query(
       `INSERT INTO growth_opportunity(id,organization_id,workspace_id,tenant_id,lead_id,stage,score,downstream_ref)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8::jsonb FROM growth_lead WHERE id=$5 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4
        ON CONFLICT(id) DO UPDATE SET stage=EXCLUDED.stage,score=EXCLUDED.score,downstream_ref=EXCLUDED.downstream_ref,updated_at=now()
        WHERE growth_opportunity.organization_id=EXCLUDED.organization_id AND growth_opportunity.workspace_id=EXCLUDED.workspace_id AND growth_opportunity.tenant_id=EXCLUDED.tenant_id
        RETURNING *`,
@@ -124,11 +128,11 @@ export class PostgresGrowthStore {
 
   async recordRevenue({ scope, revenue }) {
     const s = assertTenantScope(scope);
-    await this.pool.query(
+    const result=await this.pool.query(
       `INSERT INTO growth_revenue_attribution(id,organization_id,workspace_id,tenant_id,opportunity_id,lead_id,amount,currency,attributed_at,metadata)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)`,
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb FROM growth_opportunity o JOIN growth_lead l ON l.id=$6 AND l.organization_id=$2 AND l.workspace_id=$3 AND l.tenant_id=$4 WHERE o.id=$5 AND o.lead_id=$6 AND o.organization_id=$2 AND o.workspace_id=$3 AND o.tenant_id=$4 RETURNING growth_revenue_attribution.id`,
       [revenue.id, s.organizationId, s.workspaceId, s.tenantId, revenue.opportunityId, revenue.leadId, revenue.amount, revenue.currency, revenue.attributedAt, json(revenue.metadata, {})]
-    );
+    );if(!result.rowCount)throw Object.assign(new Error('GROWTH_REVENUE_TENANT_RELATION_REQUIRED'),{code:'GROWTH_REVENUE_TENANT_RELATION_REQUIRED'});
   }
 
   async customer360({ scope, leadId }) {
