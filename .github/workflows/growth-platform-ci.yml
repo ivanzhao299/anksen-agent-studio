@@ -5,6 +5,8 @@ on:
     paths:
       - 'packages/growth-core/**'
       - 'packages/domain-center/lib/*growth*'
+      - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
+      - 'packages/domain-center/package.json'
       - 'packages/orchestrator-core/migrations/012_growth_platform.up.sql'
       - 'docs/growth-platform/**'
       - '.github/workflows/growth-platform-ci.yml'
@@ -14,6 +16,8 @@ on:
     paths:
       - 'packages/growth-core/**'
       - 'packages/domain-center/lib/*growth*'
+      - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
+      - 'packages/domain-center/package.json'
       - 'packages/orchestrator-core/migrations/012_growth_platform.up.sql'
       - 'docs/growth-platform/**'
       - '.github/workflows/growth-platform-ci.yml'
@@ -37,3 +41,20 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @anksen-agent-studio/growth-core test
+
+  growth-postgres:
+    needs: growth-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @anksen-agent-studio/domain-center growth:postgres:smoke
