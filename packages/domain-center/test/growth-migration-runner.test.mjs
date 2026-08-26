@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
+import {readdir,access} from "node:fs/promises";
+import {basename,resolve} from "node:path";
 import {
   ensurePostgresFixture,
   createTestPool,
@@ -9,6 +11,7 @@ import {
   applyGrowthMigrations,
   withGrowthMigrationLock,
 } from "../lib/growth-migration-runner.mjs";
+import {growthMigrationPaths} from "../lib/growth-database.mjs";
 
 test("growth migration ledger records checksums and rejects drift", async () => {
   await ensurePostgresFixture();
@@ -51,3 +54,5 @@ test("growth migration ledger records checksums and rejects drift", async () => 
 });
 
 test("growth migration rolls back schema when ledger persistence fails",async()=>{await ensurePostgresFixture();const pool=createTestPool(),client=await pool.connect(),fixturePath=fileURLToPath(new URL("./fixtures/998_growth_atomic_fixture.up.sql",import.meta.url)),proxy={async query(sql,values){if(String(sql).startsWith("INSERT INTO growth_schema_migration")&&values?.[0]==="998_growth_atomic_fixture.up.sql")throw Object.assign(new Error("injected ledger failure"),{code:"INJECTED_LEDGER_FAILURE"});return client.query(sql,values);}};try{await assert.rejects(()=>withGrowthMigrationLock(proxy,()=>applyGrowthMigrations(proxy,[fixturePath])),error=>error.code==="INJECTED_LEDGER_FAILURE");assert.equal((await client.query("SELECT to_regclass('growth_atomic_migration_fixture') name")).rows[0].name,null);assert.equal(Number((await client.query("SELECT count(*) count FROM growth_schema_migration WHERE name='998_growth_atomic_fixture.up.sql'")).rows[0].count),0);}finally{await client.query("DROP TABLE IF EXISTS growth_atomic_migration_fixture").catch(()=>{});client.release();await pool.end();}});
+
+test("growth migration manifest is ordered complete and rollback-reviewed",async()=>{const directory=resolve(process.cwd(),"packages/orchestrator-core/migrations"),files=await readdir(directory),growthUps=files.filter(name=>/^\d+_growth_.*\.up\.sql$/.test(name)).sort(),manifest=growthMigrationPaths.map(path=>basename(path)),growthManifest=manifest.filter(name=>/^\d+_growth_/.test(name));assert.deepEqual(growthManifest,growthUps);assert.ok(manifest.includes("020_business_source_approval_sequence.up.sql"));assert.equal(new Set(manifest).size,manifest.length);const numbers=manifest.map(name=>Number(name.slice(0,3)));assert.deepEqual(numbers,[...numbers].sort((a,b)=>a-b));const irreversibleBaseline=new Set(["012_growth_platform.up.sql","013_growth_score_history.up.sql","014_growth_delivery_ledger.up.sql","015_growth_delivery_audit.up.sql","016_growth_identity_review.up.sql","017_growth_connector_binding.up.sql"]);for(const name of growthUps){const down=resolve(directory,name.replace(/\.up\.sql$/,".down.sql"));if(irreversibleBaseline.has(name))await assert.rejects(()=>access(down));else await access(down);}});

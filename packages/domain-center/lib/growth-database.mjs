@@ -6,7 +6,7 @@ import { assertBusinessDatabaseUrl, resolveBusinessDatabaseUrl } from './busines
 import { applyGrowthMigrations, withGrowthMigrationLock } from './growth-migration-runner.mjs';
 
 const { Pool } = pg;
-const migrationPaths = [
+export const growthMigrationPaths = Object.freeze([
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/012_growth_platform.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/013_growth_score_history.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/014_growth_delivery_ledger.up.sql', import.meta.url))),
@@ -37,14 +37,14 @@ const migrationPaths = [
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/039_growth_identity_review_constraints.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/040_growth_feature_flag_control_constraints.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/041_growth_revenue_amount_limit.up.sql', import.meta.url))),
-];
+]);
 
 export async function migrateGrowthPlatform(pool) {
   if (!pool) throw new Error('pool is required');
   const client=typeof pool.connect==='function'?await pool.connect():pool,release=client!==pool&&typeof client.release==='function';
   try{
     await withGrowthMigrationLock(client, () =>
-      applyGrowthMigrations(client, migrationPaths),
+      applyGrowthMigrations(client, growthMigrationPaths),
     );
     return true;
   }catch(error){throw error;}finally{if(release)client.release();}

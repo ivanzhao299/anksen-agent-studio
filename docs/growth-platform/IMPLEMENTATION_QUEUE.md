@@ -104,6 +104,8 @@ Website secret-provider calls now time out within 100–5000 ms and reject non-s
 
 Official outbound success responses now enforce JSON content type and valid bounded JSON; non-success streams are cancelled and Retry-After is digits-only. Upstream body/header details remain excluded from delivery errors.
 
+The immutable Growth migration manifest now has automated ordering/completeness/rollback review. Down scripts are mandatory from 018 onward; destructive baseline migrations 012–017 remain explicit exceptions rather than gaining unsafe table-drop rollback.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

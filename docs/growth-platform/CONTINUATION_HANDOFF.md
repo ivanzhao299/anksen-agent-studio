@@ -140,4 +140,6 @@ Website HMAC secret resolution now has a configurable 100–5000 ms bound (defau
 
 Official outbound adapters now require an `application/json` or structured `+json` success media type and reject malformed JSON explicitly after the streaming byte limit. Error response bodies are cancelled, and retry hints are decimal-only and at most eight digits. No upstream body/header detail is copied into errors.
 
+`growthMigrationPaths` is an exported immutable manifest. Acceptance checks strict numeric ordering, uniqueness, every Growth up file, shared migration 020 and down-file coverage from 018 onward. Migrations 012–017 intentionally have no destructive down scripts because they establish data-bearing baseline tables.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
