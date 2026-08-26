@@ -106,6 +106,8 @@ Official outbound success responses now enforce JSON content type and valid boun
 
 The immutable Growth migration manifest now has automated ordering/completeness/rollback review. Down scripts are mandatory from 018 onward; destructive baseline migrations 012–017 remain explicit exceptions rather than gaining unsafe table-drop rollback.
 
+A read-only migration inspector now projects READY/PENDING/BLOCKED and expected/actual checksums without DDL. Production governance can detect pending work and block drift before invoking the transactional runner.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

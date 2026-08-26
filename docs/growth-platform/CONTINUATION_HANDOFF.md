@@ -142,4 +142,6 @@ Official outbound adapters now require an `application/json` or structured `+jso
 
 `growthMigrationPaths` is an exported immutable manifest. Acceptance checks strict numeric ordering, uniqueness, every Growth up file, shared migration 020 and down-file coverage from 018 onward. Migrations 012–017 intentionally have no destructive down scripts because they establish data-bearing baseline tables.
 
+Use `inspectGrowthMigrations(client, growthMigrationPaths)` for a read-only deployment preflight. It reports per-file checksums and READY/PENDING/BLOCKED; drift or a legacy null checksum blocks, while a missing ledger is represented as pending. Inspection never creates the ledger or applies DDL.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
