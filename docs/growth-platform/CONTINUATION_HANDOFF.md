@@ -210,6 +210,8 @@ Registration conflict checks and ingestion validate the selected connector row b
 
 Inside ingestion transactions, existing and newly mutated business-record IDs/versions are validated before sync-item, batch or event writes. Poisoned mutation results roll back the entire unit.
 
+Failed source-batch insertion and the connector `ERROR` transition execute in one transaction. A connector update failure rolls back the failed batch instead of leaving contradictory audit and state evidence.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.
