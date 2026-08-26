@@ -116,4 +116,6 @@ Identity resolution validates its target lead reference before the atomic insert
 
 Delivery control methods now share pre-authorization validation for operation/actor IDs, CAS versions and clocks; completion and reconciliation also require bounded, secret-resistant external references. Failure no longer reads the ledger before clock/control validation. Delivery audit is capped at 500 recent rows, and migration 038 mirrors fingerprints, actors, counters and 4 KiB error envelope structure for direct writes.
 
+Identity review decisions validate case/actor/selected-lead references, positive versions, clocks, reasons and dismissal selection rules before authorization or SQL; review audit is capped at 500 recent rows. Migration 039 bounds candidate/evidence arrays, source/hash/idempotency roots and resolution actors for new direct rows. It preserves the existing human-only decision boundary.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

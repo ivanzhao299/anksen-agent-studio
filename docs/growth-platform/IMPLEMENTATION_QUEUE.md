@@ -80,6 +80,8 @@ Identity resolution now rejects unsafe canonical lead references before SQL, and
 
 Delivery controls now validate operation/actor/external references, positive versions and finite clocks before authorization or SQL; audit history is capped at 500 recent rows. Migration 038 mirrors operation fingerprint/actor/counter/error-envelope constraints for new direct rows.
 
+Identity review list/decision/audit paths now validate controls before authorization or SQL and cap audit history at 500. Migration 039 bounds case roots, candidate leads, identity type evidence and resolution actors for new direct rows without automating the human decision.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
