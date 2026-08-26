@@ -42,6 +42,7 @@ export function createOfficialApiPublishingAdapter({
     try {
       const response = await fetchImpl(target, {
         method: 'POST',
+        redirect: 'error',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}`, 'idempotency-key': safeOperationId },
         body: JSON.stringify({ assetRef: safeAssetRef, approvalRef, tenant: { organizationId: scope.organizationId, workspaceId: scope.workspaceId, tenantId: scope.tenantId } }),
         signal: controller.signal,
@@ -57,7 +58,8 @@ export function createOfficialApiPublishingAdapter({
       return Object.freeze({ externalId: assertReference(externalId,'EXTERNAL_ID'), status: assertReference(payload.status??'PUBLISHED','EXTERNAL_STATUS'), adapterId: adapter.id, channel: adapter.channel, operationId:safeOperationId, retryable: false });
     } catch (error) {
       if (error?.name === 'AbortError') throw Object.assign(new Error('OFFICIAL_API_TIMEOUT'), { code: 'OFFICIAL_API_TIMEOUT', retryable: true });
-      throw error;
+      if(String(error?.code??'').startsWith('OFFICIAL_API_'))throw error;
+      throw Object.assign(new Error('OFFICIAL_API_NETWORK_FAILED'),{code:'OFFICIAL_API_NETWORK_FAILED',retryable:true});
     } finally {
       clearTimeout(timeout);
     }
