@@ -1,6 +1,6 @@
 # ANKSEN AI Growth Platform — Continuation Handoff
 
-Updated: 2026-08-26
+Updated: 2026-08-27
 Status: ACTIVE
 Branch: `feature/anksen-ai-growth-platform`
 Draft PR: `#35`
@@ -28,6 +28,8 @@ pnpm growth-platform:acceptance
 ```
 
 The gate runs Core unit and GA acceptance tests, the evidence-based Pilot readiness check, production-connector tests, PostgreSQL store and delivery-ledger tests, signed-event transaction integration tests, an isolated PostgreSQL persistence smoke, and the sanitized Growth delivery operations surface test.
+
+Latest local evidence (2026-08-27): the complete command exited zero; its Domain/reference phase passed 155/155 tests, the isolated PostgreSQL persistence smoke returned `SUCCEEDED`, and the Console projection phase passed 4/4 tests. This is local evidence for the unpushed branch head, not a claim about PR #35's older remote head or production readiness.
 
 Growth CI's `growth-postgres` job runs Domain typecheck and this complete root gate. Workflow paths explicitly include the business source connector/governance implementations, base/approval up/down migrations and dependency lockfile, so these boundaries cannot bypass CI by filename.
 
