@@ -158,4 +158,6 @@ The shared bounded JSON reader actively cancels response bodies when media type 
 
 Successful official API JSON must be a plain object. Authoritative external IDs and statuses must be native bounded safe strings; null/array roots and numeric or boolean coercion fail as non-retryable protocol errors.
 
+Official outbound work validates operation, approval, asset, lead and bounded payload controls before credential resolution. Unsafe or oversized request data cannot cause a vault/secret-provider lookup or network call.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

@@ -105,6 +105,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Credential-bearing official API requests use `redirect: error`; redirects cannot escape the initial allowlisted hostname. Fetch and redirect failures are reduced to sanitized retryable network codes without upstream error details.
 - Official API success bodies are actively cancelled before rejecting an invalid media type or an oversized declared content length; streamed over-limit bodies are also cancelled, preventing rejected responses from retaining network resources.
 - Official API success JSON must be a plain object, and authoritative IDs/statuses must already be safe strings. Null, arrays and numeric/boolean coercion are protocol failures marked non-retryable rather than network failures.
+- Outbound operation, approval, asset, lead and payload controls are validated as bounded safe native values before credential resolution. Invalid work cannot touch the credential provider or network.
 - The snapshot truthfully remains `PILOT_ACTIVATION_BLOCKED` while credential references, connector health, data-owner approval, production feature flag, Runtime Activation Gate or explicit production authorization are absent.
 - Readiness assessment is pure and read-only: it cannot resolve credential values, invoke connectors, mutate production, or enable a Runtime.
 - The authenticated Growth Console projects the same versioned report and its blockers through a read-only endpoint; it exposes no activation control and rejects an explicitly different tenant context.

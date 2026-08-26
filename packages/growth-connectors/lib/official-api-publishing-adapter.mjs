@@ -35,8 +35,9 @@ export function createOfficialApiPublishingAdapter({
     const safeAssetRef = assertReference(assetRef, 'ASSET');
     if (adapter.requiresApproval && !approvalRef) throw Object.assign(new Error('OFFICIAL_API_APPROVAL_REQUIRED'), { code: 'OFFICIAL_API_APPROVAL_REQUIRED', retryable: false });
     if (approvalRef) assertReference(approvalRef, 'APPROVAL');
+    const safeOperationId=assertReference(operationId,'OPERATION');
     const credential = await resolveCredentialWithTimeout(credentialResolver,{ credentialReferenceId: credentialRef, channel: adapter.channel, adapterId: adapter.id },timeoutMs,'OFFICIAL_API');
-    const accessToken=assertCredentialToken(credential?.accessToken,'OFFICIAL_API'),safeOperationId=assertReference(operationId,'OPERATION');
+    const accessToken=assertCredentialToken(credential?.accessToken,'OFFICIAL_API');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
