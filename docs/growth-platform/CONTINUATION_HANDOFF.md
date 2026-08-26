@@ -272,6 +272,8 @@ Non-empty adapter results must be chronologically ordered, and the last record t
 
 The sync service re-projects both readiness responses and verifies connector identity, approved state, approval identity/version/mapping, and exact tenant scope. Forged or accessor-backed governance results fail before credentials, remote reads, or ingestion.
 
+Connector and credential-reference identifiers are native, bounded, secret-screened references at the sync boundary; coercion objects cannot reach governance or the adapter.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
