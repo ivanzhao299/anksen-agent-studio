@@ -202,6 +202,8 @@ Authoritative source ingestion validates native tenant/connector controls, idemp
 
 Source record fields must be a plain object with at most 100 data properties, safe keys and bounded native scalar values before SQL. Getters/setters, nested objects, non-finite numbers and control-bearing or oversized strings fail without invocation.
 
+The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
+
 Source ingestion takes one native valid Date clock sample before SQL and reuses it for freshness checks plus failed/success audit timestamps. Clock coercion and intra-operation timestamp drift are denied.
 
 Under the source-record row lock, existing ID/type/version/observed-time evidence is validated before stale-write comparison. Invalid or coercion-capable timestamps fail the transaction instead of producing `NaN` and permitting an overwrite.
