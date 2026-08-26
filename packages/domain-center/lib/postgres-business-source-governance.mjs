@@ -160,7 +160,7 @@ export class PostgresBusinessSourceGovernance {
     if(typeof limit!=='number'||!Number.isInteger(limit)||limit<1)throw fail("BUSINESS_SOURCE_TENANT_READINESS_LIMIT_INVALID");
     const [organizationId,workspaceId,tenantId,app]=values.map(value=>value.trim()),s={organizationId,workspaceId},safeLimit=Math.min(100,limit),clockValue=this.clock(),now=clockValue instanceof Date?clockValue.getTime():NaN;
     if(!Number.isFinite(now))throw fail("BUSINESS_SOURCE_TENANT_READINESS_CLOCK_INVALID");
-    const rows = (
+    const result =
       await this.pool.query(
         `SELECT c.id,c.status,c.connector_type,c.credential_reference_id,a.id approval_id,a.status approval_status,a.mapping_version,a.expires_at
          FROM business_data_connector c
@@ -173,21 +173,24 @@ export class PostgresBusinessSourceGovernance {
          WHERE c.organization_id=$1 AND c.workspace_id=$2 AND c.application_id=$4
          ORDER BY c.id LIMIT $5`,
         [s.organizationId, s.workspaceId, tenantId, app,safeLimit],
-      )
-    ).rows;
+      );
+    const rows=result?.rows;
+    if(!Array.isArray(rows)||rows.length>safeLimit)throw fail("BUSINESS_SOURCE_TENANT_READINESS_EVIDENCE_INVALID");
     const items = rows.map((row) => {
-        const expiresAt = row.expires_at ? new Date(row.expires_at) : null,
+        const connectorId=safeGovernanceRef(row?.id,"TENANT_READINESS_CONNECTOR",160),credentialReference=row.credential_reference_id==null?null:safeGovernanceRef(row.credential_reference_id,"TENANT_READINESS_CREDENTIAL_REFERENCE",240),mappingVersion=row.mapping_version==null?null:safeGovernanceRef(row.mapping_version,"TENANT_READINESS_MAPPING",80),expiresAt = row.expires_at==null?null:typeof row.expires_at==='string'||row.expires_at instanceof Date?new Date(row.expires_at):null;
+        if(row.expires_at!=null&&(!expiresAt||!Number.isFinite(expiresAt.getTime())))throw fail("BUSINESS_SOURCE_TENANT_READINESS_EVIDENCE_INVALID");
+        const
           checks = {
             connectorActive: row.status === "ACTIVE",
             nonFixtureSource: row.connector_type !== "FIXTURE",
-            credentialReferenceConfigured: Boolean(row.credential_reference_id),
+            credentialReferenceConfigured: Boolean(credentialReference),
             approvalGranted: row.approval_status === "APPROVED",
-            mappingVersionConfigured: Boolean(row.mapping_version),
+            mappingVersionConfigured: Boolean(mappingVersion),
             authorizationUnexpired:
               Boolean(expiresAt) && expiresAt.getTime() > now,
           };
         return {
-          connectorId: row.id,
+          connectorId,
           status: Object.values(checks).every(Boolean) ? "READY" : "NOT_READY",
           checks,
           expiresAt: expiresAt?.toISOString() ?? null,
