@@ -50,7 +50,7 @@ export function createLeadGraph({ scope: rawScope, clock = () => new Date().toIS
         confidence = 1;
         evidence.push('EXACT_FINGERPRINT');
       } else {
-        if (profile.email && normalize(profile.email) === normalize(candidate.email)) { confidence += 0.8; evidence.push('EMAIL'); }
+        if (profile.email && normalize(profile.email) === normalize(candidate.email)) { confidence += 0.85; evidence.push('EMAIL'); }
         if (profile.phone && normalize(profile.phone) === normalize(candidate.phone)) { confidence += 0.35; evidence.push('PHONE'); }
         if (profile.website && normalize(profile.website) === normalize(candidate.website)) { confidence += 0.25; evidence.push('WEBSITE'); }
         if (profile.company?.name && normalize(profile.company.name) === normalize(candidate.company?.name)) { confidence += 0.15; evidence.push('COMPANY_NAME'); }
