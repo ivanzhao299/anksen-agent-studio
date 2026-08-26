@@ -30,7 +30,7 @@ export function createWebsiteConversionAdapter({ id='website-conversion-v1', dom
   if(!Number.isInteger(maxReplayEntries)||maxReplayEntries<1||maxReplayEntries>100000)throw new TypeError('maxReplayEntries must be between 1 and 100000');
   if(!Number.isInteger(secretResolutionTimeoutMs)||secretResolutionTimeoutMs<100||secretResolutionTimeoutMs>5000)throw new TypeError('secretResolutionTimeoutMs must be between 100 and 5000');
   const replay=new Set();
-  const resolveSecret=async()=>{let timer;try{const secret=await Promise.race([Promise.resolve().then(()=>secretProvider({domain})),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('WEBSITE_WEBHOOK_SECRET_UNAVAILABLE')),secretResolutionTimeoutMs);})]);if((typeof secret!=='string'&&!Buffer.isBuffer(secret))||Buffer.byteLength(secret)<1||Buffer.byteLength(secret)>4096)throw new Error('WEBSITE_WEBHOOK_SECRET_UNAVAILABLE');return secret;}finally{clearTimeout(timer);}};
+  const resolveSecret=async()=>{const controller=new AbortController();let timer;try{const secret=await Promise.race([Promise.resolve().then(()=>secretProvider({domain,signal:controller.signal})),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error('WEBSITE_WEBHOOK_SECRET_UNAVAILABLE'));},secretResolutionTimeoutMs);})]);if((typeof secret!=='string'&&!Buffer.isBuffer(secret))||Buffer.byteLength(secret)<1||Buffer.byteLength(secret)>4096)throw new Error('WEBSITE_WEBHOOK_SECRET_UNAVAILABLE');return secret;}finally{clearTimeout(timer);}};
 
   async function ingestWebhook({ rawBody, headers={} }={}) {
     const bodyBuffer=Buffer.isBuffer(rawBody)?rawBody:Buffer.from(String(rawBody??''),'utf8');
