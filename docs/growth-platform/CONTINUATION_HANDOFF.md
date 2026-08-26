@@ -290,6 +290,8 @@ The adapter snapshots and validates its clock before credential resolution or ne
 
 Credential origins are bounded native strings and reject control characters or surrounding whitespace, so URL-parser normalization cannot change the governed origin text before a request.
 
+Resolved bearer tokens must be exact non-whitespace printable ASCII strings, preventing header normalization or Unicode encoding from changing credential bytes after resolution.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
