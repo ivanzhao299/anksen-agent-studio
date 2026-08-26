@@ -110,6 +110,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Delivery dashboard and audit reads validate native positive integer limits before SQL (then cap at 100/500). Dashboard time is sampled once and validated before its parallel queries.
 - Identity review list/audit limits, statuses, references and CAS versions require native bounded values before authorization or SQL; list and audit windows cap at 100/500.
 - Connector binding IDs, hosts, credential references, CAS versions, health windows, audit limits and probe timeouts require native bounded values before authorization, SQL or external probes.
+- Connector activation IDs, actors, CAS versions, health/authorization windows and list limits require native bounded values before authorization or SQL; preflight lists remain capped at 100.
 - The snapshot truthfully remains `PILOT_ACTIVATION_BLOCKED` while credential references, connector health, data-owner approval, production feature flag, Runtime Activation Gate or explicit production authorization are absent.
 - Readiness assessment is pure and read-only: it cannot resolve credential values, invoke connectors, mutate production, or enable a Runtime.
 - The authenticated Growth Console projects the same versioned report and its blockers through a read-only endpoint; it exposes no activation control and rejects an explicitly different tenant context.

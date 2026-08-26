@@ -13,9 +13,10 @@ const fail = (code, details = {}) =>
     !secretLike(value);
 const hash = (value) =>
   createHash("sha256").update(String(value)).digest("hex");
-const assertRef=(value,label)=>{const ref=String(value??'').trim();if(!safeRef(ref))throw fail(`GROWTH_CONNECTOR_${label}_INVALID`);return ref;};
-const assertVersion=(value,label)=>{const version=Number(value);if(!Number.isInteger(version)||version<1)throw fail(`GROWTH_CONNECTOR_${label}_VERSION_INVALID`);return version;};
+const assertRef=(value,label)=>{if(typeof value!=='string')throw fail(`GROWTH_CONNECTOR_${label}_INVALID`);const ref=value.trim();if(!safeRef(ref))throw fail(`GROWTH_CONNECTOR_${label}_INVALID`);return ref;};
+const assertVersion=(value,label)=>{if(!Number.isInteger(value)||value<1)throw fail(`GROWTH_CONNECTOR_${label}_VERSION_INVALID`);return value;};
 const assertClock=value=>{if(!(value instanceof Date)||!Number.isFinite(value.getTime()))throw fail("GROWTH_CONNECTOR_ACTIVATION_CLOCK_INVALID");return value;};
+const assertLimit=(value)=>{if(typeof value!=="number"||!Number.isInteger(value)||value<1)throw fail("GROWTH_CONNECTOR_ACTIVATION_LIMIT_INVALID");return Math.min(100,value);};
 
 export const summarizeGrowthActivationPreflights = (items = []) => {
   const requiredKinds = ["WEBSITE_INBOUND", "PUBLISHING", "BUSINESS_HANDOFF"],
@@ -51,13 +52,13 @@ export class GrowthConnectorActivationGate {
     if (!pool?.connect)
       throw new TypeError("transaction-capable pool is required");
     if (
-      !Number.isFinite(maxHealthAgeSeconds) ||
+      typeof maxHealthAgeSeconds!=="number" || !Number.isInteger(maxHealthAgeSeconds) ||
       maxHealthAgeSeconds <= 0 ||
       maxHealthAgeSeconds > 24 * 60 * 60
     )
       throw new TypeError("positive maxHealthAgeSeconds is required");
     if (
-      !Number.isFinite(maxAuthorizationAgeSeconds) ||
+      typeof maxAuthorizationAgeSeconds!=="number" || !Number.isInteger(maxAuthorizationAgeSeconds) ||
       maxAuthorizationAgeSeconds <= 0 ||
       maxAuthorizationAgeSeconds > 366 * 24 * 60 * 60
     )
@@ -173,8 +174,7 @@ export class GrowthConnectorActivationGate {
     return this.evaluate(scope, state, version);
   }
   async listPreflights({ scope: rawScope, limit = 50 } = {}) {
-    const scope = assertTenantScope(rawScope),now=assertClock(this.clock()),
-      boundedLimit = Math.min(100, Math.max(1, Number(limit) || 50)),
+    const scope = assertTenantScope(rawScope),boundedLimit=assertLimit(limit),now=assertClock(this.clock()),
       rows = (
         await this.pool.query(
           `SELECT id,version FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id='ai-growth-sales-platform' AND object_type='connector_activation' AND fields->>'tenantId'=$3 AND status IN ('WAITING_APPROVAL','APPROVED') ORDER BY updated_at DESC,id LIMIT $4`,

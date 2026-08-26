@@ -168,4 +168,6 @@ Identity review list/audit controls require native positive integer limits (capp
 
 Connector binding controls no longer coerce IDs, endpoint hosts, credential refs, versions, health windows, audit limits or probe timeouts. Invalid native types fail before authorization, SQL or external probe calls.
 
+Connector activation controls likewise require native references, actors, positive integer CAS versions/window settings and list limits. Invalid inputs fail before access authorization or SQL; list preflights cap at 100.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
