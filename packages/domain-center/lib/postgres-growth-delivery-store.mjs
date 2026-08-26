@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { assertTenantScope } from '../../growth-core/lib/domain-model.mjs';
 
 const fingerprint = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-const cleanError = (error) => ({ code: String(error?.code ?? 'DELIVERY_FAILED').slice(0,100), message: String(error?.message ?? error ?? 'delivery failed').slice(0,500), retryable: Boolean(error?.retryable), status: Number.isInteger(error?.status) ? error.status : null });
+const cleanError = (error) => ({ code: String(error?.code ?? 'DELIVERY_FAILED').replace(/[^A-Z0-9_.:-]/gi,'_').slice(0,100), retryable: Boolean(error?.retryable), status: Number.isInteger(error?.status) ? error.status : null, retryAfter: typeof error?.retryAfter === 'string' && /^\d{1,8}$/.test(error.retryAfter) ? error.retryAfter : null });
 
 export class PostgresGrowthDeliveryStore {
   constructor({ pool, clock = () => new Date() } = {}) { if (!pool) throw new TypeError('pool is required'); this.pool=pool; this.clock=clock; }

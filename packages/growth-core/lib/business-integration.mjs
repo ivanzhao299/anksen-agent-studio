@@ -1,6 +1,8 @@
 import { assertTenantScope } from './domain-model.mjs';
 import { assertSameTenant } from './growth-events.mjs';
 
+const assertApprovalRef=value=>{const ref=String(value??'');if(!/^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$/.test(ref)||/(?:^sk-|bearer\s+|password\s*=|token\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(ref))throw new TypeError('integration approvalRef is invalid');return ref;};
+
 export function defineBusinessIntegrationAdapter(definition) {
   if (!definition?.id) throw new TypeError('integration adapter id is required');
   const capabilities = Object.freeze([...(definition.capabilities ?? [])]);
@@ -22,6 +24,7 @@ export async function handoffCommercialObject({ scope: rawScope, adapter, object
   if (!adapter.capabilities?.includes(objectType)) throw new Error(`integration capability denied: ${objectType}`);
   if (!operationId) throw new TypeError('operationId is required');
   if (adapter.requiresApproval && !approvalRef) throw new Error('integration approvalRef is required');
+  if (approvalRef) approvalRef=assertApprovalRef(approvalRef);
   const request = Object.freeze({ ...scope, objectType, leadId: lead.leadId, payload: Object.freeze({ ...payload }), operationId, approvalRef });
   const result = await adapter.execute(request);
   if (!result?.externalId) throw new Error('downstream system must return authoritative externalId');

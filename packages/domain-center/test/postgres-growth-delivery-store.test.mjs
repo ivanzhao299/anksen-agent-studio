@@ -20,7 +20,7 @@ test('delivery ledger is idempotent, retryable, CAS-protected and reconcilable',
     let calls=0;
     const adapter={async publish(){calls+=1;if(calls===1)throw Object.assign(new Error('rate limited: secret-not-stored'),{code:'OFFICIAL_API_HTTP_429',retryable:true,status:429});return{externalId:'post-1',status:'PUBLISHED'};}};
     const retryable=await executeGrowthDelivery({store,scope,operation:registered.operation,adapter,retryAt:new Date('2026-08-26T04:00:00Z')});
-    assert.equal(retryable.status,'RETRYABLE');assert.equal(retryable.attempts,1);assert.equal(retryable.last_error.code,'OFFICIAL_API_HTTP_429');
+    assert.equal(retryable.status,'RETRYABLE');assert.equal(retryable.attempts,1);assert.equal(retryable.last_error.code,'OFFICIAL_API_HTTP_429');assert.doesNotMatch(JSON.stringify(retryable),/secret-not-stored|message/);
     const completed=await executeGrowthDelivery({store,scope,operation:retryable,adapter});
     assert.equal(completed.status,'COMPLETED');assert.equal(completed.attempts,2);assert.equal(completed.external_id,'post-1');
     await assert.rejects(()=>store.beginAttempt({scope,id:completed.id,expectedVersion:completed.version}),error=>error.code==='DELIVERY_NOT_EXECUTABLE_OR_VERSION_CONFLICT');

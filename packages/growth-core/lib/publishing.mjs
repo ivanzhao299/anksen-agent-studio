@@ -2,6 +2,8 @@ import { assertTenantScope } from './domain-model.mjs';
 import { assertAdapterCanExecute } from './channel-adapter.mjs';
 import { assertTenantChannelAction } from './tenant-kit.mjs';
 
+const assertApprovalRef=value=>{const ref=String(value??'');if(!/^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$/.test(ref)||/(?:^sk-|bearer\s+|password\s*=|token\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(ref))throw new TypeError('approvalRef is invalid');return ref;};
+
 export function createPublishingService({scope:rawScope,tenantPack,adapter,clock=()=>new Date().toISOString(),maxAttempts=3}={}){
   const scope=assertTenantScope(rawScope);
   if(!tenantPack)throw new Error('tenantPack is required');
@@ -20,7 +22,7 @@ export function createPublishingService({scope:rawScope,tenantPack,adapter,clock
     const plan=requirePlan(planId);
     if(!plan.approvalRequired)return plan;
     if(!reviewerId)throw new TypeError('reviewerId is required');
-    if(!approvalRef)throw new TypeError('approvalRef is required');
+    if(!approvalRef)throw new TypeError('approvalRef is required');approvalRef=assertApprovalRef(approvalRef);
     if(plan.status!=='WAITING_APPROVAL')throw new Error(`publish plan cannot be approved from ${plan.status}`);
     Object.assign(plan,{status:'READY',approvedBy:reviewerId,approvalRef,approvedAt:clock()});
     return Object.freeze({...plan});

@@ -26,7 +26,7 @@ A tenant must be able to execute: discovery → identity resolution → lead →
 ## Governed GA-010 delivery evidence
 
 - The first official-API publishing adapter is disabled by default, HTTPS-only outside tests, host-allowlisted and credential-reference based.
-- Every external write carries an idempotency key and an existing approval reference; credential values and content bodies are not persisted.
+- Every external write carries an idempotency key and an existing validated approval reference; credential values, content bodies and raw error messages are not persisted.
 - The PostgreSQL delivery ledger records request fingerprints, CAS versions, bounded attempts, retry classification, external IDs and reconciliation state without creating a second Scheduler or Queue.
 - Rate limits and server failures may become `RETRYABLE`; policy/approval failures become terminal. Completed writes can be reconciled as `MATCHED` or `MISMATCH`.
 
