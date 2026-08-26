@@ -356,6 +356,8 @@ Authorized non-loopback connections additionally require the sole query `sslmode
 
 Business Runtime, Growth Runtime and `growth-migrations:status` reuse the same exact remote-access environment parser. Do not reintroduce direct `env.* === 'true'` or truthiness checks at individual pool constructors.
 
+The environment container itself is either the real Node `process.env` host object or a plain/null-prototype injected object. Arrays, dates and class/exotic instances remain invalid even if they expose similarly named properties.
+
 Inline database URL and URL-file environment controls are own data-descriptor snapshots. Accessor-backed or non-string values fail without invocation or object coercion before file access or pool creation.
 
 Pool size, connection timeout, required-database and remote-access controls share that descriptor boundary. Environment numerics are decimal strings, switches are exactly `true|false`, and explicit runtime/schema flags are native booleans; invalid or accessor-backed controls fail before SQL or pool connection.

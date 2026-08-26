@@ -26,7 +26,7 @@ const businessSourceApprovalSequenceMigration = resolve(fileURLToPath(new URL(".
 const growthFeatureFlagEventImmutableMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/021_growth_feature_flag_event_immutable.up.sql", import.meta.url)));
 const growthFeatureFlagConstraintsMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/025_growth_feature_flag_constraints.up.sql", import.meta.url)));
 export const defaultBusinessDatabaseUrlFile = "/opt/anksen/business-data/database-url";
-function businessEnvironmentValue(env,name){if(!env||typeof env!=="object")throw new Error("BUSINESS_DATABASE_ENV_INVALID");const descriptor=Object.getOwnPropertyDescriptor(env,name);if(!descriptor)return undefined;if(!Object.hasOwn(descriptor,"value")||typeof descriptor.value!=="string")throw new Error("BUSINESS_DATABASE_ENV_INVALID");return descriptor.value;}
+function businessEnvironmentValue(env,name){if(!env||typeof env!=="object"||env!==process.env&&![Object.prototype,null].includes(Object.getPrototypeOf(env)))throw new Error("BUSINESS_DATABASE_ENV_INVALID");const descriptor=Object.getOwnPropertyDescriptor(env,name);if(!descriptor)return undefined;if(!Object.hasOwn(descriptor,"value")||typeof descriptor.value!=="string")throw new Error("BUSINESS_DATABASE_ENV_INVALID");return descriptor.value;}
 
 export function resolveBusinessDatabaseUrl(env = process.env) {
   const inline=businessEnvironmentValue(env,"BUSINESS_DATABASE_URL");
