@@ -38,11 +38,18 @@ export async function applyGrowthMigrations(client, migrationPaths) {
         );
       continue;
     }
-    await client.query(sql);
-    await client.query(
-      "INSERT INTO growth_schema_migration(name,checksum) VALUES($1,$2)",
-      [name, expectedChecksum],
-    );
+    await client.query("BEGIN");
+    try {
+      await client.query(sql);
+      await client.query(
+        "INSERT INTO growth_schema_migration(name,checksum) VALUES($1,$2)",
+        [name, expectedChecksum],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    }
   }
 }
 

@@ -98,6 +98,8 @@ Canonical revenue attribution now caps a single amount at 1 trillion currency un
 
 Customer 360 now aggregates revenue per currency and sets the compatibility scalar total to `null` for multi-currency history. Any future consolidated amount requires governed FX evidence rather than arithmetic across currency codes.
 
+Each new Growth migration and its checksum ledger entry now commit atomically under the advisory lock. Fault injection proves ledger failure rolls back DDL; non-transactional migration operations require a distinct reviewed mechanism.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
