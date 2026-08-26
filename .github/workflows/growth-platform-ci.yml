@@ -33,6 +33,7 @@ on:
       - 'packages/orchestrator-core/migrations/011_business_source_governance.*.sql'
       - 'packages/orchestrator-core/migrations/018_growth_source_approval_scope.*.sql'
       - 'packages/orchestrator-core/migrations/020_business_source_approval_sequence.*.sql'
+      - 'packages/orchestrator-core/migrations/0*_growth_*.*.sql'
       - 'docs/growth-platform/**'
       - '.github/workflows/growth-platform-ci.yml'
   push:
@@ -69,6 +70,7 @@ on:
       - 'packages/orchestrator-core/migrations/011_business_source_governance.*.sql'
       - 'packages/orchestrator-core/migrations/018_growth_source_approval_scope.*.sql'
       - 'packages/orchestrator-core/migrations/020_business_source_approval_sequence.*.sql'
+      - 'packages/orchestrator-core/migrations/0*_growth_*.*.sql'
       - 'docs/growth-platform/**'
       - '.github/workflows/growth-platform-ci.yml'
 
