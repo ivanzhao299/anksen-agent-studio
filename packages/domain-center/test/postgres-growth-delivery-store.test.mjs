@@ -19,16 +19,19 @@ test('delivery ledger is idempotent, retryable, CAS-protected and reconcilable',
 
     let calls=0;
     const adapter={async publish(){calls+=1;if(calls===1)throw Object.assign(new Error('rate limited: secret-not-stored'),{code:'OFFICIAL_API_HTTP_429',retryable:true,status:429});return{externalId:'post-1',status:'PUBLISHED'};}};
-    const retryable=await executeGrowthDelivery({store,scope,operation:registered.operation,adapter,retryAt:new Date('2026-08-26T04:00:00Z')});
+    const retryable=await executeGrowthDelivery({store,scope,operation:registered.operation,adapter,retryAt:new Date('2026-08-26T05:00:00Z')});
     assert.equal(retryable.status,'RETRYABLE');assert.equal(retryable.attempts,1);assert.equal(retryable.last_error.code,'OFFICIAL_API_HTTP_429');assert.doesNotMatch(JSON.stringify(retryable),/secret-not-stored|message/);
-    const completed=await executeGrowthDelivery({store,scope,operation:retryable,adapter});
+    const requested=await store.requestRetry({scope,id:retryable.id,expectedVersion:retryable.version,actorId:'growth-operator'});assert.equal(requested.next_attempt_at.toISOString(),'2026-08-26T04:00:00.000Z');
+    const completed=await executeGrowthDelivery({store,scope,operation:requested,adapter});
     assert.equal(completed.status,'COMPLETED');assert.equal(completed.attempts,2);assert.equal(completed.external_id,'post-1');
     await assert.rejects(()=>store.beginAttempt({scope,id:completed.id,expectedVersion:completed.version}),error=>error.code==='DELIVERY_NOT_EXECUTABLE_OR_VERSION_CONFLICT');
-    const mismatch=await store.reconcile({scope,id:completed.id,expectedVersion:completed.version,observedExternalId:'different',observedStatus:'PUBLISHED'});
+    await assert.rejects(()=>store.reconcile({scope,id:completed.id,expectedVersion:completed.version,observedExternalId:'',actorId:'growth-reviewer'}),error=>error.code==='DELIVERY_OBSERVED_EXTERNAL_ID_REQUIRED');
+    const mismatch=await store.reconcile({scope,id:completed.id,expectedVersion:completed.version,observedExternalId:'different',observedStatus:'PUBLISHED',actorId:'growth-reviewer'});
     assert.equal(mismatch.reconciliation_status,'MISMATCH');
     const matched=await store.reconcile({scope,id:completed.id,expectedVersion:mismatch.version,observedExternalId:'post-1',observedStatus:'PUBLISHED'});
     assert.equal(matched.reconciliation_status,'MATCHED');
     const dashboard=await store.dashboard(scope);assert.equal(dashboard.summary.completed,1);assert.equal(dashboard.summary.actionRequired,0);assert.deepEqual(dashboard.items,[]);assert.doesNotMatch(JSON.stringify(dashboard),/approval\/ref-1|asset\/ref-1|request_fingerprint/);
+    const audit=await store.auditTrail(scope,completed.id);assert.deepEqual(audit.map(item=>item.eventType),['DELIVERY_REGISTERED','DELIVERY_ATTEMPT_STARTED','DELIVERY_RETRYABLE','DELIVERY_RETRY_REQUESTED','DELIVERY_ATTEMPT_STARTED','DELIVERY_COMPLETED','DELIVERY_RECONCILED','DELIVERY_RECONCILED']);assert.equal(audit.find(item=>item.eventType==='DELIVERY_RETRY_REQUESTED').actorId,'growth-operator');assert.equal(audit.filter(item=>item.eventType==='DELIVERY_RECONCILED')[0].actorId,'growth-reviewer');assert.doesNotMatch(JSON.stringify(audit),/asset\/ref-1|approval\/ref-1|secret-not-stored/);
     assert.doesNotMatch(JSON.stringify(matched),/secret-not-stored|Bearer|accessToken/);
   }finally{await pool.query('DELETE FROM growth_delivery_operation WHERE organization_id=$1',[scope.organizationId]).catch(()=>{});await pool.end();}
 });

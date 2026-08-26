@@ -42,6 +42,13 @@ A tenant must be able to execute: discovery → identity resolution → lead →
 - The endpoint returns an explicit unavailable/migration-required status instead of mutating schema during a read.
 - The browser projection cannot receive credential references, approval references, request fingerprints, source references or raw error messages, and it cannot trigger retries.
 
+## Governed operator control evidence
+
+- Every delivery transition is captured by a PostgreSQL trigger in an immutable, tenant-scoped audit trail with actor, CAS version, status and sanitized outcome metadata.
+- A sales operator with `business.work.control` may only bring an already-`RETRYABLE`, below-limit operation forward to its next eligible execution time; the request does not call an external system or create another worker.
+- Reconciliation requires separate `business.manage + proposal.approve` authority, an exact operation version and an observed external ID.
+- Sales reviewers cannot request retries or assert reconciliation, and ordinary sales operators cannot assert reconciliation.
+
 ## GA-000~017 definition of done
 GA-000 architecture/boundaries; GA-001 tenant/domain model; GA-002 channel contract; GA-003 events/audit; GA-004 discovery; GA-005 identity graph; GA-006 scoring; GA-007 360 projection; GA-008 content strategy contract; GA-009 media-factory adapter; GA-010 publishing contract; GA-011 engagement ingestion; GA-012 qualification/NBA; GA-013 downstream opportunity handoff; GA-014 follow-up action; GA-015 revenue attribution; GA-016 optimization inputs/decision action; GA-017 executive closed-loop report.
 

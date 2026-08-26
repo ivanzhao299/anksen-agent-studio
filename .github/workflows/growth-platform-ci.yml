@@ -8,11 +8,15 @@ on:
       - 'apps/console/web/**'
       - 'package.json'
       - 'packages/domain-center/lib/*growth*'
+      - 'packages/domain-center/test/*growth*'
+      - 'packages/domain-center/test/enterprise-role-access.test.mjs'
+      - 'packages/access-center/lib/access-center-utils.mjs'
       - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
       - 'packages/domain-center/package.json'
       - 'packages/orchestrator-core/migrations/012_growth_platform.up.sql'
       - 'packages/orchestrator-core/migrations/013_growth_score_history.up.sql'
       - 'packages/orchestrator-core/migrations/014_growth_delivery_ledger.up.sql'
+      - 'packages/orchestrator-core/migrations/015_growth_delivery_audit.up.sql'
       - 'docs/growth-platform/**'
       - '.github/workflows/growth-platform-ci.yml'
   push:
@@ -24,11 +28,15 @@ on:
       - 'apps/console/web/**'
       - 'package.json'
       - 'packages/domain-center/lib/*growth*'
+      - 'packages/domain-center/test/*growth*'
+      - 'packages/domain-center/test/enterprise-role-access.test.mjs'
+      - 'packages/access-center/lib/access-center-utils.mjs'
       - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
       - 'packages/domain-center/package.json'
       - 'packages/orchestrator-core/migrations/012_growth_platform.up.sql'
       - 'packages/orchestrator-core/migrations/013_growth_score_history.up.sql'
       - 'packages/orchestrator-core/migrations/014_growth_delivery_ledger.up.sql'
+      - 'packages/orchestrator-core/migrations/015_growth_delivery_audit.up.sql'
       - 'docs/growth-platform/**'
       - '.github/workflows/growth-platform-ci.yml'
 
@@ -53,7 +61,7 @@ jobs:
       - run: pnpm --filter @anksen-agent-studio/growth-core test
       - run: pnpm --filter @anksen-agent-studio/growth-core acceptance
       - run: pnpm --filter @anksen-agent-studio/growth-connectors test
-      - run: node --test --test-name-pattern='sanitized read-only delivery operations projection' apps/console/web/business-application-surfaces.test.mjs
+      - run: node --test --test-name-pattern='sanitized delivery operations' apps/console/web/business-application-surfaces.test.mjs
 
   growth-postgres:
     needs: growth-core

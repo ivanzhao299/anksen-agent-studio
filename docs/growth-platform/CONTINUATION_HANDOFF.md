@@ -33,8 +33,9 @@ The gate runs Core unit and GA acceptance tests, production-connector tests, Pos
 
 1. Keep the unified local/CI gate green and close persistence/interface inconsistencies first.
 2. Keep GA-004~007 transaction, identity-review and score-history evidence green as connector inputs expand.
-3. Add governed operator actions for eligible retry/reconciliation through existing RBAC and approval controls; keep the current surface read-only until those gates are proven. This is the active implementation priority.
-4. Validate KingTurf through governed connectors and downstream mappings.
-5. Validate a second non-KingTurf tenant without a Core or schema fork.
+3. Governed retry/reconciliation APIs now use existing Console RBAC, CAS and immutable delivery audit. Keep the current browser surface read-only until end-to-end authenticated API evidence and existing Worker connector dispatch are proven.
+4. Build production-readiness and pilot evidence without enabling connectors or performing external writes; this is the active implementation priority.
+5. Validate KingTurf through governed connectors and downstream mappings.
+6. Validate a second non-KingTurf tenant without a Core or schema fork.
 
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
