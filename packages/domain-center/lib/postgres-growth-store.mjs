@@ -102,10 +102,15 @@ export class PostgresGrowthStore {
   }
 
   async recordEngagement({ scope, engagement }) {
-    const s = assertTenantScope(scope);
+    const s = assertTenantScope(scope),now=this.clock(),occurredAt=new Date(engagement?.occurredAt);
+    if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw fail('GROWTH_ENGAGEMENT_CLOCK_INVALID');
+    if(!engagement||typeof engagement!=='object')throw fail('GROWTH_ENGAGEMENT_INVALID');
+    const id=safeCanonicalRef(engagement.id,'ENGAGEMENT',{max:160}),leadId=safeCanonicalRef(engagement.leadId,'ENGAGEMENT_LEAD',{max:160}),kind=String(engagement.kind??''),channel=safeCanonicalRef(engagement.channel,'ENGAGEMENT_CHANNEL',{optional:true,max:64}),payload=safeJson(engagement.payload??{},'ENGAGEMENT_PAYLOAD');
+    if(!/^[A-Z][A-Z0-9_]{1,63}$/.test(kind))throw fail('GROWTH_ENGAGEMENT_KIND_INVALID');
+    if(!Number.isFinite(occurredAt.getTime())||occurredAt.getTime()>now.getTime()+300000)throw fail('GROWTH_ENGAGEMENT_TIME_INVALID');
     const result=await this.pool.query(
       `INSERT INTO growth_engagement(id,organization_id,workspace_id,tenant_id,lead_id,kind,channel,payload,occurred_at) SELECT $1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9 FROM growth_lead WHERE id=$5 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 RETURNING id`,
-      [engagement.id, s.organizationId, s.workspaceId, s.tenantId, engagement.leadId, engagement.kind, engagement.channel ?? null, json(engagement.payload, {}), engagement.occurredAt]
+      [id, s.organizationId, s.workspaceId, s.tenantId, leadId, kind, channel, payload, occurredAt]
     );
     if(!result.rowCount)throw Object.assign(new Error('GROWTH_ENGAGEMENT_TENANT_LEAD_REQUIRED'),{code:'GROWTH_ENGAGEMENT_TENANT_LEAD_REQUIRED'});
   }

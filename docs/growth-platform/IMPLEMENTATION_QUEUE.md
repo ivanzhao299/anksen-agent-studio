@@ -66,6 +66,8 @@ New immutable canonical events now require controlled types/references/schema, o
 
 Canonical lead roots now have bounded reference/state/time fields and typed 32/64 KiB JSON envelopes in the Store. Migration 032 mirrors structural checks for every new direct row while retaining rollout compatibility with pre-contract history.
 
+Canonical engagement writes now have bounded references, controlled kind/channel syntax, object-only 64 KiB payloads and finite/non-future application timestamps. Migration 033 mirrors structural checks for new direct rows under the same legacy-compatible rollout policy.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

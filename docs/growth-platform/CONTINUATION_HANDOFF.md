@@ -102,4 +102,6 @@ Canonical immutable events are bounded in `PostgresGrowthStore` and migration 03
 
 Canonical lead roots are bounded at both trust boundaries. `PostgresGrowthStore.upsertLead` validates IDs/source/state, object/array JSON shapes and byte sizes, optional market/ICP refs, finite clock and future creation time. Migration 032 immediately checks every new/direct row with `NOT VALID` legacy rollout semantics. Do not expand person/company/score into unbounded document storage.
 
+Canonical engagements use the same two-boundary contract. `PostgresGrowthStore.recordEngagement` rejects unsafe engagement/lead IDs, uncontrolled kind/channel values, non-object or over-64 KiB payloads, invalid clocks and future evidence before SQL. Migration 033 immediately constrains all new/direct rows while leaving legacy validation to an explicit governed retention operation.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

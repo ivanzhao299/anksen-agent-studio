@@ -1,0 +1,1 @@
+ALTER TABLE growth_engagement DROP CONSTRAINT IF EXISTS growth_engagement_contract_valid;
