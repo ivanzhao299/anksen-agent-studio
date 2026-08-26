@@ -1,11 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 const fail = (code) => Object.assign(new Error(code), { code }),
-  scopeOf = (value) => ({
-    organizationId: String(value.organizationId ?? ""),
-    workspaceId: String(value.workspaceId ?? ""),
-  }),
   hash = (value) => createHash("sha256").update(String(value)).digest("hex");
-const secretLike=value=>/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(value),safeSourceRef=(value,label,max=160)=>{if(typeof value!=="string")throw fail(`BUSINESS_SOURCE_APPROVAL_${label}_INVALID`);const text=value.trim();if(!text||text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||secretLike(text))throw fail(`BUSINESS_SOURCE_APPROVAL_${label}_INVALID`);return text;},safeSourceScope=value=>({organizationId:safeSourceRef(value?.organizationId,"ORGANIZATION",128),workspaceId:safeSourceRef(value?.workspaceId,"WORKSPACE",128)}),safeSourceClock=value=>{if(!(value instanceof Date)||!Number.isFinite(value.getTime()))throw fail("BUSINESS_SOURCE_APPROVAL_CLOCK_INVALID");return value;};
+const secretLike=value=>/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(value),safeGovernanceRef=(value,label,max=160)=>{if(typeof value!=="string")throw fail(`BUSINESS_SOURCE_${label}_INVALID`);const text=value.trim();if(!text||text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||secretLike(text))throw fail(`BUSINESS_SOURCE_${label}_INVALID`);return text;},safeSourceRef=(value,label,max=160)=>{if(typeof value!=="string")throw fail(`BUSINESS_SOURCE_APPROVAL_${label}_INVALID`);const text=value.trim();if(!text||text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||secretLike(text))throw fail(`BUSINESS_SOURCE_APPROVAL_${label}_INVALID`);return text;},safeSourceScope=value=>({organizationId:safeSourceRef(value?.organizationId,"ORGANIZATION",128),workspaceId:safeSourceRef(value?.workspaceId,"WORKSPACE",128)}),safeSourceClock=value=>{if(!(value instanceof Date)||!Number.isFinite(value.getTime()))throw fail("BUSINESS_SOURCE_APPROVAL_CLOCK_INVALID");return value;};
 export class PostgresBusinessSourceGovernance {
   constructor({ pool, clock = () => new Date() } = {}) {
     if (!pool) throw fail("BUSINESS_SOURCE_GOVERNANCE_POOL_REQUIRED");
@@ -13,11 +9,11 @@ export class PostgresBusinessSourceGovernance {
     this.clock = clock;
   }
   async connector(id, scope) {
-    const s = scopeOf(scope),
+    const safeId=safeGovernanceRef(id,"CONNECTOR",160),s={organizationId:safeGovernanceRef(scope?.organizationId,"ORGANIZATION",128),workspaceId:safeGovernanceRef(scope?.workspaceId,"WORKSPACE",128)},
       row = (
         await this.pool.query(
           "SELECT * FROM business_data_connector WHERE id=$1 AND organization_id=$2 AND workspace_id=$3",
-          [id, s.organizationId, s.workspaceId],
+          [safeId, s.organizationId, s.workspaceId],
         )
       ).rows[0];
     if (!row) throw fail("BUSINESS_CONNECTOR_NOT_FOUND");
@@ -27,7 +23,7 @@ export class PostgresBusinessSourceGovernance {
     const connector = await this.connector(connectorId, scope);
     if (!connector.credential_reference_id)
       throw fail("BUSINESS_SOURCE_CREDENTIAL_REFERENCE_REQUIRED");
-    return connector.credential_reference_id;
+    return safeGovernanceRef(connector.credential_reference_id,"CREDENTIAL_REFERENCE",240);
   }
   present(row) {
     return {
