@@ -100,4 +100,6 @@ Tenant scope IDs are a shared security primitive: Growth Core accepts only 1–1
 
 Canonical immutable events are bounded in `PostgresGrowthStore` and migration 031: controlled event vocabulary, reference IDs, schema 1–100, object payload at most 64 KiB and application-side future-time rejection. The database check is intentionally `NOT VALID` so historic pre-contract immutable `TEST_EVENT` fixture rows do not block migration, but PostgreSQL enforces it for every new row. Do not validate or delete legacy rows outside an explicit governed retention operation.
 
+Canonical lead roots are bounded at both trust boundaries. `PostgresGrowthStore.upsertLead` validates IDs/source/state, object/array JSON shapes and byte sizes, optional market/ICP refs, finite clock and future creation time. Migration 032 immediately checks every new/direct row with `NOT VALID` legacy rollout semantics. Do not expand person/company/score into unbounded document storage.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

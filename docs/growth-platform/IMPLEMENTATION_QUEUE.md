@@ -64,6 +64,8 @@ All Growth tenant scope identifiers now share a bounded 1–128 index-safe gramm
 
 New immutable canonical events now require controlled types/references/schema, object payloads at most 64 KiB and non-future application timestamps. Migration 031 enforces new writes as `NOT VALID` for rollout compatibility with historic immutable test rows; legacy validation remains a governed retention task.
 
+Canonical lead roots now have bounded reference/state/time fields and typed 32/64 KiB JSON envelopes in the Store. Migration 032 mirrors structural checks for every new direct row while retaining rollout compatibility with pre-contract history.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

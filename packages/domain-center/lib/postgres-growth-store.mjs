@@ -6,8 +6,10 @@ const json = (value, fallback) => JSON.stringify(value ?? fallback);
 const fail=code=>Object.assign(new Error(code),{code});
 const normalizeIdentity=(identityType,value,{optional=false}={})=>{if(!['EMAIL','PHONE','DOMAIN'].includes(identityType))throw fail('GROWTH_IDENTITY_TYPE_INVALID');const raw=String(value??'').trim().toLowerCase();if(!raw&&optional)return null;let normalized=raw;if(identityType==='PHONE')normalized=raw.replace(/[\s().-]/g,'');if(identityType==='DOMAIN')normalized=raw.replace(/\.$/,'');const valid=identityType==='EMAIL'?normalized.length<=320&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized):identityType==='PHONE'?/^\+?\d{7,20}$/.test(normalized):/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(normalized);if(!valid)throw fail('GROWTH_IDENTITY_VALUE_INVALID');return normalized;};
 const assertIdentitySource=value=>{const source=String(value??'');if(!/^[A-Z][A-Z0-9_]{1,63}$/.test(source))throw fail('GROWTH_IDENTITY_SOURCE_INVALID');return source;};
-const safeEventRef=(value,{optional=false,max=255}={})=>{if(optional&&(value==null||value===''))return null;const text=String(value??'');if(text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(text))throw fail('GROWTH_EVENT_REFERENCE_INVALID');return text;};
-const safeEventPayload=value=>{if(!value||typeof value!=='object'||Array.isArray(value))throw fail('GROWTH_EVENT_PAYLOAD_INVALID');let serialized;try{serialized=JSON.stringify(value);}catch{throw fail('GROWTH_EVENT_PAYLOAD_INVALID');}if(Buffer.byteLength(serialized)>65536)throw fail('GROWTH_EVENT_PAYLOAD_INVALID');return serialized;};
+const safeCanonicalRef=(value,label,{optional=false,max=255}={})=>{if(optional&&(value==null||value===''))return null;const text=String(value??'');if(text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(text))throw fail(`GROWTH_${label}_REFERENCE_INVALID`);return text;};
+const safeJson=(value,label,{kind='object',maxBytes=65536,nullable=false}={})=>{if(nullable&&value==null)return null;if((kind==='object'&&(!value||typeof value!=='object'||Array.isArray(value)))||(kind==='array'&&!Array.isArray(value)))throw fail(`GROWTH_${label}_INVALID`);let serialized;try{serialized=JSON.stringify(value);}catch{throw fail(`GROWTH_${label}_INVALID`);}if(Buffer.byteLength(serialized)>maxBytes)throw fail(`GROWTH_${label}_INVALID`);return serialized;};
+const safeEventRef=(value,options)=>safeCanonicalRef(value,'EVENT',options);
+const safeEventPayload=value=>safeJson(value,'EVENT_PAYLOAD');
 
 export class PostgresGrowthStore {
   constructor({ pool,clock=()=>new Date() }) {
@@ -17,14 +19,19 @@ export class PostgresGrowthStore {
   }
 
   async upsertLead({ scope, lead }) {
-    const s = assertTenantScope(scope);
+    const s = assertTenantScope(scope),now=this.clock(),createdAt=new Date(lead?.createdAt??now);
+    if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw fail('GROWTH_LEAD_CLOCK_INVALID');
+    if(!lead||typeof lead!=='object')throw fail('GROWTH_LEAD_INVALID');
+    const leadId=safeCanonicalRef(lead.leadId,'LEAD',{max:160}),source=safeCanonicalRef(lead.source,'LEAD_SOURCE',{max:64}),status=String(lead.status??'NEW'),person=safeJson(lead.person??{},'LEAD_PERSON',{maxBytes:32768}),company=safeJson(lead.company??{},'LEAD_COMPANY',{maxBytes:32768}),externalRefs=safeJson(lead.externalRefs??[],'LEAD_EXTERNAL_REFS',{kind:'array'}),score=safeJson(lead.score,'LEAD_SCORE',{nullable:true}),marketId=safeCanonicalRef(lead.marketId,'LEAD_MARKET',{optional:true,max:160}),icpId=safeCanonicalRef(lead.icpId,'LEAD_ICP',{optional:true,max:160});
+    if(!/^[A-Z][A-Z0-9_]{1,63}$/.test(status))throw fail('GROWTH_LEAD_STATUS_INVALID');
+    if(!Number.isFinite(createdAt.getTime())||createdAt.getTime()>now.getTime()+300000)throw fail('GROWTH_LEAD_TIME_INVALID');
     const result = await this.pool.query(
       `INSERT INTO growth_lead(id,organization_id,workspace_id,tenant_id,source,status,person,company,market_id,icp_id,external_refs,score,created_at,updated_at)
        VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,$11::jsonb,$12::jsonb,$13,$14)
        ON CONFLICT(id) DO UPDATE SET status=EXCLUDED.status,person=EXCLUDED.person,company=EXCLUDED.company,market_id=EXCLUDED.market_id,icp_id=EXCLUDED.icp_id,external_refs=EXCLUDED.external_refs,score=EXCLUDED.score,updated_at=EXCLUDED.updated_at
        WHERE growth_lead.organization_id=EXCLUDED.organization_id AND growth_lead.workspace_id=EXCLUDED.workspace_id AND growth_lead.tenant_id=EXCLUDED.tenant_id
        RETURNING *`,
-      [lead.leadId, s.organizationId, s.workspaceId, s.tenantId, lead.source, lead.status ?? 'NEW', json(lead.person, {}), json(lead.company, {}), lead.marketId ?? null, lead.icpId ?? null, json(lead.externalRefs, []), json(lead.score, null), lead.createdAt ?? new Date(), new Date()]
+      [leadId, s.organizationId, s.workspaceId, s.tenantId, source, status, person, company, marketId, icpId, externalRefs, score, createdAt, now]
     );
     if (!result.rowCount) throw new Error('cross-tenant growth lead update denied');
     return result.rows[0];
