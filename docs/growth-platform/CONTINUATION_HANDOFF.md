@@ -142,7 +142,7 @@ Official outbound adapters now require an `application/json` or structured `+jso
 
 `growthMigrationPaths` is an exported immutable manifest. Acceptance checks strict numeric ordering, uniqueness, every Growth up file, shared migration 020 and down-file coverage from 018 onward. Migrations 012–017 intentionally have no destructive down scripts because they establish data-bearing baseline tables.
 
-Use `inspectGrowthMigrations(client, growthMigrationPaths)` for a read-only deployment preflight. It reports per-file checksums and READY/PENDING/BLOCKED; drift or a legacy null checksum blocks, while a missing ledger is represented as pending. Inspection never creates the ledger or applies DDL.
+Use `inspectGrowthMigrations(client, growthMigrationPaths)` for a read-only deployment preflight. It reports per-file checksums and READY/PENDING/BLOCKED; drift, a legacy null checksum or an applied ledger entry absent from the immutable manifest blocks, while a missing ledger is represented as pending. Inspection never creates the ledger or applies DDL.
 
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
