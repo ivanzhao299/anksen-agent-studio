@@ -328,6 +328,12 @@ Connector, approval, mapping, and credential-reference controls reuse full secre
 
 Smart Park source IDs and work-order codes reject surrounding whitespace and non-finite numeric identities instead of silently normalizing distinct upstream keys into one authoritative record.
 
+The Smart Park CLI parses controls before database creation, rejects unknown arguments/accessor-backed environment values, requires explicit organization/workspace for `--apply`, and carries optional tenant/project scope into the same governed sync service.
+
+Smart Park CLI failures emit only a stable JSON status/code and close owned pools. Filesystem, database, provider messages, local paths, and stack traces are not written to command output.
+
+Growth CI path filters explicitly include the Smart Park command entrypoint, so CLI-only governance/error-handling changes still run Domain typecheck and the authoritative acceptance gate.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
