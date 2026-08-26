@@ -9,10 +9,11 @@ import { PostgresGrowthStore } from '../lib/postgres-growth-store.mjs';
 import { createLead } from '../../growth-core/lib/domain-model.mjs';
 
 const secret = 'persistent-growth-test-secret';
-const sign = (body) => createHmac('sha256', secret).update(body).digest('hex');
+const webhookTimestamp = String(Date.parse('2026-08-26T03:00:00Z') / 1000);
+const sign = (body,eventId) => createHmac('sha256', secret).update(`${webhookTimestamp}.${eventId}.`).update(body).digest('hex');
 const normalizedEvent = async (adapter, eventId, payload) => {
   const body = JSON.stringify(payload);
-  const result = await adapter.ingestWebhook({ rawBody: body, headers: { 'x-growth-event-id': eventId, 'x-growth-signature': sign(body) } });
+  const result = await adapter.ingestWebhook({ rawBody: body, headers: { 'x-growth-event-id': eventId, 'x-growth-timestamp':webhookTimestamp,'x-growth-signature': sign(body,eventId) } });
   return result.event;
 };
 

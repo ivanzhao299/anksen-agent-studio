@@ -46,6 +46,8 @@ Delivery retry and reconciliation mutations now default-deny at the PostgreSQL s
 
 Identity-review decisions now default-deny at the store seam and require Console's evaluated approval capability. Decision reasons are bounded/non-secret at the application boundary, while migration 027 provides matching direct-SQL enforcement.
 
+Signed website ingress now binds timestamp, event ID and raw body into HMAC-SHA256, enforces a default five-minute replay window and authenticates duplicates before replay response. Event-ID substitution no longer reuses a captured body signature, and consent normalization accepts literal booleans only.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

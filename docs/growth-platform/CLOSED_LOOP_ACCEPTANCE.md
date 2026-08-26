@@ -66,6 +66,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 
 - `pnpm --filter @anksen-agent-studio/growth-core pilot:readiness` evaluates implementation evidence separately from production activation evidence and is part of the root and CI acceptance gates.
 - The KingTurf snapshot proves the tenant pack, scoped channel mix, signed website connector, official publishing/business adapter boundaries, persistence migrations, delivery audit/ledger and unrelated second-tenant validation.
+- Website webhook HMAC covers the canonical bytes `timestamp + "." + eventId + "." + rawBody`, not the body alone. `x-growth-timestamp` is a 10-digit Unix second within the configured window (default 300 seconds), event IDs are bounded, and replay lookup happens only after signature validation. Changing the event ID or timestamp invalidates the signature; consent flags require literal JSON booleans.
 - The snapshot truthfully remains `PILOT_ACTIVATION_BLOCKED` while credential references, connector health, data-owner approval, production feature flag, Runtime Activation Gate or explicit production authorization are absent.
 - Readiness assessment is pure and read-only: it cannot resolve credential values, invoke connectors, mutate production, or enable a Runtime.
 - The authenticated Growth Console projects the same versioned report and its blockers through a read-only endpoint; it exposes no activation control and rejects an explicitly different tenant context.

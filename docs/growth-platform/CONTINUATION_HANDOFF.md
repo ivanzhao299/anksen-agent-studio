@@ -82,4 +82,6 @@ Retry and reconciliation are default-deny at the delivery store seam. Console su
 
 Identity-review decisions are likewise default-deny in the store, with Console injecting its evaluated `proposal.approve` decision. Human resolution reasons are bounded and reject controls/common raw-secret shapes before authorization. Migration 027 repeats the reason constraint in PostgreSQL and is Growth-runner-only because it depends on identity-review migration 016.
 
+The signed website ingress contract now requires `x-growth-event-id`, 10-digit Unix-second `x-growth-timestamp` and `x-growth-signature`. Sign the exact byte sequence `timestamp.eventId.rawBody` with HMAC-SHA256. Default clock skew is 300 seconds (hard maximum 900), and duplicates still authenticate before replay handling. Producers using the former body-only signature must upgrade before activation; no named production connector is active.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
