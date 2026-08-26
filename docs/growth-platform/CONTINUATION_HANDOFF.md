@@ -250,6 +250,8 @@ Managed authorization is a closed native envelope whose tenant must equal the ac
 
 Invalid managed payloads acquire the same approval lock before failed-batch or connector-error persistence, preventing forged authorization from poisoning connector state.
 
+Successful and failed idempotency-race recovery reauthorizes in a new transaction before reading the winning managed batch; rollback cannot create an authorization bypass.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
