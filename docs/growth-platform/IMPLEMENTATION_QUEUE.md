@@ -24,6 +24,8 @@ Production authorization reference validators now reject common raw-secret forma
 
 Migration 023 and delivery-store validation prevent secret-like idempotency, adapter, asset or approval references from entering the outbound ledger, including direct database bypass attempts.
 
+Migration 024 constrains external delivery IDs/statuses, while the completion path converts unsafe adapter responses into sanitized terminal failures rather than persisted remote content.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

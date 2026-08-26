@@ -16,6 +16,7 @@ test('delivery ledger is idempotent, retryable, CAS-protected and reconcilable',
     await assert.rejects(()=>pool.query(`INSERT INTO growth_delivery_operation(id,organization_id,workspace_id,tenant_id,idempotency_key,operation_type,adapter_id,capability,asset_ref,approval_ref,request_fingerprint,status,max_attempts) VALUES($1,$2,$3,$4,$5,'PUBLISH','official-v1','PUBLISH_CONTENT','sk-direct-secret','approval/ref-1','fingerprint','READY',3)`,[`delivery_direct_${suffix}`,scope.organizationId,scope.workspaceId,scope.tenantId,`direct-${suffix}`]),error=>error.code==='23514');
     const registered=await store.register(input),duplicate=await store.register(input);
     assert.equal(registered.duplicate,false);assert.equal(duplicate.duplicate,true);assert.equal(duplicate.operation.id,registered.operation.id);
+    await assert.rejects(()=>pool.query("UPDATE growth_delivery_operation SET external_id='sk-direct-response' WHERE id=$1",[registered.operation.id]),error=>error.code==='23514');
     await assert.rejects(()=>store.register({...input,assetRef:'asset/ref-2'}),error=>error.code==='DELIVERY_IDEMPOTENCY_PAYLOAD_MISMATCH');
     assert.equal(await store.get(other,registered.operation.id),null);
 
@@ -46,6 +47,8 @@ test('non-retryable delivery failure becomes terminal without another external c
     const failed=await executeGrowthDelivery({store,scope,operation,adapter:{async publish(){throw Object.assign(new Error('approval rejected'),{code:'OFFICIAL_API_APPROVAL_REQUIRED',retryable:false});}}});
     assert.equal(failed.status,'FAILED');assert.equal(failed.next_attempt_at,null);
     await assert.rejects(()=>executeGrowthDelivery({store,scope,operation:failed,adapter:{async publish(){throw new Error('must not run');}}}),error=>error.code==='DELIVERY_NOT_EXECUTABLE_OR_VERSION_CONFLICT');
+    const unsafe=(await store.register({scope,idempotencyKey:`unsafe-${suffix}`,adapterId:'official-v1',assetRef:'asset/ref-2',approvalRef:'approval/ref-2'})).operation,blocked=await executeGrowthDelivery({store,scope,operation:unsafe,adapter:{async publish(){return{externalId:'sk-response-secret',status:'PUBLISHED'};}}});
+    assert.equal(blocked.status,'FAILED');assert.equal(blocked.external_id,null);assert.equal(blocked.last_error.code,'DELIVERY_EXTERNAL_ID_REFERENCE_INVALID');assert.doesNotMatch(JSON.stringify(blocked),/sk-response-secret/);
   }finally{await pool.query('DELETE FROM growth_delivery_operation WHERE organization_id=$1',[scope.organizationId]).catch(()=>{});await pool.end();}
 });
 

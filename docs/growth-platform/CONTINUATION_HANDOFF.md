@@ -60,4 +60,6 @@ Authorization-reference validation for connector activation and the tenant produ
 
 Outbound delivery registration now validates every persisted reference before fingerprinting. Migration 023 adds PostgreSQL reference-only and secret-material constraints to the ledger; both store-level and direct-SQL rejection are in acceptance. This migration is Growth-runner-only because it depends on delivery migration 014.
 
+Migration 024 and `complete()` apply the same trust boundary to adapter-returned external ID/status. A token-like adapter response cannot complete an operation or enter the ledger; execution records only the sanitized validation error and direct SQL is constraint-rejected.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
