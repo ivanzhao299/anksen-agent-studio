@@ -52,6 +52,8 @@ Verified website payloads now pass a bounded event/contact/consent/reference sch
 
 Website ingress now caps body configuration at 1 MiB and its in-process replay cache at 100,000 entries (10,000 default) with FIFO eviction. Durable tenant-scoped PostgreSQL idempotency remains authoritative across eviction and process restart.
 
+Official outbound adapters now share strict booleans, bounded timeout/response/token settings, loopback-only HTTP testing and endpoint URL hygiene. Success references and business payloads are validated before return/write, and publishing no longer propagates untrusted remote URLs.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

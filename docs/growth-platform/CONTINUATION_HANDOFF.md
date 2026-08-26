@@ -88,4 +88,6 @@ After HMAC verification, website payloads use a bounded schema rather than coerc
 
 The adapter replay cache is deliberately bounded: 10,000 entries by default and never above 100,000, evicting oldest IDs. Body configuration is also hard-capped at 1 MiB. Treat this cache as a fast path only; the PostgreSQL canonical-event idempotency key is the durable replay defense after eviction or restart.
 
+Official publishing and business adapters now use `official-api-safety.mjs`. Activation booleans are strict, timeouts stay within 100 ms–30 s, HTTP test escape is loopback-only, endpoint userinfo/query/fragment is denied and success bodies are streamed under a configured 64 KiB default/1 MiB ceiling. Returned IDs/statuses are reference-only, publishing drops remote URLs, and business payloads reject secret-bearing keys/values plus excessive shape/size. Preserve this shared boundary for future official connectors.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
