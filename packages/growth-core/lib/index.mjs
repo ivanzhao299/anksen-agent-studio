@@ -6,3 +6,6 @@ export * from './discovery-ingestion.mjs';
 export * from './lead-graph.mjs';
 export * from './scoring-engine.mjs';
 export * from './tenant-kit.mjs';
+export * from './content-strategy.mjs';
+export * from './publishing.mjs';
+export * from './mock-publishing-adapter.mjs';
