@@ -10,6 +10,8 @@ An optional tenant Runtime binding now has an immutable seven-field CODEX schema
 
 Connector binding configuration and health-evidence persistence now share a default-deny injected mutation authorization. Read-only health probing has its own pre-adapter default-deny authorization. Readiness remains available to Console, while direct calls cannot silently create bindings, contact probe targets or promote health without an explicitly authorized integration context.
 
+Activation approval proof is version-bound to the exact Business approval transition that produced the current `APPROVED` record. A stale or unrelated historical approval can no longer satisfy connector preflight.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

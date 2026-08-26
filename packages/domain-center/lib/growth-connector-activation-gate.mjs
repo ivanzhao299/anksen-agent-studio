@@ -52,7 +52,7 @@ export class GrowthConnectorActivationGate {
     const suffix = lock ? " FOR UPDATE" : "",
       [activation, binding] = await Promise.all([
         client.query(
-          `SELECT r.*,EXISTS(SELECT 1 FROM business_approval a WHERE a.business_record_id=r.id AND a.organization_id=r.organization_id AND a.workspace_id=r.workspace_id AND a.application_id=r.application_id AND a.status='APPROVED' AND a.requested_status='APPROVED' AND a.reviewed_by IS NOT NULL) approval_proven FROM business_application_record r WHERE r.id=$1 AND r.organization_id=$2 AND r.workspace_id=$3 AND r.application_id='ai-growth-sales-platform' AND r.object_type='connector_activation'${suffix}`,
+          `SELECT r.*,EXISTS(SELECT 1 FROM business_approval a WHERE a.business_record_id=r.id AND a.organization_id=r.organization_id AND a.workspace_id=r.workspace_id AND a.application_id=r.application_id AND a.object_version+1=r.version AND a.status='APPROVED' AND a.requested_status='APPROVED' AND a.reviewed_by IS NOT NULL) approval_proven FROM business_application_record r WHERE r.id=$1 AND r.organization_id=$2 AND r.workspace_id=$3 AND r.application_id='ai-growth-sales-platform' AND r.object_type='connector_activation'${suffix}`,
           [activationId, scope.organizationId, scope.workspaceId],
         ),
         client.query(

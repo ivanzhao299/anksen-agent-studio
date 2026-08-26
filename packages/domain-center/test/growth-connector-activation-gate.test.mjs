@@ -162,6 +162,20 @@ test("connector activation consumes an existing business approval exactly once w
       (error) => error.code === "BUSINESS_RECORD_TRANSITION_DENIED",
     );
     const deniedGate = new GrowthConnectorActivationGate({ pool, clock });
+    await pool.query(
+      "UPDATE business_approval SET object_version=object_version+10 WHERE id=$1",
+      [approval.id],
+    );
+    const staleApproval = await deniedGate.preflight({
+      scope,
+      activationId: draft.id,
+      expectedActivationVersion: decision.record.version,
+    });
+    assert.ok(staleApproval.reasons.includes("ACTIVATION_APPROVAL_NOT_PROVEN"));
+    await pool.query(
+      "UPDATE business_approval SET object_version=$2 WHERE id=$1",
+      [approval.id, waiting.version],
+    );
     await assert.rejects(
       () =>
         deniedGate.activate({

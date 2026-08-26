@@ -48,4 +48,6 @@ Tenant packs now validate an optional immutable `metadata.runtimeActivationBindi
 
 The connector-binding store now defaults both configuration writes and health-evidence writes to unauthorized. The health-probe service separately rejects the actor before it reads binding context or invokes an adapter, proven by a zero-call test. Console constructs the default-deny store for read-only readiness. Tests inject narrow actor authorizations explicitly; do not add a mutation endpoint or production probe adapter without mapping it through existing Access Center and Production Ops policy.
 
+Connector activation now binds the reused Business approval to the precise approved record version: the approval's requested object version plus the approval transition increment must equal the current record version. Historical/stale approvals fail preflight even if their status remains `APPROVED`.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
