@@ -65,6 +65,7 @@ const directExecuteActionIds = new Set([
   "growth-delivery-reconcile",
   "growth-identity-review-decision",
   "growth-connector-activate",
+  "growth-connector-disable",
   "business-runner-control",
   "cad-document-analyze",
   "identity-owner-bootstrap"
@@ -129,6 +130,7 @@ const consoleActionCatalog = {
   "growth-delivery-reconcile": { capabilities: ["console.access", "sales.read", "business.manage", "proposal.approve"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "growth-identity-review-decision": { capabilities: ["console.access", "sales.read", "business.operate", "proposal.approve"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "growth-connector-activate": { capabilities: ["console.access", "sales.read", "business.manage", "production.request"], execution_mode: "human_approval_required", projectScoped: false, risk: "CRITICAL" },
+  "growth-connector-disable": { capabilities: ["console.access", "sales.read", "business.manage", "production.request"], execution_mode: "direct_execute", projectScoped: false, risk: "CRITICAL" },
   "business-runner-control": { capabilities: ["console.access", "business.manage", "business.work.control"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "capability-app-handoff": { capabilities: ["console.access", "video.read", "autopilot.plan"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
   "capability-app-upload": { capabilities: ["console.access", "video.read", "autopilot.execute.local"], execution_mode: "direct_execute", projectScoped: false, risk: "MEDIUM" },
