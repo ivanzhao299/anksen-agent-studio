@@ -190,4 +190,6 @@ Connector activation controls likewise require native references, actors, positi
 
 Production feature flag controls require native bounded keys/actors, positive integer CAS versions and integer authorization windows before production authorization, SQL or pool connection acquisition.
 
+Growth tenant source-readiness requires native bounded organization/workspace/tenant/application IDs and a positive integer limit before SQL. Limits cap at 100; invalid clocks still fail closed.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

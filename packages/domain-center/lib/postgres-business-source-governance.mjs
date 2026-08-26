@@ -162,11 +162,11 @@ export class PostgresBusinessSourceGovernance {
     };
   }
   async tenantReadiness(scope = {}, { applicationId,limit=100 } = {}) {
-    const s = scopeOf(scope),
-      tenantId = String(scope.tenantId ?? "").trim(),
-      app = String(applicationId ?? "").trim(),safeLimit=Math.max(1,Math.min(100,Number(limit)||100)),clockValue=this.clock(),now=clockValue instanceof Date?clockValue.getTime():NaN;
-    if (![s.organizationId,s.workspaceId,tenantId,app].every(value=>/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(value)))
+    const values=[scope.organizationId,scope.workspaceId,scope.tenantId,applicationId];
+    if(!values.every(value=>typeof value==='string'&&/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(value.trim())))
       throw fail("BUSINESS_SOURCE_TENANT_READINESS_SCOPE_REQUIRED");
+    if(typeof limit!=='number'||!Number.isInteger(limit)||limit<1)throw fail("BUSINESS_SOURCE_TENANT_READINESS_LIMIT_INVALID");
+    const [organizationId,workspaceId,tenantId,app]=values.map(value=>value.trim()),s={organizationId,workspaceId},safeLimit=Math.min(100,limit),clockValue=this.clock(),now=clockValue instanceof Date?clockValue.getTime():NaN;
     if(!Number.isFinite(now))throw fail("BUSINESS_SOURCE_TENANT_READINESS_CLOCK_INVALID");
     const rows = (
       await this.pool.query(
