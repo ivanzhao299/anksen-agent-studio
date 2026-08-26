@@ -314,6 +314,8 @@ Smart Park batch idempotency and evidence references bind both the normalized cu
 
 Returned ingest evidence must identify the Smart Park application and expose a native duplicate flag in addition to exact connector/batch identity. Cross-application or ambiguous results never reach checkpointing.
 
+Returned checkpoint evidence must bind `lastObservedAt` exactly to the source observation and expose a canonical update timestamp in addition to matching cursor, batch, authorization, counts, and reconciliation status.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.

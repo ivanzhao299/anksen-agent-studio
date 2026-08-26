@@ -184,6 +184,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Injected source results must be strictly ordered by `(observedAt, sourceRecordKey)` with unique source keys, making the cursor-keyed payload deterministic and audit-reproducible.
 - Smart Park batch idempotency and evidence references bind both the normalized cursor and SHA-256 of the canonical validated record payload. Different payloads at the same cursor cannot be mistaken for an existing batch.
 - Returned ingest evidence must identify the Smart Park application and expose a native duplicate flag in addition to the exact connector/batch identity; cross-application or ambiguous results never reach checkpointing.
+- Returned checkpoint evidence must bind `lastObservedAt` exactly to the source observation and expose a canonical update timestamp in addition to matching cursor, batch, authorization, counts, and reconciliation status.
 - The authoritative acceptance command and Growth CI path filters include the Smart Park reference source and its end-to-end source-to-Runner tests, so source adapter changes cannot bypass the production-loop gate.
 - Smart Park adapter timeouts and pagination controls accept only bounded native integers, and empty reads use an injected native valid Date clock. Control coercion objects and clock impostors fail closed.
 - Smart Park credential-resolution and network-client failures are projected as stable controlled codes without forwarding provider exception messages; existing timeout, HTTP and response-validation codes remain precise.
