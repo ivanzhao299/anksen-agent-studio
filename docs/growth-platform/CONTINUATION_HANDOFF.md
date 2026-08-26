@@ -252,6 +252,8 @@ Invalid managed payloads acquire the same approval lock before failed-batch or c
 
 Successful and failed idempotency-race recovery reauthorizes in a new transaction before reading the winning managed batch; rollback cannot create an authorization bypass.
 
+Smart Park credential configuration is a closed plain-data snapshot. Accessors and unknown keys are rejected without invocation, and base origins cannot include query or fragment state.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
