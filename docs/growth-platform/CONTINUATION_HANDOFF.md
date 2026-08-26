@@ -240,6 +240,10 @@ Console direct connector ingestion fails closed with `BUSINESS_SYNC_REQUIRES_MAN
 
 Console connector registration and source-approval failures return stable controlled status codes only; raw database or provider exception messages are not reflected to clients.
 
+Managed source ingest carries native approval ID, version, mapping and tenant evidence into the business-write transaction. The store locks the exact unexpired approval `FOR SHARE`; authorization conflict rolls back before record mutation.
+
+Fault injection verifies an empty approval-lock result rolls back before any business-record read or write.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
