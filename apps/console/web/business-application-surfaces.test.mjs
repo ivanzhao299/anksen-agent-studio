@@ -1444,6 +1444,7 @@ test("outcome center exposes governed authoritative business connectors without 
     );
   assert.match(server, /BUSINESS_SYNC_REQUIRES_MANAGED_SOURCE_ADAPTER/);
   assert.doesNotMatch(server, /businessDataConnectorStore\.ingest/);
+  assert.doesNotMatch(server, /BUSINESS_(?:CONNECTOR|SOURCE_APPROVAL)_[A-Z_]+",reason:error\.message/);
   assert.doesNotMatch(html, /credentialReferenceId.*REFERENCE_CONFIGURED/);
 });
 test("authoritative source readiness requires data-owner approval and exposes no credential value", async () => {
