@@ -216,6 +216,8 @@ Tenant readiness snapshots scope and options before reading application and limi
 
 The shared governed connector lookup snapshots scope before resolving IDs, so readiness, credential-reference, approval and checkpoint reads inherit one fail-closed accessor boundary.
 
+Source readiness checkpoint projection requires scoped closed database evidence, native/string dates, bounded native-or-decimal counts and controlled reconciliation states. Database coercion methods are not invoked.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.

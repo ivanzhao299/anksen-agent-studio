@@ -3,6 +3,7 @@ const fail = (code) => Object.assign(new Error(code), { code }),
   hash = (value) => createHash("sha256").update(String(value)).digest("hex");
 const governanceEnvelope=(value,code,allowed)=>{if(!value||typeof value!=="object"||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value)))throw fail(code);const keys=Reflect.ownKeys(value);if(keys.some(key=>typeof key!=="string"||!allowed.has(key)))throw fail(code);const descriptors=Object.getOwnPropertyDescriptors(value),copy=Object.create(null);for(const key of keys){const descriptor=descriptors[key];if(!descriptor||!Object.hasOwn(descriptor,"value"))throw fail(code);copy[key]=descriptor.value;}return copy;};
 const secretLike=value=>/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(value),safeGovernanceRef=(value,label,max=160)=>{if(typeof value!=="string")throw fail(`BUSINESS_SOURCE_${label}_INVALID`);const text=value.trim();if(!text||text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||secretLike(text))throw fail(`BUSINESS_SOURCE_${label}_INVALID`);return text;},safeSourceRef=(value,label,max=160)=>{if(typeof value!=="string")throw fail(`BUSINESS_SOURCE_APPROVAL_${label}_INVALID`);const text=value.trim();if(!text||text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||secretLike(text))throw fail(`BUSINESS_SOURCE_APPROVAL_${label}_INVALID`);return text;},safeSourceScope=value=>({organizationId:safeSourceRef(value?.organizationId,"ORGANIZATION",128),workspaceId:safeSourceRef(value?.workspaceId,"WORKSPACE",128)}),safeSourceClock=value=>{if(!(value instanceof Date)||!Number.isFinite(value.getTime()))throw fail("BUSINESS_SOURCE_APPROVAL_CLOCK_INVALID");return value;};
+const readinessCheckpoint=(row,connector)=>{const invalid=()=>{throw fail("BUSINESS_SOURCE_CHECKPOINT_EVIDENCE_INVALID");},value=governanceEnvelope(row,"BUSINESS_SOURCE_CHECKPOINT_EVIDENCE_INVALID",new Set(["connector_id","organization_id","workspace_id","source_cursor","last_observed_at","last_batch_id","source_count","mapped_count","rejected_count","reconciliation_status","reconciliation_hash","updated_at"])),ref=(input,max=240,{optional=false}={})=>{if(optional&&input==null)return null;if(typeof input!=="string")return invalid();const text=input.trim();if(!text||text.length>max||secretLike(text)||/[\u0000-\u001f\u007f]/.test(text))return invalid();return text;},date=(input,{optional=false}={})=>{if(optional&&input==null)return null;if(typeof input!=="string"&&!(input instanceof Date))return invalid();const parsed=new Date(input);if(!Number.isFinite(parsed.getTime()))return invalid();return parsed.toISOString();},count=input=>{if(typeof input==="string"&&!/^(?:0|[1-9][0-9]{0,6})$/.test(input))return invalid();const number=typeof input==="string"?Number.parseInt(input,10):input;if(!Number.isInteger(number)||number<0||number>1000000)return invalid();return number;};if(value.connector_id!==connector.id||value.organization_id!==connector.organization_id||value.workspace_id!==connector.workspace_id||!["PENDING","MATCHED","MISMATCH","FAILED"].includes(value.reconciliation_status))invalid();return{sourceCursor:ref(value.source_cursor,240,{optional:true}),lastObservedAt:date(value.last_observed_at,{optional:true}),lastBatchId:ref(value.last_batch_id,160,{optional:true}),sourceCount:count(value.source_count),mappedCount:count(value.mapped_count),rejectedCount:count(value.rejected_count),reconciliationStatus:value.reconciliation_status,updatedAt:date(value.updated_at)};};
 export class PostgresBusinessSourceGovernance {
   constructor({ pool, clock = () => new Date() } = {}) {
     if (!pool) throw fail("BUSINESS_SOURCE_GOVERNANCE_POOL_REQUIRED");
@@ -132,21 +133,7 @@ export class PostgresBusinessSourceGovernance {
       connectorId: connector.id,
       checks,
       approval: approval ? this.present(approval) : null,
-      checkpoint: checkpoint
-        ? {
-            sourceCursor: checkpoint.source_cursor,
-            lastObservedAt:
-              checkpoint.last_observed_at?.toISOString?.() ??
-              checkpoint.last_observed_at,
-            lastBatchId: checkpoint.last_batch_id,
-            sourceCount: Number(checkpoint.source_count),
-            mappedCount: Number(checkpoint.mapped_count),
-            rejectedCount: Number(checkpoint.rejected_count),
-            reconciliationStatus: checkpoint.reconciliation_status,
-            updatedAt:
-              checkpoint.updated_at?.toISOString?.() ?? checkpoint.updated_at,
-          }
-        : null,
+      checkpoint: checkpoint ? readinessCheckpoint(checkpoint,connector) : null,
     };
   }
   async tenantReadiness(scope = {}, options = {}) {

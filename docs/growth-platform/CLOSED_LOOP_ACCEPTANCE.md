@@ -135,6 +135,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Reconciliation checkpoint input, batch evidence and scope are snapshotted before destructuring; accessors cannot run ahead of validation or alter the hashed/write evidence.
 - Tenant readiness snapshots scope and options before reading application/limit controls, keeping read-only activation evidence free of caller-controlled accessors.
 - The shared governed connector lookup snapshots its scope before resolving IDs, covering readiness, credential-reference, approval and checkpoint reads with one fail-closed boundary.
+- Source readiness checkpoint projection accepts only scoped closed database evidence, native/string dates, bounded native-or-decimal counts and controlled reconciliation states; database coercion methods are never called.
 - The authoritative acceptance command and Growth CI path filters include the Smart Park reference source and its end-to-end source-to-Runner tests, so source adapter changes cannot bypass the production-loop gate.
 - Smart Park adapter timeouts and pagination controls accept only bounded native integers, and empty reads use an injected native valid Date clock. Control coercion objects and clock impostors fail closed.
 - Smart Park credential-resolution and network-client failures are projected as stable controlled codes without forwarding provider exception messages; existing timeout, HTTP and response-validation codes remain precise.
