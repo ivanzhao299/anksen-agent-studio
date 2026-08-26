@@ -78,6 +78,8 @@ Customer 360 and connector audit read paths now cap each history collection (200
 
 Identity resolution now rejects unsafe canonical lead references before SQL, and migration 037 constrains lead root IDs for new direct identity rows while the identity key remains native UUID. The existing normalized EMAIL/PHONE/DOMAIN and uppercase source contract remains authoritative.
 
+Delivery controls now validate operation/actor/external references, positive versions and finite clocks before authorization or SQL; audit history is capped at 500 recent rows. Migration 038 mirrors operation fingerprint/actor/counter/error-envelope constraints for new direct rows.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
