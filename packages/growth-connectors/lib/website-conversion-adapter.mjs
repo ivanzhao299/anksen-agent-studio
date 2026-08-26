@@ -7,10 +7,12 @@ const safeReference=(value,label,{optional=false}={})=>{const text=safeText(valu
 
 function normalizeHeaders(headers={}) {
   if(!headers||typeof headers!=='object')throw new Error('WEBSITE_WEBHOOK_HEADERS_INVALID');
-  const entries=typeof headers?.entries==='function'?[...headers.entries()]:Object.entries(headers);
+  const standardHeaders=typeof Headers!=='undefined'&&headers instanceof Headers,prototype=Object.getPrototypeOf(headers),plainObject=prototype===Object.prototype||prototype===null;
+  if(!standardHeaders&&!plainObject)throw new Error('WEBSITE_WEBHOOK_HEADERS_INVALID');
+  const entries=standardHeaders?[...headers.entries()]:Object.entries(headers);
   if(entries.length>64)throw new Error('WEBSITE_WEBHOOK_HEADERS_TOO_LARGE');
   const normalized=Object.create(null);
-  for(const [rawKey,rawValue] of entries){const key=String(rawKey).toLowerCase(),value=rawValue;if(!/^[a-z0-9-]{1,64}$/.test(key)||typeof value!=='string'||Buffer.byteLength(value)>8192||/[\u0000\r\n]/.test(value))throw new Error('WEBSITE_WEBHOOK_HEADER_INVALID');normalized[key]=value;}
+  for(const [rawKey,rawValue] of entries){const key=rawKey.toLowerCase(),value=rawValue;if(Object.hasOwn(normalized,key))throw new Error('WEBSITE_WEBHOOK_HEADER_DUPLICATE');if(!/^[a-z0-9-]{1,64}$/.test(key)||typeof value!=='string'||Buffer.byteLength(value)>8192||/[\u0000\r\n]/.test(value))throw new Error('WEBSITE_WEBHOOK_HEADER_INVALID');normalized[key]=value;}
   return normalized;
 }
 

@@ -176,6 +176,8 @@ Website ingress samples its clock once, accepts only native strings or Dates and
 
 Website signature verification is fixed to SHA-256 and requires native signature, secret, event ID and timestamp controls with exact bounded shapes. Algorithm selection and object coercion are denied.
 
+Website header normalization accepts only plain objects or native `Headers`. Case-folded duplicate names and custom iterable collections fail before secret resolution, so signature inputs cannot be shadowed by ambiguous headers.
+
 Tenant data-owner approval request/decision paths validate native scope and bounded connector, owner, mapping, approval, version, reason and expiry controls with one clock sample before SQL. Invalid work cannot even query the connector.
 
 Source reconciliation checkpoint writes validate native scope and bounded connector, batch, mapping, cursor, count and observed-time evidence before SQL. A single clock sample and normalized values drive both the stored row and reconciliation hash.
