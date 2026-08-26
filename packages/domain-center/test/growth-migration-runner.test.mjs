@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
-import {readdir,access} from "node:fs/promises";
+import {readdir,access,readFile} from "node:fs/promises";
 import {basename,resolve} from "node:path";
 import {
   ensurePostgresFixture,
@@ -10,6 +10,7 @@ import {
 import {
   applyGrowthMigrations,
   inspectGrowthMigrations,
+  prepareGrowthMigrationSql,
   withGrowthMigrationLock,
 } from "../lib/growth-migration-runner.mjs";
 import {growthMigrationPaths} from "../lib/growth-database.mjs";
@@ -72,3 +73,5 @@ test("growth migration status errors are versioned and sanitized",()=>{assert.eq
 test("strict growth migration apply blocks unexpected ledger entries",async()=>{await ensurePostgresFixture();const pool=createTestPool(),client=await pool.connect(),name='997_removed_growth_migration.up.sql';try{await withGrowthMigrationLock(client,()=>applyGrowthMigrations(client,growthMigrationPaths,{strictManifest:true}));await client.query('INSERT INTO growth_schema_migration(name,checksum) VALUES($1,$2) ON CONFLICT(name) DO UPDATE SET checksum=EXCLUDED.checksum',[name,'a'.repeat(64)]);await assert.rejects(()=>withGrowthMigrationLock(client,()=>applyGrowthMigrations(client,growthMigrationPaths,{strictManifest:true})),error=>error.code==='GROWTH_SCHEMA_MIGRATION_MANIFEST_BLOCKED'&&error.summary.unexpectedApplied===1);}finally{await client.query('DELETE FROM growth_schema_migration WHERE name=$1',[name]).catch(()=>{});client.release();await pool.end();}});
 
 test("growth migration lock wait is bounded when another session owns it",async()=>{let operationCalls=0,unlockCalls=0;const client={async query(sql){if(sql.startsWith('SELECT pg_try_advisory_lock'))return{rows:[{acquired:false}]};if(sql.startsWith('SELECT pg_advisory_unlock'))unlockCalls+=1;return{rows:[]};}};await assert.rejects(()=>withGrowthMigrationLock(client,async()=>{operationCalls+=1;},{waitMs:0}),error=>error.code==='GROWTH_SCHEMA_MIGRATION_LOCK_BUSY'&&error.retryable===true);await assert.rejects(()=>withGrowthMigrationLock(client,async()=>{}, {waitMs:30001}),/LOCK_WAIT_INVALID/);assert.equal(operationCalls,0);assert.equal(unlockCalls,0);});
+
+test("growth migration execution strips only the reviewed legacy transaction wrapper",async()=>{const legacyPath=growthMigrationPaths.find(path=>basename(path)==='018_growth_source_approval_scope.up.sql'),sql=await readFile(legacyPath,'utf8'),prepared=prepareGrowthMigrationSql(sql,legacyPath);assert.doesNotMatch(prepared,/^\s*BEGIN\s*;/i);assert.doesNotMatch(prepared,/COMMIT\s*;\s*$/i);assert.match(prepared,/ALTER TABLE business_data_source_approval/);assert.throws(()=>prepareGrowthMigrationSql('CREATE TABLE safe(id int);\nCOMMIT;\nSELECT 1;','unsafe.sql'),error=>error.code==='GROWTH_SCHEMA_MIGRATION_TRANSACTION_CONTROL_INVALID'&&error.migration==='unsafe.sql');});
