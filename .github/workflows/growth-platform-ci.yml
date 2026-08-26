@@ -41,6 +41,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @anksen-agent-studio/growth-core test
+      - run: pnpm --filter @anksen-agent-studio/growth-core acceptance
 
   growth-postgres:
     needs: growth-core
