@@ -1442,6 +1442,8 @@ test("outcome center exposes governed authoritative business connectors without 
       source,
       new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
     );
+  assert.match(server, /BUSINESS_SYNC_REQUIRES_MANAGED_SOURCE_ADAPTER/);
+  assert.doesNotMatch(server, /businessDataConnectorStore\.ingest/);
   assert.doesNotMatch(html, /credentialReferenceId.*REFERENCE_CONFIGURED/);
 });
 test("authoritative source readiness requires data-owner approval and exposes no credential value", async () => {
