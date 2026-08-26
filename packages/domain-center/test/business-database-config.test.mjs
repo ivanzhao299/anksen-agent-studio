@@ -55,8 +55,10 @@ test("Office deployment provisions and verifies isolated business PostgreSQL bef
   assert.match(deployData,/chmod 600 "\$database_url_file"/);
   assert.match(deployData,/\[\[ -L "\$data_dir" \]\]/);
   assert.match(deployData,/\[\[ -L "\$data_env" \|\| -L "\$database_url_file" \]\]/);
+  assert.match(deployData,/! -f "\$data_env".*! -f "\$database_url_file"/);
   assert.ok(deployData.indexOf('[[ -L "$data_dir" ]]')<deployData.indexOf('install -d -m 700 "$data_dir"'));
   assert.ok(deployData.indexOf('[[ -L "$data_env" || -L "$database_url_file" ]]')<deployData.indexOf('source "$data_env"'));
+  assert.ok(deployData.indexOf('credential paths must be regular files')<deployData.indexOf('source "$data_env"'));
   assert.ok(deployData.indexOf('chmod 600 "$data_env"')<deployData.indexOf('source "$data_env"'));
   assert.ok(deployData.indexOf('[[ -L "$data_env" || -L "$database_url_file" ]]')<deployData.indexOf("printf 'postgresql://"));
   assert.match(deployData, /already occupied by another service/);
