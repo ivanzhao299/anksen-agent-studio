@@ -246,6 +246,8 @@ Fault injection verifies an empty approval-lock result rolls back before any bus
 
 Managed-source duplicate detection runs only after the transaction acquires the approval lock. An unauthorized caller cannot use the idempotency fast path to observe batch evidence.
 
+Managed authorization is a closed native envelope whose tenant must equal the actor tenant. Accessors, coerced versions and cross-tenant evidence fail before SQL.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
