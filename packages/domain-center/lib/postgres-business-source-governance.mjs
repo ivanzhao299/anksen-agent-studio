@@ -209,7 +209,7 @@ export class PostgresBusinessSourceGovernance {
     input=governanceEnvelope(input,"BUSINESS_SOURCE_CHECKPOINT_INPUT_INVALID",new Set(["batch","sourceCursor","sourceCount","mappedCount","rejectedCount","mappingVersion"]));scope=governanceEnvelope(scope,"BUSINESS_SOURCE_CHECKPOINT_SCOPE_INVALID",new Set(["organizationId","workspaceId","projectId","tenantId","userId"]));const batch=governanceEnvelope(input.batch,"BUSINESS_SOURCE_CHECKPOINT_BATCH_INVALID",new Set(["id","observedAt","status","receivedCount","appliedCount","unchangedCount","errorCount","sourceCursor","connectorId","applicationId","idempotencyKey","errorSummary","createdAt","completedAt"])),{sourceCursor,sourceCount,mappedCount,rejectedCount,mappingVersion}=input;
     const checkpointRef=(value,label,max=240,{optional=false}={})=>{if(optional&&(value==null||value===""))return null;if(typeof value!=="string")throw fail(`BUSINESS_SOURCE_CHECKPOINT_${label}_INVALID`);const text=value.trim();if(!text||text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||secretLike(text))throw fail(`BUSINESS_SOURCE_CHECKPOINT_${label}_INVALID`);return text;},
       safeConnectorId=checkpointRef(connectorId,"CONNECTOR",160),
-      safeScope={organizationId:checkpointRef(scope.organizationId,"ORGANIZATION",128),workspaceId:checkpointRef(scope.workspaceId,"WORKSPACE",128)},
+      safeScope={organizationId:checkpointRef(scope.organizationId,"ORGANIZATION",128),workspaceId:checkpointRef(scope.workspaceId,"WORKSPACE",128),tenantId:checkpointRef(scope.tenantId,"TENANT",80,{optional:true})},
       batchId=checkpointRef(batch.id,"BATCH",160),
       cursor=checkpointRef(sourceCursor,"CURSOR",240,{optional:true}),
       safeMappingVersion=checkpointRef(mappingVersion,"MAPPING",80),
@@ -218,7 +218,9 @@ export class PostgresBusinessSourceGovernance {
       now=safeSourceClock(this.clock());
     if(!counts.every(value=>Number.isInteger(value)&&value>=0&&value<=1000000))throw fail("BUSINESS_SOURCE_CHECKPOINT_COUNT_INVALID");
     if(!Number.isFinite(observedAt.getTime())||observedAt.getTime()>now.getTime()+300000)throw fail("BUSINESS_SOURCE_CHECKPOINT_OBSERVED_AT_INVALID");
-    const connector = await this.connector(safeConnectorId, safeScope),
+    const connector = await this.connector(safeConnectorId, safeScope),approvalRow=(await this.pool.query("SELECT * FROM business_data_source_approval WHERE connector_id=$1 AND tenant_id IS NOT DISTINCT FROM $2 ORDER BY sequence_id DESC LIMIT 1",[connector.id,safeScope.tenantId])).rows[0],approval=approvalRow?this.present(approvalRow):null;
+    if(!approval||approval.connectorId!==connector.id||approval.tenantId!==safeScope.tenantId||approval.status!=="APPROVED"||approval.mappingVersion!==safeMappingVersion||approval.expiresAt&&new Date(approval.expiresAt).getTime()<=now.getTime())throw fail("BUSINESS_SOURCE_CHECKPOINT_APPROVAL_INVALID");
+    const
       reconciliationStatus =
         sourceCount === mappedCount + rejectedCount
           ? "MATCHED"

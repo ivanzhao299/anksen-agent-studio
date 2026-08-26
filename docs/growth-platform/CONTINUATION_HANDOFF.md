@@ -232,6 +232,8 @@ Approval request verifies connector and tenant scope on pending reads, concurren
 
 Approval decision validates the returned approval ID and data-owner identity against the authorized update controls before reporting success.
 
+Checkpoint preserves tenant scope through persistence and post-write readiness, and revalidates exact-tenant approval, expiry and mapping version with its checkpoint clock before writing.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
