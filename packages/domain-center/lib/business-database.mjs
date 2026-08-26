@@ -26,12 +26,12 @@ const businessSourceApprovalSequenceMigration = resolve(fileURLToPath(new URL(".
 const growthFeatureFlagEventImmutableMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/021_growth_feature_flag_event_immutable.up.sql", import.meta.url)));
 const growthFeatureFlagConstraintsMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/025_growth_feature_flag_constraints.up.sql", import.meta.url)));
 export const defaultBusinessDatabaseUrlFile = "/opt/anksen/business-data/database-url";
+function businessEnvironmentValue(env,name){if(!env||typeof env!=="object")throw new Error("BUSINESS_DATABASE_ENV_INVALID");const descriptor=Object.getOwnPropertyDescriptor(env,name);if(!descriptor)return undefined;if(!Object.hasOwn(descriptor,"value")||typeof descriptor.value!=="string")throw new Error("BUSINESS_DATABASE_ENV_INVALID");return descriptor.value;}
 
 export function resolveBusinessDatabaseUrl(env = process.env) {
-  if(!env||typeof env!=="object")throw new Error("BUSINESS_DATABASE_ENV_INVALID");
-  const descriptors=Object.getOwnPropertyDescriptors(env),read=name=>{const descriptor=descriptors[name];if(!descriptor)return undefined;if(!Object.hasOwn(descriptor,"value")||typeof descriptor.value!=="string")throw new Error("BUSINESS_DATABASE_ENV_INVALID");return descriptor.value;},inline=read("BUSINESS_DATABASE_URL");
+  const inline=businessEnvironmentValue(env,"BUSINESS_DATABASE_URL");
   if (inline) return inline.trim();
-  const path = read("BUSINESS_DATABASE_URL_FILE") ?? defaultBusinessDatabaseUrlFile;
+  const path = businessEnvironmentValue(env,"BUSINESS_DATABASE_URL_FILE") ?? defaultBusinessDatabaseUrlFile;
   if(path.length<1||path.length>1024||!isAbsolute(path)||/[\u0000-\u001f\u007f]/.test(path))throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");
   if(!existsSync(path))return null;
   let descriptor;try{descriptor=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);const metadata=fstatSync(descriptor),owned=typeof process.getuid!=="function"||metadata.uid===0||metadata.uid===process.getuid();if(!metadata.isFile()||metadata.size<1||metadata.size>4096||(metadata.mode&0o077)!==0||!owned)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");const bytes=Buffer.alloc(4097);let offset=0;while(offset<bytes.length){const count=readSync(descriptor,bytes,offset,bytes.length-offset,null);if(!count)break;offset+=count;}if(offset<1||offset>4096)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");const value=new TextDecoder("utf-8",{fatal:true}).decode(bytes.subarray(0,offset)).trim();if(!value)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");return value;}catch(error){if(error?.message==="BUSINESS_DATABASE_URL_FILE_INVALID")throw error;throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");}finally{if(descriptor!==undefined)closeSync(descriptor);}
@@ -50,17 +50,20 @@ export function assertBusinessDatabaseUrl(value, { allowRemote = false } = {}) {
   return value;
 }
 
-export function resolveBusinessDatabasePoolMax(env=process.env){const value=env.BUSINESS_DATABASE_POOL_MAX===undefined?10:Number(env.BUSINESS_DATABASE_POOL_MAX);if(!Number.isInteger(value)||value<1||value>50)throw new Error("BUSINESS_DATABASE_POOL_MAX_INVALID");return value;}
-export function resolveBusinessDatabaseTimeoutMs(env=process.env){const value=env.BUSINESS_DATABASE_TIMEOUT_MS===undefined?10000:Number(env.BUSINESS_DATABASE_TIMEOUT_MS);if(!Number.isInteger(value)||value<100||value>60000)throw new Error("BUSINESS_DATABASE_TIMEOUT_INVALID");return value;}
+export function resolveBusinessDatabasePoolMax(env=process.env){const control=businessEnvironmentValue(env,"BUSINESS_DATABASE_POOL_MAX"),value=control===undefined?10:/^[0-9]{1,2}$/.test(control)?Number(control):Number.NaN;if(!Number.isInteger(value)||value<1||value>50)throw new Error("BUSINESS_DATABASE_POOL_MAX_INVALID");return value;}
+export function resolveBusinessDatabaseTimeoutMs(env=process.env){const control=businessEnvironmentValue(env,"BUSINESS_DATABASE_TIMEOUT_MS"),value=control===undefined?10000:/^[0-9]{3,5}$/.test(control)?Number(control):Number.NaN;if(!Number.isInteger(value)||value<100||value>60000)throw new Error("BUSINESS_DATABASE_TIMEOUT_INVALID");return value;}
 
-export async function createBusinessApplicationRuntime({ repoRoot, env = process.env, pool = null, requirePostgres = env.BUSINESS_DATABASE_REQUIRED === "true", initializeSchema = true } = {}) {
+export async function createBusinessApplicationRuntime({ repoRoot, env = process.env, pool = null, requirePostgres, initializeSchema = true } = {}) {
   if(typeof initializeSchema!=="boolean")throw new Error("BUSINESS_DATABASE_SCHEMA_MODE_INVALID");
+  const requiredControl=businessEnvironmentValue(env,"BUSINESS_DATABASE_REQUIRED"),remoteControl=businessEnvironmentValue(env,"BUSINESS_DATABASE_ALLOW_REMOTE");
+  if(requiredControl!==undefined&&!['true','false'].includes(requiredControl)||remoteControl!==undefined&&!['true','false'].includes(remoteControl)||requirePostgres!==undefined&&typeof requirePostgres!=="boolean")throw new Error("BUSINESS_DATABASE_ENV_INVALID");
+  const postgresRequired=requirePostgres??requiredControl==="true",allowRemote=remoteControl==="true";
   const configuredUrl = pool ? null : resolveBusinessDatabaseUrl(env);
   if (!pool && !configuredUrl) {
-    if (requirePostgres) throw new Error("BUSINESS_DATABASE_REQUIRED");
+    if (postgresRequired) throw new Error("BUSINESS_DATABASE_REQUIRED");
     return { backend: "FILE_FALLBACK", pool: null, ownsPool: false, store: new BusinessApplicationStore({ repoRoot }), connectorStore: null, sourceGovernance: null };
   }
-  const timeoutMs=pool?null:resolveBusinessDatabaseTimeoutMs(env),databasePool = pool ?? new Pool({ connectionString: assertBusinessDatabaseUrl(configuredUrl, { allowRemote: env.BUSINESS_DATABASE_ALLOW_REMOTE === "true" }), max: resolveBusinessDatabasePoolMax(env),connectionTimeoutMillis:timeoutMs,query_timeout:timeoutMs,statement_timeout:timeoutMs, application_name: "anksen-studio-business" });
+  const timeoutMs=pool?null:resolveBusinessDatabaseTimeoutMs(env),databasePool = pool ?? new Pool({ connectionString: assertBusinessDatabaseUrl(configuredUrl, { allowRemote }), max: resolveBusinessDatabasePoolMax(env),connectionTimeoutMillis:timeoutMs,query_timeout:timeoutMs,statement_timeout:timeoutMs, application_name: "anksen-studio-business" });
   try {
     if(initializeSchema){
       const state = (await databasePool.query("SELECT to_regclass('ad_goal') kernel, to_regclass('business_application_record') business")).rows[0];
