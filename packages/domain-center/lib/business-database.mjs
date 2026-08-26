@@ -43,13 +43,15 @@ export function assertBusinessDatabaseUrl(value, { allowRemote = false } = {}) {
   return value;
 }
 
+export function resolveBusinessDatabasePoolMax(env=process.env){const value=env.BUSINESS_DATABASE_POOL_MAX===undefined?10:Number(env.BUSINESS_DATABASE_POOL_MAX);if(!Number.isInteger(value)||value<1||value>50)throw new Error("BUSINESS_DATABASE_POOL_MAX_INVALID");return value;}
+
 export async function createBusinessApplicationRuntime({ repoRoot, env = process.env, pool = null, requirePostgres = env.BUSINESS_DATABASE_REQUIRED === "true" } = {}) {
   const configuredUrl = pool ? null : resolveBusinessDatabaseUrl(env);
   if (!pool && !configuredUrl) {
     if (requirePostgres) throw new Error("BUSINESS_DATABASE_REQUIRED");
     return { backend: "FILE_FALLBACK", pool: null, ownsPool: false, store: new BusinessApplicationStore({ repoRoot }), connectorStore: null, sourceGovernance: null };
   }
-  const databasePool = pool ?? new Pool({ connectionString: assertBusinessDatabaseUrl(configuredUrl, { allowRemote: env.BUSINESS_DATABASE_ALLOW_REMOTE === "true" }), max: Number(env.BUSINESS_DATABASE_POOL_MAX ?? 10), application_name: "anksen-studio-business" });
+  const databasePool = pool ?? new Pool({ connectionString: assertBusinessDatabaseUrl(configuredUrl, { allowRemote: env.BUSINESS_DATABASE_ALLOW_REMOTE === "true" }), max: resolveBusinessDatabasePoolMax(env), application_name: "anksen-studio-business" });
   try {
     const state = (await databasePool.query("SELECT to_regclass('ad_goal') kernel, to_regclass('business_application_record') business")).rows[0];
     if (!state.kernel) await migrate(databasePool, "up");

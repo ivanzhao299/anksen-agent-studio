@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { assertBusinessDatabaseUrl, resolveBusinessDatabaseUrl } from "../lib/business-database.mjs";
+import { assertBusinessDatabaseUrl, resolveBusinessDatabasePoolMax,resolveBusinessDatabaseUrl } from "../lib/business-database.mjs";
 
 test("business database configuration is local, explicit and credential-backed", () => {
   const url = "postgresql://business:password@127.0.0.1:4330/anksen_studio_business";
@@ -11,6 +11,8 @@ test("business database configuration is local, explicit and credential-backed",
   assert.throws(() => assertBusinessDatabaseUrl("postgresql://business:password@127.0.0.1/postgres"), /NAME_DENIED/);
   assert.throws(() => assertBusinessDatabaseUrl("postgresql://127.0.0.1/anksen_business"), /CREDENTIAL_REQUIRED/);
 });
+
+test("business database pool size is explicitly bounded",()=>{assert.equal(resolveBusinessDatabasePoolMax({}),10);assert.equal(resolveBusinessDatabasePoolMax({BUSINESS_DATABASE_POOL_MAX:'50'}),50);for(const value of ['0','51','1.5','Infinity','many'])assert.throws(()=>resolveBusinessDatabasePoolMax({BUSINESS_DATABASE_POOL_MAX:value}),/BUSINESS_DATABASE_POOL_MAX_INVALID/);});
 
 test("Office deployment provisions and verifies isolated business PostgreSQL before restart", async () => {
   const compose = await readFile(new URL("../../../infrastructure/business-data/docker-compose.yml", import.meta.url), "utf8");
