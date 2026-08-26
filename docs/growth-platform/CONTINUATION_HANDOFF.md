@@ -228,6 +228,8 @@ Source readiness selects the latest approval for the exact tenant, or only an un
 
 Readiness also verifies the projected approval tenant after the SQL read and fails closed when returned database evidence contradicts the requested scope.
 
+Approval request verifies connector and tenant scope on pending reads, concurrent unique-key recovery and inserted rows before returning approval evidence.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
