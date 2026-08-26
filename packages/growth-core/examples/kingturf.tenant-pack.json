@@ -34,5 +34,5 @@
   "qualification": {"mqlMinScore":60,"sqlMinScore":80,"humanHandoffAt":80},
   "attribution": {"model":"POSITION_BASED","windowDays":90},
   "contentPolicy": {"humanApprovalBeforePublish":true,"forbidUnverifiedClaims":true},
-  "metadata": {"pilot":true}
+  "metadata": {"pilot":true,"publishingAccountPlatforms":["抖音"]}
 }

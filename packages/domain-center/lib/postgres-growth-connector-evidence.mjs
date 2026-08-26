@@ -1,0 +1,6 @@
+import {assertTenantScope} from '../../growth-core/lib/domain-model.mjs';
+
+export class PostgresGrowthConnectorEvidence{
+  constructor({pool,clock=()=>new Date()}={}){if(!pool)throw new TypeError('pool is required');this.pool=pool;this.clock=clock;}
+  async publishing(rawScope,{platforms=[]}={}){const scope=assertTenantScope(rawScope),required=[...new Set(platforms.map(String).filter(Boolean))],now=this.clock(),result=await this.pool.query(`SELECT fields->>'platform' platform,fields->>'authorizationExpiresAt' authorization_expires_at FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id='ai-growth-sales-platform' AND object_type='channel_account' AND status='ACTIVE' AND nullif(fields->>'credentialReferenceId','') IS NOT NULL AND (cardinality($3::text[])=0 OR fields->>'platform'=ANY($3::text[]))`,[scope.organizationId,scope.workspaceId,required]),valid=result.rows.filter(row=>{const expires=new Date(row.authorization_expires_at);return Number.isFinite(expires.getTime())&&expires.getTime()>=now.getTime();});return{kind:'PUBLISHING',credentialReferenceConfigured:valid.length>0,health:valid.length>0?'CONFIGURED_NOT_PROBED':'MISSING_REFERENCE',configuredAccounts:valid.length,requiredPlatforms:required,credentialValuesRead:false,source:'AUTHORITATIVE_CHANNEL_ACCOUNT_RECORDS'};}
+}
