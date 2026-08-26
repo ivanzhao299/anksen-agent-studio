@@ -11,12 +11,19 @@ const migrationPaths = [
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/013_growth_score_history.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/014_growth_delivery_ledger.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/015_growth_delivery_audit.up.sql', import.meta.url))),
+  resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/016_growth_identity_review.up.sql', import.meta.url))),
 ];
 
 export async function migrateGrowthPlatform(pool) {
   if (!pool) throw new Error('pool is required');
-  for (const migrationPath of migrationPaths) await pool.query(await readFile(migrationPath, 'utf8'));
-  return true;
+  const client=typeof pool.connect==='function'?await pool.connect():pool,release=client!==pool&&typeof client.release==='function';
+  try{
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1)',[16012026]);
+    for (const migrationPath of migrationPaths) await client.query(await readFile(migrationPath, 'utf8'));
+    await client.query('COMMIT');
+    return true;
+  }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error;}finally{if(release)client.release();}
 }
 
 export async function createGrowthDatabaseRuntime({ env = process.env, pool = null } = {}) {

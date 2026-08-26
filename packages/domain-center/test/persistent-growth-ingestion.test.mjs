@@ -67,14 +67,17 @@ test('conflicting identities require review and roll back all mutations', async 
     await store.resolveIdentity({ scope, identityType: 'EMAIL', value: 'conflict@example.com', leadId: `lead-email-${suffix}`, source: 'SEED' });
     await store.resolveIdentity({ scope, identityType: 'DOMAIN', value: 'example.com', leadId: `lead-domain-${suffix}`, source: 'SEED' });
     const service = new PersistentGrowthIngestionService({ pool });
+    const conflictEvent={ eventId: `conflict-${suffix}`, source: 'WEBSITE', sourceDomain: 'example.com', externalId: `form-${suffix}`, kind: 'RFQ', highIntent: true, email: 'conflict@example.com', phone: null, person: {}, company: { website: 'example.com' }, productRefs: [], consent: {}, provenance: { receivedAt: '2026-08-26T00:00:00Z' } };
     await assert.rejects(
-      service.ingestWebsiteEvent({ scope, event: { eventId: `conflict-${suffix}`, source: 'WEBSITE', sourceDomain: 'example.com', externalId: `form-${suffix}`, kind: 'RFQ', highIntent: true, email: 'conflict@example.com', phone: null, person: {}, company: { website: 'example.com' }, productRefs: [], consent: {}, provenance: { receivedAt: '2026-08-26T00:00:00Z' } } }),
-      (error) => error.code === 'GROWTH_IDENTITY_REVIEW_REQUIRED' && error.leadIds.length === 2
+      service.ingestWebsiteEvent({ scope, event: conflictEvent }),
+      (error) => error.code === 'GROWTH_IDENTITY_REVIEW_REQUIRED' && error.leadIds.length === 2 && error.reviewCaseId.startsWith('identity_review_')
     );
+    await assert.rejects(service.ingestWebsiteEvent({ scope, event: conflictEvent }),error=>error.code==='GROWTH_IDENTITY_REVIEW_REQUIRED');
     const mutationCount = Number((await pool.query(`SELECT count(*) count FROM growth_event WHERE organization_id=$1`, [scope.organizationId])).rows[0].count);
     assert.equal(mutationCount, 0);
+    const cases=(await pool.query(`SELECT candidate_lead_ids,identity_types,status,external_id_hash FROM growth_identity_review_case WHERE organization_id=$1`,[scope.organizationId])).rows;assert.equal(cases.length,1);assert.equal(cases[0].status,'OPEN');assert.deepEqual(cases[0].candidate_lead_ids.sort(),[`lead-domain-${suffix}`,`lead-email-${suffix}`].sort());assert.deepEqual(cases[0].identity_types,['DOMAIN','EMAIL']);assert.doesNotMatch(JSON.stringify(cases),new RegExp(`form-${suffix}|conflict@example.com|example.com`));
   } finally {
-    for (const table of ['growth_score_snapshot','growth_engagement','growth_identity','growth_event','growth_lead']) await pool.query(`DELETE FROM ${table} WHERE organization_id=$1`, [scope.organizationId]).catch(() => {});
+    for (const table of ['growth_identity_review_case','growth_score_snapshot','growth_engagement','growth_identity','growth_event','growth_lead']) await pool.query(`DELETE FROM ${table} WHERE organization_id=$1`, [scope.organizationId]).catch(() => {});
     await pool.end();
   }
 });

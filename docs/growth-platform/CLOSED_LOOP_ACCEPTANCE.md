@@ -65,3 +65,4 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Readiness assessment is pure and read-only: it cannot resolve credential values, invoke connectors, mutate production, or enable a Runtime.
 - The authenticated Growth Console projects the same versioned report and its blockers through a read-only endpoint; it exposes no activation control and rejects an explicitly different tenant context.
 - Console delivery-failure and reconciliation-mismatch counts come from the tenant-scoped PostgreSQL ledger. Missing tables/connections and the not-yet-persisted identity-review backlog remain unobserved blockers; absence of evidence is never converted to zero.
+- Conflicting deterministic identities roll back the lead mutation, then idempotently create one tenant-scoped identity-review case containing only candidate lead IDs, identity types and a hashed external reference. The readiness backlog is counted from open persisted cases.

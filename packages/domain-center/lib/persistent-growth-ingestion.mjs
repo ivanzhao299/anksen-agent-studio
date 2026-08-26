@@ -8,6 +8,7 @@ import { PostgresGrowthStore } from './postgres-growth-store.mjs';
 const deterministicId = (scope, event) => `lead_${createHash('sha256').update([scope.organizationId,scope.workspaceId,scope.tenantId,event.source,event.externalId].join(':')).digest('hex').slice(0,24)}`;
 const scopedEventId = (prefix, scope, eventId) => `${prefix}_${createHash('sha256').update([scope.organizationId,scope.workspaceId,scope.tenantId,eventId].join(':')).digest('hex').slice(0,24)}`;
 const compact = (items) => items.filter((item) => item.value);
+const reviewId = (scope, idempotencyKey) => `identity_review_${createHash('sha256').update([scope.organizationId,scope.workspaceId,scope.tenantId,idempotencyKey].join(':')).digest('hex').slice(0,24)}`;
 
 export class PersistentGrowthIngestionService {
   constructor({ pool, scoringPolicy = {}, clock = () => new Date().toISOString() } = {}) {
@@ -67,6 +68,11 @@ export class PersistentGrowthIngestionService {
       return { status: 'ACCEPTED', leadId, score, matchedExistingLead: Boolean(matchedLeadIds.length), identityCount: identities.length, eventId: auditEvent.eventId };
     } catch (error) {
       await client.query('ROLLBACK').catch(() => {});
+      if(error?.code==='GROWTH_IDENTITY_REVIEW_REQUIRED'){
+        const candidateLeadIds=[...new Set(error.leadIds)].sort(),identityTypes=compact([{identityType:'EMAIL',value:event.email},{identityType:'PHONE',value:event.phone},{identityType:'DOMAIN',value:event.company?.website}]).map(item=>item.identityType).sort(),externalIdHash=createHash('sha256').update(String(event.externalId)).digest('hex');
+        await this.pool.query(`INSERT INTO growth_identity_review_case(id,organization_id,workspace_id,tenant_id,idempotency_key,source,external_id_hash,candidate_lead_ids,identity_types,status,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'OPEN',$10,$10) ON CONFLICT(organization_id,workspace_id,tenant_id,idempotency_key) DO NOTHING`,[reviewId(scope,idempotencyKey),scope.organizationId,scope.workspaceId,scope.tenantId,idempotencyKey,event.source,externalIdHash,JSON.stringify(candidateLeadIds),JSON.stringify(identityTypes),this.clock()]);
+        error.reviewCaseId=reviewId(scope,idempotencyKey);
+      }
       throw error;
     } finally {
       client.release();
