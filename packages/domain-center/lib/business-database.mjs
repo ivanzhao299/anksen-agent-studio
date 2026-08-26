@@ -28,8 +28,10 @@ const growthFeatureFlagConstraintsMigration = resolve(fileURLToPath(new URL("../
 export const defaultBusinessDatabaseUrlFile = "/opt/anksen/business-data/database-url";
 
 export function resolveBusinessDatabaseUrl(env = process.env) {
-  if (env.BUSINESS_DATABASE_URL) return String(env.BUSINESS_DATABASE_URL).trim();
-  const path = String(env.BUSINESS_DATABASE_URL_FILE ?? defaultBusinessDatabaseUrlFile);
+  if(!env||typeof env!=="object")throw new Error("BUSINESS_DATABASE_ENV_INVALID");
+  const descriptors=Object.getOwnPropertyDescriptors(env),read=name=>{const descriptor=descriptors[name];if(!descriptor)return undefined;if(!Object.hasOwn(descriptor,"value")||typeof descriptor.value!=="string")throw new Error("BUSINESS_DATABASE_ENV_INVALID");return descriptor.value;},inline=read("BUSINESS_DATABASE_URL");
+  if (inline) return inline.trim();
+  const path = read("BUSINESS_DATABASE_URL_FILE") ?? defaultBusinessDatabaseUrlFile;
   if(path.length<1||path.length>1024||!isAbsolute(path)||/[\u0000-\u001f\u007f]/.test(path))throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");
   if(!existsSync(path))return null;
   let descriptor;try{descriptor=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);const metadata=fstatSync(descriptor),owned=typeof process.getuid!=="function"||metadata.uid===0||metadata.uid===process.getuid();if(!metadata.isFile()||metadata.size<1||metadata.size>4096||(metadata.mode&0o077)!==0||!owned)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");const bytes=Buffer.alloc(4097);let offset=0;while(offset<bytes.length){const count=readSync(descriptor,bytes,offset,bytes.length-offset,null);if(!count)break;offset+=count;}if(offset<1||offset>4096)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");const value=new TextDecoder("utf-8",{fatal:true}).decode(bytes.subarray(0,offset)).trim();if(!value)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");return value;}catch(error){if(error?.message==="BUSINESS_DATABASE_URL_FILE_INVALID")throw error;throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");}finally{if(descriptor!==undefined)closeSync(descriptor);}

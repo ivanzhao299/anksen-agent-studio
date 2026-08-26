@@ -338,6 +338,8 @@ The CLI creates its database runtime with `initializeSchema: false`. Both readin
 
 Database URL credential files must be private regular files owned by root or the current process user. Resolution opens the final path with `O_NOFOLLOW`, validates and reads the same descriptor under a 4 KiB ceiling, and rejects public, symlinked, empty, malformed UTF-8, or oversized files before pool creation.
 
+Inline database URL and URL-file environment controls are own data-descriptor snapshots. Accessor-backed or non-string values fail without invocation or object coercion before file access or pool creation.
+
 Growth CI path filters explicitly include the Smart Park command entrypoint, so CLI-only governance/error-handling changes still run Domain typecheck and the authoritative acceptance gate.
 
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
