@@ -134,6 +134,22 @@ test("activation Gate rejects unbounded authorization and invalid windows", () =
     () =>
       new GrowthConnectorActivationGate({
         pool: { connect() {} },
+        maxHealthAgeSeconds: 86401,
+      }),
+    /positive maxHealthAgeSeconds/,
+  );
+  assert.throws(
+    () =>
+      new GrowthConnectorActivationGate({
+        pool: { connect() {} },
+        maxAuthorizationAgeSeconds: 366 * 24 * 60 * 60 + 1,
+      }),
+    /positive maxAuthorizationAgeSeconds/,
+  );
+  assert.throws(
+    () =>
+      new GrowthConnectorActivationGate({
+        pool: { connect() {} },
         maxAuthorizationAgeSeconds: Number.NaN,
       }),
     /positive maxAuthorizationAgeSeconds/,
@@ -171,6 +187,18 @@ test("activation Gate rejects unbounded authorization and invalid windows", () =
       1,
     );
   assert.ok(result.reasons.includes("ACTIVATION_AUTHORIZATION_WINDOW_EXCEEDED"));
+  assert.throws(
+    () =>
+      new GrowthConnectorActivationGate({
+        pool: { connect() {} },
+        clock: () => new Date(Number.NaN),
+      }).evaluate(
+        { organizationId: "org", workspaceId: "growth", tenantId: "tenant" },
+        { activation: null, binding: null },
+        1,
+      ),
+    (error) => error.code === "GROWTH_CONNECTOR_ACTIVATION_CLOCK_INVALID",
+  );
 });
 
 test("connector activation consumes an existing business approval exactly once with no external call", async () => {

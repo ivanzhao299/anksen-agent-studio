@@ -47,11 +47,16 @@ export class GrowthConnectorActivationGate {
   } = {}) {
     if (!pool?.connect)
       throw new TypeError("transaction-capable pool is required");
-    if (!Number.isFinite(maxHealthAgeSeconds) || maxHealthAgeSeconds <= 0)
+    if (
+      !Number.isFinite(maxHealthAgeSeconds) ||
+      maxHealthAgeSeconds <= 0 ||
+      maxHealthAgeSeconds > 24 * 60 * 60
+    )
       throw new TypeError("positive maxHealthAgeSeconds is required");
     if (
       !Number.isFinite(maxAuthorizationAgeSeconds) ||
-      maxAuthorizationAgeSeconds <= 0
+      maxAuthorizationAgeSeconds <= 0 ||
+      maxAuthorizationAgeSeconds > 366 * 24 * 60 * 60
     )
       throw new TypeError("positive maxAuthorizationAgeSeconds is required");
     this.pool = pool;
@@ -84,6 +89,8 @@ export class GrowthConnectorActivationGate {
     const now = this.clock(),
       fields = activation?.fields ?? {},
       reasons = [];
+    if (!(now instanceof Date) || !Number.isFinite(now.getTime()))
+      throw fail("GROWTH_CONNECTOR_ACTIVATION_CLOCK_INVALID");
     if (!activation) reasons.push("ACTIVATION_REQUEST_NOT_FOUND");
     else {
       if (activation.status !== "APPROVED")

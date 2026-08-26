@@ -72,4 +72,6 @@ Production authorization is time-bounded, not merely future-dated. Connector act
 
 Business Runtime and the full Growth initializer now use one checksum-aware migration runner under the existing advisory lock. The ledger stores SHA-256 for every applied script, safely adopts legacy null-checksum rows once, and rejects later same-name drift before executing SQL. The dedicated PostgreSQL test is part of root acceptance; never rewrite an applied migration—add a new numbered migration.
 
+Freshness arithmetic is fail-closed. Connector readiness rejects non-finite clocks and invalid/over-24-hour health windows; activation and feature-flag gates reject invalid clocks, and injected configuration cannot widen the 366-day production authorization ceiling. Keep these policy ceilings as upper bounds, not only constructor defaults.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

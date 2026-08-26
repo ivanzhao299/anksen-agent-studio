@@ -36,6 +36,8 @@ Connector activation and production feature-flag authorization now have a defaul
 
 The shared Growth migration ledger now records SHA-256 checksums across both initialization paths. Legacy rows receive a one-time checksum adoption; subsequent same-name script drift fails closed and is exercised by the root PostgreSQL acceptance gate.
 
+Health and expiry arithmetic now rejects invalid clocks and non-finite windows. Connector health may be tightened but not widened beyond 24 hours; production authorization may be tightened but not widened beyond 366 days, closing `NaN` and oversized-policy bypasses.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

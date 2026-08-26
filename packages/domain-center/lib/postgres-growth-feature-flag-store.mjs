@@ -29,7 +29,8 @@ export class PostgresGrowthFeatureFlagStore {
     if (!pool) throw fail("GROWTH_FEATURE_FLAG_POOL_REQUIRED");
     if (
       !Number.isFinite(maxAuthorizationAgeSeconds) ||
-      maxAuthorizationAgeSeconds <= 0
+      maxAuthorizationAgeSeconds <= 0 ||
+      maxAuthorizationAgeSeconds > 366 * 24 * 60 * 60
     )
       throw fail("GROWTH_FEATURE_FLAG_AUTHORIZATION_WINDOW_INVALID");
     this.pool = pool;
@@ -41,6 +42,10 @@ export class PostgresGrowthFeatureFlagStore {
   async readiness(scopeValue, flagKey = "GROWTH_PILOT_PRODUCTION_ENABLED") {
     const scope = assertTenantScope(scopeValue),
       safeFlagKey = assertFlagKey(flagKey),
+      now = this.clock();
+    if (!(now instanceof Date) || !Number.isFinite(now.getTime()))
+      throw fail("GROWTH_FEATURE_FLAG_CLOCK_INVALID");
+    const
       row = (
         await this.pool.query(
           "SELECT id,enabled,expires_at,version FROM growth_tenant_feature_flag WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND flag_key=$4",
@@ -51,7 +56,7 @@ export class PostgresGrowthFeatureFlagStore {
       enabled =
         row?.enabled === true &&
         Boolean(expiresAt) &&
-        expiresAt.getTime() > this.clock().getTime();
+        expiresAt.getTime() > now.getTime();
     return {
       flagKey: safeFlagKey,
       status: enabled ? "ENABLED" : row ? "DISABLED" : "NOT_CONFIGURED",
@@ -80,6 +85,8 @@ export class PostgresGrowthFeatureFlagStore {
       safeFlagKey = assertFlagKey(flagKey),
       now = this.clock(),
       expiry = expiresAt ? new Date(expiresAt) : null;
+    if (!(now instanceof Date) || !Number.isFinite(now.getTime()))
+      throw fail("GROWTH_FEATURE_FLAG_CLOCK_INVALID");
     if (!actorId) throw fail("GROWTH_FEATURE_FLAG_ACTOR_REQUIRED");
     if (typeof enabled !== "boolean")
       throw fail("GROWTH_FEATURE_FLAG_ENABLED_BOOLEAN_REQUIRED");

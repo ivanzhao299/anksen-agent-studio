@@ -47,6 +47,23 @@ test("growth production feature flag is tenant scoped, expiring, CAS and audited
       (error) =>
         error.code === "GROWTH_FEATURE_FLAG_AUTHORIZATION_WINDOW_INVALID",
     );
+    assert.throws(
+      () =>
+        new PostgresGrowthFeatureFlagStore({
+          pool,
+          maxAuthorizationAgeSeconds: 366 * 24 * 60 * 60 + 1,
+        }),
+      (error) =>
+        error.code === "GROWTH_FEATURE_FLAG_AUTHORIZATION_WINDOW_INVALID",
+    );
+    await assert.rejects(
+      () =>
+        new PostgresGrowthFeatureFlagStore({
+          pool,
+          clock: () => new Date(Number.NaN),
+        }).readiness(scope),
+      (error) => error.code === "GROWTH_FEATURE_FLAG_CLOCK_INVALID",
+    );
     const store = new PostgresGrowthFeatureFlagStore({
       pool,
       clock: () => now,
