@@ -18,6 +18,7 @@ test('persistent identity resolution is atomic, normalized and tenant scoped', a
   await assert.rejects(()=>store.resolveIdentity({scope,identityType:'SOCIAL',value:'person',leadId:'lead-new'}),error=>error.code==='GROWTH_IDENTITY_TYPE_INVALID');
   await assert.rejects(()=>store.resolveIdentity({scope,identityType:'EMAIL',value:'not-an-email',leadId:'lead-new'}),error=>error.code==='GROWTH_IDENTITY_VALUE_INVALID');
   await assert.rejects(()=>store.resolveIdentity({scope,identityType:'EMAIL',value:'person@example.com',leadId:'lead-new',source:'growth-core'}),error=>error.code==='GROWTH_IDENTITY_SOURCE_INVALID');
+  await assert.rejects(()=>store.resolveIdentity({scope,identityType:'EMAIL',value:'person@example.com',leadId:'token=secret'}),error=>error.code==='GROWTH_IDENTITY_LEAD_REFERENCE_INVALID');
 
   const result = await store.resolveIdentity({ scope, identityType: 'EMAIL', value: '  Person@Example.COM ', leadId: 'lead-new' });
 

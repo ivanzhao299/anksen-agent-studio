@@ -76,6 +76,8 @@ Connector configure/health mutations now validate bounded control identities, CA
 
 Customer 360 and connector audit read paths now cap each history collection (200 and 500 respectively), validate requested references before SQL and preserve stable newest/chronological ordering. Future expansion requires cursor pagination, not larger unbounded result sets.
 
+Identity resolution now rejects unsafe canonical lead references before SQL, and migration 037 constrains lead root IDs for new direct identity rows while the identity key remains native UUID. The existing normalized EMAIL/PHONE/DOMAIN and uppercase source contract remains authoritative.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

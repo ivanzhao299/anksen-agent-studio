@@ -112,4 +112,6 @@ Connector binding control inputs are validated before the authorization callback
 
 Read amplification is bounded at the aggregate boundary. Customer 360 validates its lead ID and caps each independent history relation at 200 newest rows; connector audit trails cap the recent window at 500 and then restore chronological presentation. Add cursor pagination before increasing these ceilings rather than returning unbounded tenant history.
 
+Identity resolution validates its target lead reference before the atomic insert/select operation. Migration 037 adds the matching lead ID check for new direct rows (the identity primary key is already native UUID), complementing migration 029's normalized identity value/source contract. Existing deterministic matching and human review behavior is unchanged.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

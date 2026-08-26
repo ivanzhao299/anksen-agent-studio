@@ -66,13 +66,13 @@ export class PostgresGrowthStore {
   }
 
   async resolveIdentity({ scope, identityType, value, leadId, source = 'GROWTH_CORE' }) {
-    const s = assertTenantScope(scope), normalizedValue = normalizeIdentity(identityType,value),safeSource=assertIdentitySource(source);
+    const s = assertTenantScope(scope), normalizedValue = normalizeIdentity(identityType,value),safeSource=assertIdentitySource(source),safeLeadId=safeCanonicalRef(leadId,'IDENTITY_LEAD',{max:160});
     const inserted = await this.pool.query(
       `INSERT INTO growth_identity(id,organization_id,workspace_id,tenant_id,lead_id,identity_type,normalized_value,source)
        SELECT $1,$2,$3,$4,$5,$6,$7,$8 FROM growth_lead WHERE id=$5 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4
        ON CONFLICT(organization_id,workspace_id,tenant_id,identity_type,normalized_value) DO NOTHING
        RETURNING lead_id`,
-      [randomUUID(), s.organizationId, s.workspaceId, s.tenantId, leadId, identityType, normalizedValue, safeSource]
+      [randomUUID(), s.organizationId, s.workspaceId, s.tenantId, safeLeadId, identityType, normalizedValue, safeSource]
     );
     if (inserted.rowCount) return { leadId: inserted.rows[0].lead_id, matched: false };
     const existing = await this.pool.query(
