@@ -1,6 +1,9 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const HIGH_INTENT = new Set(['RFQ','QUOTE_REQUEST','CONTACT_REQUEST','SAMPLE_REQUEST']);
+const EVENT_TYPES=new Set([...HIGH_INTENT,'DEMO_REQUEST','FORM_SUBMISSION','CONTENT_DOWNLOAD','PAGE_VIEW','OPT_OUT']);
+const safeText=(value,label,max,{optional=false,multiline=false}={})=>{if(optional&&(value==null||value===''))return null;if(typeof value!=='string')throw new Error(`WEBSITE_WEBHOOK_${label}_INVALID`);const text=value.trim(),controls=multiline?/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/:/[\u0000-\u001f\u007f]/;if(!text||text.length>max||controls.test(text))throw new Error(`WEBSITE_WEBHOOK_${label}_INVALID`);return text;};
+const safeReference=(value,label,{optional=false}={})=>{const text=safeText(value,label,160,{optional});if(text===null)return null;if(!/^[A-Za-z0-9][A-Za-z0-9._:/-]{2,159}$/.test(text)||/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(text))throw new Error(`WEBSITE_WEBHOOK_${label}_INVALID`);return text;};
 
 function normalizeHeaders(headers={}) {
   return Object.fromEntries(Object.entries(headers).map(([key,value])=>[String(key).toLowerCase(),String(value)]));
@@ -16,7 +19,7 @@ export function verifyWebhookSignature({ rawBody, signature, secret, eventId, ti
 }
 
 export function createWebsiteConversionAdapter({ id='website-conversion-v1', domain, secretProvider, clock=()=>new Date().toISOString(), maxBodyBytes=256*1024, maxClockSkewSeconds=300 }={}) {
-  if (!domain) throw new TypeError('domain is required');
+  if (typeof domain!=='string'||!/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domain)) throw new TypeError('valid domain is required');
   if (typeof secretProvider!=='function') throw new TypeError('secretProvider is required');
   if(!Number.isFinite(maxClockSkewSeconds)||maxClockSkewSeconds<1||maxClockSkewSeconds>900)throw new TypeError('maxClockSkewSeconds must be between 1 and 900');
   const replay=new Set();
@@ -39,26 +42,32 @@ export function createWebsiteConversionAdapter({ id='website-conversion-v1', dom
     if (replay.has(eventId)) return { status:'DUPLICATE', eventId };
     let payload;
     try { payload=JSON.parse(bodyBuffer.toString('utf8')); } catch { throw new Error('WEBSITE_WEBHOOK_JSON_INVALID'); }
+    if(!payload||typeof payload!=='object'||Array.isArray(payload))throw new Error('WEBSITE_WEBHOOK_PAYLOAD_INVALID');
     const eventType=String(payload.eventType??'').toUpperCase();
-    if (!eventType) throw new Error('WEBSITE_WEBHOOK_EVENT_TYPE_REQUIRED');
-    const contact=payload.contact??{};
+    if (!EVENT_TYPES.has(eventType)) throw new Error('WEBSITE_WEBHOOK_EVENT_TYPE_INVALID');
+    if(payload.contact!=null&&(!payload.contact||typeof payload.contact!=='object'||Array.isArray(payload.contact)))throw new Error('WEBSITE_WEBHOOK_CONTACT_INVALID');
+    if(payload.consent!=null&&(!payload.consent||typeof payload.consent!=='object'||Array.isArray(payload.consent)))throw new Error('WEBSITE_WEBHOOK_CONSENT_INVALID');
+    if(payload.consent?.marketing!=null&&typeof payload.consent.marketing!=='boolean')throw new Error('WEBSITE_WEBHOOK_CONSENT_INVALID');
+    if(payload.consent?.optOut!=null&&typeof payload.consent.optOut!=='boolean')throw new Error('WEBSITE_WEBHOOK_CONSENT_INVALID');
+    if(!Array.isArray(payload.productRefs??[] )||(payload.productRefs??[]).length>50)throw new Error('WEBSITE_WEBHOOK_PRODUCT_REFS_INVALID');
+    const contact=payload.contact??{},productRefs=(payload.productRefs??[]).map(value=>safeReference(value,'PRODUCT_REF'));
     const normalized=Object.freeze({
       eventId,
       source:'WEBSITE',
       sourceDomain:domain,
-      externalId:payload.externalId??eventId,
+      externalId:safeReference(payload.externalId??eventId,'EXTERNAL_ID'),
       kind:eventType,
       highIntent:HIGH_INTENT.has(eventType),
-      email:contact.email??null,
-      phone:contact.phone??null,
-      person:Object.freeze({name:contact.name??null,role:contact.role??null}),
-      company:Object.freeze({name:contact.company??null,website:contact.companyWebsite??null}),
-      market:payload.market??null,
-      productRefs:Object.freeze([...(payload.productRefs??[])]),
-      message:payload.message??null,
-      consent:Object.freeze({marketing:payload.consent?.marketing===true,optOut:payload.consent?.optOut===true}),
+      email:safeText(contact.email,'EMAIL',320,{optional:true}),
+      phone:safeText(contact.phone,'PHONE',40,{optional:true}),
+      person:Object.freeze({name:safeText(contact.name,'CONTACT_NAME',200,{optional:true}),role:safeText(contact.role,'CONTACT_ROLE',120,{optional:true})}),
+      company:Object.freeze({name:safeText(contact.company,'COMPANY_NAME',200,{optional:true}),website:safeText(contact.companyWebsite,'COMPANY_WEBSITE',253,{optional:true})}),
+      market:safeText(payload.market,'MARKET',80,{optional:true}),
+      productRefs:Object.freeze(productRefs),
+      message:safeText(payload.message,'MESSAGE',5000,{optional:true,multiline:true}),
+      consent:Object.freeze({marketing:payload.consent?.marketing??false,optOut:payload.consent?.optOut??false}),
       provenance:Object.freeze({eventId,sourceDomain:domain,receivedAt}),
-      rawRef:payload.rawRef??null,
+      rawRef:safeReference(payload.rawRef,'RAW_REF',{optional:true}),
     });
     replay.add(eventId);
     return { status:'ACCEPTED', event:normalized };

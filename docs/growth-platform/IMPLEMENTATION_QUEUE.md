@@ -48,6 +48,8 @@ Identity-review decisions now default-deny at the store seam and require Console
 
 Signed website ingress now binds timestamp, event ID and raw body into HMAC-SHA256, enforces a default five-minute replay window and authenticates duplicates before replay response. Event-ID substitution no longer reuses a captured body signature, and consent normalization accepts literal booleans only.
 
+Verified website payloads now pass a bounded event/contact/consent/reference schema. Persistent ingestion repeats critical normalized-event validation before transaction acquisition, preventing direct service callers from bypassing adapter checks or inserting future/type-confused evidence.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

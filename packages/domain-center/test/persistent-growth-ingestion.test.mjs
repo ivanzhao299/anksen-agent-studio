@@ -17,6 +17,8 @@ const normalizedEvent = async (adapter, eventId, payload) => {
   return result.event;
 };
 
+test('persistent ingress rejects adapter bypass payloads before a transaction',async()=>{let connections=0;const service=new PersistentGrowthIngestionService({pool:{connect(){connections+=1;throw new Error('must not connect');}},clock:()=> '2026-08-26T03:00:00Z'}),scope={organizationId:'org',workspaceId:'growth',tenantId:'tenant'},base={eventId:'evt-safe',source:'WEBSITE',sourceDomain:'example.com',externalId:'form-safe',kind:'RFQ',highIntent:true,productRefs:[],consent:{marketing:false,optOut:false},provenance:{receivedAt:'2026-08-26T03:00:00Z'}};for(const event of [{...base,eventId:'sk-secret'},{...base,highIntent:false},{...base,productRefs:'product-1'},{...base,provenance:{receivedAt:'2026-08-26T03:05:01Z'}}])await assert.rejects(()=>service.ingestWebsiteEvent({scope,event}),error=>error.code==='GROWTH_WEBSITE_EVENT_INVALID');assert.equal(connections,0);});
+
 test('signed website events close a tenant-scoped persistent ingestion loop', async () => {
   await ensurePostgresFixture();
   const pool = createTestPool();
@@ -68,7 +70,7 @@ test('conflicting identities require review and roll back all mutations', async 
     await store.resolveIdentity({ scope, identityType: 'EMAIL', value: 'conflict@example.com', leadId: `lead-email-${suffix}`, source: 'SEED' });
     await store.resolveIdentity({ scope, identityType: 'DOMAIN', value: 'example.com', leadId: `lead-domain-${suffix}`, source: 'SEED' });
     const service = new PersistentGrowthIngestionService({ pool });
-    const conflictEvent={ eventId: `conflict-${suffix}`, source: 'WEBSITE', sourceDomain: 'example.com', externalId: `form-${suffix}`, kind: 'RFQ', highIntent: true, email: 'conflict@example.com', phone: null, person: {}, company: { website: 'example.com' }, productRefs: [], consent: {}, provenance: { receivedAt: '2026-08-26T00:00:00Z' } };
+    const conflictEvent={ eventId: `conflict-${suffix}`, source: 'WEBSITE', sourceDomain: 'example.com', externalId: `form-${suffix}`, kind: 'RFQ', highIntent: true, email: 'conflict@example.com', phone: null, person: {}, company: { website: 'example.com' }, productRefs: [], consent: {marketing:false,optOut:false}, provenance: { receivedAt: '2026-08-26T00:00:00Z' } };
     await assert.rejects(
       service.ingestWebsiteEvent({ scope, event: conflictEvent }),
       (error) => error.code === 'GROWTH_IDENTITY_REVIEW_REQUIRED' && error.leadIds.length === 2 && error.reviewCaseId.startsWith('identity_review_')

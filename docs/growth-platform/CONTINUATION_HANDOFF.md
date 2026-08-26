@@ -84,4 +84,6 @@ Identity-review decisions are likewise default-deny in the store, with Console i
 
 The signed website ingress contract now requires `x-growth-event-id`, 10-digit Unix-second `x-growth-timestamp` and `x-growth-signature`. Sign the exact byte sequence `timestamp.eventId.rawBody` with HMAC-SHA256. Default clock skew is 300 seconds (hard maximum 900), and duplicates still authenticate before replay handling. Producers using the former body-only signature must upgrade before activation; no named production connector is active.
 
+After HMAC verification, website payloads use a bounded schema rather than coercion: only the controlled event vocabulary, literal consent booleans, safe reference IDs, up to 50 product refs and bounded text fields are accepted. Persistent ingestion independently checks the security-critical normalized event contract and rejects adapter bypass/future evidence before acquiring a database connection.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

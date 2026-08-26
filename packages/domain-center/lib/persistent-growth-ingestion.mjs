@@ -9,6 +9,7 @@ const deterministicId = (scope, event) => `lead_${createHash('sha256').update([s
 const scopedEventId = (prefix, scope, eventId) => `${prefix}_${createHash('sha256').update([scope.organizationId,scope.workspaceId,scope.tenantId,eventId].join(':')).digest('hex').slice(0,24)}`;
 const compact = (items) => items.filter((item) => item.value);
 const reviewId = (scope, idempotencyKey) => `identity_review_${createHash('sha256').update([scope.organizationId,scope.workspaceId,scope.tenantId,idempotencyKey].join(':')).digest('hex').slice(0,24)}`;
+const websiteEventTypes=new Set(['RFQ','QUOTE_REQUEST','CONTACT_REQUEST','SAMPLE_REQUEST','DEMO_REQUEST','FORM_SUBMISSION','CONTENT_DOWNLOAD','PAGE_VIEW','OPT_OUT']),highIntentTypes=new Set(['RFQ','QUOTE_REQUEST','CONTACT_REQUEST','SAMPLE_REQUEST']),safeReference=value=>typeof value==='string'&&/^[A-Za-z0-9][A-Za-z0-9._:/-]{2,159}$/.test(value)&&!/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(value);
 
 export class PersistentGrowthIngestionService {
   constructor({ pool, scoringPolicy = {}, clock = () => new Date().toISOString() } = {}) {
@@ -19,8 +20,9 @@ export class PersistentGrowthIngestionService {
   }
 
   async ingestWebsiteEvent({ scope: rawScope, event }) {
-    const scope = assertTenantScope(rawScope);
-    if (!event?.eventId || event.source !== 'WEBSITE' || !event.externalId) throw new TypeError('normalized website event is required');
+    const scope = assertTenantScope(rawScope),clockValue=this.clock(),now=new Date(clockValue),receivedAt=new Date(event?.provenance?.receivedAt);
+    if(!Number.isFinite(now.getTime()))throw Object.assign(new Error('GROWTH_INGESTION_CLOCK_INVALID'),{code:'GROWTH_INGESTION_CLOCK_INVALID'});
+    if (!event||event.source !== 'WEBSITE'||!safeReference(event.eventId)||!safeReference(event.externalId)||typeof event.sourceDomain!=='string'||!/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(event.sourceDomain)||!websiteEventTypes.has(event.kind)||event.highIntent!==highIntentTypes.has(event.kind)||!Array.isArray(event.productRefs)||event.productRefs.length>50||event.productRefs.some(value=>!safeReference(value))||!event.consent||typeof event.consent!=='object'||typeof event.consent.marketing!=='boolean'||typeof event.consent.optOut!=='boolean'||!Number.isFinite(receivedAt.getTime())||receivedAt.getTime()>now.getTime()+300000) throw Object.assign(new TypeError('normalized website event is required'),{code:'GROWTH_WEBSITE_EVENT_INVALID'});
     const idempotencyKey = `website:${event.sourceDomain}:${event.eventId}`;
     const client = await this.pool.connect();
     try {
