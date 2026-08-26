@@ -362,7 +362,7 @@ Business Runtime, Growth Runtime and `growth-migrations:status` reuse the same e
 
 The environment container itself is either the real Node `process.env` host object or a plain/null-prototype injected object. Arrays, dates and class/exotic instances remain invalid even if they expose similarly named properties.
 
-`deploy-business-data.sh` rejects symlinked data-directory, `.env`, and database-URL paths before credential generation/source/write, then preserves `0700/0600` modes. The script is an explicit PR/push Growth CI path and its preflight is locked by the configuration suite; no deployment was run while adding this guard.
+`deploy-business-data.sh` rejects symlinked data-directory, `.env`, and database-URL paths before credential generation/source/write, then preserves `0700/0600` modes; existing `.env` permissions are also reset to `0600` before source. The script is an explicit PR/push Growth CI path and its preflight is locked by the configuration suite; no deployment was run while adding this guard.
 
 Inline database URL and URL-file environment controls are own data-descriptor snapshots. Accessor-backed or non-string values fail without invocation or object coercion before file access or pool creation.
 

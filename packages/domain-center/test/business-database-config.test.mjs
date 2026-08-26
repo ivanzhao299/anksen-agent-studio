@@ -57,6 +57,7 @@ test("Office deployment provisions and verifies isolated business PostgreSQL bef
   assert.match(deployData,/\[\[ -L "\$data_env" \|\| -L "\$database_url_file" \]\]/);
   assert.ok(deployData.indexOf('[[ -L "$data_dir" ]]')<deployData.indexOf('install -d -m 700 "$data_dir"'));
   assert.ok(deployData.indexOf('[[ -L "$data_env" || -L "$database_url_file" ]]')<deployData.indexOf('source "$data_env"'));
+  assert.ok(deployData.indexOf('chmod 600 "$data_env"')<deployData.indexOf('source "$data_env"'));
   assert.ok(deployData.indexOf('[[ -L "$data_env" || -L "$database_url_file" ]]')<deployData.indexOf("printf 'postgresql://"));
   assert.match(deployData, /already occupied by another service/);
   assert.match(deployData, /business-database-migrate\.mjs/);

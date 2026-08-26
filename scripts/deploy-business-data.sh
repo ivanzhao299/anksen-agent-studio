@@ -27,8 +27,8 @@ fi
 if [[ ! -f "$data_env" ]]; then
   db_password="$(openssl rand -hex 32)"
   printf 'BUSINESS_DB_PASSWORD=%s\n' "$db_password" > "$data_env"
-  chmod 600 "$data_env"
 fi
+chmod 600 "$data_env"
 
 set -a
 source "$data_env"
