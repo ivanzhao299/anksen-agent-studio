@@ -2,6 +2,14 @@ import { assertTenantScope } from './domain-model.mjs';
 
 const requiredString=(obj,key)=>{if(typeof obj?.[key]!=='string'||!obj[key].trim())throw new TypeError(`${key} is required`);return obj[key].trim()};
 const unique=(values)=>[...new Set(values??[])];
+const runtimeBindingKeys=['projectId','approvalId','goalId','taskId','runtimeType','workerId','policyVersion'];
+
+export function defineRuntimeActivationBinding(input){
+  if(!input||typeof input!=='object'||Array.isArray(input))throw new TypeError('runtimeActivationBinding must be an object');
+  const binding=Object.fromEntries(runtimeBindingKeys.map(key=>[key,requiredString(input,key)]));
+  if(binding.runtimeType!=='CODEX')throw new TypeError('runtimeActivationBinding.runtimeType must be CODEX');
+  return Object.freeze(binding);
+}
 
 export function defineTenantPack(input){
   const scope=assertTenantScope(input);
@@ -13,7 +21,9 @@ export function defineTenantPack(input){
   if(!brands.length)throw new TypeError('at least one brand is required');
   if(!markets.length)throw new TypeError('at least one market is required');
   if(!icps.length)throw new TypeError('at least one ICP is required');
-  return Object.freeze({...scope,type:'growth_tenant_pack',name,locale:input.locale??'en',timezone:input.timezone??'UTC',brands:Object.freeze(brands),markets:Object.freeze(markets),icps:Object.freeze(icps),productRefs:Object.freeze([...(input.productRefs??[])]),channelPolicies,qualification:Object.freeze({...input.qualification}),attribution:Object.freeze({...input.attribution}),contentPolicy:Object.freeze({...input.contentPolicy}),metadata:Object.freeze({...input.metadata})});
+  const metadata={...input.metadata};
+  if(metadata.runtimeActivationBinding!=null)metadata.runtimeActivationBinding=defineRuntimeActivationBinding(metadata.runtimeActivationBinding);
+  return Object.freeze({...scope,type:'growth_tenant_pack',name,locale:input.locale??'en',timezone:input.timezone??'UTC',brands:Object.freeze(brands),markets:Object.freeze(markets),icps:Object.freeze(icps),productRefs:Object.freeze([...(input.productRefs??[])]),channelPolicies,qualification:Object.freeze({...input.qualification}),attribution:Object.freeze({...input.attribution}),contentPolicy:Object.freeze({...input.contentPolicy}),metadata:Object.freeze(metadata)});
 }
 
 export function assertTenantChannelAction(pack,{channel,capability}){

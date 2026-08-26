@@ -9,3 +9,11 @@ test('tenant pack is industry agnostic and policy gated',()=>{const pack=defineT
 test('unrelated second tenant uses same schema without fork',()=>{const pack=defineTenantPack({...base,tenantId:'tenant-food',name:'Food Distribution',brands:[{id:'food',name:'Food'}],markets:[{id:'laos',country:'LA'}],icps:[{id:'wholesaler',name:'Wholesaler',roles:['OWNER'],industries:['FOOD_DISTRIBUTION'],markets:['laos']}],channelPolicies:{WEBSITE:{enabled:true,allowedCapabilities:['RECEIVE_WEBHOOK'],requiresApproval:[]}}});assert.equal(pack.icps[0].industries[0],'FOOD_DISTRIBUTION');assert.equal(pack.markets[0].country,'LA')});
 
 test('tenant pack requires brand market and ICP',()=>{assert.throws(()=>defineTenantPack({...base,brands:[]}),/brand/);assert.throws(()=>defineTenantPack({...base,markets:[]}),/market/);assert.throws(()=>defineTenantPack({...base,icps:[]}),/ICP/)});
+
+test('optional Runtime activation binding is exact, immutable and CODEX-only',()=>{
+  const runtimeActivationBinding={projectId:'growth-project',approvalId:'approval-1',goalId:'goal-1',taskId:'task-1',runtimeType:'CODEX',workerId:'worker-1',policyVersion:'policy-v1',ignored:'not-projected'},pack=defineTenantPack({...base,metadata:{runtimeActivationBinding}});
+  assert.deepEqual(pack.metadata.runtimeActivationBinding,{projectId:'growth-project',approvalId:'approval-1',goalId:'goal-1',taskId:'task-1',runtimeType:'CODEX',workerId:'worker-1',policyVersion:'policy-v1'});
+  assert.equal(Object.isFrozen(pack.metadata.runtimeActivationBinding),true);
+  assert.throws(()=>defineTenantPack({...base,metadata:{runtimeActivationBinding:{...runtimeActivationBinding,taskId:''}}}),/taskId is required/);
+  assert.throws(()=>defineTenantPack({...base,metadata:{runtimeActivationBinding:{...runtimeActivationBinding,runtimeType:'CONTROLLED_STUB'}}}),/must be CODEX/);
+});

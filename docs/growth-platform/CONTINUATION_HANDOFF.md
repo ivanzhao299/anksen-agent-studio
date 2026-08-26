@@ -44,4 +44,6 @@ The gate runs Core unit and GA acceptance tests, the evidence-based Pilot readin
 
 The tenant production feature-flag store is also fail-closed at its mutation seam: both enable and disable require separately injected Production Ops authorization, and the default constructor cannot change a flag. The Console instantiates that default-deny form for readiness only and exposes no mutation endpoint.
 
+Tenant packs now validate an optional immutable `metadata.runtimeActivationBinding` against the exact existing CODEX Activation Gate identifiers. An absent binding remains valid and produces `NOT_BOUND`; a partially configured or non-CODEX binding is rejected while loading the pack. Do not add KingTurf IDs until they refer to governed existing Runtime records.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
