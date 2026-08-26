@@ -100,6 +100,8 @@ Customer 360 now aggregates revenue per currency and sets the compatibility scal
 
 Each new Growth migration and its checksum ledger entry now commit atomically under the advisory lock. Fault injection proves ledger failure rolls back DDL; non-transactional migration operations require a distinct reviewed mechanism.
 
+Website secret-provider calls now time out within 100–5000 ms and reject non-string/Buffer or over-4 KiB material before HMAC. Secret values remain ephemeral and absent from errors, outputs and persistence.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

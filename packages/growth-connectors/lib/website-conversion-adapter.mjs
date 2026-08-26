@@ -18,13 +18,15 @@ export function verifyWebhookSignature({ rawBody, signature, secret, eventId, ti
   return timingSafeEqual(Buffer.from(supplied,'utf8'),Buffer.from(expected,'utf8'));
 }
 
-export function createWebsiteConversionAdapter({ id='website-conversion-v1', domain, secretProvider, clock=()=>new Date().toISOString(), maxBodyBytes=256*1024, maxClockSkewSeconds=300, maxReplayEntries=10000 }={}) {
+export function createWebsiteConversionAdapter({ id='website-conversion-v1', domain, secretProvider, clock=()=>new Date().toISOString(), maxBodyBytes=256*1024, maxClockSkewSeconds=300, maxReplayEntries=10000,secretResolutionTimeoutMs=1000 }={}) {
   if (typeof domain!=='string'||!/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domain)) throw new TypeError('valid domain is required');
   if (typeof secretProvider!=='function') throw new TypeError('secretProvider is required');
   if(!Number.isInteger(maxBodyBytes)||maxBodyBytes<1||maxBodyBytes>1024*1024)throw new TypeError('maxBodyBytes must be between 1 and 1048576');
   if(!Number.isFinite(maxClockSkewSeconds)||maxClockSkewSeconds<1||maxClockSkewSeconds>900)throw new TypeError('maxClockSkewSeconds must be between 1 and 900');
   if(!Number.isInteger(maxReplayEntries)||maxReplayEntries<1||maxReplayEntries>100000)throw new TypeError('maxReplayEntries must be between 1 and 100000');
+  if(!Number.isInteger(secretResolutionTimeoutMs)||secretResolutionTimeoutMs<100||secretResolutionTimeoutMs>5000)throw new TypeError('secretResolutionTimeoutMs must be between 100 and 5000');
   const replay=new Set();
+  const resolveSecret=async()=>{let timer;try{const secret=await Promise.race([Promise.resolve().then(()=>secretProvider({domain})),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('WEBSITE_WEBHOOK_SECRET_UNAVAILABLE')),secretResolutionTimeoutMs);})]);if((typeof secret!=='string'&&!Buffer.isBuffer(secret))||Buffer.byteLength(secret)<1||Buffer.byteLength(secret)>4096)throw new Error('WEBSITE_WEBHOOK_SECRET_UNAVAILABLE');return secret;}finally{clearTimeout(timer);}};
 
   async function ingestWebhook({ rawBody, headers={} }={}) {
     const bodyBuffer=Buffer.isBuffer(rawBody)?rawBody:Buffer.from(String(rawBody??''),'utf8');
@@ -38,8 +40,7 @@ export function createWebsiteConversionAdapter({ id='website-conversion-v1', dom
     if(!/^\d{10}$/.test(timestamp??''))throw new Error('WEBSITE_WEBHOOK_TIMESTAMP_INVALID');
     const receivedAt=clock(),now=new Date(receivedAt),sentAt=Number(timestamp)*1000;
     if(!Number.isFinite(now.getTime())||Math.abs(now.getTime()-sentAt)>maxClockSkewSeconds*1000)throw new Error('WEBSITE_WEBHOOK_TIMESTAMP_INVALID');
-    const secret=await secretProvider({domain});
-    if (!secret) throw new Error('WEBSITE_WEBHOOK_SECRET_UNAVAILABLE');
+    const secret=await resolveSecret();
     if (!verifyWebhookSignature({rawBody:bodyBuffer,signature,secret,eventId,timestamp})) throw new Error('WEBSITE_WEBHOOK_SIGNATURE_INVALID');
     if (replay.has(eventId)) return { status:'DUPLICATE', eventId };
     let payload;

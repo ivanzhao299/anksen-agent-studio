@@ -136,4 +136,6 @@ Customer 360 returns sorted `revenueByCurrency`. `totalRevenue` is retained for 
 
 Growth migration execution now wraps each new migration SQL and checksum ledger insert in one transaction while retaining the session advisory lock. Fault injection verifies a ledger-write failure removes the schema change. Do not add non-transactional DDL such as concurrent index creation to this runner without a separate governed protocol.
 
+Website HMAC secret resolution now has a configurable 100–5000 ms bound (default 1000 ms) and a 4 KiB material ceiling. A hanging resolver, invalid type or oversized result fails as unavailable before HMAC; the secret remains runtime-only. Keep server-level request/header limits in front of the adapter as the first network boundary.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
