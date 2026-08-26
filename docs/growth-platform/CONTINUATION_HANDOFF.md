@@ -312,6 +312,8 @@ Injected source results must be strictly ordered by `(observedAt, sourceRecordKe
 
 Smart Park batch idempotency and evidence references bind both the normalized cursor and SHA-256 of the canonical validated record payload. Different payloads at the same cursor cannot be mistaken for an existing batch.
 
+Returned ingest evidence must identify the Smart Park application and expose a native duplicate flag in addition to exact connector/batch identity. Cross-application or ambiguous results never reach checkpointing.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
