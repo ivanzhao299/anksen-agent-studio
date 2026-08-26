@@ -1,0 +1,39 @@
+name: Growth Platform CI
+
+on:
+  pull_request:
+    paths:
+      - 'packages/growth-core/**'
+      - 'packages/domain-center/lib/*growth*'
+      - 'packages/orchestrator-core/migrations/012_growth_platform.up.sql'
+      - 'docs/growth-platform/**'
+      - '.github/workflows/growth-platform-ci.yml'
+  push:
+    branches:
+      - feature/anksen-ai-growth-platform
+    paths:
+      - 'packages/growth-core/**'
+      - 'packages/domain-center/lib/*growth*'
+      - 'packages/orchestrator-core/migrations/012_growth_platform.up.sql'
+      - 'docs/growth-platform/**'
+      - '.github/workflows/growth-platform-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  growth-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @anksen-agent-studio/growth-core test
