@@ -2,6 +2,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const HIGH_INTENT = new Set(['RFQ','QUOTE_REQUEST','CONTACT_REQUEST','SAMPLE_REQUEST']);
 const EVENT_TYPES=new Set([...HIGH_INTENT,'DEMO_REQUEST','FORM_SUBMISSION','CONTENT_DOWNLOAD','PAGE_VIEW','OPT_OUT']);
+const PAYLOAD_FIELDS=new Set(['eventType','externalId','contact','market','productRefs','message','consent','rawRef']),CONTACT_FIELDS=new Set(['email','phone','name','role','company','companyWebsite']),CONSENT_FIELDS=new Set(['marketing','optOut']);
+const assertKnownFields=(value,allowed,label)=>{for(const key of Object.keys(value))if(!allowed.has(key))throw new Error(`WEBSITE_WEBHOOK_${label}_FIELD_INVALID`);};
 const safeText=(value,label,max,{optional=false,multiline=false}={})=>{if(optional&&(value==null||value===''))return null;if(typeof value!=='string')throw new Error(`WEBSITE_WEBHOOK_${label}_INVALID`);const text=value.trim(),controls=multiline?/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/:/[\u0000-\u001f\u007f]/;if(!text||text.length>max||controls.test(text))throw new Error(`WEBSITE_WEBHOOK_${label}_INVALID`);return text;};
 const safeReference=(value,label,{optional=false}={})=>{const text=safeText(value,label,160,{optional});if(text===null)return null;if(!/^[A-Za-z0-9][A-Za-z0-9._:/-]{2,159}$/.test(text)||/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(text))throw new Error(`WEBSITE_WEBHOOK_${label}_INVALID`);return text;};
 
@@ -61,10 +63,13 @@ export function createWebsiteConversionAdapter({ id='website-conversion-v1', dom
     let payload;
     try { payload=JSON.parse(bodyBuffer.toString('utf8')); } catch { throw new Error('WEBSITE_WEBHOOK_JSON_INVALID'); }
     if(!payload||typeof payload!=='object'||Array.isArray(payload))throw new Error('WEBSITE_WEBHOOK_PAYLOAD_INVALID');
+    assertKnownFields(payload,PAYLOAD_FIELDS,'PAYLOAD');
     const eventType=String(payload.eventType??'').toUpperCase();
     if (!EVENT_TYPES.has(eventType)) throw new Error('WEBSITE_WEBHOOK_EVENT_TYPE_INVALID');
     if(payload.contact!=null&&(!payload.contact||typeof payload.contact!=='object'||Array.isArray(payload.contact)))throw new Error('WEBSITE_WEBHOOK_CONTACT_INVALID');
     if(payload.consent!=null&&(!payload.consent||typeof payload.consent!=='object'||Array.isArray(payload.consent)))throw new Error('WEBSITE_WEBHOOK_CONSENT_INVALID');
+    if(payload.contact)assertKnownFields(payload.contact,CONTACT_FIELDS,'CONTACT');
+    if(payload.consent)assertKnownFields(payload.consent,CONSENT_FIELDS,'CONSENT');
     if(payload.consent?.marketing!=null&&typeof payload.consent.marketing!=='boolean')throw new Error('WEBSITE_WEBHOOK_CONSENT_INVALID');
     if(payload.consent?.optOut!=null&&typeof payload.consent.optOut!=='boolean')throw new Error('WEBSITE_WEBHOOK_CONSENT_INVALID');
     if(!Array.isArray(payload.productRefs??[] )||(payload.productRefs??[]).length>50)throw new Error('WEBSITE_WEBHOOK_PRODUCT_REFS_INVALID');

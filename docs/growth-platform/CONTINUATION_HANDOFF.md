@@ -178,6 +178,8 @@ Website signature verification is fixed to SHA-256 and requires native signature
 
 Website header normalization accepts only plain objects or native `Headers`. Case-folded duplicate names and custom iterable collections fail before secret resolution, so signature inputs cannot be shadowed by ambiguous headers.
 
+Authenticated website payloads enforce closed top-level, contact and consent field sets. Unknown nested metadata or credential-like additions are rejected instead of being silently discarded before persistence.
+
 Tenant data-owner approval request/decision paths validate native scope and bounded connector, owner, mapping, approval, version, reason and expiry controls with one clock sample before SQL. Invalid work cannot even query the connector.
 
 Source reconciliation checkpoint writes validate native scope and bounded connector, batch, mapping, cursor, count and observed-time evidence before SQL. A single clock sample and normalized values drive both the stored row and reconciliation hash.
