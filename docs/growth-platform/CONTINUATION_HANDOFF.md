@@ -168,6 +168,8 @@ Website secret providers receive an AbortSignal. The bounded 100–5,000 ms secr
 
 Official publishing/business credential resolvers likewise receive an AbortSignal. Their 100–30,000 ms deadline aborts the underlying lookup before surfacing the sanitized retryable credential-timeout code.
 
+Website ingress accepts only native string/Buffer bodies and object/standard Headers collections. Event/timestamp and exact 64-hex SHA-256 signature shape are checked before secret resolution, so malformed requests cannot call the secret provider.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.

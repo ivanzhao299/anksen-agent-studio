@@ -6,6 +6,7 @@ const safeText=(value,label,max,{optional=false,multiline=false}={})=>{if(option
 const safeReference=(value,label,{optional=false}={})=>{const text=safeText(value,label,160,{optional});if(text===null)return null;if(!/^[A-Za-z0-9][A-Za-z0-9._:/-]{2,159}$/.test(text)||/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(text))throw new Error(`WEBSITE_WEBHOOK_${label}_INVALID`);return text;};
 
 function normalizeHeaders(headers={}) {
+  if(!headers||typeof headers!=='object')throw new Error('WEBSITE_WEBHOOK_HEADERS_INVALID');
   const entries=typeof headers?.entries==='function'?[...headers.entries()]:Object.entries(headers);
   if(entries.length>64)throw new Error('WEBSITE_WEBHOOK_HEADERS_TOO_LARGE');
   const normalized=Object.create(null);
@@ -33,7 +34,8 @@ export function createWebsiteConversionAdapter({ id='website-conversion-v1', dom
   const resolveSecret=async()=>{const controller=new AbortController();let timer;try{const secret=await Promise.race([Promise.resolve().then(()=>secretProvider({domain,signal:controller.signal})),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error('WEBSITE_WEBHOOK_SECRET_UNAVAILABLE'));},secretResolutionTimeoutMs);})]);if((typeof secret!=='string'&&!Buffer.isBuffer(secret))||Buffer.byteLength(secret)<1||Buffer.byteLength(secret)>4096)throw new Error('WEBSITE_WEBHOOK_SECRET_UNAVAILABLE');return secret;}finally{clearTimeout(timer);}};
 
   async function ingestWebhook({ rawBody, headers={} }={}) {
-    const bodyBuffer=Buffer.isBuffer(rawBody)?rawBody:Buffer.from(String(rawBody??''),'utf8');
+    if(typeof rawBody!=='string'&&!Buffer.isBuffer(rawBody))throw new TypeError('rawBody is required');
+    const bodyBuffer=Buffer.isBuffer(rawBody)?rawBody:Buffer.from(rawBody,'utf8');
     if (!bodyBuffer.length) throw new TypeError('rawBody is required');
     if (bodyBuffer.length>maxBodyBytes) throw new Error('WEBSITE_WEBHOOK_BODY_TOO_LARGE');
     const h=normalizeHeaders(headers);
@@ -42,6 +44,7 @@ export function createWebsiteConversionAdapter({ id='website-conversion-v1', dom
     const signature=h['x-growth-signature'];
     if (!eventId||!/^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/.test(eventId)) throw new Error('WEBSITE_WEBHOOK_EVENT_ID_INVALID');
     if(!/^\d{10}$/.test(timestamp??''))throw new Error('WEBSITE_WEBHOOK_TIMESTAMP_INVALID');
+    if(!/^(?:sha256=)?[a-f0-9]{64}$/i.test(signature??''))throw new Error('WEBSITE_WEBHOOK_SIGNATURE_INVALID');
     const receivedAt=clock(),now=new Date(receivedAt),sentAt=Number(timestamp)*1000;
     if(!Number.isFinite(now.getTime())||Math.abs(now.getTime()-sentAt)>maxClockSkewSeconds*1000)throw new Error('WEBSITE_WEBHOOK_TIMESTAMP_INVALID');
     const secret=await resolveSecret();
