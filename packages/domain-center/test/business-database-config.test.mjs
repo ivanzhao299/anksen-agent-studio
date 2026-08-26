@@ -14,6 +14,7 @@ test("business database configuration is local, explicit and credential-backed",
   let getterCalls=0;const accessor=Object.defineProperty({},"BUSINESS_DATABASE_URL",{enumerable:true,get(){getterCalls+=1;return url;}});assert.throws(()=>resolveBusinessDatabaseUrl(accessor),/ENV_INVALID/);assert.equal(getterCalls,0);
   assert.throws(() => assertBusinessDatabaseUrl("postgresql://business:password@db.example.com/prod"), /REMOTE_DENIED/);
   assert.throws(() => assertBusinessDatabaseUrl("postgresql://business:password@127.0.0.1/postgres"), /NAME_DENIED/);
+  for(const name of ["notbusinessprod","business/other","business%2Fprod","Anksen_Business"])assert.throws(()=>assertBusinessDatabaseUrl(`postgresql://business:password@127.0.0.1/${name}`),/NAME_DENIED/);
   assert.throws(() => assertBusinessDatabaseUrl("postgresql://127.0.0.1/anksen_business"), /CREDENTIAL_REQUIRED/);
   assert.equal(assertBusinessDatabaseUrl("postgresql://business:password@127.0.0.1/anksen_business?sslmode=require"),"postgresql://business:password@127.0.0.1/anksen_business?sslmode=require");
   for(const value of ["not a url password=secret","postgresql://business:password@127.0.0.1/anksen_business#fragment",`postgresql://business:password@127.0.0.1/anksen_business?token=secret`,"x".repeat(4097)])assert.throws(()=>assertBusinessDatabaseUrl(value),error=>!JSON.stringify(error).includes('token=secret')&&!JSON.stringify(error).includes('password=secret'));

@@ -45,7 +45,8 @@ export function assertBusinessDatabaseUrl(value, { allowRemote = false } = {}) {
   if(url.hash)throw new Error("BUSINESS_DATABASE_URL_INVALID");
   for(const key of url.searchParams.keys())if(/(?:password|passwd|pwd|secret|token|api[_-]?key|credential)/i.test(key))throw new Error("BUSINESS_DATABASE_URL_QUERY_SECRET_DENIED");
   if (!allowRemote && !["127.0.0.1", "localhost"].includes(url.hostname)) throw new Error("BUSINESS_DATABASE_REMOTE_DENIED");
-  if (!/(business|test|fixture)/i.test(url.pathname)) throw new Error("BUSINESS_DATABASE_NAME_DENIED");
+  const databaseName=url.pathname.slice(1),nameSegments=databaseName.split("_");
+  if (!/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(databaseName)||!nameSegments.some(segment=>["business","test","fixture"].includes(segment))) throw new Error("BUSINESS_DATABASE_NAME_DENIED");
   if (!url.username || !url.password||url.username.length>1024||url.password.length>1024) throw new Error("BUSINESS_DATABASE_CREDENTIAL_REQUIRED");
   return value;
 }
