@@ -70,4 +70,6 @@ Production feature-flag input is strict at both trust boundaries. The store acce
 
 Production authorization is time-bounded, not merely future-dated. Connector activation and tenant production feature flags default to a maximum 366-day authorization lifetime; overlong authorization is blocked, and non-positive/non-finite configured windows fail closed. Preserve this ceiling or deliberately tighten it—do not create a perpetual production authorization path.
 
+Business Runtime and the full Growth initializer now use one checksum-aware migration runner under the existing advisory lock. The ledger stores SHA-256 for every applied script, safely adopts legacy null-checksum rows once, and rejects later same-name drift before executing SQL. The dedicated PostgreSQL test is part of root acceptance; never rewrite an applied migration—add a new numbered migration.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

@@ -34,6 +34,8 @@ Production feature flags now reject non-boolean mutation input and uncontrolled 
 
 Connector activation and production feature-flag authorization now have a default 366-day maximum lifetime. Invalid policy windows fail at construction, and an arbitrarily distant future expiry cannot create a de facto perpetual production grant.
 
+The shared Growth migration ledger now records SHA-256 checksums across both initialization paths. Legacy rows receive a one-time checksum adoption; subsequent same-name script drift fails closed and is exercised by the root PostgreSQL acceptance gate.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

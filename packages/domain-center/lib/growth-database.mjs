@@ -1,9 +1,9 @@
-import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { PostgresGrowthStore } from './postgres-growth-store.mjs';
 import { assertBusinessDatabaseUrl, resolveBusinessDatabaseUrl } from './business-database.mjs';
+import { applyGrowthMigrations, withGrowthMigrationLock } from './growth-migration-runner.mjs';
 
 const { Pool } = pg;
 const migrationPaths = [
@@ -27,14 +27,11 @@ export async function migrateGrowthPlatform(pool) {
   if (!pool) throw new Error('pool is required');
   const client=typeof pool.connect==='function'?await pool.connect():pool,release=client!==pool&&typeof client.release==='function';
   try{
-    await client.query('SELECT pg_advisory_lock($1)',[16012027]);
-    await client.query('CREATE TABLE IF NOT EXISTS growth_schema_migration(name text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())');
-    for (const migrationPath of migrationPaths) {
-      const name=migrationPath.split('/').at(-1),applied=(await client.query('SELECT 1 FROM growth_schema_migration WHERE name=$1',[name])).rowCount===1;
-      if(!applied){await client.query(await readFile(migrationPath,'utf8'));await client.query('INSERT INTO growth_schema_migration(name) VALUES($1) ON CONFLICT DO NOTHING',[name]);}
-    }
+    await withGrowthMigrationLock(client, () =>
+      applyGrowthMigrations(client, migrationPaths),
+    );
     return true;
-  }catch(error){throw error;}finally{await client.query('SELECT pg_advisory_unlock($1)',[16012027]).catch(()=>{});if(release)client.release();}
+  }catch(error){throw error;}finally{if(release)client.release();}
 }
 
 export async function createGrowthDatabaseRuntime({ env = process.env, pool = null } = {}) {

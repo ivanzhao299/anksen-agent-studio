@@ -9,6 +9,7 @@ import { PostgresBusinessApplicationStore } from "./postgres-business-applicatio
 import { PostgresBusinessDataConnectorStore } from "./postgres-business-data-connector.mjs";
 import { PostgresBusinessSourceGovernance } from "./postgres-business-source-governance.mjs";
 import { migrate } from "../../orchestrator-core/lib/persistent-night-shift.mjs";
+import { applyGrowthMigrations, withGrowthMigrationLock } from "./growth-migration-runner.mjs";
 
 const { Pool } = pg;
 const businessMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/004_business_applications.up.sql", import.meta.url)));
@@ -54,27 +55,20 @@ export async function createBusinessApplicationRuntime({ repoRoot, env = process
     if (!state.kernel) await migrate(databasePool, "up");
     const client = await databasePool.connect();
     try {
-      await client.query("SELECT pg_advisory_lock($1)", [16012027]);
-      await client.query(await readFile(businessMigration, "utf8"));
-      await client.query(await readFile(businessApprovalMigration, "utf8"));
-      await client.query(await readFile(businessWorkControlMigration, "utf8"));
-      await client.query(await readFile(businessRecordRelationsMigration, "utf8"));
-      await client.query(await readFile(businessRunnerNodesMigration, "utf8"));
-      await client.query(await readFile(businessWorkResultsMigration, "utf8"));
-      await client.query(await readFile(businessDataConnectorsMigration, "utf8"));
-      await client.query(await readFile(businessSourceGovernanceMigration, "utf8"));
-      await client.query("CREATE TABLE IF NOT EXISTS growth_schema_migration(name text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())");
-      for (const migrationPath of [growthSourceApprovalScopeMigration, growthTenantFeatureFlagMigration, businessSourceApprovalSequenceMigration, growthFeatureFlagEventImmutableMigration, growthFeatureFlagConstraintsMigration]) {
-        const name = migrationPath.split("/").at(-1), applied = (await client.query("SELECT 1 FROM growth_schema_migration WHERE name=$1", [name])).rowCount === 1;
-        if (!applied) {
-          await client.query(await readFile(migrationPath, "utf8"));
-          await client.query("INSERT INTO growth_schema_migration(name) VALUES($1) ON CONFLICT DO NOTHING", [name]);
-        }
-      }
+      await withGrowthMigrationLock(client, async () => {
+        await client.query(await readFile(businessMigration, "utf8"));
+        await client.query(await readFile(businessApprovalMigration, "utf8"));
+        await client.query(await readFile(businessWorkControlMigration, "utf8"));
+        await client.query(await readFile(businessRecordRelationsMigration, "utf8"));
+        await client.query(await readFile(businessRunnerNodesMigration, "utf8"));
+        await client.query(await readFile(businessWorkResultsMigration, "utf8"));
+        await client.query(await readFile(businessDataConnectorsMigration, "utf8"));
+        await client.query(await readFile(businessSourceGovernanceMigration, "utf8"));
+        await applyGrowthMigrations(client, [growthSourceApprovalScopeMigration, growthTenantFeatureFlagMigration, businessSourceApprovalSequenceMigration, growthFeatureFlagEventImmutableMigration, growthFeatureFlagConstraintsMigration]);
+      });
     } catch (error) {
       throw error;
     } finally {
-      await client.query("SELECT pg_advisory_unlock($1)", [16012027]).catch(() => {});
       client.release();
     }
     return { backend: "POSTGRESQL", pool: databasePool, ownsPool: !pool, store: new PostgresBusinessApplicationStore({ pool: databasePool }), connectorStore: new PostgresBusinessDataConnectorStore({ pool: databasePool }), sourceGovernance: new PostgresBusinessSourceGovernance({ pool: databasePool }) };
