@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {mkdtemp,readFile,rm,writeFile} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
-import { assertBusinessDatabaseUrl, resolveBusinessDatabasePoolMax,resolveBusinessDatabaseTimeoutMs,resolveBusinessDatabaseUrl } from "../lib/business-database.mjs";
+import { assertBusinessDatabaseUrl,createBusinessApplicationRuntime, resolveBusinessDatabasePoolMax,resolveBusinessDatabaseTimeoutMs,resolveBusinessDatabaseUrl } from "../lib/business-database.mjs";
 
 test("business database configuration is local, explicit and credential-backed", () => {
   const url = "postgresql://business:password@127.0.0.1:4330/anksen_studio_business";
@@ -19,6 +19,8 @@ test("business database configuration is local, explicit and credential-backed",
 test("business database pool size is explicitly bounded",()=>{assert.equal(resolveBusinessDatabasePoolMax({}),10);assert.equal(resolveBusinessDatabasePoolMax({BUSINESS_DATABASE_POOL_MAX:'50'}),50);for(const value of ['0','51','1.5','Infinity','many'])assert.throws(()=>resolveBusinessDatabasePoolMax({BUSINESS_DATABASE_POOL_MAX:value}),/BUSINESS_DATABASE_POOL_MAX_INVALID/);});
 
 test("business database timeouts are explicitly bounded",()=>{assert.equal(resolveBusinessDatabaseTimeoutMs({}),10000);assert.equal(resolveBusinessDatabaseTimeoutMs({BUSINESS_DATABASE_TIMEOUT_MS:'60000'}),60000);for(const value of ['99','60001','1.5','Infinity','many'])assert.throws(()=>resolveBusinessDatabaseTimeoutMs({BUSINESS_DATABASE_TIMEOUT_MS:value}),/BUSINESS_DATABASE_TIMEOUT_INVALID/);});
+
+test("business runtime can bind existing stores without schema writes",async()=>{let queries=0,connections=0;const pool={async query(){queries+=1;throw new Error("must not query");},async connect(){connections+=1;throw new Error("must not connect");}};const runtime=await createBusinessApplicationRuntime({repoRoot:process.cwd(),pool,initializeSchema:false});assert.equal(runtime.backend,"POSTGRESQL");assert.equal(runtime.ownsPool,false);assert.equal(queries,0);assert.equal(connections,0);await assert.rejects(()=>createBusinessApplicationRuntime({repoRoot:process.cwd(),pool,initializeSchema:"false"}),/SCHEMA_MODE_INVALID/);assert.equal(queries,0);assert.equal(connections,0);});
 
 test("business database URL files are bounded absolute regular files",async()=>{const directory=await mkdtemp(join(tmpdir(),'anksen-db-url-')),path=join(directory,'database-url'),url='postgresql://business:password@127.0.0.1/anksen_business';try{await writeFile(path,url);assert.equal(resolveBusinessDatabaseUrl({BUSINESS_DATABASE_URL_FILE:path}),url);await writeFile(path,'x'.repeat(4097));assert.throws(()=>resolveBusinessDatabaseUrl({BUSINESS_DATABASE_URL_FILE:path}),/URL_FILE_INVALID/);assert.throws(()=>resolveBusinessDatabaseUrl({BUSINESS_DATABASE_URL_FILE:'relative/database-url'}),/URL_FILE_INVALID/);assert.throws(()=>resolveBusinessDatabaseUrl({BUSINESS_DATABASE_URL_FILE:directory}),/URL_FILE_INVALID/);}finally{await rm(directory,{recursive:true,force:true});}});
 

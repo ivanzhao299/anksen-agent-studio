@@ -52,7 +52,8 @@ export function assertBusinessDatabaseUrl(value, { allowRemote = false } = {}) {
 export function resolveBusinessDatabasePoolMax(env=process.env){const value=env.BUSINESS_DATABASE_POOL_MAX===undefined?10:Number(env.BUSINESS_DATABASE_POOL_MAX);if(!Number.isInteger(value)||value<1||value>50)throw new Error("BUSINESS_DATABASE_POOL_MAX_INVALID");return value;}
 export function resolveBusinessDatabaseTimeoutMs(env=process.env){const value=env.BUSINESS_DATABASE_TIMEOUT_MS===undefined?10000:Number(env.BUSINESS_DATABASE_TIMEOUT_MS);if(!Number.isInteger(value)||value<100||value>60000)throw new Error("BUSINESS_DATABASE_TIMEOUT_INVALID");return value;}
 
-export async function createBusinessApplicationRuntime({ repoRoot, env = process.env, pool = null, requirePostgres = env.BUSINESS_DATABASE_REQUIRED === "true" } = {}) {
+export async function createBusinessApplicationRuntime({ repoRoot, env = process.env, pool = null, requirePostgres = env.BUSINESS_DATABASE_REQUIRED === "true", initializeSchema = true } = {}) {
+  if(typeof initializeSchema!=="boolean")throw new Error("BUSINESS_DATABASE_SCHEMA_MODE_INVALID");
   const configuredUrl = pool ? null : resolveBusinessDatabaseUrl(env);
   if (!pool && !configuredUrl) {
     if (requirePostgres) throw new Error("BUSINESS_DATABASE_REQUIRED");
@@ -60,25 +61,25 @@ export async function createBusinessApplicationRuntime({ repoRoot, env = process
   }
   const timeoutMs=pool?null:resolveBusinessDatabaseTimeoutMs(env),databasePool = pool ?? new Pool({ connectionString: assertBusinessDatabaseUrl(configuredUrl, { allowRemote: env.BUSINESS_DATABASE_ALLOW_REMOTE === "true" }), max: resolveBusinessDatabasePoolMax(env),connectionTimeoutMillis:timeoutMs,query_timeout:timeoutMs,statement_timeout:timeoutMs, application_name: "anksen-studio-business" });
   try {
-    const state = (await databasePool.query("SELECT to_regclass('ad_goal') kernel, to_regclass('business_application_record') business")).rows[0];
-    if (!state.kernel) await migrate(databasePool, "up");
-    const client = await databasePool.connect();
-    try {
-      await withGrowthMigrationLock(client, async () => {
-        await client.query(await readFile(businessMigration, "utf8"));
-        await client.query(await readFile(businessApprovalMigration, "utf8"));
-        await client.query(await readFile(businessWorkControlMigration, "utf8"));
-        await client.query(await readFile(businessRecordRelationsMigration, "utf8"));
-        await client.query(await readFile(businessRunnerNodesMigration, "utf8"));
-        await client.query(await readFile(businessWorkResultsMigration, "utf8"));
-        await client.query(await readFile(businessDataConnectorsMigration, "utf8"));
-        await client.query(await readFile(businessSourceGovernanceMigration, "utf8"));
-        await applyGrowthMigrations(client, [growthSourceApprovalScopeMigration, growthTenantFeatureFlagMigration, businessSourceApprovalSequenceMigration, growthFeatureFlagEventImmutableMigration, growthFeatureFlagConstraintsMigration]);
-      });
-    } catch (error) {
-      throw error;
-    } finally {
-      client.release();
+    if(initializeSchema){
+      const state = (await databasePool.query("SELECT to_regclass('ad_goal') kernel, to_regclass('business_application_record') business")).rows[0];
+      if (!state.kernel) await migrate(databasePool, "up");
+      const client = await databasePool.connect();
+      try {
+        await withGrowthMigrationLock(client, async () => {
+          await client.query(await readFile(businessMigration, "utf8"));
+          await client.query(await readFile(businessApprovalMigration, "utf8"));
+          await client.query(await readFile(businessWorkControlMigration, "utf8"));
+          await client.query(await readFile(businessRecordRelationsMigration, "utf8"));
+          await client.query(await readFile(businessRunnerNodesMigration, "utf8"));
+          await client.query(await readFile(businessWorkResultsMigration, "utf8"));
+          await client.query(await readFile(businessDataConnectorsMigration, "utf8"));
+          await client.query(await readFile(businessSourceGovernanceMigration, "utf8"));
+          await applyGrowthMigrations(client, [growthSourceApprovalScopeMigration, growthTenantFeatureFlagMigration, businessSourceApprovalSequenceMigration, growthFeatureFlagEventImmutableMigration, growthFeatureFlagConstraintsMigration]);
+        });
+      } finally {
+        client.release();
+      }
     }
     return { backend: "POSTGRESQL", pool: databasePool, ownsPool: !pool, store: new PostgresBusinessApplicationStore({ pool: databasePool }), connectorStore: new PostgresBusinessDataConnectorStore({ pool: databasePool }), sourceGovernance: new PostgresBusinessSourceGovernance({ pool: databasePool }) };
   } catch (error) {

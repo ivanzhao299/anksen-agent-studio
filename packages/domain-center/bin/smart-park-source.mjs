@@ -4,7 +4,7 @@ import { FileBusinessSourceCredentialResolver } from "../lib/business-source-cre
 import { SmartParkWorkOrderReadAdapter,SmartParkWorkOrderSyncService,smartParkSourceCommandControls } from "../lib/smart-park-work-order-source.mjs";
 
 async function main(){
-  const{apply,connectorId,scope}=smartParkSourceCommandControls(process.argv.slice(2),process.env),runtime=await createBusinessApplicationRuntime({repoRoot:process.cwd(),requirePostgres:true});
+  const{apply,connectorId,scope}=smartParkSourceCommandControls(process.argv.slice(2),process.env),runtime=await createBusinessApplicationRuntime({repoRoot:process.cwd(),requirePostgres:true,initializeSchema:false});
   try{
     const readiness=await runtime.sourceGovernance.readiness(connectorId,scope);
     if(!apply){process.stdout.write(`${JSON.stringify({...readiness,mode:"READINESS_ONLY",credentialValuesRead:false},null,2)}\n`);process.exitCode=readiness.status==="READY"?0:2;return;}
