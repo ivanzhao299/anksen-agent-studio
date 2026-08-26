@@ -169,6 +169,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Authorization is revalidated after every remote read, including empty reads; `NO_CHANGES` is never returned from an authorization that was revoked or version-changed while the adapter was reading.
 - Multi-page Smart Park reads require a stable total and matching optional page metadata across the entire read. Short intermediate pages, total drift, and page/page-size mismatches fail closed instead of producing a partial checkpoint.
 - Duplicate source-record keys, including overlaps across remote pages, fail at the adapter boundary before the connector can persist a FAILED batch or transition to ERROR.
+- Remote observation timestamps more than five minutes ahead of the validated adapter clock fail before ingestion, matching the connector's future-evidence gate without persisting a FAILED batch.
 - The authoritative acceptance command and Growth CI path filters include the Smart Park reference source and its end-to-end source-to-Runner tests, so source adapter changes cannot bypass the production-loop gate.
 - Smart Park adapter timeouts and pagination controls accept only bounded native integers, and empty reads use an injected native valid Date clock. Control coercion objects and clock impostors fail closed.
 - Smart Park credential-resolution and network-client failures are projected as stable controlled codes without forwarding provider exception messages; existing timeout, HTTP and response-validation codes remain precise.

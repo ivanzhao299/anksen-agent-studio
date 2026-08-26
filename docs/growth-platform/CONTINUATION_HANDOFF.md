@@ -284,6 +284,8 @@ Multi-page Smart Park reads require a stable total and matching optional page me
 
 Duplicate source-record keys, including overlaps across remote pages, fail at the adapter boundary before the connector can persist a FAILED batch or transition to ERROR.
 
+Remote observation timestamps over five minutes ahead of the validated adapter clock fail before ingestion, matching the connector future-evidence gate without persisting a FAILED batch.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
