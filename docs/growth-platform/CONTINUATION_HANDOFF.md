@@ -156,4 +156,6 @@ Official publishing and business API writes set `redirect: error`, so a credenti
 
 The shared bounded JSON reader actively cancels response bodies when media type or declared length is rejected, in addition to cancelling streams that cross the byte limit during reading. Rejected official API responses do not leave unread network streams behind.
 
+Successful official API JSON must be a plain object. Authoritative external IDs and statuses must be native bounded safe strings; null/array roots and numeric or boolean coercion fail as non-retryable protocol errors.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

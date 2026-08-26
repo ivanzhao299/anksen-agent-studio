@@ -5,8 +5,8 @@ const referencePattern = /^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$/;
 const secretPattern = /(?:^sk-|bearer\s+|password\s*=|token\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i;
 
 function assertReference(value, label) {
-  if (!referencePattern.test(String(value ?? '')) || secretPattern.test(String(value))) throw Object.assign(new Error(`${label}_REFERENCE_INVALID`),{code:`OFFICIAL_API_${label}_REFERENCE_INVALID`,retryable:false});
-  return String(value);
+  if (typeof value!=='string'||!referencePattern.test(value) || secretPattern.test(value)) throw Object.assign(new Error(`${label}_REFERENCE_INVALID`),{code:`OFFICIAL_API_${label}_REFERENCE_INVALID`,retryable:false});
+  return value;
 }
 
 export function createOfficialApiPublishingAdapter({
@@ -53,6 +53,7 @@ export function createOfficialApiPublishingAdapter({
         throw Object.assign(new Error(code), { code, retryable: response.status === 429 || response.status >= 500, status: response.status, retryAfter });
       }
       const payload=await readBoundedJson(response,maxResponseBytes,'OFFICIAL_API');
+      if(!payload||typeof payload!=='object'||Array.isArray(payload)||Object.getPrototypeOf(payload)!==Object.prototype)throw Object.assign(new Error('OFFICIAL_API_RESPONSE_PAYLOAD_INVALID'),{code:'OFFICIAL_API_RESPONSE_PAYLOAD_INVALID',retryable:false});
       const externalId = payload.id ?? payload.externalId;
       if (!externalId) throw Object.assign(new Error('OFFICIAL_API_EXTERNAL_ID_REQUIRED'), { code: 'OFFICIAL_API_EXTERNAL_ID_REQUIRED', retryable: false });
       return Object.freeze({ externalId: assertReference(externalId,'EXTERNAL_ID'), status: assertReference(payload.status??'PUBLISHED','EXTERNAL_STATUS'), adapterId: adapter.id, channel: adapter.channel, operationId:safeOperationId, retryable: false });
