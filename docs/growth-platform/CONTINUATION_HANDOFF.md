@@ -124,4 +124,6 @@ Connector activation gate inputs are normalized before access checks or SQL: act
 
 Runtime readiness validates every exact binding reference before SQL. Unsafe binding or credential-reference rows block readiness, while credential/health probe exceptions are converted to `CREDENTIAL_REFERENCE_READY`/`RUNTIME_HEALTH` blockers. The gate remains evidence-only: it never consumes approval, reads a credential value or starts Runtime.
 
+Growth's shared tenant source-approval readiness projection validates scope/application identifiers and clock before SQL, and returns at most 100 connectors. Request and decision semantics remain owned by the shared business governance component; do not fork a Growth-specific approval state machine.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

@@ -161,12 +161,13 @@ export class PostgresBusinessSourceGovernance {
         : null,
     };
   }
-  async tenantReadiness(scope = {}, { applicationId } = {}) {
+  async tenantReadiness(scope = {}, { applicationId,limit=100 } = {}) {
     const s = scopeOf(scope),
       tenantId = String(scope.tenantId ?? "").trim(),
-      app = String(applicationId ?? "").trim();
-    if (!s.organizationId || !s.workspaceId || !tenantId || !app)
+      app = String(applicationId ?? "").trim(),safeLimit=Math.max(1,Math.min(100,Number(limit)||100)),clockValue=this.clock(),now=clockValue instanceof Date?clockValue.getTime():NaN;
+    if (![s.organizationId,s.workspaceId,tenantId,app].every(value=>/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(value)))
       throw fail("BUSINESS_SOURCE_TENANT_READINESS_SCOPE_REQUIRED");
+    if(!Number.isFinite(now))throw fail("BUSINESS_SOURCE_TENANT_READINESS_CLOCK_INVALID");
     const rows = (
       await this.pool.query(
         `SELECT c.id,c.status,c.connector_type,c.credential_reference_id,a.id approval_id,a.status approval_status,a.mapping_version,a.expires_at
@@ -178,12 +179,11 @@ export class PostgresBusinessSourceGovernance {
            ORDER BY sequence_id DESC LIMIT 1
          ) a ON true
          WHERE c.organization_id=$1 AND c.workspace_id=$2 AND c.application_id=$4
-         ORDER BY c.id`,
-        [s.organizationId, s.workspaceId, tenantId, app],
+         ORDER BY c.id LIMIT $5`,
+        [s.organizationId, s.workspaceId, tenantId, app,safeLimit],
       )
     ).rows;
-    const now = this.clock().getTime(),
-      items = rows.map((row) => {
+    const items = rows.map((row) => {
         const expiresAt = row.expires_at ? new Date(row.expires_at) : null,
           checks = {
             connectorActive: row.status === "ACTIVE",

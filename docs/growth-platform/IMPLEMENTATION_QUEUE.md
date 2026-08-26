@@ -88,6 +88,8 @@ Connector activation preflight/activate/disable now validates all control refs, 
 
 Runtime readiness now rejects unsafe exact-binding and credential-reference fields before probes, and converts credential/health probe exceptions into stable NOT_READY blockers. It remains a read-only evidence gate with no approval consumption or Runtime startup.
 
+Tenant source-approval readiness now validates scope/application/clock before SQL and caps connector evidence at 100. Growth continues to reuse the shared business source governance workflow rather than introducing a second approval lifecycle.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
