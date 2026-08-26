@@ -144,6 +144,8 @@ Official outbound adapters now require an `application/json` or structured `+jso
 
 Use `inspectGrowthMigrations(client, growthMigrationPaths)` for a read-only deployment preflight. It reports per-file checksums and READY/PENDING/BLOCKED; drift, a legacy null checksum or an applied ledger entry absent from the immutable manifest blocks, while a missing ledger is represented as pending. Inspection never creates the ledger or applies DDL.
 
+Inspection limits the ledger SELECT to 1,001 rows for 1,000-row overflow detection. Malformed/oversized names and checksums are represented only as sanitized blockers, and an oversized ledger blocks without unbounded output.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 Connector health probes now validate all control inputs and the observation clock before authorization, database reads or external calls. Probe adapters receive an `AbortSignal`; the service enforces a configurable 100–30,000 ms timeout (10 seconds by default) and records a sanitized `UNHEALTHY` result on timeout. This remains read-only at the external connector and does not activate a binding or Runtime.
