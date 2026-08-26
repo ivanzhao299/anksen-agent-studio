@@ -146,4 +146,6 @@ Use `inspectGrowthMigrations(client, growthMigrationPaths)` for a read-only depl
 
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
+Connector health probes now validate all control inputs and the observation clock before authorization, database reads or external calls. Probe adapters receive an `AbortSignal`; the service enforces a configurable 100–30,000 ms timeout (10 seconds by default) and records a sanitized `UNHEALTHY` result on timeout. This remains read-only at the external connector and does not activate a binding or Runtime.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
