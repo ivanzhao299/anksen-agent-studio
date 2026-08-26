@@ -204,6 +204,8 @@ Source record fields must be a plain object with at most 100 data properties, sa
 
 Source ingestion snapshots closed plain-data actor, batch and record envelopes before validation, then reuses the snapshot for duplicate detection, failure audit and the transaction. Unknown/symbol fields and accessors cannot execute or mutate the post-validation view.
 
+Source connector registration also snapshots closed plain-data configuration and actor envelopes before consulting the clock or SQL. Accessors and undeclared controls fail without side effects.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
