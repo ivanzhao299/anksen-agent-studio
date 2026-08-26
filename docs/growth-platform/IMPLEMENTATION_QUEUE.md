@@ -20,6 +20,8 @@ Growth migrations 012–022 now use a shared database ledger plus the existing a
 
 Migration 022 makes the remaining authoritative Growth event and score-history tables database-immutable. The root acceptance gate checks all triggers and proves canonical event UPDATE/DELETE rejection.
 
+Production authorization reference validators now reject common raw-secret formats across connector activation and feature flags, with direct PostgreSQL/store integration evidence.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

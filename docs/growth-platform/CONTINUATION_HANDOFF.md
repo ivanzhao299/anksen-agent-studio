@@ -56,4 +56,6 @@ Migration 021 makes production feature-flag events database-immutable: direct UP
 
 Migration 022 extends database immutability to `growth_event`, score snapshots, delivery events, identity-review events and connector-binding events. It is applied by the Growth migration runner after all source tables exist and is part of root Growth acceptance. Do not bypass these triggers for normal cleanup or application workflows.
 
+Authorization-reference validation for connector activation and the tenant production feature flag now rejects `sk-`, GitHub-token, Bearer, PEM and JWT-like secret shapes as well as explicit secret key/value strings. Keep identifiers opaque and reference-only; never place credential material in an authorization field.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

@@ -3,10 +3,14 @@ import { assertTenantScope } from "../../growth-core/lib/domain-model.mjs";
 
 const fail = (code, details = {}) =>
     Object.assign(new Error(code), { code, ...details }),
+  secretLike = (value) =>
+    /(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(
+      String(value ?? ""),
+    ),
   safeRef = (value) =>
     typeof value === "string" &&
     /^[A-Za-z0-9][A-Za-z0-9._:/-]{2,159}$/.test(value) &&
-    !/(?:token|password|secret|api[_-]?key)=/i.test(value);
+    !secretLike(value);
 const hash = (value) =>
   createHash("sha256").update(String(value)).digest("hex");
 

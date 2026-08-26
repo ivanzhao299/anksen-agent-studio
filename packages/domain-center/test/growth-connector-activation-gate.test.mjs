@@ -176,6 +176,24 @@ test("connector activation consumes an existing business approval exactly once w
       "UPDATE business_approval SET object_version=$2 WHERE id=$1",
       [approval.id, waiting.version],
     );
+    await pool.query(
+      "UPDATE business_application_record SET fields=jsonb_set(fields,'{explicitAuthorizationRef}',to_jsonb($2::text)) WHERE id=$1",
+      [draft.id, "sk-production-secret"],
+    );
+    const secretLikeAuthorization = await deniedGate.preflight({
+      scope,
+      activationId: draft.id,
+      expectedActivationVersion: decision.record.version,
+    });
+    assert.ok(
+      secretLikeAuthorization.reasons.includes(
+        "EXPLICIT_PRODUCTION_AUTHORIZATION_INVALID",
+      ),
+    );
+    await pool.query(
+      "UPDATE business_application_record SET fields=jsonb_set(fields,'{explicitAuthorizationRef}',to_jsonb($2::text)) WHERE id=$1",
+      [draft.id, "PROD-AUTH-001"],
+    );
     await assert.rejects(
       () =>
         deniedGate.activate({

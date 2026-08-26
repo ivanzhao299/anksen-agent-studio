@@ -57,6 +57,22 @@ test("growth production feature flag is tenant scoped, expiring, CAS and audited
         }),
       (error) => error.code === "GROWTH_FEATURE_FLAG_AUTHORIZATION_REQUIRED",
     );
+    for (const authorizationReferenceId of [
+      "sk-production-secret",
+      "ghp_productionsecret",
+      "eyJheader.payload.signature",
+    ])
+      await assert.rejects(
+        () =>
+          store.set({
+            scope,
+            enabled: true,
+            authorizationReferenceId,
+            expiresAt: "2026-08-27T10:00:00Z",
+            actorId: "prod-operator",
+          }),
+        (error) => error.code === "GROWTH_FEATURE_FLAG_AUTHORIZATION_REQUIRED",
+      );
     const enabled = await store.set({
       scope,
       enabled: true,
