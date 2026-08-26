@@ -206,6 +206,8 @@ Source connector registration validates native scope, config arrays/numbers, act
 
 Source ingestion validates one native actor before SQL and reuses it across record, batch and event audit writes. Failed-batch error codes must be native, bounded and secret-screened before persistence.
 
+Registration conflict checks and ingestion validate the selected connector row before array comparison, record mapping or duplicate-batch lookup. Poisoned connector configuration fails with a controlled evidence error.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.
