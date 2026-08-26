@@ -86,4 +86,6 @@ The signed website ingress contract now requires `x-growth-event-id`, 10-digit U
 
 After HMAC verification, website payloads use a bounded schema rather than coercion: only the controlled event vocabulary, literal consent booleans, safe reference IDs, up to 50 product refs and bounded text fields are accepted. Persistent ingestion independently checks the security-critical normalized event contract and rejects adapter bypass/future evidence before acquiring a database connection.
 
+The adapter replay cache is deliberately bounded: 10,000 entries by default and never above 100,000, evicting oldest IDs. Body configuration is also hard-capped at 1 MiB. Treat this cache as a fast path only; the PostgreSQL canonical-event idempotency key is the durable replay defense after eviction or restart.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

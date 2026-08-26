@@ -50,6 +50,8 @@ Signed website ingress now binds timestamp, event ID and raw body into HMAC-SHA2
 
 Verified website payloads now pass a bounded event/contact/consent/reference schema. Persistent ingestion repeats critical normalized-event validation before transaction acquisition, preventing direct service callers from bypassing adapter checks or inserting future/type-confused evidence.
 
+Website ingress now caps body configuration at 1 MiB and its in-process replay cache at 100,000 entries (10,000 default) with FIFO eviction. Durable tenant-scoped PostgreSQL idempotency remains authoritative across eviction and process restart.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

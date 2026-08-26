@@ -18,10 +18,12 @@ export function verifyWebhookSignature({ rawBody, signature, secret, eventId, ti
   return timingSafeEqual(Buffer.from(supplied,'utf8'),Buffer.from(expected,'utf8'));
 }
 
-export function createWebsiteConversionAdapter({ id='website-conversion-v1', domain, secretProvider, clock=()=>new Date().toISOString(), maxBodyBytes=256*1024, maxClockSkewSeconds=300 }={}) {
+export function createWebsiteConversionAdapter({ id='website-conversion-v1', domain, secretProvider, clock=()=>new Date().toISOString(), maxBodyBytes=256*1024, maxClockSkewSeconds=300, maxReplayEntries=10000 }={}) {
   if (typeof domain!=='string'||!/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domain)) throw new TypeError('valid domain is required');
   if (typeof secretProvider!=='function') throw new TypeError('secretProvider is required');
+  if(!Number.isInteger(maxBodyBytes)||maxBodyBytes<1||maxBodyBytes>1024*1024)throw new TypeError('maxBodyBytes must be between 1 and 1048576');
   if(!Number.isFinite(maxClockSkewSeconds)||maxClockSkewSeconds<1||maxClockSkewSeconds>900)throw new TypeError('maxClockSkewSeconds must be between 1 and 900');
+  if(!Number.isInteger(maxReplayEntries)||maxReplayEntries<1||maxReplayEntries>100000)throw new TypeError('maxReplayEntries must be between 1 and 100000');
   const replay=new Set();
 
   async function ingestWebhook({ rawBody, headers={} }={}) {
@@ -70,6 +72,7 @@ export function createWebsiteConversionAdapter({ id='website-conversion-v1', dom
       rawRef:safeReference(payload.rawRef,'RAW_REF',{optional:true}),
     });
     replay.add(eventId);
+    while(replay.size>maxReplayEntries)replay.delete(replay.values().next().value);
     return { status:'ACCEPTED', event:normalized };
   }
 
