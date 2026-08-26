@@ -148,4 +148,6 @@ Operators can run `pnpm growth-migrations:status`. The command uses the guarded 
 
 Connector health probes now validate all control inputs and the observation clock before authorization, database reads or external calls. Probe adapters receive an `AbortSignal`; the service enforces a configurable 100–30,000 ms timeout (10 seconds by default) and records a sanitized `UNHEALTHY` result on timeout. This remains read-only at the external connector and does not activate a binding or Runtime.
 
+Website webhook header normalization is now bounded independently of the HTTP server: at most 64 headers, 64-character token names and 8 KiB string values, with arrays and CR/LF/NUL rejected before secret resolution. Both plain objects and the standard `Headers` interface are supported.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

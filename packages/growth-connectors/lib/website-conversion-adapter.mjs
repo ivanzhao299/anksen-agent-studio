@@ -6,7 +6,11 @@ const safeText=(value,label,max,{optional=false,multiline=false}={})=>{if(option
 const safeReference=(value,label,{optional=false}={})=>{const text=safeText(value,label,160,{optional});if(text===null)return null;if(!/^[A-Za-z0-9][A-Za-z0-9._:/-]{2,159}$/.test(text)||/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(text))throw new Error(`WEBSITE_WEBHOOK_${label}_INVALID`);return text;};
 
 function normalizeHeaders(headers={}) {
-  return Object.fromEntries(Object.entries(headers).map(([key,value])=>[String(key).toLowerCase(),String(value)]));
+  const entries=typeof headers?.entries==='function'?[...headers.entries()]:Object.entries(headers);
+  if(entries.length>64)throw new Error('WEBSITE_WEBHOOK_HEADERS_TOO_LARGE');
+  const normalized=Object.create(null);
+  for(const [rawKey,rawValue] of entries){const key=String(rawKey).toLowerCase(),value=rawValue;if(!/^[a-z0-9-]{1,64}$/.test(key)||typeof value!=='string'||Buffer.byteLength(value)>8192||/[\u0000\r\n]/.test(value))throw new Error('WEBSITE_WEBHOOK_HEADER_INVALID');normalized[key]=value;}
+  return normalized;
 }
 
 export function verifyWebhookSignature({ rawBody, signature, secret, eventId, timestamp, algorithm='sha256' }={}) {
