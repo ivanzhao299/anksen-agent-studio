@@ -158,6 +158,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Growth CI explicitly watches the source credential resolver and runs its reference-source security tests through the authoritative acceptance gate.
 - Smart Park adapter options are a closed descriptor snapshot before defaults are applied; constructor accessors and undeclared controls cannot execute.
 - File resolver options likewise accept only a native `baseDir` data property; constructor accessors and coercion objects fail before path resolution.
+- Smart Park changed-record aggregation is capped at the connector's 100-record atomic batch limit; larger backlogs fail at the read boundary before failed-batch or connector-state side effects.
 - The authoritative acceptance command and Growth CI path filters include the Smart Park reference source and its end-to-end source-to-Runner tests, so source adapter changes cannot bypass the production-loop gate.
 - Smart Park adapter timeouts and pagination controls accept only bounded native integers, and empty reads use an injected native valid Date clock. Control coercion objects and clock impostors fail closed.
 - Smart Park credential-resolution and network-client failures are projected as stable controlled codes without forwarding provider exception messages; existing timeout, HTTP and response-validation codes remain precise.

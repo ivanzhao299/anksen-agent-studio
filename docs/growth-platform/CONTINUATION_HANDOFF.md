@@ -262,6 +262,8 @@ Smart Park adapter options are a closed descriptor snapshot before defaults are 
 
 File resolver options likewise accept only a native `baseDir` data property. Constructor accessors and coercion objects fail before path resolution.
 
+Smart Park changed-record aggregation is capped at the connector's 100-record atomic batch limit. Larger backlogs fail at the read boundary before failed-batch or connector-state side effects.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
