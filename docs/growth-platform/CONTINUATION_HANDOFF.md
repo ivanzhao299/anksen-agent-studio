@@ -222,6 +222,8 @@ Approval rows are closed database-evidence snapshots before presentation. Status
 
 Governed connector lookup validates a closed tenant-scoped database row, connector enums, bounded configuration, references and native/string dates before readiness or approval code receives it.
 
+Source readiness evaluates data-owner approval and mapping Gates only from the validated approval projection, not the raw database row.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.

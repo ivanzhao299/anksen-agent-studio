@@ -104,7 +104,7 @@ export class PostgresBusinessSourceGovernance {
   }
   async readiness(connectorId, scope = {}) {
     const connector = await this.connector(connectorId, scope),
-      approval = (
+      approvalRow = (
         await this.pool.query(
           "SELECT * FROM business_data_source_approval WHERE connector_id=$1 ORDER BY sequence_id DESC LIMIT 1",
           [connector.id],
@@ -116,6 +116,7 @@ export class PostgresBusinessSourceGovernance {
           [connector.id],
         )
       ).rows[0],
+      approval=approvalRow?this.present(approvalRow):null,
       checks = [
         { id: "CONNECTOR_ACTIVE", pass: connector.status === "ACTIVE" },
         {
@@ -127,13 +128,13 @@ export class PostgresBusinessSourceGovernance {
           pass: !!connector.credential_reference_id,
         },
         { id: "DATA_OWNER_APPROVAL", pass: approval?.status === "APPROVED" },
-        { id: "MAPPING_VERSION", pass: !!approval?.mapping_version },
+        { id: "MAPPING_VERSION", pass: !!approval?.mappingVersion },
       ];
     return {
       status: checks.every((item) => item.pass) ? "READY" : "NOT_READY",
       connectorId: connector.id,
       checks,
-      approval: approval ? this.present(approval) : null,
+      approval,
       checkpoint: checkpoint ? readinessCheckpoint(checkpoint,connector) : null,
     };
   }
