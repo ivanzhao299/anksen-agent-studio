@@ -59,12 +59,13 @@ export function assertBusinessDatabaseUrl(value, options = {}) {
 
 export function resolveBusinessDatabasePoolMax(env=process.env){const control=businessEnvironmentValue(env,"BUSINESS_DATABASE_POOL_MAX"),value=control===undefined?10:/^[0-9]{1,2}$/.test(control)?Number(control):Number.NaN;if(!Number.isInteger(value)||value<1||value>50)throw new Error("BUSINESS_DATABASE_POOL_MAX_INVALID");return value;}
 export function resolveBusinessDatabaseTimeoutMs(env=process.env){const control=businessEnvironmentValue(env,"BUSINESS_DATABASE_TIMEOUT_MS"),value=control===undefined?10000:/^[0-9]{3,5}$/.test(control)?Number(control):Number.NaN;if(!Number.isInteger(value)||value<100||value>60000)throw new Error("BUSINESS_DATABASE_TIMEOUT_INVALID");return value;}
+export function resolveBusinessDatabaseRemoteAccess(env=process.env){const control=businessEnvironmentValue(env,"BUSINESS_DATABASE_ALLOW_REMOTE");if(control!==undefined&&!['true','false'].includes(control))throw new Error("BUSINESS_DATABASE_ENV_INVALID");return control==='true';}
 
 export async function createBusinessApplicationRuntime({ repoRoot, env = process.env, pool = null, requirePostgres, initializeSchema = true } = {}) {
   if(typeof initializeSchema!=="boolean")throw new Error("BUSINESS_DATABASE_SCHEMA_MODE_INVALID");
-  const requiredControl=businessEnvironmentValue(env,"BUSINESS_DATABASE_REQUIRED"),remoteControl=businessEnvironmentValue(env,"BUSINESS_DATABASE_ALLOW_REMOTE");
-  if(requiredControl!==undefined&&!['true','false'].includes(requiredControl)||remoteControl!==undefined&&!['true','false'].includes(remoteControl)||requirePostgres!==undefined&&typeof requirePostgres!=="boolean")throw new Error("BUSINESS_DATABASE_ENV_INVALID");
-  const postgresRequired=requirePostgres??requiredControl==="true",allowRemote=remoteControl==="true";
+  const requiredControl=businessEnvironmentValue(env,"BUSINESS_DATABASE_REQUIRED"),allowRemote=resolveBusinessDatabaseRemoteAccess(env);
+  if(requiredControl!==undefined&&!['true','false'].includes(requiredControl)||requirePostgres!==undefined&&typeof requirePostgres!=="boolean")throw new Error("BUSINESS_DATABASE_ENV_INVALID");
+  const postgresRequired=requirePostgres??requiredControl==="true";
   const configuredUrl = pool ? null : resolveBusinessDatabaseUrl(env);
   if (!pool && !configuredUrl) {
     if (postgresRequired) throw new Error("BUSINESS_DATABASE_REQUIRED");

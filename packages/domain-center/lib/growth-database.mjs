@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { PostgresGrowthStore } from './postgres-growth-store.mjs';
-import { assertBusinessDatabaseUrl, resolveBusinessDatabasePoolMax,resolveBusinessDatabaseTimeoutMs,resolveBusinessDatabaseUrl } from './business-database.mjs';
+import { assertBusinessDatabaseUrl, resolveBusinessDatabasePoolMax,resolveBusinessDatabaseRemoteAccess,resolveBusinessDatabaseTimeoutMs,resolveBusinessDatabaseUrl } from './business-database.mjs';
 import { applyGrowthMigrations, withGrowthMigrationLock } from './growth-migration-runner.mjs';
 
 const { Pool } = pg;
@@ -56,7 +56,7 @@ export async function createGrowthDatabaseRuntime({ env = process.env, pool = nu
   if (!pool && !configured) throw new Error('BUSINESS_DATABASE_URL_REQUIRED');
   const timeoutMs=pool?null:resolveBusinessDatabaseTimeoutMs(env);
   const db = pool ?? new Pool({
-    connectionString: assertBusinessDatabaseUrl(configured, { allowRemote: env.BUSINESS_DATABASE_ALLOW_REMOTE === 'true' }),
+    connectionString: assertBusinessDatabaseUrl(configured, { allowRemote: resolveBusinessDatabaseRemoteAccess(env) }),
     max: resolveBusinessDatabasePoolMax(env),
     connectionTimeoutMillis:timeoutMs,
     query_timeout:timeoutMs,
