@@ -90,4 +90,6 @@ The adapter replay cache is deliberately bounded: 10,000 entries by default and 
 
 Official publishing and business adapters now use `official-api-safety.mjs`. Activation booleans are strict, timeouts stay within 100 ms–30 s, HTTP test escape is loopback-only, endpoint userinfo/query/fragment is denied and success bodies are streamed under a configured 64 KiB default/1 MiB ceiling. Returned IDs/statuses are reference-only, publishing drops remote URLs, and business payloads reject secret-bearing keys/values plus excessive shape/size. Preserve this shared boundary for future official connectors.
 
+Credential resolution is included in outbound availability control rather than occurring before all timers. Each official adapter gives the resolver the configured bounded timeout; hangs are retryable, provider exceptions are sanitized, and malformed tokens are terminal before fetch. Do not log or rethrow resolver messages.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

@@ -54,6 +54,8 @@ Website ingress now caps body configuration at 1 MiB and its in-process replay c
 
 Official outbound adapters now share strict booleans, bounded timeout/response/token settings, loopback-only HTTP testing and endpoint URL hygiene. Success references and business payloads are validated before return/write, and publishing no longer propagates untrusted remote URLs.
 
+Credential resolution now has the same bounded timeout discipline as outbound HTTP. Hangs classify as retryable timeouts, provider errors are sanitized, and invalid token material stops before any external request.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

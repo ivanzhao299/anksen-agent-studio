@@ -1,5 +1,5 @@
 import { defineBusinessIntegrationAdapter } from '../../growth-core/lib/business-integration.mjs';
-import {assertBoundedOutboundPayload,assertCredentialToken,assertOfficialApiConfiguration,readBoundedJson} from './official-api-safety.mjs';
+import {assertBoundedOutboundPayload,assertCredentialToken,assertOfficialApiConfiguration,readBoundedJson,resolveCredentialWithTimeout} from './official-api-safety.mjs';
 
 const referencePattern=/^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$/;
 const unsafeReference=/(?:^sk-|bearer\s+|password\s*=|token\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i;
@@ -13,7 +13,7 @@ export function createOfficialApiBusinessAdapter({id,system,capabilities=[],endp
   const definition=defineBusinessIntegrationAdapter({id,system,capabilities,riskLevel:'HIGH',requiresApproval,async execute(request){
     if(!enabled)throw Object.assign(new Error('OFFICIAL_BUSINESS_API_DISABLED'),{code:'OFFICIAL_BUSINESS_API_DISABLED',retryable:false});
     if(requiresApproval)assertRef(request.approvalRef,'APPROVAL');
-    const credential=await credentialResolver({credentialReferenceId:credentialRef,system,id}),accessToken=assertCredentialToken(credential?.accessToken,'OFFICIAL_BUSINESS_API'),operationId=assertRef(request.operationId,'OPERATION'),payload=assertBoundedOutboundPayload(request.payload,'OFFICIAL_BUSINESS_API');
+    const credential=await resolveCredentialWithTimeout(credentialResolver,{credentialReferenceId:credentialRef,system,id},timeoutMs,'OFFICIAL_BUSINESS_API'),accessToken=assertCredentialToken(credential?.accessToken,'OFFICIAL_BUSINESS_API'),operationId=assertRef(request.operationId,'OPERATION'),payload=assertBoundedOutboundPayload(request.payload,'OFFICIAL_BUSINESS_API');
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),timeoutMs);
     try{
       const response=await fetchImpl(target,{method:'POST',headers:{'content-type':'application/json',authorization:`Bearer ${accessToken}`,'idempotency-key':operationId},body:JSON.stringify({objectType:request.objectType,leadRef:assertRef(request.leadId,'LEAD'),approvalRef:request.approvalRef,payload,tenant:{organizationId:request.organizationId,workspaceId:request.workspaceId,tenantId:request.tenantId}}),signal:controller.signal});

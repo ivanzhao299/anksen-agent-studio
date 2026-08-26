@@ -1,5 +1,5 @@
 import { defineChannelAdapter, assertAdapterCanExecute } from '../../growth-core/lib/channel-adapter.mjs';
-import {assertCredentialToken,assertOfficialApiConfiguration,readBoundedJson} from './official-api-safety.mjs';
+import {assertCredentialToken,assertOfficialApiConfiguration,readBoundedJson,resolveCredentialWithTimeout} from './official-api-safety.mjs';
 
 const referencePattern = /^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$/;
 const secretPattern = /(?:^sk-|bearer\s+|password\s*=|token\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i;
@@ -35,7 +35,7 @@ export function createOfficialApiPublishingAdapter({
     const safeAssetRef = assertReference(assetRef, 'ASSET');
     if (adapter.requiresApproval && !approvalRef) throw Object.assign(new Error('OFFICIAL_API_APPROVAL_REQUIRED'), { code: 'OFFICIAL_API_APPROVAL_REQUIRED', retryable: false });
     if (approvalRef) assertReference(approvalRef, 'APPROVAL');
-    const credential = await credentialResolver({ credentialReferenceId: credentialRef, channel: adapter.channel, adapterId: adapter.id });
+    const credential = await resolveCredentialWithTimeout(credentialResolver,{ credentialReferenceId: credentialRef, channel: adapter.channel, adapterId: adapter.id },timeoutMs,'OFFICIAL_API');
     const accessToken=assertCredentialToken(credential?.accessToken,'OFFICIAL_API'),safeOperationId=assertReference(operationId,'OPERATION');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
