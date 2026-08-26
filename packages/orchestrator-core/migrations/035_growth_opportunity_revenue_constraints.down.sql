@@ -1,0 +1,2 @@
+ALTER TABLE growth_revenue_attribution DROP CONSTRAINT IF EXISTS growth_revenue_contract_valid;
+ALTER TABLE growth_opportunity DROP CONSTRAINT IF EXISTS growth_opportunity_contract_valid;

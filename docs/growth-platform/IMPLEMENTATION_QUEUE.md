@@ -70,6 +70,8 @@ Canonical engagement writes now have bounded references, controlled kind/channel
 
 Canonical score snapshots now validate bounded identifiers and evidence JSON, numeric ranges and timestamps before SQL. Snapshot ID replay requires all immutable fields to match exactly; migration 034 mirrors the structural contract for new direct writes.
 
+Canonical opportunity/revenue writes now constrain relation references, stage/score, downstream and metadata JSON, attribution amount/currency/time, lead rebinding and exact revenue replay. Migration 035 mirrors the structural checks for new direct writes while preserving the existing managed business application lifecycle.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

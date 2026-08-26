@@ -141,26 +141,41 @@ export class PostgresGrowthStore {
   }
 
   async upsertOpportunity({ scope, opportunity, downstreamRef = null }) {
-    const s = assertTenantScope(scope);
+    const s = assertTenantScope(scope),now=this.clock();
+    if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw fail('GROWTH_OPPORTUNITY_CLOCK_INVALID');
+    if(!opportunity||typeof opportunity!=='object')throw fail('GROWTH_OPPORTUNITY_INVALID');
+    const id=safeCanonicalRef(opportunity.id,'OPPORTUNITY',{max:160}),leadId=safeCanonicalRef(opportunity.leadId,'OPPORTUNITY_LEAD',{max:160}),stage=String(opportunity.stage??''),score=opportunity.score==null?null:Number(opportunity.score),safeDownstreamRef=safeJson(downstreamRef,'OPPORTUNITY_DOWNSTREAM_REF',{nullable:true});
+    if(!/^[A-Z][A-Z0-9_]{1,63}$/.test(stage))throw fail('GROWTH_OPPORTUNITY_STAGE_INVALID');
+    if(score!=null&&(!Number.isFinite(score)||score<0||score>100))throw fail('GROWTH_OPPORTUNITY_SCORE_INVALID');
     const result = await this.pool.query(
       `INSERT INTO growth_opportunity(id,organization_id,workspace_id,tenant_id,lead_id,stage,score,downstream_ref)
        SELECT $1,$2,$3,$4,$5,$6,$7,$8::jsonb FROM growth_lead WHERE id=$5 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4
        ON CONFLICT(id) DO UPDATE SET stage=EXCLUDED.stage,score=EXCLUDED.score,downstream_ref=EXCLUDED.downstream_ref,updated_at=now()
-       WHERE growth_opportunity.organization_id=EXCLUDED.organization_id AND growth_opportunity.workspace_id=EXCLUDED.workspace_id AND growth_opportunity.tenant_id=EXCLUDED.tenant_id
+       WHERE growth_opportunity.organization_id=EXCLUDED.organization_id AND growth_opportunity.workspace_id=EXCLUDED.workspace_id AND growth_opportunity.tenant_id=EXCLUDED.tenant_id AND growth_opportunity.lead_id=EXCLUDED.lead_id
        RETURNING *`,
-      [opportunity.id, s.organizationId, s.workspaceId, s.tenantId, opportunity.leadId, opportunity.stage, opportunity.score ?? null, json(downstreamRef, null)]
+      [id, s.organizationId, s.workspaceId, s.tenantId, leadId, stage, score, safeDownstreamRef]
     );
     if (!result.rowCount) throw new Error('cross-tenant growth opportunity update denied');
     return result.rows[0];
   }
 
   async recordRevenue({ scope, revenue }) {
-    const s = assertTenantScope(scope);
+    const s = assertTenantScope(scope),now=this.clock(),attributedAt=new Date(revenue?.attributedAt);
+    if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw fail('GROWTH_REVENUE_CLOCK_INVALID');
+    if(!revenue||typeof revenue!=='object')throw fail('GROWTH_REVENUE_INVALID');
+    const id=safeCanonicalRef(revenue.id,'REVENUE',{max:160}),opportunityId=safeCanonicalRef(revenue.opportunityId,'REVENUE_OPPORTUNITY',{max:160}),leadId=safeCanonicalRef(revenue.leadId,'REVENUE_LEAD',{max:160}),amount=Number(revenue.amount),currency=String(revenue.currency??''),metadata=safeJson(revenue.metadata??{},'REVENUE_METADATA');
+    if(!Number.isFinite(amount)||amount<0)throw fail('GROWTH_REVENUE_AMOUNT_INVALID');
+    if(!/^[A-Z]{3}$/.test(currency))throw fail('GROWTH_REVENUE_CURRENCY_INVALID');
+    if(!Number.isFinite(attributedAt.getTime())||attributedAt.getTime()>now.getTime()+300000)throw fail('GROWTH_REVENUE_TIME_INVALID');
     const result=await this.pool.query(
       `INSERT INTO growth_revenue_attribution(id,organization_id,workspace_id,tenant_id,opportunity_id,lead_id,amount,currency,attributed_at,metadata)
-       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb FROM growth_opportunity o JOIN growth_lead l ON l.id=$6 AND l.organization_id=$2 AND l.workspace_id=$3 AND l.tenant_id=$4 WHERE o.id=$5 AND o.lead_id=$6 AND o.organization_id=$2 AND o.workspace_id=$3 AND o.tenant_id=$4 RETURNING growth_revenue_attribution.id`,
-      [revenue.id, s.organizationId, s.workspaceId, s.tenantId, revenue.opportunityId, revenue.leadId, revenue.amount, revenue.currency, revenue.attributedAt, json(revenue.metadata, {})]
-    );if(!result.rowCount)throw Object.assign(new Error('GROWTH_REVENUE_TENANT_RELATION_REQUIRED'),{code:'GROWTH_REVENUE_TENANT_RELATION_REQUIRED'});
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb FROM growth_opportunity o JOIN growth_lead l ON l.id=$6 AND l.organization_id=$2 AND l.workspace_id=$3 AND l.tenant_id=$4 WHERE o.id=$5 AND o.lead_id=$6 AND o.organization_id=$2 AND o.workspace_id=$3 AND o.tenant_id=$4 ON CONFLICT(id) DO NOTHING RETURNING growth_revenue_attribution.id`,
+      [id, s.organizationId, s.workspaceId, s.tenantId, opportunityId, leadId, amount, currency, attributedAt, metadata]
+    );
+    if(result.rowCount)return{inserted:true,id:result.rows[0].id};
+    const existing=await this.pool.query(`SELECT id FROM growth_revenue_attribution WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 AND opportunity_id=$5 AND lead_id=$6 AND amount=$7 AND currency=$8 AND attributed_at=$9 AND metadata=$10::jsonb`,[id,s.organizationId,s.workspaceId,s.tenantId,opportunityId,leadId,amount,currency,attributedAt,metadata]);
+    if(!existing.rowCount)throw Object.assign(new Error('GROWTH_REVENUE_TENANT_RELATION_REQUIRED_OR_CONFLICT'),{code:'GROWTH_REVENUE_TENANT_RELATION_REQUIRED_OR_CONFLICT'});
+    return{inserted:false,id:existing.rows[0].id};
   }
 
   async customer360({ scope, leadId }) {

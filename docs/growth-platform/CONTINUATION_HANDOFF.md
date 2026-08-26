@@ -106,4 +106,6 @@ Canonical engagements use the same two-boundary contract. `PostgresGrowthStore.r
 
 Canonical score history remains append-only and is now exact-replay idempotent. `recordScore` bounds IDs, score type, numeric ranges, model/policy refs, factor/dimension JSON and calculation time before SQL; an existing snapshot ID with different immutable content fails closed. Migration 034 mirrors the structural limits for new/direct rows without rewriting legacy history.
 
+Opportunity and revenue persistence now closes the remaining canonical write boundary. Opportunity IDs are lead-stable and fields/downstream refs are bounded; revenue attributions require safe scoped relation refs, non-negative finite amounts, uppercase three-letter currency, object metadata and non-future timestamps. Revenue replays must match every immutable field. Migration 035 applies matching new-row checks without introducing another sales state machine.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
