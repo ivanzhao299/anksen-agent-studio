@@ -266,6 +266,8 @@ Smart Park changed-record aggregation is capped at the connector's 100-record at
 
 Smart Park read controls, sync-service dependencies, and organization/workspace/project/tenant/user scope are closed descriptor snapshots. Accessors and undeclared fields fail before credentials, governance, or remote reads, while all sync phases share the same copied scope values.
 
+The sync service independently projects an injected adapter result into a closed descriptor-backed envelope. Counts, availability, dates, cursor presence, and the 100-record ceiling must agree before authorization recheck or ingestion.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
