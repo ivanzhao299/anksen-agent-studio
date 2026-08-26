@@ -40,6 +40,8 @@ Health and expiry arithmetic now rejects invalid clocks and non-finite windows. 
 
 Health-evidence references are now bounded to 512 safe characters and validated with the local clock before mutation authorization or SQL. Storage remains hash-only, and invalid adapter output produces no governance or persistence side effects.
 
+Delivery retries require literal boolean intent, remaining attempt budget and a 1-second–24-hour future schedule; otherwise they terminate safely. Registration validates 1–20 attempts and controlled operation/capability values, and migration 026 blocks direct SQL bypass for operation metadata.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
