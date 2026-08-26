@@ -37,7 +37,7 @@ The gate runs Core unit and GA acceptance tests, the evidence-based Pilot readin
 4. Keep the Pilot readiness report fail-closed: implementation evidence is green, while activation remains blocked until every credential, health, approval, feature-flag, Runtime Gate and explicit production-authorization check is independently proven.
 5. The sanitized Pilot readiness evidence is now projected into the authenticated Growth Console without an activation action; keep its tenant isolation and fail-closed API evidence green.
 6. Delivery failures, reconciliation mismatches and open identity-review cases now come from scoped PostgreSQL evidence. Identity resolution/dismissal has separate reviewer RBAC, exact-version CAS, candidate validation and immutable audit; keep the browser projection read-only until authenticated end-to-end action UX is proven.
-7. Publishing Credential Reference presence now comes from active, unexpired channel-account records and remains `CONFIGURED_NOT_PROBED`. Add explicit health-probe evidence and appropriate governed bindings for signed website ingress and Business API handoff; do not reuse the read-only business-data connector model for outbound writes.
+7. Signed ingress, publishing and Business API now have tenant-scoped, default-disabled, CAS/audited connector bindings. Publishing additionally requires an active channel account. Implement a non-mutating probe adapter and a separately approved activation operation; readiness currently accepts only fresh `HEALTHY` evidence on enabled bindings and performs neither action itself.
 8. Validate KingTurf through governed connectors and downstream mappings only after the existing gates authorize it.
 9. Keep the second non-KingTurf tenant proof green without a Core or schema fork.
 

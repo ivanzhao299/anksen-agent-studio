@@ -255,6 +255,6 @@ Wave 3:
 3. Harden GA-008~GA-017 connector reconciliation, retry, approval/failure paths, UI and operational evidence.
 4. Keep the authenticated, sanitized Pilot readiness Console projection and tenant fail-closed boundary green; it must not gain an activation control.
 5. Keep the persisted tenant-scoped identity-review lifecycle green: conflict capture, live backlog, exact-version reviewer resolution/dismissal, candidate validation, immutable audit and read-only browser projection are implemented.
-6. Publishing Credential Reference presence is now derived from scoped channel-account records without reading values. Define governed signed-ingress and Business API bindings plus non-mutating health evidence; never infer health from configuration alone.
+6. Governed, reference-only connector bindings now cover signed ingress, publishing and Business API, default disabled with CAS/audit and health-evidence hashes. Add non-mutating probes and separately approved activation; never infer health from configuration alone.
 7. Validate the KingTurf pilot without moving tenant-specific logic into Core or bypassing activation gates.
 8. Keep the second non-KingTurf tenant validation green without a schema or Core fork.
