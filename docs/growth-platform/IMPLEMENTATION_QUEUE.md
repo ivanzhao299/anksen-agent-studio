@@ -42,6 +42,8 @@ Health-evidence references are now bounded to 512 safe characters and validated 
 
 Delivery retries require literal boolean intent, remaining attempt budget and a 1-second–24-hour future schedule; otherwise they terminate safely. Registration validates 1–20 attempts and controlled operation/capability values, and migration 026 blocks direct SQL bypass for operation metadata.
 
+Delivery retry and reconciliation mutations now default-deny at the PostgreSQL store seam. Console passes its already evaluated Access Center decision into narrow capability-specific authorization callbacks, preventing internal callers from bypassing route-only governance.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

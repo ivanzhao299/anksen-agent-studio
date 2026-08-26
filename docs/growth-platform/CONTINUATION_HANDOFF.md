@@ -78,4 +78,6 @@ Connector health evidence is bounded before authorization: the local clock must 
 
 Outbound retry state is now schedule-bound. Only literal `retryable: true` plus remaining budget and a retry timestamp 1 second–24 hours ahead can enter `RETRYABLE`; all malformed or missing schedules become terminal with sanitized `last_error.retryable=false`. Registration restricts attempts to 1–20 and operation/capability vocabulary, with migration 026 enforcing the latter in PostgreSQL. This migration is full-Growth-only because it depends on delivery migration 014.
 
+Retry and reconciliation are default-deny at the delivery store seam. Console supplies its evaluated Access Center action decision, and the injected integrations verify the action-specific capability (`business.work.control` for retry, `proposal.approve` for reconciliation). Keep both route and store checks; do not revert to trusting a non-empty actor ID.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

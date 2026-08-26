@@ -10,7 +10,7 @@ test('delivery ledger is idempotent, retryable, CAS-protected and reconcilable',
   const pool=createTestPool(),suffix=randomUUID(),scope={organizationId:`delivery-${suffix}`,workspaceId:'growth',tenantId:'tenant-a'},other={...scope,tenantId:'tenant-b'};
   try{
     await migrateGrowthPlatform(pool);
-    const store=new PostgresGrowthDeliveryStore({pool,clock:()=>new Date('2026-08-26T04:00:00Z')});
+    const store=new PostgresGrowthDeliveryStore({pool,clock:()=>new Date('2026-08-26T04:00:00Z'),authorizeRetry:async input=>input.actorId==='growth-operator',authorizeReconciliation:async input=>['growth-reviewer','SYSTEM'].includes(input.actorId)});
     const input={scope,idempotencyKey:`publish-${suffix}`,adapterId:'official-v1',assetRef:'asset/ref-1',approvalRef:'approval/ref-1',maxAttempts:3};
     await assert.rejects(()=>store.register({...input,idempotencyKey:`bad-attempts-${suffix}`,maxAttempts:'3'}),error=>error.code==='DELIVERY_MAX_ATTEMPTS_INVALID');
     await assert.rejects(()=>store.register({...input,idempotencyKey:`bad-capability-${suffix}`,capability:'publish content'}),error=>error.code==='DELIVERY_CAPABILITY_INVALID');
@@ -28,9 +28,11 @@ test('delivery ledger is idempotent, retryable, CAS-protected and reconcilable',
     const adapter={async publish(){calls+=1;if(calls===1)throw Object.assign(new Error('rate limited: secret-not-stored'),{code:'OFFICIAL_API_HTTP_429',retryable:true,status:429});return{externalId:'post-1',status:'PUBLISHED'};}};
     const retryable=await executeGrowthDelivery({store,scope,operation:registered.operation,adapter,retryAt:new Date('2026-08-26T05:00:00Z')});
     assert.equal(retryable.status,'RETRYABLE');assert.equal(retryable.attempts,1);assert.equal(retryable.last_error.code,'OFFICIAL_API_HTTP_429');assert.doesNotMatch(JSON.stringify(retryable),/secret-not-stored|message/);
+    await assert.rejects(()=>new PostgresGrowthDeliveryStore({pool,clock:()=>new Date('2026-08-26T04:00:00Z')}).requestRetry({scope,id:retryable.id,expectedVersion:retryable.version,actorId:'growth-operator'}),error=>error.code==='DELIVERY_RETRY_NOT_AUTHORIZED');
     const requested=await store.requestRetry({scope,id:retryable.id,expectedVersion:retryable.version,actorId:'growth-operator'});assert.equal(requested.next_attempt_at.toISOString(),'2026-08-26T04:00:00.000Z');
     const completed=await executeGrowthDelivery({store,scope,operation:requested,adapter});
     assert.equal(completed.status,'COMPLETED');assert.equal(completed.attempts,2);assert.equal(completed.external_id,'post-1');
+    await assert.rejects(()=>new PostgresGrowthDeliveryStore({pool}).reconcile({scope,id:completed.id,expectedVersion:completed.version,observedExternalId:'post-1',actorId:'growth-reviewer'}),error=>error.code==='DELIVERY_RECONCILIATION_NOT_AUTHORIZED');
     await assert.rejects(()=>store.beginAttempt({scope,id:completed.id,expectedVersion:completed.version}),error=>error.code==='DELIVERY_NOT_EXECUTABLE_OR_VERSION_CONFLICT');
     await assert.rejects(()=>store.reconcile({scope,id:completed.id,expectedVersion:completed.version,observedExternalId:'',actorId:'growth-reviewer'}),error=>error.code==='DELIVERY_OBSERVED_EXTERNAL_ID_REQUIRED');
     const mismatch=await store.reconcile({scope,id:completed.id,expectedVersion:completed.version,observedExternalId:'different',observedStatus:'PUBLISHED',actorId:'growth-reviewer'});
