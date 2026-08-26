@@ -318,6 +318,8 @@ Returned checkpoint evidence must bind `lastObservedAt` exactly to the source ob
 
 Returned batches expose a bounded native ID, canonical ordered creation/completion timestamps, and status-consistent sanitized error summaries before reaching Console or audit consumers.
 
+APPLIED checkpoint results must remain READY. An authorized FAILED batch may correctly return NOT_READY because the connector atomically transitioned to ERROR; approval, batch, counts, and reconciliation evidence remain fully verified and are returned as a failed sync outcome.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
