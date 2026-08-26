@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'packages/growth-core/**'
+      - 'packages/growth-connectors/**'
       - 'packages/domain-center/lib/*growth*'
       - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
       - 'packages/domain-center/package.json'
@@ -15,6 +16,7 @@ on:
       - feature/anksen-ai-growth-platform
     paths:
       - 'packages/growth-core/**'
+      - 'packages/growth-connectors/**'
       - 'packages/domain-center/lib/*growth*'
       - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
       - 'packages/domain-center/package.json'
@@ -42,6 +44,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @anksen-agent-studio/growth-core test
       - run: pnpm --filter @anksen-agent-studio/growth-core acceptance
+      - run: pnpm --filter @anksen-agent-studio/growth-connectors test
 
   growth-postgres:
     needs: growth-core
