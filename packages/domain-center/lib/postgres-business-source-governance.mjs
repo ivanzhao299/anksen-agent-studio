@@ -62,23 +62,11 @@ export class PostgresBusinessSourceGovernance {
       )
     ).rows[0];
     if (existing) return this.present(existing);
-    const row = (
-      await this.pool.query(
-        "INSERT INTO business_data_source_approval(id,connector_id,organization_id,workspace_id,tenant_id,data_owner_id,mapping_version,expires_at,status,requested_by,requested_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'PENDING',$9,$10) RETURNING *",
-        [
-          randomUUID(),
-          connector.id,
-          connector.organization_id,
-          connector.workspace_id,
-          tenantId,
-          owner,
-          mapping,
-          expiresAt,
-          requester,
-          now,
-        ],
-      )
-    ).rows[0];
+    let row;
+    try{row=(await this.pool.query(
+      "INSERT INTO business_data_source_approval(id,connector_id,organization_id,workspace_id,tenant_id,data_owner_id,mapping_version,expires_at,status,requested_by,requested_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'PENDING',$9,$10) RETURNING *",
+      [randomUUID(),connector.id,connector.organization_id,connector.workspace_id,tenantId,owner,mapping,expiresAt,requester,now],
+    )).rows[0];}catch(error){if(error?.code==='23505'&&['uq_business_source_pending_approval_unscoped','uq_business_source_pending_approval_tenant'].includes(error?.constraint)){const concurrent=(await this.pool.query("SELECT * FROM business_data_source_approval WHERE connector_id=$1 AND tenant_id IS NOT DISTINCT FROM $2 AND status='PENDING'",[connector.id,tenantId])).rows[0];if(concurrent)return this.present(concurrent);}throw error;}
     return this.present(row);
   }
   async decide(approvalId, input, actor = {}) {

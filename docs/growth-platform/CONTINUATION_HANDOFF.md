@@ -192,6 +192,8 @@ Tenant source-readiness projection enforces the SQL row ceiling and validates na
 
 Data-owner approval projection validates references, status, version, bounded reason and native dates, then emits canonical ISO dates. Poisoned approval rows cannot be exposed through readiness or mutation responses.
 
+Concurrent tenant or unscoped approval requests recover only the exact pending-approval unique constraints and re-read the winning row. Other uniqueness failures remain visible.
+
 Authoritative source ingestion validates native tenant/connector controls, idempotency/evidence/cursor fields and each record's primitive identity envelope before its first SQL query. Unsafe coercion objects cannot create failed-batch side effects.
 
 Source ingestion takes one native valid Date clock sample before SQL and reuses it for freshness checks plus failed/success audit timestamps. Clock coercion and intra-operation timestamp drift are denied.
