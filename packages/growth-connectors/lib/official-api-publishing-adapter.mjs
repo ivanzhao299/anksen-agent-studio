@@ -1,5 +1,5 @@
 import { defineChannelAdapter, assertAdapterCanExecute } from '../../growth-core/lib/channel-adapter.mjs';
-import {assertCredentialToken,assertOfficialApiConfiguration,readBoundedJson,resolveCredentialWithTimeout} from './official-api-safety.mjs';
+import {assertCredentialToken,assertOfficialApiConfiguration,cancelResponseBody,readBoundedJson,resolveCredentialWithTimeout,safeRetryAfter} from './official-api-safety.mjs';
 
 const referencePattern = /^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$/;
 const secretPattern = /(?:^sk-|bearer\s+|password\s*=|token\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i;
@@ -48,7 +48,8 @@ export function createOfficialApiPublishingAdapter({
       });
       if (!response.ok) {
         const code = `OFFICIAL_API_HTTP_${response.status}`;
-        throw Object.assign(new Error(code), { code, retryable: response.status === 429 || response.status >= 500, status: response.status, retryAfter: response.headers.get('retry-after') ?? null });
+        const retryAfter=safeRetryAfter(response.headers.get('retry-after'));await cancelResponseBody(response);
+        throw Object.assign(new Error(code), { code, retryable: response.status === 429 || response.status >= 500, status: response.status, retryAfter });
       }
       const payload=await readBoundedJson(response,maxResponseBytes,'OFFICIAL_API');
       const externalId = payload.id ?? payload.externalId;

@@ -138,4 +138,6 @@ Growth migration execution now wraps each new migration SQL and checksum ledger 
 
 Website HMAC secret resolution now has a configurable 100–5000 ms bound (default 1000 ms) and a 4 KiB material ceiling. A hanging resolver, invalid type or oversized result fails as unavailable before HMAC; the secret remains runtime-only. Keep server-level request/header limits in front of the adapter as the first network boundary.
 
+Official outbound adapters now require an `application/json` or structured `+json` success media type and reject malformed JSON explicitly after the streaming byte limit. Error response bodies are cancelled, and retry hints are decimal-only and at most eight digits. No upstream body/header detail is copied into errors.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

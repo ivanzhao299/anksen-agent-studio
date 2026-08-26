@@ -1,5 +1,5 @@
 import { defineBusinessIntegrationAdapter } from '../../growth-core/lib/business-integration.mjs';
-import {assertBoundedOutboundPayload,assertCredentialToken,assertOfficialApiConfiguration,readBoundedJson,resolveCredentialWithTimeout} from './official-api-safety.mjs';
+import {assertBoundedOutboundPayload,assertCredentialToken,assertOfficialApiConfiguration,cancelResponseBody,readBoundedJson,resolveCredentialWithTimeout,safeRetryAfter} from './official-api-safety.mjs';
 
 const referencePattern=/^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$/;
 const unsafeReference=/(?:^sk-|bearer\s+|password\s*=|token\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i;
@@ -17,7 +17,7 @@ export function createOfficialApiBusinessAdapter({id,system,capabilities=[],endp
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),timeoutMs);
     try{
       const response=await fetchImpl(target,{method:'POST',headers:{'content-type':'application/json',authorization:`Bearer ${accessToken}`,'idempotency-key':operationId},body:JSON.stringify({objectType:request.objectType,leadRef:assertRef(request.leadId,'LEAD'),approvalRef:request.approvalRef,payload,tenant:{organizationId:request.organizationId,workspaceId:request.workspaceId,tenantId:request.tenantId}}),signal:controller.signal});
-      if(!response.ok){const code=`OFFICIAL_BUSINESS_API_HTTP_${response.status}`;throw Object.assign(new Error(code),{code,retryable:response.status===429||response.status>=500,status:response.status,retryAfter:response.headers.get('retry-after')??null});}
+      if(!response.ok){const code=`OFFICIAL_BUSINESS_API_HTTP_${response.status}`,retryAfter=safeRetryAfter(response.headers.get('retry-after'));await cancelResponseBody(response);throw Object.assign(new Error(code),{code,retryable:response.status===429||response.status>=500,status:response.status,retryAfter});}
       const body=await readBoundedJson(response,maxResponseBytes,'OFFICIAL_BUSINESS_API');
       const externalId=body.id??body.externalId;if(!externalId)throw Object.assign(new Error('OFFICIAL_BUSINESS_API_EXTERNAL_ID_REQUIRED'),{code:'OFFICIAL_BUSINESS_API_EXTERNAL_ID_REQUIRED',retryable:false});
       return{externalId:assertRef(externalId,'EXTERNAL_ID'),status:body.status==null?null:assertRef(body.status,'EXTERNAL_STATUS'),metadata:{system,operationId}};

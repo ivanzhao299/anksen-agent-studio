@@ -102,6 +102,8 @@ Each new Growth migration and its checksum ledger entry now commit atomically un
 
 Website secret-provider calls now time out within 100–5000 ms and reject non-string/Buffer or over-4 KiB material before HMAC. Secret values remain ephemeral and absent from errors, outputs and persistence.
 
+Official outbound success responses now enforce JSON content type and valid bounded JSON; non-success streams are cancelled and Retry-After is digits-only. Upstream body/header details remain excluded from delivery errors.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
