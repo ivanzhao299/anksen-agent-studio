@@ -5,6 +5,7 @@ on:
     paths:
       - 'packages/growth-core/**'
       - 'packages/growth-connectors/**'
+      - 'apps/console/web/**'
       - 'package.json'
       - 'packages/domain-center/lib/*growth*'
       - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
@@ -20,6 +21,7 @@ on:
     paths:
       - 'packages/growth-core/**'
       - 'packages/growth-connectors/**'
+      - 'apps/console/web/**'
       - 'package.json'
       - 'packages/domain-center/lib/*growth*'
       - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
@@ -51,6 +53,7 @@ jobs:
       - run: pnpm --filter @anksen-agent-studio/growth-core test
       - run: pnpm --filter @anksen-agent-studio/growth-core acceptance
       - run: pnpm --filter @anksen-agent-studio/growth-connectors test
+      - run: node --test --test-name-pattern='sanitized read-only delivery operations projection' apps/console/web/business-application-surfaces.test.mjs
 
   growth-postgres:
     needs: growth-core

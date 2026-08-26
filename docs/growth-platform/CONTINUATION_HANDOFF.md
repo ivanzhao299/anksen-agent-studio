@@ -27,13 +27,13 @@ pnpm install --frozen-lockfile
 pnpm growth-platform:acceptance
 ```
 
-The gate runs Core unit and GA acceptance tests, production-connector tests, PostgreSQL store unit tests, signed-event transaction integration tests, and an isolated PostgreSQL persistence smoke.
+The gate runs Core unit and GA acceptance tests, production-connector tests, PostgreSQL store and delivery-ledger tests, signed-event transaction integration tests, an isolated PostgreSQL persistence smoke, and the sanitized Growth delivery operations surface test.
 
 ## Direct continuation priority
 
 1. Keep the unified local/CI gate green and close persistence/interface inconsistencies first.
 2. Keep GA-004~007 transaction, identity-review and score-history evidence green as connector inputs expand.
-3. Expose GA-010/013 delivery exceptions, retry eligibility and reconciliation state in a read-only operations projection, then harden pilot UI evidence; this is the active implementation priority.
+3. Add governed operator actions for eligible retry/reconciliation through existing RBAC and approval controls; keep the current surface read-only until those gates are proven. This is the active implementation priority.
 4. Validate KingTurf through governed connectors and downstream mappings.
 5. Validate a second non-KingTurf tenant without a Core or schema fork.
 

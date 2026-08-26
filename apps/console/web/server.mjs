@@ -32,6 +32,7 @@ import { AutonomousDevelopmentJobs } from "../../../packages/orchestrator-core/l
 import { assessAutonomousDevelopmentReadiness } from "../../../packages/orchestrator-core/lib/autonomous-development-readiness.mjs";
 import { bearerToken, ResidentWorkerBroker, tokenMatches } from "../../../packages/orchestrator-core/lib/resident-worker-broker.mjs";
 import { createBusinessApplicationRuntime } from "../../../packages/domain-center/lib/business-database.mjs";
+import { PostgresGrowthDeliveryStore } from "../../../packages/domain-center/lib/postgres-growth-delivery-store.mjs";
 import { enterpriseApplicationSummary, getEnterpriseApplication } from "../../../packages/domain-center/lib/enterprise-applications.mjs";
 import { businessApprovalAccepted, businessWorkflowGoal } from "../../../packages/domain-center/lib/business-object-definitions.mjs";
 import { projectBusinessNotifications } from "../../../packages/domain-center/lib/business-notifications.mjs";
@@ -91,6 +92,7 @@ const businessRuntime = await createBusinessApplicationRuntime({ repoRoot });
 const businessApplicationStore = businessRuntime.store;
 const businessDataConnectorStore = businessRuntime.connectorStore;
 const businessSourceGovernance = businessRuntime.sourceGovernance;
+const growthDeliveryStore = businessRuntime.pool ? new PostgresGrowthDeliveryStore({ pool: businessRuntime.pool }) : null;
 const passwordChangeFailures = new Map();
 const passwordChangeWindowMs = 15 * 60 * 1000;
 const passwordChangeAttemptLimit = 5;
@@ -667,6 +669,9 @@ const server = createServer(async (request, response) => {
     }
     if(request.method==="GET"&&pathname==="/api/business/growth-sales/funnel-report"){
       const access=evaluateConsoleRouteAccess("growthSales",accessContext);if(!access.allowed){sendJson(response,403,access);return;}const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace"},report=await businessApplicationStore.growthSalesFunnelReport(scope);sendJson(response,200,{...report,backend:businessRuntime.backend});return;
+    }
+    if(request.method==="GET"&&pathname==="/api/business/growth-sales/delivery-dashboard"){
+      const access=evaluateConsoleRouteAccess("growthSales",accessContext);if(!access.allowed){sendJson(response,403,access);return;}if(!growthDeliveryStore){sendJson(response,503,{status:"GROWTH_DELIVERY_REQUIRES_POSTGRESQL"});return;}const scope={organizationId:accessContext.organization_id??"studio-org",workspaceId:accessContext.workspace_id??"studio-workspace",tenantId:accessContext.tenant_id??"default"};try{sendJson(response,200,{...await growthDeliveryStore.dashboard(scope,{limit:url.searchParams.get("limit")}),backend:"POSTGRESQL"});}catch(error){if(error?.code==="42P01"){sendJson(response,503,{status:"GROWTH_DELIVERY_MIGRATION_REQUIRED"});return;}throw error;}return;
     }
     if(request.method==="GET"&&pathname==="/api/business/capabilities"){
       const access=evaluateConsoleRouteAccess("work",accessContext);if(!access.allowed){sendJson(response,403,access);return;}const catalog=domainCenterSummary(),visibleApplications=catalog.applications.filter(item=>{const app=getEnterpriseApplication(item.id);return app&&evaluateConsoleRouteAccess(app.routeId,accessContext).allowed;}),protocols=visibleApplications.flatMap(item=>{const app=getEnterpriseApplication(item.id);return item.domains.map(domain=>buildBusinessCapabilityProtocol({application:app,domain,registry:portfolioRegistry}));}),professional=protocols.filter(item=>item.professionalStage);

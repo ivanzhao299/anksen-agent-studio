@@ -28,6 +28,7 @@ test('delivery ledger is idempotent, retryable, CAS-protected and reconcilable',
     assert.equal(mismatch.reconciliation_status,'MISMATCH');
     const matched=await store.reconcile({scope,id:completed.id,expectedVersion:mismatch.version,observedExternalId:'post-1',observedStatus:'PUBLISHED'});
     assert.equal(matched.reconciliation_status,'MATCHED');
+    const dashboard=await store.dashboard(scope);assert.equal(dashboard.summary.completed,1);assert.equal(dashboard.summary.actionRequired,0);assert.deepEqual(dashboard.items,[]);assert.doesNotMatch(JSON.stringify(dashboard),/approval\/ref-1|asset\/ref-1|request_fingerprint/);
     assert.doesNotMatch(JSON.stringify(matched),/secret-not-stored|Bearer|accessToken/);
   }finally{await pool.query('DELETE FROM growth_delivery_operation WHERE organization_id=$1',[scope.organizationId]).catch(()=>{});await pool.end();}
 });
