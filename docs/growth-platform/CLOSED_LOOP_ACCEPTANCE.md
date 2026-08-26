@@ -179,6 +179,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Response media types are closed to JSON or `+json`, with no charset or explicit UTF-8 only; conflicting charsets and undeclared profile parameters fail before body processing.
 - Smart Park mapping enforces the connector's identity and scalar-field length/control-character limits before ingestion, so oversized upstream content cannot create a FAILED batch or connector ERROR transition.
 - Smart Park chronology is evidence-ordered: creation cannot follow the source observation, and optional completion must fall between creation and observation before SLA/completion evidence is mapped.
+- `NO_CHANGES` retains the remote `totalAvailable` count after authorization revalidation, distinguishing an empty source from a fully checkpointed non-empty source without creating a batch.
 - The authoritative acceptance command and Growth CI path filters include the Smart Park reference source and its end-to-end source-to-Runner tests, so source adapter changes cannot bypass the production-loop gate.
 - Smart Park adapter timeouts and pagination controls accept only bounded native integers, and empty reads use an injected native valid Date clock. Control coercion objects and clock impostors fail closed.
 - Smart Park credential-resolution and network-client failures are projected as stable controlled codes without forwarding provider exception messages; existing timeout, HTTP and response-validation codes remain precise.
