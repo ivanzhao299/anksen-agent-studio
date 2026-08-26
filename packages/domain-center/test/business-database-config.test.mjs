@@ -15,6 +15,9 @@ test("business database configuration is local, explicit and credential-backed",
   assert.throws(()=>resolveBusinessDatabaseUrl({BUSINESS_DATABASE_URL:{toString:()=>url}}),/ENV_INVALID/);
   let getterCalls=0;const accessor=Object.defineProperty({},"BUSINESS_DATABASE_URL",{enumerable:true,get(){getterCalls+=1;return url;}});assert.throws(()=>resolveBusinessDatabaseUrl(accessor),/ENV_INVALID/);assert.equal(getterCalls,0);
   assert.throws(() => assertBusinessDatabaseUrl("postgresql://business:password@db.example.com/prod"), /REMOTE_DENIED/);
+  assert.throws(()=>assertBusinessDatabaseUrl("postgresql://business:password@db.example.com/anksen_business",{allowRemote:true}),/REMOTE_TLS_REQUIRED/);
+  assert.throws(()=>assertBusinessDatabaseUrl("postgresql://business:password@db.example.com/anksen_business?sslmode=disable",{allowRemote:true}),/REMOTE_TLS_REQUIRED/);
+  assert.equal(assertBusinessDatabaseUrl("postgresql://business:password@db.example.com/anksen_business?sslmode=verify-full",{allowRemote:true}),"postgresql://business:password@db.example.com/anksen_business?sslmode=verify-full");
   assert.throws(()=>assertBusinessDatabaseUrl("POSTGRESQL://business:password@127.0.0.1/anksen_business"),/PROTOCOL_DENIED/);
   for(const port of ["0","65536"])assert.throws(()=>assertBusinessDatabaseUrl(`postgresql://business:password@127.0.0.1:${port}/anksen_business`),/PORT_DENIED|URL_INVALID/);
   assert.throws(() => assertBusinessDatabaseUrl("postgresql://business:password@127.0.0.1/postgres"), /NAME_DENIED/);

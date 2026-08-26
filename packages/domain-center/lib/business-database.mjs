@@ -46,7 +46,8 @@ export function assertBusinessDatabaseUrl(value, options = {}) {
   if (url.protocol !== "postgresql:" && url.protocol !== "postgres:") throw new Error("BUSINESS_DATABASE_PROTOCOL_DENIED");
   if(url.hash)throw new Error("BUSINESS_DATABASE_URL_INVALID");
   const queryEntries=[...url.searchParams.entries()];if(queryEntries.length>1||queryEntries.some(([key,value])=>key!=="sslmode"||!["disable","prefer","require","verify-ca","verify-full","no-verify"].includes(value)))throw new Error("BUSINESS_DATABASE_URL_QUERY_DENIED");
-  if (!allowRemote && !["127.0.0.1", "localhost"].includes(url.hostname)) throw new Error("BUSINESS_DATABASE_REMOTE_DENIED");
+  const localHost=["127.0.0.1", "localhost"].includes(url.hostname);if (!allowRemote && !localHost) throw new Error("BUSINESS_DATABASE_REMOTE_DENIED");
+  if(!localHost&&url.searchParams.get("sslmode")!=="verify-full")throw new Error("BUSINESS_DATABASE_REMOTE_TLS_REQUIRED");
   if(url.port&&(!/^[1-9][0-9]{0,4}$/.test(url.port)||Number(url.port)>65535))throw new Error("BUSINESS_DATABASE_PORT_DENIED");
   const databaseName=url.pathname.slice(1),nameSegments=databaseName.split("_");
   if (!/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(databaseName)||!nameSegments.some(segment=>["business","test","fixture"].includes(segment))) throw new Error("BUSINESS_DATABASE_NAME_DENIED");
