@@ -208,6 +208,8 @@ Source connector registration also snapshots closed plain-data configuration and
 
 Source connector list and batch-history reads apply the same closed plain-data scope boundary before SQL, rejecting accessors plus undeclared or symbol controls.
 
+Data-owner approval request and decision inputs plus actor scopes are closed plain-data envelopes. Accessors and undeclared/symbol controls fail before clock or SQL access.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.

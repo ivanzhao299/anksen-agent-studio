@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 const fail = (code) => Object.assign(new Error(code), { code }),
   hash = (value) => createHash("sha256").update(String(value)).digest("hex");
+const governanceEnvelope=(value,code,allowed)=>{if(!value||typeof value!=="object"||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value)))throw fail(code);const keys=Reflect.ownKeys(value);if(keys.some(key=>typeof key!=="string"||!allowed.has(key)))throw fail(code);const descriptors=Object.getOwnPropertyDescriptors(value),copy=Object.create(null);for(const key of keys){const descriptor=descriptors[key];if(!descriptor||!Object.hasOwn(descriptor,"value"))throw fail(code);copy[key]=descriptor.value;}return copy;};
 const secretLike=value=>/(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(value),safeGovernanceRef=(value,label,max=160)=>{if(typeof value!=="string")throw fail(`BUSINESS_SOURCE_${label}_INVALID`);const text=value.trim();if(!text||text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||secretLike(text))throw fail(`BUSINESS_SOURCE_${label}_INVALID`);return text;},safeSourceRef=(value,label,max=160)=>{if(typeof value!=="string")throw fail(`BUSINESS_SOURCE_APPROVAL_${label}_INVALID`);const text=value.trim();if(!text||text.length>max||!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(text)||secretLike(text))throw fail(`BUSINESS_SOURCE_APPROVAL_${label}_INVALID`);return text;},safeSourceScope=value=>({organizationId:safeSourceRef(value?.organizationId,"ORGANIZATION",128),workspaceId:safeSourceRef(value?.workspaceId,"WORKSPACE",128)}),safeSourceClock=value=>{if(!(value instanceof Date)||!Number.isFinite(value.getTime()))throw fail("BUSINESS_SOURCE_APPROVAL_CLOCK_INVALID");return value;};
 export class PostgresBusinessSourceGovernance {
   constructor({ pool, clock = () => new Date() } = {}) {
@@ -45,7 +46,8 @@ export class PostgresBusinessSourceGovernance {
     };
   }
   async request(connectorId, input, actor = {}) {
-    const expiresValue=input?.expiresAt;
+    input=governanceEnvelope(input,"BUSINESS_SOURCE_APPROVAL_INPUT_INVALID",new Set(["tenantId","dataOwnerId","mappingVersion","expiresAt"]));actor=governanceEnvelope(actor,"BUSINESS_SOURCE_APPROVAL_ACTOR_INVALID",new Set(["organizationId","workspaceId","projectId","tenantId","userId"]));
+    const expiresValue=input.expiresAt;
     if(expiresValue!=null&&expiresValue!==""&&typeof expiresValue!=="string"&&!(expiresValue instanceof Date))throw fail("BUSINESS_SOURCE_APPROVAL_EXPIRY_INVALID");
     const safeConnectorId=safeSourceRef(connectorId,"CONNECTOR"),scope=safeSourceScope(actor),requester=safeSourceRef(actor.userId,"ACTOR",128),owner=safeSourceRef(input?.dataOwnerId,"DATA_OWNER",128),mapping=safeSourceRef(input?.mappingVersion,"MAPPING",80),tenantId=input?.tenantId==null||input.tenantId===""?null:safeSourceRef(input.tenantId,"TENANT",80),expiresAt=expiresValue?new Date(expiresValue):null,now=safeSourceClock(this.clock());
     if(expiresAt&&!Number.isFinite(expiresAt.getTime()))throw fail("BUSINESS_SOURCE_APPROVAL_EXPIRY_INVALID");
@@ -73,7 +75,8 @@ export class PostgresBusinessSourceGovernance {
     return this.present(row);
   }
   async decide(approvalId, input, actor = {}) {
-    const s=safeSourceScope(actor),safeApprovalId=safeSourceRef(approvalId,"APPROVAL"),owner=safeSourceRef(actor.userId,"ACTOR",128),decision=typeof input?.decision==='string'?input.decision.toUpperCase():'',version=input?.expectedVersion,reason=input?.reason==null?null:typeof input.reason==='string'?input.reason.trim():null,now=safeSourceClock(this.clock());
+    input=governanceEnvelope(input,"BUSINESS_SOURCE_APPROVAL_INPUT_INVALID",new Set(["decision","expectedVersion","reason"]));actor=governanceEnvelope(actor,"BUSINESS_SOURCE_APPROVAL_ACTOR_INVALID",new Set(["organizationId","workspaceId","projectId","tenantId","userId"]));
+    const s=safeSourceScope(actor),safeApprovalId=safeSourceRef(approvalId,"APPROVAL"),owner=safeSourceRef(actor.userId,"ACTOR",128),decision=typeof input.decision==='string'?input.decision.toUpperCase():'',version=input.expectedVersion,reason=input.reason==null?null:typeof input.reason==='string'?input.reason.trim():null,now=safeSourceClock(this.clock());
     if (!["APPROVED", "REJECTED", "REVOKED"].includes(decision))
       throw fail("BUSINESS_SOURCE_APPROVAL_DECISION_INVALID");
     if(!Number.isInteger(version)||version<1)throw fail("BUSINESS_SOURCE_APPROVAL_VERSION_INVALID");

@@ -131,6 +131,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Source ingestion snapshots closed plain-data actor, batch and record envelopes before validation, and all duplicate, failed-batch and transaction work uses that snapshot. Accessors and unknown/symbol fields cannot execute or change after validation.
 - Source connector registration likewise snapshots closed plain-data configuration and actor envelopes before clock or SQL access; accessors and undeclared controls fail without side effects.
 - Source connector list and batch-history scopes use the same closed plain-data boundary, so read paths reject accessors and undeclared/symbol controls before SQL.
+- Data-owner approval request and decision inputs/actors are closed plain-data envelopes; accessors and undeclared or symbol controls fail before clock and SQL access.
 - The authoritative acceptance command and Growth CI path filters include the Smart Park reference source and its end-to-end source-to-Runner tests, so source adapter changes cannot bypass the production-loop gate.
 - Smart Park adapter timeouts and pagination controls accept only bounded native integers, and empty reads use an injected native valid Date clock. Control coercion objects and clock impostors fail closed.
 - Smart Park credential-resolution and network-client failures are projected as stable controlled codes without forwarding provider exception messages; existing timeout, HTTP and response-validation codes remain precise.
