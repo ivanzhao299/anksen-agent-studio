@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { assertTenantScope } from '../../growth-core/lib/domain-model.mjs';
 
-const normalize = (value) => String(value ?? '').trim().toLowerCase();
 const json = (value, fallback) => JSON.stringify(value ?? fallback);
+const fail=code=>Object.assign(new Error(code),{code});
+const normalizeIdentity=(identityType,value,{optional=false}={})=>{if(!['EMAIL','PHONE','DOMAIN'].includes(identityType))throw fail('GROWTH_IDENTITY_TYPE_INVALID');const raw=String(value??'').trim().toLowerCase();if(!raw&&optional)return null;let normalized=raw;if(identityType==='PHONE')normalized=raw.replace(/[\s().-]/g,'');if(identityType==='DOMAIN')normalized=raw.replace(/\.$/,'');const valid=identityType==='EMAIL'?normalized.length<=320&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized):identityType==='PHONE'?/^\+?\d{7,20}$/.test(normalized):/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(normalized);if(!valid)throw fail('GROWTH_IDENTITY_VALUE_INVALID');return normalized;};
+const assertIdentitySource=value=>{const source=String(value??'');if(!/^[A-Z][A-Z0-9_]{1,63}$/.test(source))throw fail('GROWTH_IDENTITY_SOURCE_INVALID');return source;};
 
 export class PostgresGrowthStore {
   constructor({ pool }) {
@@ -34,7 +36,7 @@ export class PostgresGrowthStore {
   }
 
   async findIdentity({ scope, identityType, value }) {
-    const s = assertTenantScope(scope), normalizedValue = normalize(value);
+    const s = assertTenantScope(scope), normalizedValue = normalizeIdentity(identityType,value,{optional:true});
     if (!normalizedValue) return null;
     const result = await this.pool.query(
       `SELECT lead_id,identity_type,normalized_value,source FROM growth_identity WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND identity_type=$4 AND normalized_value=$5`,
@@ -52,15 +54,14 @@ export class PostgresGrowthStore {
     return result.rows[0] ?? null;
   }
 
-  async resolveIdentity({ scope, identityType, value, leadId, source = 'growth-core' }) {
-    const s = assertTenantScope(scope), normalizedValue = normalize(value);
-    if (!normalizedValue) throw new Error('identity value is required');
+  async resolveIdentity({ scope, identityType, value, leadId, source = 'GROWTH_CORE' }) {
+    const s = assertTenantScope(scope), normalizedValue = normalizeIdentity(identityType,value),safeSource=assertIdentitySource(source);
     const inserted = await this.pool.query(
       `INSERT INTO growth_identity(id,organization_id,workspace_id,tenant_id,lead_id,identity_type,normalized_value,source)
        SELECT $1,$2,$3,$4,$5,$6,$7,$8 FROM growth_lead WHERE id=$5 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4
        ON CONFLICT(organization_id,workspace_id,tenant_id,identity_type,normalized_value) DO NOTHING
        RETURNING lead_id`,
-      [randomUUID(), s.organizationId, s.workspaceId, s.tenantId, leadId, identityType, normalizedValue, source]
+      [randomUUID(), s.organizationId, s.workspaceId, s.tenantId, leadId, identityType, normalizedValue, safeSource]
     );
     if (inserted.rowCount) return { leadId: inserted.rows[0].lead_id, matched: false };
     const existing = await this.pool.query(

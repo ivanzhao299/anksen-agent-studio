@@ -58,6 +58,8 @@ Credential resolution now has the same bounded timeout discipline as outbound HT
 
 Canonical Growth child records now require same-tenant lead/opportunity parents in both Store SQL and migration 028 composite foreign keys. Event conflict handling verifies exact same-tenant content, rejecting cross-scope primary-key collisions and idempotency payload drift.
 
+Canonical identity now has an explicit EMAIL/PHONE/DOMAIN contract with type-specific normalization and migration 029 database checks. Arbitrary types, URLs-as-domains, malformed addresses, uncontrolled sources and oversized/control-bearing values fail before indexed persistence.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

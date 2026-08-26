@@ -15,12 +15,19 @@ test('persistent identity resolution is atomic, normalized and tenant scoped', a
   };
   const store = new PostgresGrowthStore({ pool });
 
+  await assert.rejects(()=>store.resolveIdentity({scope,identityType:'SOCIAL',value:'person',leadId:'lead-new'}),error=>error.code==='GROWTH_IDENTITY_TYPE_INVALID');
+  await assert.rejects(()=>store.resolveIdentity({scope,identityType:'EMAIL',value:'not-an-email',leadId:'lead-new'}),error=>error.code==='GROWTH_IDENTITY_VALUE_INVALID');
+  await assert.rejects(()=>store.resolveIdentity({scope,identityType:'EMAIL',value:'person@example.com',leadId:'lead-new',source:'growth-core'}),error=>error.code==='GROWTH_IDENTITY_SOURCE_INVALID');
+
   const result = await store.resolveIdentity({ scope, identityType: 'EMAIL', value: '  Person@Example.COM ', leadId: 'lead-new' });
 
   assert.deepEqual(result, { leadId: 'lead-existing', matched: true });
   assert.match(calls[0].sql, /ON CONFLICT\(organization_id,workspace_id,tenant_id,identity_type,normalized_value\) DO NOTHING/);
   assert.deepEqual(calls[0].values.slice(1, 7), ['org-1', 'workspace-1', 'tenant-1', 'lead-new', 'EMAIL', 'person@example.com']);
   assert.deepEqual(calls[1].values.slice(0, 3), ['org-1', 'workspace-1', 'tenant-1']);
+  await store.findIdentity({scope,identityType:'PHONE',value:'+1 (202) 555-0100'});
+  assert.equal(calls.at(-1).values.at(-1),'+12025550100');
+  await assert.rejects(()=>store.findIdentity({scope,identityType:'DOMAIN',value:'https://example.com'}),error=>error.code==='GROWTH_IDENTITY_VALUE_INVALID');
 });
 
 test('persistent opportunity upsert fails closed on a cross-tenant id collision', async () => {

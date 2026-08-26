@@ -94,4 +94,6 @@ Credential resolution is included in outbound availability control rather than o
 
 Migration 028 closes canonical cross-tenant relationship holes with composite `(id, organization, workspace, tenant)` foreign keys for identity, engagement, score, opportunity and revenue. Matching Store writes also require the scoped parent in their `INSERT ... SELECT`. Event idempotency now verifies exact canonical content after a conflict instead of treating every collision as a duplicate. This migration is full-Growth-only and the dedicated PostgreSQL integrity test is in root acceptance.
 
+Migration 029 and `PostgresGrowthStore` constrain canonical identity to EMAIL/PHONE/DOMAIN with type-specific normalized shapes, lowercase bounded values and controlled uppercase sources. Phone punctuation is removed before matching; domains are hostnames rather than URLs. Keep new identity kinds out until their normalization and database grammar are explicitly designed.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
