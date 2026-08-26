@@ -132,6 +132,7 @@ export class PostgresBusinessSourceGovernance {
         { id: "MAPPING_VERSION", pass: !!approval?.mappingVersion },
         { id: "AUTHORIZATION_UNEXPIRED", pass: authorizationUnexpired },
       ];
+    if(approval&&approval.tenantId!==tenantId)throw fail("BUSINESS_SOURCE_READINESS_APPROVAL_SCOPE_INVALID");
     return {
       status: checks.every((item) => item.pass) ? "READY" : "NOT_READY",
       connectorId: connector.id,

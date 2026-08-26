@@ -226,6 +226,8 @@ Source readiness evaluates data-owner approval and mapping Gates only from the v
 
 Source readiness selects the latest approval for the exact tenant, or only an unscoped approval when no tenant is supplied, and fails authorization at expiry. Tenant-scoped approval cannot authorize unscoped ingestion.
 
+Readiness also verifies the projected approval tenant after the SQL read and fails closed when returned database evidence contradicts the requested scope.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
