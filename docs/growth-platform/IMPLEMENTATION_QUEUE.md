@@ -72,6 +72,8 @@ Canonical score snapshots now validate bounded identifiers and evidence JSON, nu
 
 Canonical opportunity/revenue writes now constrain relation references, stage/score, downstream and metadata JSON, attribution amount/currency/time, lead rebinding and exact revenue replay. Migration 035 mirrors the structural checks for new direct writes while preserving the existing managed business application lifecycle.
 
+Connector configure/health mutations now validate bounded control identities, CAS versions and clocks before authorization. Migration 036 mirrors reference-only credential, DNS host, version and health-hash constraints for new direct binding rows; activation remains behind the existing independent production gate.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

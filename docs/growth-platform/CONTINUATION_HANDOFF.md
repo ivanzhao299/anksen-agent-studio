@@ -108,4 +108,6 @@ Canonical score history remains append-only and is now exact-replay idempotent. 
 
 Opportunity and revenue persistence now closes the remaining canonical write boundary. Opportunity IDs are lead-stable and fields/downstream refs are bounded; revenue attributions require safe scoped relation refs, non-negative finite amounts, uppercase three-letter currency, object metadata and non-future timestamps. Revenue replays must match every immutable field. Migration 035 applies matching new-row checks without introducing another sales state machine.
 
+Connector binding control inputs are validated before the authorization callback: adapter, binding and actor IDs are bounded and secret-resistant, CAS versions are positive integers, and configuration clocks must be finite. Migration 036 mirrors binding/reference/host/version/hash structure for new direct rows. These checks never activate a binding, resolve a credential value or enable the Runtime.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

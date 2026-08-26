@@ -31,6 +31,7 @@ const migrationPaths = [
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/033_growth_engagement_constraints.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/034_growth_score_constraints.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/035_growth_opportunity_revenue_constraints.up.sql', import.meta.url))),
+  resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/036_growth_connector_binding_constraints.up.sql', import.meta.url))),
 ];
 
 export async function migrateGrowthPlatform(pool) {

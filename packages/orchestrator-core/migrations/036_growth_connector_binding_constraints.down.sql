@@ -1,0 +1,1 @@
+ALTER TABLE growth_connector_binding DROP CONSTRAINT IF EXISTS growth_connector_binding_contract_valid;
