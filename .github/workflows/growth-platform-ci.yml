@@ -8,6 +8,8 @@ on:
       - 'apps/console/web/**'
       - 'package.json'
       - 'packages/domain-center/lib/*growth*'
+      - 'packages/domain-center/lib/postgres-business-data-connector.mjs'
+      - 'packages/domain-center/lib/postgres-business-source-governance.mjs'
       - 'packages/domain-center/test/*growth*'
       - 'packages/domain-center/test/enterprise-role-access.test.mjs'
       - 'packages/access-center/lib/access-center-utils.mjs'
@@ -19,6 +21,8 @@ on:
       - 'packages/orchestrator-core/migrations/015_growth_delivery_audit.up.sql'
       - 'packages/orchestrator-core/migrations/016_growth_identity_review.up.sql'
       - 'packages/orchestrator-core/migrations/017_growth_connector_binding.up.sql'
+      - 'packages/orchestrator-core/migrations/018_growth_source_approval_scope.up.sql'
+      - 'packages/orchestrator-core/migrations/020_business_source_approval_sequence.up.sql'
       - 'docs/growth-platform/**'
       - '.github/workflows/growth-platform-ci.yml'
   push:
@@ -30,6 +34,8 @@ on:
       - 'apps/console/web/**'
       - 'package.json'
       - 'packages/domain-center/lib/*growth*'
+      - 'packages/domain-center/lib/postgres-business-data-connector.mjs'
+      - 'packages/domain-center/lib/postgres-business-source-governance.mjs'
       - 'packages/domain-center/test/*growth*'
       - 'packages/domain-center/test/enterprise-role-access.test.mjs'
       - 'packages/access-center/lib/access-center-utils.mjs'
@@ -41,6 +47,8 @@ on:
       - 'packages/orchestrator-core/migrations/015_growth_delivery_audit.up.sql'
       - 'packages/orchestrator-core/migrations/016_growth_identity_review.up.sql'
       - 'packages/orchestrator-core/migrations/017_growth_connector_binding.up.sql'
+      - 'packages/orchestrator-core/migrations/018_growth_source_approval_scope.up.sql'
+      - 'packages/orchestrator-core/migrations/020_business_source_approval_sequence.up.sql'
       - 'docs/growth-platform/**'
       - '.github/workflows/growth-platform-ci.yml'
 
@@ -83,4 +91,5 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @anksen-agent-studio/domain-center growth:postgres:smoke
+      - run: pnpm --filter @anksen-agent-studio/domain-center typecheck
+      - run: pnpm growth-platform:acceptance

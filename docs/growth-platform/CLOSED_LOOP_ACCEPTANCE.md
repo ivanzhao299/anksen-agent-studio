@@ -3,6 +3,8 @@
 ## Product closure
 A tenant must be able to execute: discovery → identity resolution → lead → explainable score → engagement → next-best-action → qualified opportunity → downstream handoff → revenue attribution → management report.
 
+The `growth-postgres` CI job runs Domain typecheck plus the complete root `pnpm growth-platform:acceptance` gate, not only a smoke. Source connector/governance implementations and approval-scope/sequence migrations explicitly trigger the workflow.
+
 ## Mandatory gates
 1. Core contains no KingTurf-specific logic.
 2. Every authoritative object/event is organization/workspace/tenant scoped.

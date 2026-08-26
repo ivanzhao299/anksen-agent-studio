@@ -29,6 +29,8 @@ pnpm growth-platform:acceptance
 
 The gate runs Core unit and GA acceptance tests, the evidence-based Pilot readiness check, production-connector tests, PostgreSQL store and delivery-ledger tests, signed-event transaction integration tests, an isolated PostgreSQL persistence smoke, and the sanitized Growth delivery operations surface test.
 
+Growth CI's `growth-postgres` job runs Domain typecheck and this complete root gate. Workflow paths explicitly include the business source connector/governance implementations and approval-scope/sequence migrations, so these boundaries cannot bypass CI by filename.
+
 ## Direct continuation priority
 
 1. Keep the unified local/CI gate green and close persistence/interface inconsistencies first.
