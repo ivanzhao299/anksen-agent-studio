@@ -306,6 +306,8 @@ Smart Park chronology is evidence-ordered: creation cannot follow the source obs
 
 `NO_CHANGES` retains remote `totalAvailable` after authorization revalidation, distinguishing an empty source from a fully checkpointed non-empty source without creating a batch.
 
+The sync service independently closes injected mapped records to the Smart Park `service_order` schema, known statuses/field options, exact completion tuple, native scalar limits, and record-relative timeline before the connector store.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
