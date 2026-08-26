@@ -74,4 +74,6 @@ Business Runtime and the full Growth initializer now use one checksum-aware migr
 
 Freshness arithmetic is fail-closed. Connector readiness rejects non-finite clocks and invalid/over-24-hour health windows; activation and feature-flag gates reject invalid clocks, and injected configuration cannot widen the 366-day production authorization ceiling. Keep these policy ceilings as upper bounds, not only constructor defaults.
 
+Connector health evidence is bounded before authorization: the local clock must be finite and the reference must be non-secret, control-character-free and no longer than 512 characters. The write still persists only a SHA-256 hash. Tests prove invalid evidence causes zero authorization and database calls.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

@@ -38,6 +38,8 @@ The shared Growth migration ledger now records SHA-256 checksums across both ini
 
 Health and expiry arithmetic now rejects invalid clocks and non-finite windows. Connector health may be tightened but not widened beyond 24 hours; production authorization may be tightened but not widened beyond 366 days, closing `NaN` and oversized-policy bypasses.
 
+Health-evidence references are now bounded to 512 safe characters and validated with the local clock before mutation authorization or SQL. Storage remains hash-only, and invalid adapter output produces no governance or persistence side effects.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
