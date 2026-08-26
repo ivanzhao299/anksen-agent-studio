@@ -154,7 +154,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Invalid managed payloads acquire the same approval lock before failed-batch or connector-error persistence, preventing forged authorization from poisoning connector state.
 - Successful and failed idempotency-race recovery reauthorizes in a new transaction before reading the winning managed batch; rollback cannot create an authorization bypass.
 - Smart Park credential configuration is a closed plain-data snapshot; accessors/unknown keys are rejected without invocation and base origins cannot carry query or fragment state.
-- File credential references are native, opened with no-follow semantics, permission/type checked on the descriptor, read through a 16 KiB cap and parsed as an exact two-field JSON object; path races, symlinks and parse errors fail closed.
+- File credential references use an absolute base directory opened with directory/no-follow semantics and verified as privately owned before each read. The final file is likewise no-follow, private/owned/type checked on its descriptor, read through a 16 KiB cap, fatal-UTF-8 decoded and parsed as an exact two-field JSON object.
 - Growth CI explicitly watches the source credential resolver and runs its reference-source security tests through the authoritative acceptance gate.
 - Smart Park adapter options are a closed descriptor snapshot before defaults are applied; constructor accessors and undeclared controls cannot execute.
 - File resolver options likewise accept only a native `baseDir` data property; constructor accessors and coercion objects fail before path resolution.
