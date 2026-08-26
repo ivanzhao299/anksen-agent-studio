@@ -1065,6 +1065,13 @@ test("growth endpoint projects fail-closed pilot readiness without activation co
       ),
       "utf8",
     ),
+    runtimeGate = await readFile(
+      new URL(
+        "../../../packages/domain-center/lib/postgres-growth-runtime-gate-evidence.mjs",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
     source =
       html +
       server +
@@ -1072,7 +1079,8 @@ test("growth endpoint projects fail-closed pilot readiness without activation co
       connectorEvidence +
       binding +
       sourceGovernance +
-      featureFlag;
+      featureFlag +
+      runtimeGate;
   for (const value of [
     "KingTurf Pilot 就绪度",
     "/api/business/growth-sales/pilot-readiness",
@@ -1087,6 +1095,9 @@ test("growth endpoint projects fail-closed pilot readiness without activation co
     "PostgresGrowthFeatureFlagStore",
     "TENANT_SCOPED_GROWTH_FEATURE_FLAG",
     "productionFeatureFlag:productionFeatureFlag.enabled===true",
+    "PostgresGrowthRuntimeGateEvidence",
+    "EXACT_RUNTIME_BINDING_MISSING",
+    "runtimeActivationGatePassed:runtimeGate.status==='READY'",
     "EXPLICIT_PRODUCTION_AUTHORIZATION",
     "GROWTH_PILOT_TENANT_NOT_CONFIGURED",
     "PostgresGrowthConnectorEvidence",
