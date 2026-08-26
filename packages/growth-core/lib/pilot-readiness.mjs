@@ -1,6 +1,7 @@
 import { assertTenantScope } from './domain-model.mjs';
 
 const check=(id,pass,evidence,required=true)=>Object.freeze({id,pass:Boolean(pass),required,evidence:evidence??null});
+const observedZero=(id,value)=>{const observed=Number.isInteger(value)&&value>=0;return check(id,observed&&value===0,{count:observed?value:null,observed});};
 const activeExternalChannels=pack=>Object.entries(pack.channelPolicies??{}).filter(([channel,policy])=>channel!=='WEBSITE'&&policy.enabled&&policy.allowedCapabilities?.length).map(([channel])=>channel);
 
 export function assessGrowthPilotReadiness({tenantPack,connectors=[],governance={},operations={}}={}){
@@ -24,9 +25,9 @@ export function assessGrowthPilotReadiness({tenantPack,connectors=[],governance=
     check('DATA_OWNER_APPROVAL',governance.dataOwnerApproval===true,{approved:Boolean(governance.dataOwnerApproval)}),
     check('PUBLISHING_APPROVAL_POLICY',governance.publishingApprovalPolicy===true,{enabled:Boolean(governance.publishingApprovalPolicy)}),
     check('BUSINESS_HANDOFF_APPROVAL_POLICY',governance.businessHandoffApprovalPolicy===true,{enabled:Boolean(governance.businessHandoffApprovalPolicy)}),
-    check('NO_IDENTITY_REVIEW_BACKLOG',Number(operations.identityReviewBacklog??0)===0,{count:Number(operations.identityReviewBacklog??0)}),
-    check('NO_DELIVERY_FAILURES',Number(operations.failedDeliveries??0)===0,{count:Number(operations.failedDeliveries??0)}),
-    check('RECONCILIATION_MATCHED',Number(operations.reconciliationMismatches??0)===0,{count:Number(operations.reconciliationMismatches??0)}),
+    observedZero('NO_IDENTITY_REVIEW_BACKLOG',operations.identityReviewBacklog),
+    observedZero('NO_DELIVERY_FAILURES',operations.failedDeliveries),
+    observedZero('RECONCILIATION_MATCHED',operations.reconciliationMismatches),
     check('PRODUCTION_FEATURE_FLAG',governance.productionFeatureFlag===true,{enabled:Boolean(governance.productionFeatureFlag)}),
     check('RUNTIME_ACTIVATION_GATE',governance.runtimeActivationGatePassed===true,{passed:Boolean(governance.runtimeActivationGatePassed)}),
     check('EXPLICIT_PRODUCTION_AUTHORIZATION',governance.explicitProductionAuthorization===true,{authorized:Boolean(governance.explicitProductionAuthorization)}),

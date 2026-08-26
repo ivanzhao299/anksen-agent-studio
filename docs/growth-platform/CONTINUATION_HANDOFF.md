@@ -36,7 +36,7 @@ The gate runs Core unit and GA acceptance tests, the evidence-based Pilot readin
 3. Governed retry/reconciliation APIs now use existing Console RBAC, CAS and immutable delivery audit. Keep the current browser surface read-only until end-to-end authenticated API evidence and existing Worker connector dispatch are proven.
 4. Keep the Pilot readiness report fail-closed: implementation evidence is green, while activation remains blocked until every credential, health, approval, feature-flag, Runtime Gate and explicit production-authorization check is independently proven.
 5. The sanitized Pilot readiness evidence is now projected into the authenticated Growth Console without an activation action; keep its tenant isolation and fail-closed API evidence green.
-6. Derive live operational counts for identity review and delivery/reconciliation blockers from the existing PostgreSQL stores, while keeping deployment/configuration authorization as separately supplied governance evidence.
+6. Delivery failures and reconciliation mismatches now come from the scoped PostgreSQL ledger. Implement a durable, auditable identity-review case lifecycle so the remaining unknown backlog can become authoritative evidence; do not infer zero from ingestion rollback.
 7. Validate KingTurf through governed connectors and downstream mappings only after the existing gates authorize it.
 8. Keep the second non-KingTurf tenant proof green without a Core or schema fork.
 
