@@ -48,6 +48,19 @@ test("growth production feature flag is tenant scoped, expiring, CAS and audited
     });
     assert.equal((await store.readiness(scope)).status, "NOT_CONFIGURED");
     await assert.rejects(
+      () => store.readiness(scope, "invalid flag key"),
+      (error) => error.code === "GROWTH_FEATURE_FLAG_KEY_INVALID",
+    );
+    await assert.rejects(
+      () =>
+        store.set({
+          scope,
+          enabled: "false",
+          actorId: "prod-operator",
+        }),
+      (error) => error.code === "GROWTH_FEATURE_FLAG_ENABLED_BOOLEAN_REQUIRED",
+    );
+    await assert.rejects(
       () =>
         store.set({
           scope,
@@ -80,6 +93,14 @@ test("growth production feature flag is tenant scoped, expiring, CAS and audited
       expiresAt: "2026-08-27T10:00:00Z",
       actorId: "prod-operator",
     });
+    await assert.rejects(
+      () =>
+        pool.query(
+          "UPDATE growth_tenant_feature_flag SET authorization_reference_id='sk-direct-secret' WHERE id=$1",
+          [enabled.id],
+        ),
+      (error) => error.code === "23514",
+    );
     assert.equal((await store.readiness(scope)).enabled, true);
     assert.equal(
       (await store.readiness({ ...scope, tenantId: "tenant-b" })).enabled,

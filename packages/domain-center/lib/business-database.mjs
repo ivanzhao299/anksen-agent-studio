@@ -23,6 +23,7 @@ const growthSourceApprovalScopeMigration = resolve(fileURLToPath(new URL("../../
 const growthTenantFeatureFlagMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/019_growth_tenant_feature_flag.up.sql", import.meta.url)));
 const businessSourceApprovalSequenceMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/020_business_source_approval_sequence.up.sql", import.meta.url)));
 const growthFeatureFlagEventImmutableMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/021_growth_feature_flag_event_immutable.up.sql", import.meta.url)));
+const growthFeatureFlagConstraintsMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/025_growth_feature_flag_constraints.up.sql", import.meta.url)));
 export const defaultBusinessDatabaseUrlFile = "/opt/anksen/business-data/database-url";
 
 export function resolveBusinessDatabaseUrl(env = process.env) {
@@ -63,7 +64,7 @@ export async function createBusinessApplicationRuntime({ repoRoot, env = process
       await client.query(await readFile(businessDataConnectorsMigration, "utf8"));
       await client.query(await readFile(businessSourceGovernanceMigration, "utf8"));
       await client.query("CREATE TABLE IF NOT EXISTS growth_schema_migration(name text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())");
-      for (const migrationPath of [growthSourceApprovalScopeMigration, growthTenantFeatureFlagMigration, businessSourceApprovalSequenceMigration, growthFeatureFlagEventImmutableMigration]) {
+      for (const migrationPath of [growthSourceApprovalScopeMigration, growthTenantFeatureFlagMigration, businessSourceApprovalSequenceMigration, growthFeatureFlagEventImmutableMigration, growthFeatureFlagConstraintsMigration]) {
         const name = migrationPath.split("/").at(-1), applied = (await client.query("SELECT 1 FROM growth_schema_migration WHERE name=$1", [name])).rowCount === 1;
         if (!applied) {
           await client.query(await readFile(migrationPath, "utf8"));

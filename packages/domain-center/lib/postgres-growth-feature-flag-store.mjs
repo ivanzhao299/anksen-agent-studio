@@ -12,6 +12,12 @@ const safeRef = (value) =>
   !secretLike(value);
 const hash = (value) =>
   createHash("sha256").update(String(value)).digest("hex");
+const assertFlagKey = (value) => {
+  const key = String(value ?? "");
+  if (!/^[A-Z][A-Z0-9_]{2,79}$/.test(key))
+    throw fail("GROWTH_FEATURE_FLAG_KEY_INVALID");
+  return key;
+};
 
 export class PostgresGrowthFeatureFlagStore {
   constructor({
@@ -27,10 +33,11 @@ export class PostgresGrowthFeatureFlagStore {
 
   async readiness(scopeValue, flagKey = "GROWTH_PILOT_PRODUCTION_ENABLED") {
     const scope = assertTenantScope(scopeValue),
+      safeFlagKey = assertFlagKey(flagKey),
       row = (
         await this.pool.query(
           "SELECT id,enabled,expires_at,version FROM growth_tenant_feature_flag WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND flag_key=$4",
-          [scope.organizationId, scope.workspaceId, scope.tenantId, flagKey],
+          [scope.organizationId, scope.workspaceId, scope.tenantId, safeFlagKey],
         )
       ).rows[0],
       expiresAt = row?.expires_at ? new Date(row.expires_at) : null,
@@ -39,7 +46,7 @@ export class PostgresGrowthFeatureFlagStore {
         Boolean(expiresAt) &&
         expiresAt.getTime() > this.clock().getTime();
     return {
-      flagKey,
+      flagKey: safeFlagKey,
       status: enabled ? "ENABLED" : row ? "DISABLED" : "NOT_CONFIGURED",
       enabled,
       version: row ? Number(row.version) : null,
@@ -63,9 +70,12 @@ export class PostgresGrowthFeatureFlagStore {
     actorId,
   }) {
     const scope = assertTenantScope(scopeValue),
+      safeFlagKey = assertFlagKey(flagKey),
       now = this.clock(),
       expiry = expiresAt ? new Date(expiresAt) : null;
     if (!actorId) throw fail("GROWTH_FEATURE_FLAG_ACTOR_REQUIRED");
+    if (typeof enabled !== "boolean")
+      throw fail("GROWTH_FEATURE_FLAG_ENABLED_BOOLEAN_REQUIRED");
     if (
       enabled &&
       (!safeRef(authorizationReferenceId) ||
@@ -81,7 +91,7 @@ export class PostgresGrowthFeatureFlagStore {
         operation: enabled
           ? "GROWTH_PRODUCTION_FEATURE_FLAG_ENABLE"
           : "GROWTH_PRODUCTION_FEATURE_FLAG_DISABLE",
-        flagKey,
+        flagKey: safeFlagKey,
         authorizationReferenceId: enabled ? authorizationReferenceId : null,
         expectedVersion: expectedVersion ?? null,
       })) !== true
@@ -93,7 +103,7 @@ export class PostgresGrowthFeatureFlagStore {
       const existing = (
         await client.query(
           "SELECT * FROM growth_tenant_feature_flag WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND flag_key=$4 FOR UPDATE",
-          [scope.organizationId, scope.workspaceId, scope.tenantId, flagKey],
+          [scope.organizationId, scope.workspaceId, scope.tenantId, safeFlagKey],
         )
       ).rows[0];
       if (existing && Number(existing.version) !== Number(expectedVersion))
@@ -113,7 +123,7 @@ export class PostgresGrowthFeatureFlagStore {
               scope.organizationId,
               scope.workspaceId,
               scope.tenantId,
-              flagKey,
+              safeFlagKey,
               Boolean(enabled),
               enabled ? authorizationReferenceId : null,
               enabled ? expiry : null,
@@ -130,7 +140,7 @@ export class PostgresGrowthFeatureFlagStore {
           scope.organizationId,
           scope.workspaceId,
           scope.tenantId,
-          flagKey,
+          safeFlagKey,
           Boolean(enabled),
           version,
           String(actorId),

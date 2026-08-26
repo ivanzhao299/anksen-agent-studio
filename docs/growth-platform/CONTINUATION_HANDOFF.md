@@ -66,4 +66,6 @@ Connector readiness and the activation Gate both reject health observations late
 
 Channel-account and connector-activation authorization expiry is strict: equality with the assessment clock is expired. Tests cover both exact boundaries; preserve `expiresAt > now` consistently across production gates.
 
+Production feature-flag input is strict at both trust boundaries. The store accepts only actual booleans and bounded uppercase flag identifiers, preventing string coercion such as `"false"` from enabling production behavior. Migration 025 mirrors the key grammar and secret-material rejection in PostgreSQL; its direct-SQL acceptance case must remain green, and both database initializers must keep applying it after migration 024/021 respectively.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
