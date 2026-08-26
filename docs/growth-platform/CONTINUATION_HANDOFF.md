@@ -192,6 +192,8 @@ Tenant source-readiness projection enforces the SQL row ceiling and validates na
 
 Data-owner approval projection validates references, status, version, bounded reason and native dates, then emits canonical ISO dates. Poisoned approval rows cannot be exposed through readiness or mutation responses.
 
+Authoritative source ingestion validates native tenant/connector controls, idempotency/evidence/cursor fields and each record's primitive identity envelope before its first SQL query. Unsafe coercion objects cannot create failed-batch side effects.
+
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the existing explicit allow flag is set, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.
