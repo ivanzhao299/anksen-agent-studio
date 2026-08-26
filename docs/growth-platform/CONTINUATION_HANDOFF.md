@@ -168,6 +168,8 @@ Website secret providers receive an AbortSignal. The bounded 100–5,000 ms secr
 
 Official publishing/business credential resolvers likewise receive an AbortSignal. Their 100–30,000 ms deadline aborts the underlying lookup before surfacing the sanitized retryable credential-timeout code.
 
+Official API JSON response readers reject malformed, negative, fractional, unsafe or oversized declared content lengths before consuming the body, cancel rejected streams and independently enforce the actual streamed-byte limit.
+
 Website ingress accepts only native string/Buffer bodies and object/standard Headers collections. Event/timestamp and exact 64-hex SHA-256 signature shape are checked before secret resolution, so malformed requests cannot call the secret provider.
 
 Tenant data-owner approval request/decision paths validate native scope and bounded connector, owner, mapping, approval, version, reason and expiry controls with one clock sample before SQL. Invalid work cannot even query the connector.
