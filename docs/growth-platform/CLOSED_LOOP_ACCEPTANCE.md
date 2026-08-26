@@ -176,6 +176,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Streamed source JSON uses fatal UTF-8 decoding; malformed wire bytes are rejected instead of being silently replaced and persisted as altered business data.
 - Smart Park responses must expose a cancelable byte stream; the adapter no longer falls back to unbounded `response.text()` semantics that cannot preserve the same byte limit, timeout, and strict decoding guarantees.
 - Every stream read result is a closed descriptor snapshot with a native boolean completion flag and native `Uint8Array` bytes; accessor-backed or forged chunks cannot execute or bypass byte accounting.
+- Response media types are closed to JSON or `+json`, with no charset or explicit UTF-8 only; conflicting charsets and undeclared profile parameters fail before body processing.
 - The authoritative acceptance command and Growth CI path filters include the Smart Park reference source and its end-to-end source-to-Runner tests, so source adapter changes cannot bypass the production-loop gate.
 - Smart Park adapter timeouts and pagination controls accept only bounded native integers, and empty reads use an injected native valid Date clock. Control coercion objects and clock impostors fail closed.
 - Smart Park credential-resolution and network-client failures are projected as stable controlled codes without forwarding provider exception messages; existing timeout, HTTP and response-validation codes remain precise.
