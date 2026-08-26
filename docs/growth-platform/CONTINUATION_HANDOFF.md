@@ -194,6 +194,8 @@ Data-owner approval projection validates references, status, version, bounded re
 
 Concurrent tenant or unscoped approval requests recover only the exact pending-approval unique constraints and re-read the winning row. Other uniqueness failures remain visible.
 
+Approval expiry accepts only native string or Date values and validates the instant before SQL. Custom date-coercion objects cannot execute during governance validation.
+
 Authoritative source ingestion validates native tenant/connector controls, idempotency/evidence/cursor fields and each record's primitive identity envelope before its first SQL query. Unsafe coercion objects cannot create failed-batch side effects.
 
 Source ingestion takes one native valid Date clock sample before SQL and reuses it for freshness checks plus failed/success audit timestamps. Clock coercion and intra-operation timestamp drift are denied.

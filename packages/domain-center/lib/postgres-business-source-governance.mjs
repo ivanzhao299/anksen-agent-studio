@@ -45,7 +45,10 @@ export class PostgresBusinessSourceGovernance {
     };
   }
   async request(connectorId, input, actor = {}) {
-    const safeConnectorId=safeSourceRef(connectorId,"CONNECTOR"),scope=safeSourceScope(actor),requester=safeSourceRef(actor.userId,"ACTOR",128),owner=safeSourceRef(input?.dataOwnerId,"DATA_OWNER",128),mapping=safeSourceRef(input?.mappingVersion,"MAPPING",80),tenantId=input?.tenantId==null||input.tenantId===""?null:safeSourceRef(input.tenantId,"TENANT",80),expiresAt=input?.expiresAt?new Date(input.expiresAt):null,now=safeSourceClock(this.clock());
+    const expiresValue=input?.expiresAt;
+    if(expiresValue!=null&&expiresValue!==""&&typeof expiresValue!=="string"&&!(expiresValue instanceof Date))throw fail("BUSINESS_SOURCE_APPROVAL_EXPIRY_INVALID");
+    const safeConnectorId=safeSourceRef(connectorId,"CONNECTOR"),scope=safeSourceScope(actor),requester=safeSourceRef(actor.userId,"ACTOR",128),owner=safeSourceRef(input?.dataOwnerId,"DATA_OWNER",128),mapping=safeSourceRef(input?.mappingVersion,"MAPPING",80),tenantId=input?.tenantId==null||input.tenantId===""?null:safeSourceRef(input.tenantId,"TENANT",80),expiresAt=expiresValue?new Date(expiresValue):null,now=safeSourceClock(this.clock());
+    if(expiresAt&&!Number.isFinite(expiresAt.getTime()))throw fail("BUSINESS_SOURCE_APPROVAL_EXPIRY_INVALID");
     if (
       tenantId &&
       (!expiresAt ||
