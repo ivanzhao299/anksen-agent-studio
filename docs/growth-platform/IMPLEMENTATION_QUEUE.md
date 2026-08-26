@@ -4,6 +4,8 @@ Status: ACTIVE
 Branch: `feature/anksen-ai-growth-platform`
 Execution rule: work in ordered slices; each item must produce code/tests/docs/evidence before advancing.
 
+Current evidence snapshot (2026-08-26): GA-000~GA-017 executable acceptance is green. PostgreSQL persistence and a signed website conversion connector are implemented; production authorization, additional real connectors, reconciliation, UI/operations and pilot evidence remain open. Continue from `CONTINUATION_HANDOFF.md` and run `pnpm growth-platform:acceptance` before advancing.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.
@@ -22,7 +24,7 @@ Acceptance:
 - no duplicated Kernel/Scheduler/Worker/Approval/Audit
 - all outbound channel writes routed through adapter contracts
 
-Status: IN PROGRESS
+Status: BASELINE COMPLETE; CONTINUOUS BOUNDARY ENFORCEMENT
 
 ## GA-001 — Growth Domain Model & Tenant Kit
 Deliverables:
@@ -248,9 +250,8 @@ Wave 3:
 
 ## Current execution order
 
-1. GA-000 close architecture decisions and package scaffold
-2. GA-001 schemas + KingTurf tenant pack
-3. GA-002 adapter framework + mock connector
-4. GA-003 canonical events
-5. First E2E slice: discovery -> lead -> score
-6. Continue GA-005 onward based on acceptance evidence
+1. Keep the unified local and CI acceptance gate green.
+2. Harden persistent GA-004 discovery, GA-005 identity resolution, GA-006 score history and GA-007 Customer 360 evidence.
+3. Harden GA-008~GA-017 connector reconciliation, retry, approval/failure paths, UI and operational evidence.
+4. Validate the KingTurf pilot without moving tenant-specific logic into Core.
+5. Validate a second non-KingTurf tenant without a schema or Core fork.

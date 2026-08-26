@@ -5,6 +5,7 @@ on:
     paths:
       - 'packages/growth-core/**'
       - 'packages/growth-connectors/**'
+      - 'package.json'
       - 'packages/domain-center/lib/*growth*'
       - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
       - 'packages/domain-center/package.json'
@@ -17,6 +18,7 @@ on:
     paths:
       - 'packages/growth-core/**'
       - 'packages/growth-connectors/**'
+      - 'package.json'
       - 'packages/domain-center/lib/*growth*'
       - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
       - 'packages/domain-center/package.json'

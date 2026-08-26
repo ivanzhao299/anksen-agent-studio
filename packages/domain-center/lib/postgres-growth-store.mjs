@@ -27,16 +27,20 @@ export class PostgresGrowthStore {
   async resolveIdentity({ scope, identityType, value, leadId, source = 'growth-core' }) {
     const s = assertTenantScope(scope), normalizedValue = normalize(value);
     if (!normalizedValue) throw new Error('identity value is required');
+    const inserted = await this.pool.query(
+      `INSERT INTO growth_identity(id,organization_id,workspace_id,tenant_id,lead_id,identity_type,normalized_value,source)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT(organization_id,workspace_id,tenant_id,identity_type,normalized_value) DO NOTHING
+       RETURNING lead_id`,
+      [randomUUID(), s.organizationId, s.workspaceId, s.tenantId, leadId, identityType, normalizedValue, source]
+    );
+    if (inserted.rowCount) return { leadId: inserted.rows[0].lead_id, matched: false };
     const existing = await this.pool.query(
       `SELECT lead_id FROM growth_identity WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND identity_type=$4 AND normalized_value=$5`,
       [s.organizationId, s.workspaceId, s.tenantId, identityType, normalizedValue]
     );
-    if (existing.rowCount) return { leadId: existing.rows[0].lead_id, matched: true };
-    await this.pool.query(
-      `INSERT INTO growth_identity(id,organization_id,workspace_id,tenant_id,lead_id,identity_type,normalized_value,source) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [randomUUID(), s.organizationId, s.workspaceId, s.tenantId, leadId, identityType, normalizedValue, source]
-    );
-    return { leadId, matched: false };
+    if (!existing.rowCount) throw new Error('identity resolution conflict could not be read');
+    return { leadId: existing.rows[0].lead_id, matched: true };
   }
 
   async appendEvent({ scope, event }) {
@@ -63,10 +67,11 @@ export class PostgresGrowthStore {
        VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
        ON CONFLICT(id) DO UPDATE SET stage=EXCLUDED.stage,score=EXCLUDED.score,downstream_ref=EXCLUDED.downstream_ref,updated_at=now()
        WHERE growth_opportunity.organization_id=EXCLUDED.organization_id AND growth_opportunity.workspace_id=EXCLUDED.workspace_id AND growth_opportunity.tenant_id=EXCLUDED.tenant_id
-       RETURNING id`,
+       RETURNING *`,
       [opportunity.id, s.organizationId, s.workspaceId, s.tenantId, opportunity.leadId, opportunity.stage, opportunity.score ?? null, json(downstreamRef, null)]
     );
     if (!result.rowCount) throw new Error('cross-tenant growth opportunity update denied');
+    return result.rows[0];
   }
 
   async recordRevenue({ scope, revenue }) {

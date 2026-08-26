@@ -26,6 +26,6 @@ This package must not:
 
 `growth-core` may define stable interfaces consumed by connectors, agents, analytics and tenant packs. Channel-specific behavior lives in `growth-connectors`; business-system mapping lives in `growth-integrations`; industry rules live in tenant packs.
 
-## Initial GA sequence
+## Current acceptance
 
-GA-001 will add typed schemas and validation here. GA-005/006/015 will progressively add identity, scoring and attribution engines behind stable contracts.
+The reusable executable path now covers GA-000~017, including discovery, identity, scoring, Customer 360, content, publishing, engagement, qualification, downstream handoff, follow-up, attribution, Growth Director and executive reporting. Run `pnpm growth-platform:acceptance` from the repository root for the synchronized Core, connector and PostgreSQL gate. Production connectors, UI/operational evidence and pilot authorization remain separate gates.
