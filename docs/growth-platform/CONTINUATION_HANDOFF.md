@@ -294,6 +294,8 @@ Resolved bearer tokens must be exact non-whitespace printable ASCII strings, pre
 
 Streamed source JSON uses fatal UTF-8 decoding. Malformed wire bytes are rejected rather than silently replaced and persisted as altered business data.
 
+Smart Park responses must expose a cancelable byte stream. There is no fallback to `response.text()`, which cannot preserve the same byte limit, timeout, and strict decoding guarantees.
+
 The root acceptance command and Growth CI path filters include the Smart Park reference source test suite, including its governed source-to-shared-Runner loop.
 
 Smart Park adapter timeout/pagination controls are bounded native integers, and empty reads validate an injected native Date clock. Coercion-capable control values and clock impostors are rejected.
