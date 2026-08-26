@@ -103,11 +103,11 @@ export class PostgresBusinessSourceGovernance {
     return this.present(row);
   }
   async readiness(connectorId, scope = {}) {
-    const connector = await this.connector(connectorId, scope),
+    scope=governanceEnvelope(scope,"BUSINESS_SOURCE_READINESS_SCOPE_INVALID",new Set(["organizationId","workspaceId","projectId","tenantId","userId"]));const tenantId=scope.tenantId==null||scope.tenantId===""?null:safeSourceRef(scope.tenantId,"TENANT",80),now=safeSourceClock(this.clock()),connector = await this.connector(connectorId, scope),
       approvalRow = (
         await this.pool.query(
-          "SELECT * FROM business_data_source_approval WHERE connector_id=$1 ORDER BY sequence_id DESC LIMIT 1",
-          [connector.id],
+          "SELECT * FROM business_data_source_approval WHERE connector_id=$1 AND tenant_id IS NOT DISTINCT FROM $2 ORDER BY sequence_id DESC LIMIT 1",
+          [connector.id,tenantId],
         )
       ).rows[0],
       checkpoint = (
@@ -117,6 +117,7 @@ export class PostgresBusinessSourceGovernance {
         )
       ).rows[0],
       approval=approvalRow?this.present(approvalRow):null,
+      authorizationUnexpired=!approval?.expiresAt||new Date(approval.expiresAt).getTime()>now.getTime(),
       checks = [
         { id: "CONNECTOR_ACTIVE", pass: connector.status === "ACTIVE" },
         {
@@ -129,6 +130,7 @@ export class PostgresBusinessSourceGovernance {
         },
         { id: "DATA_OWNER_APPROVAL", pass: approval?.status === "APPROVED" },
         { id: "MAPPING_VERSION", pass: !!approval?.mappingVersion },
+        { id: "AUTHORIZATION_UNEXPIRED", pass: authorizationUnexpired },
       ];
     return {
       status: checks.every((item) => item.pass) ? "READY" : "NOT_READY",

@@ -139,6 +139,7 @@ KingTurf is the first reference tenant. Its product catalog, ICPs, countries, ke
 - Approval rows are closed database-evidence snapshots before presentation, so status/date/reference validation cannot invoke row accessors or accept undeclared columns.
 - Governed connector lookup validates a closed tenant-scoped database row, connector enums, bounded configuration, references and native/string dates before any readiness or approval consumer receives it.
 - Source readiness evaluates data-owner approval and mapping Gates only from the validated approval projection, never from the raw database row.
+- Source readiness selects the latest approval for the exact tenant (or unscoped only when no tenant is supplied) and fails the authorization Gate at expiry; tenant approval cannot authorize unscoped ingestion.
 - The authoritative acceptance command and Growth CI path filters include the Smart Park reference source and its end-to-end source-to-Runner tests, so source adapter changes cannot bypass the production-loop gate.
 - Smart Park adapter timeouts and pagination controls accept only bounded native integers, and empty reads use an injected native valid Date clock. Control coercion objects and clock impostors fail closed.
 - Smart Park credential-resolution and network-client failures are projected as stable controlled codes without forwarding provider exception messages; existing timeout, HTTP and response-validation codes remain precise.
