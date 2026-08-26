@@ -120,4 +120,6 @@ Identity review decisions validate case/actor/selected-lead references, positive
 
 Production feature-flag control now validates the actor and optional CAS version before invoking production authorization or opening a transaction. Migration 040 ensures a disabled flag/event cannot retain an authorization reference/hash or expiry, and bounds control IDs/versions. No flag was enabled by this implementation work.
 
+Connector activation gate inputs are normalized before access checks or SQL: activation/binding/incident/actor refs, positive versions, finite clocks and bounded secret-free emergency reasons. Preflight listing also fails closed on an invalid clock. The Console remains read-only for activation and the independent Production Ops gate remains disabled.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

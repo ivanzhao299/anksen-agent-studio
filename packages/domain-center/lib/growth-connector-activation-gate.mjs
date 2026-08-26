@@ -13,6 +13,9 @@ const fail = (code, details = {}) =>
     !secretLike(value);
 const hash = (value) =>
   createHash("sha256").update(String(value)).digest("hex");
+const assertRef=(value,label)=>{const ref=String(value??'').trim();if(!safeRef(ref))throw fail(`GROWTH_CONNECTOR_${label}_INVALID`);return ref;};
+const assertVersion=(value,label)=>{const version=Number(value);if(!Number.isInteger(version)||version<1)throw fail(`GROWTH_CONNECTOR_${label}_VERSION_INVALID`);return version;};
+const assertClock=value=>{if(!(value instanceof Date)||!Number.isFinite(value.getTime()))throw fail("GROWTH_CONNECTOR_ACTIVATION_CLOCK_INVALID");return value;};
 
 export const summarizeGrowthActivationPreflights = (items = []) => {
   const requiredKinds = ["WEBSITE_INBOUND", "PUBLISHING", "BUSINESS_HANDOFF"],
@@ -164,12 +167,13 @@ export class GrowthConnectorActivationGate {
     activationId,
     expectedActivationVersion,
   }) {
-    const scope = assertTenantScope(rawScope),
-      state = await this.load(this.pool, scope, activationId);
-    return this.evaluate(scope, state, expectedActivationVersion);
+    const scope = assertTenantScope(rawScope),safeActivationId=assertRef(activationId,"ACTIVATION_REQUEST"),version=assertVersion(expectedActivationVersion,"ACTIVATION_REQUEST");
+    assertClock(this.clock());
+    const state = await this.load(this.pool, scope, safeActivationId);
+    return this.evaluate(scope, state, version);
   }
   async listPreflights({ scope: rawScope, limit = 50 } = {}) {
-    const scope = assertTenantScope(rawScope),
+    const scope = assertTenantScope(rawScope),now=assertClock(this.clock()),
       boundedLimit = Math.min(100, Math.max(1, Number(limit) || 50)),
       rows = (
         await this.pool.query(
@@ -194,7 +198,7 @@ export class GrowthConnectorActivationGate {
     return {
       items,
       summary: summarizeGrowthActivationPreflights(items),
-      generatedAt: this.clock().toISOString(),
+      generatedAt: now.toISOString(),
       safety: {
         credentialValuesRead: false,
         externalCallsPerformed: false,
@@ -208,12 +212,12 @@ export class GrowthConnectorActivationGate {
     expectedActivationVersion,
     actorId,
   }) {
-    const scope = assertTenantScope(rawScope);
-    if (!actorId) throw new TypeError("actorId is required");
+    const scope = assertTenantScope(rawScope),safeActivationId=assertRef(activationId,"ACTIVATION_REQUEST"),version=assertVersion(expectedActivationVersion,"ACTIVATION_REQUEST"),safeActorId=assertRef(actorId,"ACTOR");
+    assertClock(this.clock());
     if (
       (await this.authorize({
         scope,
-        actorId,
+        actorId:safeActorId,
         actionId: "growth-connector-activate",
       })) !== true
     )
@@ -221,16 +225,16 @@ export class GrowthConnectorActivationGate {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      const state = await this.load(client, scope, activationId, {
+      const state = await this.load(client, scope, safeActivationId, {
           lock: true,
         }),
-        preflight = this.evaluate(scope, state, expectedActivationVersion);
+        preflight = this.evaluate(scope, state, version);
       if (preflight.status !== "READY")
         throw fail("GROWTH_CONNECTOR_ACTIVATION_BLOCKED", { preflight });
       if (
         (await this.authorizeProductionOperation({
           scope,
-          actorId,
+          actorId:safeActorId,
           operation: "GROWTH_CONNECTOR_ACTIVATE",
           authorizationRef: state.activation.fields.explicitAuthorizationRef,
           activationId: state.activation.id,
@@ -238,12 +242,12 @@ export class GrowthConnectorActivationGate {
         })) !== true
       )
         throw fail("GROWTH_CONNECTOR_PRODUCTION_OPERATION_NOT_AUTHORIZED");
-      const now = this.clock(),
+      const now = assertClock(this.clock()),
         binding = (
           await client.query(
             `UPDATE growth_connector_binding SET enabled=true,version=version+1,last_actor_id=$1,updated_at=$2 WHERE id=$3 AND organization_id=$4 AND workspace_id=$5 AND tenant_id=$6 AND version=$7 AND enabled=false RETURNING id,kind,enabled,version`,
             [
-              String(actorId),
+              safeActorId,
               now,
               state.binding.id,
               scope.organizationId,
@@ -275,7 +279,7 @@ export class GrowthConnectorActivationGate {
           scope.workspaceId,
           activation.id,
           activation.version,
-          String(actorId),
+          safeActorId,
           {
             bindingId: binding.id,
             kind: binding.kind,
@@ -315,21 +319,18 @@ export class GrowthConnectorActivationGate {
     reason,
     actorId,
   }) {
-    const scope = assertTenantScope(rawScope),
-      safeReason = String(reason ?? "").trim();
-    if (!actorId) throw new TypeError("actorId is required");
-    if (!safeRef(incidentRef))
-      throw fail("GROWTH_CONNECTOR_DISABLE_INCIDENT_REFERENCE_INVALID");
+    const scope = assertTenantScope(rawScope),safeBindingId=assertRef(bindingId,"BINDING"),version=assertVersion(expectedBindingVersion,"BINDING"),safeIncidentRef=assertRef(incidentRef,"DISABLE_INCIDENT_REFERENCE"),safeActorId=assertRef(actorId,"ACTOR"),safeReason = String(reason ?? "").trim();
+    assertClock(this.clock());
     if (
       safeReason.length < 12 ||
       safeReason.length > 500 ||
-      /(?:token|password|secret|api[_-]?key)=/i.test(safeReason)
+      /[\u0000-\u001f\u007f]/.test(safeReason) || secretLike(safeReason)
     )
       throw fail("GROWTH_CONNECTOR_DISABLE_REASON_INVALID");
     if (
       (await this.authorize({
         scope,
-        actorId,
+        actorId:safeActorId,
         actionId: "growth-connector-disable",
       })) !== true
     )
@@ -337,28 +338,28 @@ export class GrowthConnectorActivationGate {
     if (
       (await this.authorizeProductionOperation({
         scope,
-        actorId,
+        actorId:safeActorId,
         operation: "GROWTH_CONNECTOR_DISABLE",
-        incidentRef: String(incidentRef),
-        bindingId: String(bindingId),
+        incidentRef: safeIncidentRef,
+        bindingId: safeBindingId,
       })) !== true
     )
       throw fail("GROWTH_CONNECTOR_PRODUCTION_OPERATION_NOT_AUTHORIZED");
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      const now = this.clock(),
+      const now = assertClock(this.clock()),
         binding = (
           await client.query(
             `UPDATE growth_connector_binding SET enabled=false,version=version+1,last_actor_id=$1,updated_at=$2 WHERE id=$3 AND organization_id=$4 AND workspace_id=$5 AND tenant_id=$6 AND version=$7 AND enabled=true RETURNING id,kind,enabled,version`,
             [
-              String(actorId),
+              safeActorId,
               now,
-              String(bindingId),
+              safeBindingId,
               scope.organizationId,
               scope.workspaceId,
               scope.tenantId,
-              Number(expectedBindingVersion),
+              version,
             ],
           )
         ).rows[0];
@@ -372,10 +373,10 @@ export class GrowthConnectorActivationGate {
           scope.workspaceId,
           scope.tenantId,
           binding.version,
-          String(actorId),
+          safeActorId,
           {
             kind: binding.kind,
-            incidentRef: String(incidentRef),
+            incidentRef: safeIncidentRef,
             reasonHash: hash(safeReason),
           },
           now,
@@ -390,7 +391,7 @@ export class GrowthConnectorActivationGate {
           enabled: false,
           version: Number(binding.version),
         },
-        incidentRef: String(incidentRef),
+        incidentRef: safeIncidentRef,
         safety: { credentialValuesRead: false, externalCallsPerformed: false },
       };
     } catch (error) {

@@ -16,6 +16,8 @@ import {
   GrowthConnectorActivationGate,
   summarizeGrowthActivationPreflights,
 } from "../lib/growth-connector-activation-gate.mjs";
+
+test("activation controls validate before access authorization or SQL",async()=>{let authorizationCalls=0,queryCalls=0,connectCalls=0;const gate=new GrowthConnectorActivationGate({pool:{async query(){queryCalls+=1;throw new Error("query must not run");},async connect(){connectCalls+=1;throw new Error("connect must not run");}},clock:()=>new Date(Number.NaN),authorize:async()=>{authorizationCalls+=1;return true;}}),scope={organizationId:"org",workspaceId:"growth",tenantId:"tenant"};await assert.rejects(()=>gate.preflight({scope,activationId:"bad request",expectedActivationVersion:1}),error=>error.code==="GROWTH_CONNECTOR_ACTIVATION_REQUEST_INVALID");await assert.rejects(()=>gate.activate({scope,activationId:"activation-1",expectedActivationVersion:0,actorId:"operator"}),error=>error.code==="GROWTH_CONNECTOR_ACTIVATION_REQUEST_VERSION_INVALID");await assert.rejects(()=>gate.disable({scope,bindingId:"binding-1",expectedBindingVersion:1,incidentRef:"incident-1",reason:"documented emergency shutdown",actorId:"operator"}),error=>error.code==="GROWTH_CONNECTOR_ACTIVATION_CLOCK_INVALID");assert.equal(authorizationCalls,0);assert.equal(queryCalls,0);assert.equal(connectCalls,0);});
 import { evaluateConsoleActionAccess } from "../../access-center/lib/access-center-utils.mjs";
 
 const accessPolicy = JSON.parse(
