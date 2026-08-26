@@ -101,7 +101,7 @@ export class PostgresBusinessSourceGovernance {
       )
     ).rows[0];
     if (!row) throw fail("BUSINESS_SOURCE_APPROVAL_CONFLICT");
-    return this.present(row);
+    const approval=this.present(row);if(approval.id!==safeApprovalId||approval.dataOwnerId!==owner)throw fail("BUSINESS_SOURCE_APPROVAL_DECISION_EVIDENCE_INVALID");return approval;
   }
   async readiness(connectorId, scope = {}) {
     scope=governanceEnvelope(scope,"BUSINESS_SOURCE_READINESS_SCOPE_INVALID",new Set(["organizationId","workspaceId","projectId","tenantId","userId"]));const tenantId=scope.tenantId==null||scope.tenantId===""?null:safeSourceRef(scope.tenantId,"TENANT",80),now=safeSourceClock(this.clock()),connector = await this.connector(connectorId, scope),
