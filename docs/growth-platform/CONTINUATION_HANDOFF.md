@@ -420,6 +420,8 @@ The privacy-minimized mapped work-order projection is screened for common token,
 
 Operators can run `pnpm growth-migrations:status`. The command uses the guarded `BUSINESS_DATABASE_URL` resolver, denies remote databases unless the exact explicit allow flag and `sslmode=verify-full` are both present, performs only the ledger SELECT and exits 2 for PENDING/BLOCKED or 1 for configuration/query errors. It never migrates.
 
+The migration-status bin is an explicit Growth CI path for both pull requests and branch pushes; CLI-only safety changes must continue to run Domain typecheck and the complete root gate.
+
 The command JSON contract is `schemaVersion: 1` and includes explicit read-only/no-DDL/no-apply/no-credential safety facts for CI consumers. Use `pnpm --silent growth-migrations:status` for JSON-only stdout. These facts describe command behavior only and are not an activation or deployment authorization.
 
 ERROR output uses the same versioned safety envelope. Only bounded uppercase error codes are retained; arbitrary exception/database text is replaced with `GROWTH_MIGRATION_STATUS_FAILED` to avoid operator-log leakage.
