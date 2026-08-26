@@ -160,4 +160,6 @@ Successful official API JSON must be a plain object. Authoritative external IDs 
 
 Official outbound work validates operation, approval, asset, lead and bounded payload controls before credential resolution. Unsafe or oversized request data cannot cause a vault/secret-provider lookup or network call.
 
+Delivery ledger controls no longer coerce IDs, capabilities, actors, authoritative references or CAS versions. Native bounded strings and positive integer versions are required before authorization or SQL.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.
