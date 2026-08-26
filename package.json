@@ -7,7 +7,7 @@
   "scripts": {
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
-    "growth-platform:acceptance": "pnpm --filter @anksen-agent-studio/growth-core test && pnpm --filter @anksen-agent-studio/growth-core acceptance && pnpm --filter @anksen-agent-studio/growth-connectors test && node --test packages/domain-center/test/postgres-growth-store.test.mjs && pnpm --filter @anksen-agent-studio/domain-center growth:postgres:smoke",
+    "growth-platform:acceptance": "pnpm --filter @anksen-agent-studio/growth-core test && pnpm --filter @anksen-agent-studio/growth-core acceptance && pnpm --filter @anksen-agent-studio/growth-connectors test && node --test packages/domain-center/test/postgres-growth-store.test.mjs packages/domain-center/test/persistent-growth-ingestion.test.mjs && pnpm --filter @anksen-agent-studio/domain-center growth:postgres:smoke",
     "product:readiness": "node packages/orchestrator-core/bin/product-readiness.mjs",
     "software-domain:smoke": "node packages/software-engineering-domain/bin/software-domain-smoke.mjs",
     "domain-workflow:postgres:smoke": "node packages/domain-center/bin/domain-workflow-postgres-smoke.mjs",

@@ -10,6 +10,7 @@ on:
       - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
       - 'packages/domain-center/package.json'
       - 'packages/orchestrator-core/migrations/012_growth_platform.up.sql'
+      - 'packages/orchestrator-core/migrations/013_growth_score_history.up.sql'
       - 'docs/growth-platform/**'
       - '.github/workflows/growth-platform-ci.yml'
   push:
@@ -23,6 +24,7 @@ on:
       - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
       - 'packages/domain-center/package.json'
       - 'packages/orchestrator-core/migrations/012_growth_platform.up.sql'
+      - 'packages/orchestrator-core/migrations/013_growth_score_history.up.sql'
       - 'docs/growth-platform/**'
       - '.github/workflows/growth-platform-ci.yml'
 

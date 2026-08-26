@@ -15,6 +15,14 @@ A tenant must be able to execute: discovery → identity resolution → lead →
 9. Revenue attribution references opportunity and lead.
 10. Closed-loop automated test passes.
 
+## Persistent GA-004~007 evidence
+
+- Signed website conversion events are normalized by the connector and committed through one PostgreSQL transaction.
+- Replayed event IDs return the existing lead without duplicating engagement, score or audit mutations.
+- Deterministic email/domain identity evidence reuses the scoped canonical lead; conflicting identities roll back and require human review.
+- Score snapshots are immutable and event-idempotent, while distinct events at the same timestamp remain distinct history.
+- Customer 360 reads tenant-scoped identities, engagements, score history, opportunities, revenue and audit timeline; cross-tenant reads return no record.
+
 ## GA-000~017 definition of done
 GA-000 architecture/boundaries; GA-001 tenant/domain model; GA-002 channel contract; GA-003 events/audit; GA-004 discovery; GA-005 identity graph; GA-006 scoring; GA-007 360 projection; GA-008 content strategy contract; GA-009 media-factory adapter; GA-010 publishing contract; GA-011 engagement ingestion; GA-012 qualification/NBA; GA-013 downstream opportunity handoff; GA-014 follow-up action; GA-015 revenue attribution; GA-016 optimization inputs/decision action; GA-017 executive closed-loop report.
 

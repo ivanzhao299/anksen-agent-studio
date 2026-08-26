@@ -41,3 +41,18 @@ test('persistent opportunity upsert returns the tenant-scoped record', async () 
   const store = new PostgresGrowthStore({ pool });
   assert.equal(await store.upsertOpportunity({ scope, opportunity: { id: 'opp-1', leadId: 'lead-1', stage: 'QUALIFIED' } }), row);
 });
+
+test('score history is append-only and idempotent within tenant scope', async () => {
+  const calls = [];
+  const row = { id: 'score-1', tenant_id: 'tenant-1', value: '88' };
+  const pool = { query: async (sql, values) => {
+    calls.push({ sql, values });
+    if (sql.includes('INSERT INTO growth_score_snapshot')) return { rowCount: 0, rows: [] };
+    return { rowCount: 1, rows: [row] };
+  } };
+  const store = new PostgresGrowthStore({ pool });
+  const result = await store.recordScore({ scope, leadId: 'lead-1', score: { scoreType: 'LEAD_QUALITY', value: 88, confidence: 0.9, factors: [], dimensions: {}, modelVersion: 'model-v1', policyVersion: 'policy-v1', calculatedAt: '2026-08-26T00:00:00Z' } });
+  assert.deepEqual(result, { inserted: false, snapshot: row });
+  assert.match(calls[0].sql, /ON CONFLICT\(id\) DO NOTHING/);
+  assert.deepEqual(calls[1].values.slice(1, 5), ['org-1', 'workspace-1', 'tenant-1', 'lead-1']);
+});

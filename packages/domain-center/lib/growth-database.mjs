@@ -6,11 +6,14 @@ import { PostgresGrowthStore } from './postgres-growth-store.mjs';
 import { assertBusinessDatabaseUrl, resolveBusinessDatabaseUrl } from './business-database.mjs';
 
 const { Pool } = pg;
-const migrationPath = resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/012_growth_platform.up.sql', import.meta.url)));
+const migrationPaths = [
+  resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/012_growth_platform.up.sql', import.meta.url))),
+  resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/013_growth_score_history.up.sql', import.meta.url))),
+];
 
 export async function migrateGrowthPlatform(pool) {
   if (!pool) throw new Error('pool is required');
-  await pool.query(await readFile(migrationPath, 'utf8'));
+  for (const migrationPath of migrationPaths) await pool.query(await readFile(migrationPath, 'utf8'));
   return true;
 }
 

@@ -24,6 +24,34 @@ export class PostgresGrowthStore {
     return result.rows[0];
   }
 
+  async getLead({ scope, leadId }) {
+    const s = assertTenantScope(scope);
+    const result = await this.pool.query(
+      `SELECT * FROM growth_lead WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4`,
+      [leadId, s.organizationId, s.workspaceId, s.tenantId]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async findIdentity({ scope, identityType, value }) {
+    const s = assertTenantScope(scope), normalizedValue = normalize(value);
+    if (!normalizedValue) return null;
+    const result = await this.pool.query(
+      `SELECT lead_id,identity_type,normalized_value,source FROM growth_identity WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND identity_type=$4 AND normalized_value=$5`,
+      [s.organizationId, s.workspaceId, s.tenantId, identityType, normalizedValue]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async findEventByIdempotencyKey({ scope, idempotencyKey }) {
+    const s = assertTenantScope(scope);
+    const result = await this.pool.query(
+      `SELECT event_id,subject_id,event_type,occurred_at FROM growth_event WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND idempotency_key=$4`,
+      [s.organizationId, s.workspaceId, s.tenantId, idempotencyKey]
+    );
+    return result.rows[0] ?? null;
+  }
+
   async resolveIdentity({ scope, identityType, value, leadId, source = 'growth-core' }) {
     const s = assertTenantScope(scope), normalizedValue = normalize(value);
     if (!normalizedValue) throw new Error('identity value is required');
@@ -45,11 +73,12 @@ export class PostgresGrowthStore {
 
   async appendEvent({ scope, event }) {
     const s = assertTenantScope(scope);
-    await this.pool.query(
+    const result = await this.pool.query(
       `INSERT INTO growth_event(event_id,organization_id,workspace_id,tenant_id,event_type,subject_type,subject_id,source,idempotency_key,payload,schema_version,occurred_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12) ON CONFLICT DO NOTHING`,
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12) ON CONFLICT DO NOTHING RETURNING event_id`,
       [event.eventId, s.organizationId, s.workspaceId, s.tenantId, event.eventType, event.subjectType, event.subjectId, event.source, event.idempotencyKey, json(event.payload, {}), event.schemaVersion ?? 1, event.occurredAt]
     );
+    return { inserted: Boolean(result.rowCount), eventId: result.rows[0]?.event_id ?? event.eventId };
   }
 
   async recordEngagement({ scope, engagement }) {
@@ -58,6 +87,25 @@ export class PostgresGrowthStore {
       `INSERT INTO growth_engagement(id,organization_id,workspace_id,tenant_id,lead_id,kind,channel,payload,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)`,
       [engagement.id, s.organizationId, s.workspaceId, s.tenantId, engagement.leadId, engagement.kind, engagement.channel ?? null, json(engagement.payload, {}), engagement.occurredAt]
     );
+  }
+
+  async recordScore({ scope, leadId, score }) {
+    const s = assertTenantScope(scope);
+    const scoreId = score.scoreId ?? randomUUID();
+    const result = await this.pool.query(
+      `INSERT INTO growth_score_snapshot(id,organization_id,workspace_id,tenant_id,lead_id,score_type,value,confidence,factors,dimensions,model_version,policy_version,calculated_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,$12,$13)
+       ON CONFLICT(id) DO NOTHING
+       RETURNING *`,
+      [scoreId, s.organizationId, s.workspaceId, s.tenantId, leadId, score.scoreType, score.value, score.confidence, json(score.factors, []), json(score.dimensions, {}), score.modelVersion, score.policyVersion ?? score.modelVersion, score.calculatedAt]
+    );
+    if (result.rowCount) return { inserted: true, snapshot: result.rows[0] };
+    const existing = await this.pool.query(
+      `SELECT * FROM growth_score_snapshot WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 AND lead_id=$5`,
+      [scoreId, s.organizationId, s.workspaceId, s.tenantId, leadId]
+    );
+    if (!existing.rowCount) throw new Error('score snapshot conflict could not be read');
+    return { inserted: false, snapshot: existing.rows[0] };
   }
 
   async upsertOpportunity({ scope, opportunity, downstreamRef = null }) {
@@ -85,16 +133,17 @@ export class PostgresGrowthStore {
 
   async customer360({ scope, leadId }) {
     const s = assertTenantScope(scope);
-    const [lead, identities, engagements, opportunities, revenue, events] = await Promise.all([
+    const [lead, identities, engagements, scores, opportunities, revenue, events] = await Promise.all([
       this.pool.query(`SELECT * FROM growth_lead WHERE id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4`, [leadId,s.organizationId,s.workspaceId,s.tenantId]),
       this.pool.query(`SELECT identity_type,normalized_value,source,created_at FROM growth_identity WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY created_at`, [leadId,s.organizationId,s.workspaceId,s.tenantId]),
       this.pool.query(`SELECT id,kind,channel,payload,occurred_at FROM growth_engagement WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY occurred_at DESC`, [leadId,s.organizationId,s.workspaceId,s.tenantId]),
+      this.pool.query(`SELECT id,score_type,value,confidence,factors,dimensions,model_version,policy_version,calculated_at FROM growth_score_snapshot WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY calculated_at DESC`, [leadId,s.organizationId,s.workspaceId,s.tenantId]),
       this.pool.query(`SELECT id,stage,score,downstream_ref,created_at,updated_at FROM growth_opportunity WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY updated_at DESC`, [leadId,s.organizationId,s.workspaceId,s.tenantId]),
       this.pool.query(`SELECT opportunity_id,amount,currency,attributed_at,metadata FROM growth_revenue_attribution WHERE lead_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY attributed_at DESC`, [leadId,s.organizationId,s.workspaceId,s.tenantId]),
       this.pool.query(`SELECT event_type,subject_type,subject_id,payload,occurred_at FROM growth_event WHERE subject_id=$1 AND organization_id=$2 AND workspace_id=$3 AND tenant_id=$4 ORDER BY occurred_at DESC LIMIT 200`, [leadId,s.organizationId,s.workspaceId,s.tenantId])
     ]);
     if (!lead.rowCount) return null;
     const totalRevenue = revenue.rows.reduce((sum,row)=>sum+Number(row.amount||0),0);
-    return { scope:s, lead:lead.rows[0], identities:identities.rows, engagements:engagements.rows, opportunities:opportunities.rows, revenue:revenue.rows, totalRevenue, timeline:events.rows };
+    return { scope:s, lead:lead.rows[0], identities:identities.rows, engagements:engagements.rows, scoreHistory:scores.rows, latestScore:scores.rows[0] ?? lead.rows[0].score ?? null, opportunities:opportunities.rows, revenue:revenue.rows, totalRevenue, timeline:events.rows };
   }
 }
