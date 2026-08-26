@@ -23,11 +23,18 @@ export class PostgresGrowthFeatureFlagStore {
   constructor({
     pool,
     clock = () => new Date(),
+    maxAuthorizationAgeSeconds = 366 * 24 * 60 * 60,
     authorizeProductionOperation = async () => false,
   } = {}) {
     if (!pool) throw fail("GROWTH_FEATURE_FLAG_POOL_REQUIRED");
+    if (
+      !Number.isFinite(maxAuthorizationAgeSeconds) ||
+      maxAuthorizationAgeSeconds <= 0
+    )
+      throw fail("GROWTH_FEATURE_FLAG_AUTHORIZATION_WINDOW_INVALID");
     this.pool = pool;
     this.clock = clock;
+    this.maxAuthorizationAgeSeconds = maxAuthorizationAgeSeconds;
     this.authorizeProductionOperation = authorizeProductionOperation;
   }
 
@@ -81,7 +88,9 @@ export class PostgresGrowthFeatureFlagStore {
       (!safeRef(authorizationReferenceId) ||
         !expiry ||
         !Number.isFinite(expiry.getTime()) ||
-        expiry.getTime() <= now.getTime())
+        expiry.getTime() <= now.getTime() ||
+        expiry.getTime() - now.getTime() >
+          this.maxAuthorizationAgeSeconds * 1000)
     )
       throw fail("GROWTH_FEATURE_FLAG_AUTHORIZATION_REQUIRED");
     if (

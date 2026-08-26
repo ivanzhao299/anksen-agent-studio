@@ -68,4 +68,6 @@ Channel-account and connector-activation authorization expiry is strict: equalit
 
 Production feature-flag input is strict at both trust boundaries. The store accepts only actual booleans and bounded uppercase flag identifiers, preventing string coercion such as `"false"` from enabling production behavior. Migration 025 mirrors the key grammar and secret-material rejection in PostgreSQL; its direct-SQL acceptance case must remain green, and both database initializers must keep applying it after migration 024/021 respectively.
 
+Production authorization is time-bounded, not merely future-dated. Connector activation and tenant production feature flags default to a maximum 366-day authorization lifetime; overlong authorization is blocked, and non-positive/non-finite configured windows fail closed. Preserve this ceiling or deliberately tighten it—do not create a perpetual production authorization path.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

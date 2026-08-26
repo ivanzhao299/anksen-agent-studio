@@ -41,14 +41,23 @@ export class GrowthConnectorActivationGate {
     pool,
     clock = () => new Date(),
     maxHealthAgeSeconds = 900,
+    maxAuthorizationAgeSeconds = 366 * 24 * 60 * 60,
     authorize = async () => false,
     authorizeProductionOperation = async () => false,
   } = {}) {
     if (!pool?.connect)
       throw new TypeError("transaction-capable pool is required");
+    if (!Number.isFinite(maxHealthAgeSeconds) || maxHealthAgeSeconds <= 0)
+      throw new TypeError("positive maxHealthAgeSeconds is required");
+    if (
+      !Number.isFinite(maxAuthorizationAgeSeconds) ||
+      maxAuthorizationAgeSeconds <= 0
+    )
+      throw new TypeError("positive maxAuthorizationAgeSeconds is required");
     this.pool = pool;
     this.clock = clock;
     this.maxHealthAgeSeconds = maxHealthAgeSeconds;
+    this.maxAuthorizationAgeSeconds = maxAuthorizationAgeSeconds;
     this.authorize = authorize;
     this.authorizeProductionOperation = authorizeProductionOperation;
   }
@@ -93,6 +102,11 @@ export class GrowthConnectorActivationGate {
         expires.getTime() <= now.getTime()
       )
         reasons.push("ACTIVATION_AUTHORIZATION_EXPIRED");
+      else if (
+        expires.getTime() - now.getTime() >
+        this.maxAuthorizationAgeSeconds * 1000
+      )
+        reasons.push("ACTIVATION_AUTHORIZATION_WINDOW_EXCEEDED");
     }
     if (!binding) reasons.push("CONNECTOR_BINDING_NOT_FOUND");
     else {

@@ -32,6 +32,8 @@ Channel accounts and connector activation now expire at the exact boundary, cons
 
 Production feature flags now reject non-boolean mutation input and uncontrolled key names before authorization or persistence. Migration 025 mirrors key and secret-reference constraints in PostgreSQL, including direct-SQL bypass evidence, and is included in both applicable migration paths.
 
+Connector activation and production feature-flag authorization now have a default 366-day maximum lifetime. Invalid policy windows fail at construction, and an arbitrarily distant future expiry cannot create a de facto perpetual production grant.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

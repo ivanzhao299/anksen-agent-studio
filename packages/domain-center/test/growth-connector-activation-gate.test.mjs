@@ -121,6 +121,58 @@ test("activation authorization expires at the exact boundary", () => {
   assert.ok(result.reasons.includes("ACTIVATION_AUTHORIZATION_EXPIRED"));
 });
 
+test("activation Gate rejects unbounded authorization and invalid windows", () => {
+  assert.throws(
+    () =>
+      new GrowthConnectorActivationGate({
+        pool: { connect() {} },
+        maxHealthAgeSeconds: 0,
+      }),
+    /positive maxHealthAgeSeconds/,
+  );
+  assert.throws(
+    () =>
+      new GrowthConnectorActivationGate({
+        pool: { connect() {} },
+        maxAuthorizationAgeSeconds: Number.NaN,
+      }),
+    /positive maxAuthorizationAgeSeconds/,
+  );
+  const gate = new GrowthConnectorActivationGate({
+      pool: { connect() {} },
+      clock: () => new Date("2026-08-26T10:00:00Z"),
+      maxAuthorizationAgeSeconds: 60,
+    }),
+    result = gate.evaluate(
+      { organizationId: "org", workspaceId: "growth", tenantId: "tenant" },
+      {
+        activation: {
+          id: "activation",
+          version: 1,
+          status: "APPROVED",
+          approval_proven: true,
+          fields: {
+            tenantId: "tenant",
+            bindingVersion: 1,
+            connectorKind: "WEBSITE_INBOUND",
+            explicitAuthorizationRef: "PROD-AUTH-001",
+            expiresAt: "2026-08-26T10:01:01Z",
+          },
+        },
+        binding: {
+          id: "binding",
+          kind: "WEBSITE_INBOUND",
+          version: 1,
+          enabled: false,
+          health_status: "HEALTHY",
+          health_observed_at: new Date("2026-08-26T09:59:00Z"),
+        },
+      },
+      1,
+    );
+  assert.ok(result.reasons.includes("ACTIVATION_AUTHORIZATION_WINDOW_EXCEEDED"));
+});
+
 test("connector activation consumes an existing business approval exactly once with no external call", async () => {
   await ensurePostgresFixture();
   const pool = createTestPool(),
