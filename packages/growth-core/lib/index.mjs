@@ -17,3 +17,4 @@ export * from './follow-up.mjs';
 export * from './attribution-engine.mjs';
 export * from './growth-director.mjs';
 export * from './executive-dashboard.mjs';
+export * from './pilot-readiness.mjs';

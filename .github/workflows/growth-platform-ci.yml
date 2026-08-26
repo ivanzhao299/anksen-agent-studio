@@ -60,6 +60,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @anksen-agent-studio/growth-core test
       - run: pnpm --filter @anksen-agent-studio/growth-core acceptance
+      - run: pnpm --filter @anksen-agent-studio/growth-core pilot:readiness
       - run: pnpm --filter @anksen-agent-studio/growth-connectors test
       - run: node --test --test-name-pattern='sanitized delivery operations' apps/console/web/business-application-surfaces.test.mjs
 

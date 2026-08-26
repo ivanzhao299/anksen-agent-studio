@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test \"test/**/*.test.mjs\"",
-    "acceptance": "node bin/growth-platform-acceptance.mjs"
+    "acceptance": "node bin/growth-platform-acceptance.mjs",
+    "pilot:readiness": "node bin/growth-pilot-readiness.mjs"
   }
 }

@@ -56,3 +56,10 @@ The current reusable core implements the minimum executable vertical slice for a
 
 ## Pilot policy
 KingTurf is the first reference tenant. Its product catalog, ICPs, countries, keywords, scoring weights, content policy, sales playbook and Business OS mappings belong in a tenant/industry pack, never reusable core.
+
+## Pilot readiness evidence
+
+- `pnpm --filter @anksen-agent-studio/growth-core pilot:readiness` evaluates implementation evidence separately from production activation evidence and is part of the root and CI acceptance gates.
+- The KingTurf snapshot proves the tenant pack, scoped channel mix, signed website connector, official publishing/business adapter boundaries, persistence migrations, delivery audit/ledger and unrelated second-tenant validation.
+- The snapshot truthfully remains `PILOT_ACTIVATION_BLOCKED` while credential references, connector health, data-owner approval, production feature flag, Runtime Activation Gate or explicit production authorization are absent.
+- Readiness assessment is pure and read-only: it cannot resolve credential values, invoke connectors, mutate production, or enable a Runtime.

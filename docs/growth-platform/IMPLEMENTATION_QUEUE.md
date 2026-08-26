@@ -4,7 +4,7 @@ Status: ACTIVE
 Branch: `feature/anksen-ai-growth-platform`
 Execution rule: work in ordered slices; each item must produce code/tests/docs/evidence before advancing.
 
-Current evidence snapshot (2026-08-26): GA-000~GA-017 executable acceptance is green. GA-004~007 have signed-event transactional PostgreSQL evidence. GA-010/013 have default-disabled official API adapters plus one shared, retry-bounded and reconcilable delivery ledger; commercial handoff persists references rather than payload copies. Production authorization, named-platform connectors, UI/operations and pilot evidence remain open. Continue from `CONTINUATION_HANDOFF.md` and run `pnpm growth-platform:acceptance` before advancing.
+Current evidence snapshot (2026-08-26): GA-000~GA-017 executable acceptance is green. GA-004~007 have signed-event transactional PostgreSQL evidence. GA-010/013 have default-disabled official API adapters plus one shared, retry-bounded and reconcilable delivery ledger; commercial handoff persists references rather than payload copies. The KingTurf and unrelated-tenant Pilot readiness evidence is executable and fail-closed: implementation is ready, but production activation remains blocked by unproven credentials, health, approvals and activation authorization. Named-platform activation and further UI/operations evidence remain open. Continue from `CONTINUATION_HANDOFF.md` and run `pnpm growth-platform:acceptance` before advancing.
 
 ## Program objective
 
@@ -253,5 +253,6 @@ Wave 3:
 1. Keep the unified local and CI acceptance gate green.
 2. Harden persistent GA-004 discovery, GA-005 identity resolution, GA-006 score history and GA-007 Customer 360 evidence.
 3. Harden GA-008~GA-017 connector reconciliation, retry, approval/failure paths, UI and operational evidence.
-4. Validate the KingTurf pilot without moving tenant-specific logic into Core.
-5. Validate a second non-KingTurf tenant without a schema or Core fork.
+4. Expose sanitized Pilot readiness and blockers through the authenticated Growth Console without an activation control.
+5. Validate the KingTurf pilot without moving tenant-specific logic into Core or bypassing activation gates.
+6. Keep the second non-KingTurf tenant validation green without a schema or Core fork.
