@@ -23,7 +23,7 @@ export function assertTenantScope(scope) {
     throw new TypeError('scope must be an object');
   }
   for (const field of REQUIRED_SCOPE_FIELDS) {
-    if (typeof scope[field] !== 'string' || scope[field].trim() === '') {
+    if (typeof scope[field] !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(scope[field].trim())) {
       throw new TypeError(`scope.${field} is required`);
     }
   }

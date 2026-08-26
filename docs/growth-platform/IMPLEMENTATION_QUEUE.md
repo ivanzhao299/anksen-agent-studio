@@ -60,6 +60,8 @@ Canonical Growth child records now require same-tenant lead/opportunity parents 
 
 Canonical identity now has an explicit EMAIL/PHONE/DOMAIN contract with type-specific normalization and migration 029 database checks. Arbitrary types, URLs-as-domains, malformed addresses, uncontrolled sources and oversized/control-bearing values fail before indexed persistence.
 
+All Growth tenant scope identifiers now share a bounded 1–128 index-safe grammar in Core. Migration 030 mirrors it across the 15 authoritative scope-bearing PostgreSQL tables, with root acceptance proving complete constraint coverage and direct-SQL rejection.
+
 ## Program objective
 
 Build a reusable, multi-tenant AI Growth Platform on the existing ANKSEN runtime. KingTurf is the first pilot tenant, not a product boundary.

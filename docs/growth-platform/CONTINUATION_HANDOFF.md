@@ -96,4 +96,6 @@ Migration 028 closes canonical cross-tenant relationship holes with composite `(
 
 Migration 029 and `PostgresGrowthStore` constrain canonical identity to EMAIL/PHONE/DOMAIN with type-specific normalized shapes, lowercase bounded values and controlled uppercase sources. Phone punctuation is removed before matching; domains are hostnames rather than URLs. Keep new identity kinds out until their normalization and database grammar are explicitly designed.
 
+Tenant scope IDs are a shared security primitive: Growth Core accepts only 1–128 index-safe ASCII reference characters. Migration 030 dynamically installs matching checks on all 15 complete-Growth scope tables; it must remain full-Growth-only so the ledger cannot mark it applied before later tables exist. Root PostgreSQL acceptance asserts all 15 constraints.
+
 Read `ANKSEN_AI_GROWTH_PLATFORM_PLAN.md`, `CLOSED_LOOP_ACCEPTANCE.md`, `IMPLEMENTATION_QUEUE.md`, and `packages/growth-core/README.md`, inspect the first failing or unproven acceptance criterion, and continue from there without restarting product discovery.

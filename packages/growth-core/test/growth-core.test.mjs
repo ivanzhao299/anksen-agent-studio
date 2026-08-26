@@ -29,6 +29,8 @@ test('lead model requires tenant scope and preserves source', () => {
   assert.equal(lead.status, 'NEW');
 });
 
+test('tenant scope identifiers are bounded and index safe',()=>{for(const unsafeScope of [{organizationId:'bad scope',workspaceId:'growth',tenantId:'tenant'},{organizationId:'org',workspaceId:'growth',tenantId:'x'.repeat(129)},{organizationId:'org\nadmin',workspaceId:'growth',tenantId:'tenant'}])assert.throws(()=>createLead({...unsafeScope,leadId:'lead-1',source:'WEBSITE'}),/scope\./);});
+
 test('explainable score enforces 0-100 range and factors', () => {
   const score = createExplainableScore({
     ...scope,
