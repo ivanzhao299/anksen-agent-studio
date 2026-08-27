@@ -4,8 +4,10 @@ import { existsSync, openSync } from "node:fs";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
+import { assertRepositoryIdentity } from "../lib/repository-identity.mjs";
 
 const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
+assertRepositoryIdentity(repoRoot);
 const runtimeDir = resolve(repoRoot, "runtime/autonomous-development");
 const pidPath = resolve(runtimeDir, "worker.pid");
 const supervisorPath = resolve(repoRoot, "packages/orchestrator-core/bin/autonomous-development-worker-supervisor.mjs");

@@ -5,6 +5,10 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { homedir } from "node:os";
 import { ProjectLifecycleCapability } from "../../project-connector/lib/project-lifecycle-capability.mjs";
+import { assertRepositoryIdentity } from "../lib/repository-identity.mjs";
+
+const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
+assertRepositoryIdentity(repoRoot);
 
 const configPath = resolve(process.env.STUDIO_RESIDENT_CONFIG ?? `${homedir()}/.anksen-agent-studio/mac-resident-worker.json`);
 const config = JSON.parse(await readFile(configPath, "utf8"));

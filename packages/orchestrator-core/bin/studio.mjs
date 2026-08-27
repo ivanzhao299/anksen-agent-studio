@@ -6,10 +6,12 @@ import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { assertRepositoryIdentity } from "../lib/repository-identity.mjs";
 
 const binDir = dirname(fileURLToPath(import.meta.url));
 const packageDir = dirname(binDir);
 const repoRoot = resolve(packageDir, "../..");
+assertRepositoryIdentity(repoRoot);
 const execFileAsync = promisify(execFile);
 
 const DEFAULT_PROJECT = "examples/jinhu-smart-park/project.config.example.json";
