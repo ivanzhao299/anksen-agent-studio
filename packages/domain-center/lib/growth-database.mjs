@@ -1,11 +1,17 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { PostgresGrowthStore } from './postgres-growth-store.mjs';
 import { assertBusinessDatabaseUrl, resolveBusinessDatabasePoolMax,resolveBusinessDatabaseRemoteAccess,resolveBusinessDatabaseTimeoutMs,resolveBusinessDatabaseUrl } from './business-database.mjs';
-import { applyGrowthMigrations, withGrowthMigrationLock } from './growth-migration-runner.mjs';
+import { applyGrowthMigrations, prepareGrowthMigrationSql, withGrowthMigrationLock } from './growth-migration-runner.mjs';
 
 const { Pool } = pg;
+export const growthPrerequisiteMigrationPaths = Object.freeze([
+  resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/004_business_applications.up.sql', import.meta.url))),
+  resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/010_business_data_connectors.up.sql', import.meta.url))),
+  resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/011_business_source_governance.up.sql', import.meta.url))),
+]);
 export const growthMigrationPaths = Object.freeze([
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/012_growth_platform.up.sql', import.meta.url))),
   resolve(fileURLToPath(new URL('../../orchestrator-core/migrations/013_growth_score_history.up.sql', import.meta.url))),
@@ -43,9 +49,14 @@ export async function migrateGrowthPlatform(pool) {
   if (!pool) throw new Error('pool is required');
   const client=typeof pool.connect==='function'?await pool.connect():pool,release=client!==pool&&typeof client.release==='function';
   try{
-    await withGrowthMigrationLock(client, () =>
-      applyGrowthMigrations(client, growthMigrationPaths,{strictManifest:true}),
-    );
+    await withGrowthMigrationLock(client, async () => {
+      for (const migrationPath of growthPrerequisiteMigrationPaths) {
+        await client.query(
+          prepareGrowthMigrationSql(await readFile(migrationPath, 'utf8'), migrationPath),
+        );
+      }
+      await applyGrowthMigrations(client, growthMigrationPaths,{strictManifest:true});
+    });
     return true;
   }catch(error){throw error;}finally{if(release)client.release();}
 }
