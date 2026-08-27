@@ -15,12 +15,28 @@ for command_name in docker openssl install node; do
 done
 docker compose version >/dev/null
 
+if [[ -L "$data_dir" ]]; then
+  printf 'Business data directory must not be a symbolic link.\n' >&2
+  exit 1
+fi
 install -d -m 700 "$data_dir"
+if [[ ! -O "$data_dir" ]]; then
+  printf 'Business data directory must be owned by the deployment user.\n' >&2
+  exit 1
+fi
+if [[ -L "$data_env" || -L "$database_url_file" ]]; then
+  printf 'Business database credential files must not be symbolic links.\n' >&2
+  exit 1
+fi
+if [[ ( -e "$data_env" && ! -f "$data_env" ) || ( -e "$database_url_file" && ! -f "$database_url_file" ) ]]; then
+  printf 'Business database credential paths must be regular files.\n' >&2
+  exit 1
+fi
 if [[ ! -f "$data_env" ]]; then
   db_password="$(openssl rand -hex 32)"
   printf 'BUSINESS_DB_PASSWORD=%s\n' "$db_password" > "$data_env"
-  chmod 600 "$data_env"
 fi
+chmod 600 "$data_env"
 
 set -a
 source "$data_env"

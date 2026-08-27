@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
+import { closeSync,constants,existsSync,fstatSync,lstatSync,openSync,readSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname,isAbsolute,resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
@@ -9,6 +9,7 @@ import { PostgresBusinessApplicationStore } from "./postgres-business-applicatio
 import { PostgresBusinessDataConnectorStore } from "./postgres-business-data-connector.mjs";
 import { PostgresBusinessSourceGovernance } from "./postgres-business-source-governance.mjs";
 import { migrate } from "../../orchestrator-core/lib/persistent-night-shift.mjs";
+import { applyGrowthMigrations, withGrowthMigrationLock } from "./growth-migration-runner.mjs";
 
 const { Pool } = pg;
 const businessMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/004_business_applications.up.sql", import.meta.url)));
@@ -19,43 +20,78 @@ const businessRunnerNodesMigration = resolve(fileURLToPath(new URL("../../orches
 const businessWorkResultsMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/009_business_work_results.up.sql", import.meta.url)));
 const businessDataConnectorsMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/010_business_data_connectors.up.sql", import.meta.url)));
 const businessSourceGovernanceMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/011_business_source_governance.up.sql", import.meta.url)));
+const growthSourceApprovalScopeMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/018_growth_source_approval_scope.up.sql", import.meta.url)));
+const growthTenantFeatureFlagMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/019_growth_tenant_feature_flag.up.sql", import.meta.url)));
+const businessSourceApprovalSequenceMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/020_business_source_approval_sequence.up.sql", import.meta.url)));
+const growthFeatureFlagEventImmutableMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/021_growth_feature_flag_event_immutable.up.sql", import.meta.url)));
+const growthFeatureFlagConstraintsMigration = resolve(fileURLToPath(new URL("../../orchestrator-core/migrations/025_growth_feature_flag_constraints.up.sql", import.meta.url)));
 export const defaultBusinessDatabaseUrlFile = "/opt/anksen/business-data/database-url";
+function businessEnvironmentValue(env,name){if(!env||typeof env!=="object"||env!==process.env&&![Object.prototype,null].includes(Object.getPrototypeOf(env)))throw new Error("BUSINESS_DATABASE_ENV_INVALID");const descriptor=Object.getOwnPropertyDescriptor(env,name);if(!descriptor)return undefined;if(!Object.hasOwn(descriptor,"value")||typeof descriptor.value!=="string")throw new Error("BUSINESS_DATABASE_ENV_INVALID");return descriptor.value;}
 
 export function resolveBusinessDatabaseUrl(env = process.env) {
-  if (env.BUSINESS_DATABASE_URL) return String(env.BUSINESS_DATABASE_URL).trim();
-  const path = String(env.BUSINESS_DATABASE_URL_FILE ?? defaultBusinessDatabaseUrlFile);
-  return existsSync(path) ? readFileSync(path, "utf8").trim() : null;
+  const inline=businessEnvironmentValue(env,"BUSINESS_DATABASE_URL");
+  if (inline!==undefined){if(!inline||inline.trim()!==inline)throw new Error("BUSINESS_DATABASE_URL_INVALID");return inline;}
+  const path = businessEnvironmentValue(env,"BUSINESS_DATABASE_URL_FILE") ?? defaultBusinessDatabaseUrlFile;
+  if(path.length<1||Buffer.byteLength(path)>1024||!isAbsolute(path)||/[\u0000-\u001f\u007f]/.test(path))throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");
+  if(!existsSync(path))return null;
+  let descriptor;try{const directory=lstatSync(dirname(path)),directoryOwned=typeof process.getuid!=="function"||directory.uid===0||directory.uid===process.getuid();if(!directory.isDirectory()||(directory.mode&0o077)!==0||!directoryOwned)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");descriptor=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);const metadata=fstatSync(descriptor),owned=typeof process.getuid!=="function"||metadata.uid===0||metadata.uid===process.getuid();if(!metadata.isFile()||metadata.size<1||metadata.size>4096||(metadata.mode&0o077)!==0||!owned)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");const bytes=Buffer.alloc(4097);let offset=0;while(offset<bytes.length){const count=readSync(descriptor,bytes,offset,bytes.length-offset,null);if(!count)break;offset+=count;}if(offset<1||offset>4096)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");const decoded=new TextDecoder("utf-8",{fatal:true}).decode(bytes.subarray(0,offset)),value=decoded.endsWith("\r\n")?decoded.slice(0,-2):decoded.endsWith("\n")?decoded.slice(0,-1):decoded;if(!value||value.trim()!==value)throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");return value;}catch(error){if(error?.message==="BUSINESS_DATABASE_URL_FILE_INVALID")throw error;throw new Error("BUSINESS_DATABASE_URL_FILE_INVALID");}finally{if(descriptor!==undefined)closeSync(descriptor);}
 }
 
-export function assertBusinessDatabaseUrl(value, { allowRemote = false } = {}) {
+export function assertBusinessDatabaseUrl(value, options = {}) {
+  if(!options||typeof options!=="object"||Array.isArray(options)||![Object.prototype,null].includes(Object.getPrototypeOf(options)))throw new Error("BUSINESS_DATABASE_OPTIONS_INVALID");const keys=Reflect.ownKeys(options),descriptor=Object.getOwnPropertyDescriptor(options,"allowRemote");if(keys.some(key=>key!=="allowRemote")||descriptor&&!Object.hasOwn(descriptor,"value")||descriptor&&typeof descriptor.value!=="boolean")throw new Error("BUSINESS_DATABASE_OPTIONS_INVALID");const allowRemote=descriptor?.value??false;
   if (!value) throw new Error("BUSINESS_DATABASE_URL_REQUIRED");
-  const url = new URL(value);
+  if(typeof value!=="string"||value.length>4096||/[\u0000-\u001f\u007f]/.test(value))throw new Error("BUSINESS_DATABASE_URL_INVALID");
+  if(!/^(?:postgresql|postgres):\/\//.test(value))throw new Error("BUSINESS_DATABASE_PROTOCOL_DENIED");
+  let url;try{url=new URL(value);}catch{throw new Error("BUSINESS_DATABASE_URL_INVALID");}
   if (url.protocol !== "postgresql:" && url.protocol !== "postgres:") throw new Error("BUSINESS_DATABASE_PROTOCOL_DENIED");
-  if (!allowRemote && !["127.0.0.1", "localhost"].includes(url.hostname)) throw new Error("BUSINESS_DATABASE_REMOTE_DENIED");
-  if (!/(business|test|fixture)/i.test(url.pathname)) throw new Error("BUSINESS_DATABASE_NAME_DENIED");
-  if (!url.username || !url.password) throw new Error("BUSINESS_DATABASE_CREDENTIAL_REQUIRED");
+  if(url.hash)throw new Error("BUSINESS_DATABASE_URL_INVALID");
+  const queryEntries=[...url.searchParams.entries()];if(queryEntries.length>1||queryEntries.some(([key,value])=>key!=="sslmode"||!["disable","prefer","require","verify-ca","verify-full","no-verify"].includes(value)))throw new Error("BUSINESS_DATABASE_URL_QUERY_DENIED");
+  const localHost=["127.0.0.1", "localhost"].includes(url.hostname);if (!allowRemote && !localHost) throw new Error("BUSINESS_DATABASE_REMOTE_DENIED");
+  if(!localHost&&url.searchParams.get("sslmode")!=="verify-full")throw new Error("BUSINESS_DATABASE_REMOTE_TLS_REQUIRED");
+  if(url.port&&(!/^[1-9][0-9]{0,4}$/.test(url.port)||Number(url.port)>65535))throw new Error("BUSINESS_DATABASE_PORT_DENIED");
+  const databaseName=url.pathname.slice(1),nameSegments=databaseName.split("_");
+  if (!/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(databaseName)||!nameSegments.some(segment=>["business","test","fixture"].includes(segment))) throw new Error("BUSINESS_DATABASE_NAME_DENIED");
+  if(!url.username||!url.password)throw new Error("BUSINESS_DATABASE_CREDENTIAL_REQUIRED");
+  let username,password;try{username=decodeURIComponent(url.username);password=decodeURIComponent(url.password);}catch{throw new Error("BUSINESS_DATABASE_CREDENTIAL_INVALID");}
+  if (Buffer.byteLength(username)>1024||Buffer.byteLength(password)>1024||/[\u0000-\u001f\u007f]/.test(username)||/[\u0000-\u001f\u007f]/.test(password)) throw new Error("BUSINESS_DATABASE_CREDENTIAL_INVALID");
   return value;
 }
 
-export async function createBusinessApplicationRuntime({ repoRoot, env = process.env, pool = null, requirePostgres = env.BUSINESS_DATABASE_REQUIRED === "true" } = {}) {
+export function resolveBusinessDatabasePoolMax(env=process.env){const control=businessEnvironmentValue(env,"BUSINESS_DATABASE_POOL_MAX"),value=control===undefined?10:/^[0-9]{1,2}$/.test(control)?Number(control):Number.NaN;if(!Number.isInteger(value)||value<1||value>50)throw new Error("BUSINESS_DATABASE_POOL_MAX_INVALID");return value;}
+export function resolveBusinessDatabaseTimeoutMs(env=process.env){const control=businessEnvironmentValue(env,"BUSINESS_DATABASE_TIMEOUT_MS"),value=control===undefined?10000:/^[0-9]{3,5}$/.test(control)?Number(control):Number.NaN;if(!Number.isInteger(value)||value<100||value>60000)throw new Error("BUSINESS_DATABASE_TIMEOUT_INVALID");return value;}
+export function resolveBusinessDatabaseRemoteAccess(env=process.env){const control=businessEnvironmentValue(env,"BUSINESS_DATABASE_ALLOW_REMOTE");if(control!==undefined&&!['true','false'].includes(control))throw new Error("BUSINESS_DATABASE_ENV_INVALID");return control==='true';}
+
+export async function createBusinessApplicationRuntime({ repoRoot, env = process.env, pool = null, requirePostgres, initializeSchema = true } = {}) {
+  if(typeof initializeSchema!=="boolean")throw new Error("BUSINESS_DATABASE_SCHEMA_MODE_INVALID");
+  const requiredControl=businessEnvironmentValue(env,"BUSINESS_DATABASE_REQUIRED"),allowRemote=resolveBusinessDatabaseRemoteAccess(env);
+  if(requiredControl!==undefined&&!['true','false'].includes(requiredControl)||requirePostgres!==undefined&&typeof requirePostgres!=="boolean")throw new Error("BUSINESS_DATABASE_ENV_INVALID");
+  const postgresRequired=requirePostgres??requiredControl==="true";
   const configuredUrl = pool ? null : resolveBusinessDatabaseUrl(env);
   if (!pool && !configuredUrl) {
-    if (requirePostgres) throw new Error("BUSINESS_DATABASE_REQUIRED");
+    if (postgresRequired) throw new Error("BUSINESS_DATABASE_REQUIRED");
     return { backend: "FILE_FALLBACK", pool: null, ownsPool: false, store: new BusinessApplicationStore({ repoRoot }), connectorStore: null, sourceGovernance: null };
   }
-  const databasePool = pool ?? new Pool({ connectionString: assertBusinessDatabaseUrl(configuredUrl, { allowRemote: env.BUSINESS_DATABASE_ALLOW_REMOTE === "true" }), max: Number(env.BUSINESS_DATABASE_POOL_MAX ?? 10), application_name: "anksen-studio-business" });
+  const timeoutMs=pool?null:resolveBusinessDatabaseTimeoutMs(env),databasePool = pool ?? new Pool({ connectionString: assertBusinessDatabaseUrl(configuredUrl, { allowRemote }), max: resolveBusinessDatabasePoolMax(env),connectionTimeoutMillis:timeoutMs,query_timeout:timeoutMs,statement_timeout:timeoutMs, application_name: "anksen-studio-business" });
   try {
-    const state = (await databasePool.query("SELECT to_regclass('ad_goal') kernel, to_regclass('business_application_record') business")).rows[0];
-    if (!state.kernel) await migrate(databasePool, "up");
-    else {
-      await databasePool.query(await readFile(businessMigration, "utf8"));
-      await databasePool.query(await readFile(businessApprovalMigration, "utf8"));
-      await databasePool.query(await readFile(businessWorkControlMigration, "utf8"));
-      await databasePool.query(await readFile(businessRecordRelationsMigration, "utf8"));
-      await databasePool.query(await readFile(businessRunnerNodesMigration, "utf8"));
-      await databasePool.query(await readFile(businessWorkResultsMigration, "utf8"));
-      await databasePool.query(await readFile(businessDataConnectorsMigration, "utf8"));
-      await databasePool.query(await readFile(businessSourceGovernanceMigration, "utf8"));
+    if(initializeSchema){
+      const state = (await databasePool.query("SELECT to_regclass('ad_goal') kernel, to_regclass('business_application_record') business")).rows[0];
+      if (!state.kernel) await migrate(databasePool, "up");
+      const client = await databasePool.connect();
+      try {
+        await withGrowthMigrationLock(client, async () => {
+          await client.query(await readFile(businessMigration, "utf8"));
+          await client.query(await readFile(businessApprovalMigration, "utf8"));
+          await client.query(await readFile(businessWorkControlMigration, "utf8"));
+          await client.query(await readFile(businessRecordRelationsMigration, "utf8"));
+          await client.query(await readFile(businessRunnerNodesMigration, "utf8"));
+          await client.query(await readFile(businessWorkResultsMigration, "utf8"));
+          await client.query(await readFile(businessDataConnectorsMigration, "utf8"));
+          await client.query(await readFile(businessSourceGovernanceMigration, "utf8"));
+          await applyGrowthMigrations(client, [growthSourceApprovalScopeMigration, growthTenantFeatureFlagMigration, businessSourceApprovalSequenceMigration, growthFeatureFlagEventImmutableMigration, growthFeatureFlagConstraintsMigration]);
+        });
+      } finally {
+        client.release();
+      }
     }
     return { backend: "POSTGRESQL", pool: databasePool, ownsPool: !pool, store: new PostgresBusinessApplicationStore({ pool: databasePool }), connectorStore: new PostgresBusinessDataConnectorStore({ pool: databasePool }), sourceGovernance: new PostgresBusinessSourceGovernance({ pool: databasePool }) };
   } catch (error) {

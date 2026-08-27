@@ -1,0 +1,1 @@
+ALTER TABLE growth_score_snapshot DROP CONSTRAINT IF EXISTS growth_score_contract_valid;

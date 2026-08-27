@@ -1,0 +1,119 @@
+name: Growth Platform CI
+
+on:
+  pull_request:
+    paths:
+      - 'packages/growth-core/**'
+      - 'packages/growth-connectors/**'
+      - 'apps/console/web/**'
+      - 'package.json'
+      - 'scripts/deploy-business-data.sh'
+      - 'pnpm-lock.yaml'
+      - 'packages/domain-center/lib/*growth*'
+      - 'packages/domain-center/lib/postgres-business-data-connector.mjs'
+      - 'packages/domain-center/lib/postgres-business-source-governance.mjs'
+      - 'packages/domain-center/lib/smart-park-work-order-source.mjs'
+      - 'packages/domain-center/lib/business-source-credential-resolver.mjs'
+      - 'packages/domain-center/lib/business-database.mjs'
+      - 'packages/domain-center/test/*growth*'
+      - 'packages/domain-center/test/smart-park-work-order-source.test.mjs'
+      - 'packages/domain-center/test/business-database-config.test.mjs'
+      - 'packages/domain-center/test/enterprise-role-access.test.mjs'
+      - 'packages/access-center/lib/access-center-utils.mjs'
+      - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
+      - 'packages/domain-center/bin/growth-migration-status.mjs'
+      - 'packages/domain-center/bin/smart-park-source.mjs'
+      - 'packages/domain-center/package.json'
+      - 'packages/orchestrator-core/migrations/012_growth_platform.up.sql'
+      - 'packages/orchestrator-core/migrations/013_growth_score_history.up.sql'
+      - 'packages/orchestrator-core/migrations/014_growth_delivery_ledger.up.sql'
+      - 'packages/orchestrator-core/migrations/015_growth_delivery_audit.up.sql'
+      - 'packages/orchestrator-core/migrations/016_growth_identity_review.up.sql'
+      - 'packages/orchestrator-core/migrations/017_growth_connector_binding.up.sql'
+      - 'packages/orchestrator-core/migrations/010_business_data_connectors.*.sql'
+      - 'packages/orchestrator-core/migrations/011_business_source_governance.*.sql'
+      - 'packages/orchestrator-core/migrations/018_growth_source_approval_scope.*.sql'
+      - 'packages/orchestrator-core/migrations/020_business_source_approval_sequence.*.sql'
+      - 'packages/orchestrator-core/migrations/0*_growth_*.*.sql'
+      - 'docs/growth-platform/**'
+      - '.github/workflows/growth-platform-ci.yml'
+  push:
+    branches:
+      - feature/anksen-ai-growth-platform
+    paths:
+      - 'packages/growth-core/**'
+      - 'packages/growth-connectors/**'
+      - 'apps/console/web/**'
+      - 'package.json'
+      - 'scripts/deploy-business-data.sh'
+      - 'pnpm-lock.yaml'
+      - 'packages/domain-center/lib/*growth*'
+      - 'packages/domain-center/lib/postgres-business-data-connector.mjs'
+      - 'packages/domain-center/lib/postgres-business-source-governance.mjs'
+      - 'packages/domain-center/lib/smart-park-work-order-source.mjs'
+      - 'packages/domain-center/lib/business-source-credential-resolver.mjs'
+      - 'packages/domain-center/lib/business-database.mjs'
+      - 'packages/domain-center/test/*growth*'
+      - 'packages/domain-center/test/smart-park-work-order-source.test.mjs'
+      - 'packages/domain-center/test/business-database-config.test.mjs'
+      - 'packages/domain-center/test/enterprise-role-access.test.mjs'
+      - 'packages/access-center/lib/access-center-utils.mjs'
+      - 'packages/domain-center/bin/growth-platform-postgres-smoke.mjs'
+      - 'packages/domain-center/bin/growth-migration-status.mjs'
+      - 'packages/domain-center/bin/smart-park-source.mjs'
+      - 'packages/domain-center/package.json'
+      - 'packages/orchestrator-core/migrations/012_growth_platform.up.sql'
+      - 'packages/orchestrator-core/migrations/013_growth_score_history.up.sql'
+      - 'packages/orchestrator-core/migrations/014_growth_delivery_ledger.up.sql'
+      - 'packages/orchestrator-core/migrations/015_growth_delivery_audit.up.sql'
+      - 'packages/orchestrator-core/migrations/016_growth_identity_review.up.sql'
+      - 'packages/orchestrator-core/migrations/017_growth_connector_binding.up.sql'
+      - 'packages/orchestrator-core/migrations/010_business_data_connectors.*.sql'
+      - 'packages/orchestrator-core/migrations/011_business_source_governance.*.sql'
+      - 'packages/orchestrator-core/migrations/018_growth_source_approval_scope.*.sql'
+      - 'packages/orchestrator-core/migrations/020_business_source_approval_sequence.*.sql'
+      - 'packages/orchestrator-core/migrations/0*_growth_*.*.sql'
+      - 'docs/growth-platform/**'
+      - '.github/workflows/growth-platform-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  growth-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @anksen-agent-studio/growth-core test
+      - run: pnpm --filter @anksen-agent-studio/growth-core acceptance
+      - run: pnpm --filter @anksen-agent-studio/growth-core pilot:readiness
+      - run: pnpm --filter @anksen-agent-studio/growth-connectors test
+      - run: node --test --test-name-pattern='sanitized delivery operations|pilot readiness|growth identity review|growth connector activation' apps/console/web/business-application-surfaces.test.mjs
+
+  growth-postgres:
+    needs: growth-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @anksen-agent-studio/domain-center typecheck
+      - run: pnpm growth-platform:acceptance

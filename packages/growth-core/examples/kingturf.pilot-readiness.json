@@ -1,0 +1,22 @@
+{
+  "connectors": [
+    {"kind":"WEBSITE_INBOUND","transport":"SIGNED_WEBHOOK","configured":true,"credentialReferenceConfigured":false,"health":"NOT_CHECKED"},
+    {"kind":"PUBLISHING","transport":"OFFICIAL_API","configured":true,"credentialReferenceConfigured":false,"health":"DISABLED"},
+    {"kind":"BUSINESS_HANDOFF","transport":"OFFICIAL_API","configured":true,"credentialReferenceConfigured":false,"health":"DISABLED"}
+  ],
+  "governance": {
+    "persistenceMigrationsApplied": true,
+    "deliveryLedgerEnabled": true,
+    "deliveryAuditEnabled": true,
+    "secondTenantValidated": true,
+    "dataOwnerApproval": false,
+    "publishingApprovalPolicy": true,
+    "businessHandoffApprovalPolicy": true,
+    "productionFeatureFlag": false,
+    "productionOperationsPolicyAuthorized": false,
+    "productionOperationsPolicySource": "production-operations-blocked",
+    "runtimeActivationGatePassed": false,
+    "explicitProductionAuthorization": false
+  },
+  "operations": {"identityReviewBacklog":0,"failedDeliveries":0,"reconciliationMismatches":0}
+}

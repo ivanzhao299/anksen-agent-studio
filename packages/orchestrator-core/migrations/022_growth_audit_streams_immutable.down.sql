@@ -1,0 +1,6 @@
+DROP TRIGGER IF EXISTS growth_event_immutable ON growth_event;
+DROP TRIGGER IF EXISTS growth_score_snapshot_immutable ON growth_score_snapshot;
+DROP TRIGGER IF EXISTS growth_delivery_event_immutable ON growth_delivery_event;
+DROP TRIGGER IF EXISTS growth_identity_review_event_immutable ON growth_identity_review_event;
+DROP TRIGGER IF EXISTS growth_connector_binding_event_immutable ON growth_connector_binding_event;
+DROP FUNCTION IF EXISTS reject_growth_audit_stream_mutation();

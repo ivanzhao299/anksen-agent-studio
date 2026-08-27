@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": { "typecheck": "tsc -p tsconfig.json --noEmit", "test": "node --test \"test/**/*.test.mjs\"", "acceptance": "node bin/enterprise-business-acceptance.mjs" },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "acceptance": "node bin/enterprise-business-acceptance.mjs",
+    "growth:postgres:smoke": "node bin/growth-platform-postgres-smoke.mjs",
+    "growth:migrations:status": "node bin/growth-migration-status.mjs"
+  },
   "dependencies": { "pg": "^8.22.0" }
 }

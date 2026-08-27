@@ -1,0 +1,11 @@
+{
+  "name": "@anksen-agent-studio/growth-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "acceptance": "node bin/growth-platform-acceptance.mjs",
+    "pilot:readiness": "node bin/growth-pilot-readiness.mjs"
+  }
+}

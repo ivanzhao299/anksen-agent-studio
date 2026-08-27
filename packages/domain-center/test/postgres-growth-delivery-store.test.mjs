@@ -1,0 +1,71 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { ensurePostgresFixture, createTestPool } from '../../orchestrator-core/lib/postgres-fixture.mjs';
+import { migrateGrowthPlatform } from '../lib/growth-database.mjs';
+import { PostgresGrowthDeliveryStore, executeGrowthDelivery, executeBusinessHandoffDelivery } from '../lib/postgres-growth-delivery-store.mjs';
+
+test('delivery controls validate before authorization or SQL',async()=>{let authorizationCalls=0,queryCalls=0;const scope={organizationId:'org',workspaceId:'growth',tenantId:'tenant'},store=new PostgresGrowthDeliveryStore({pool:{async query(){queryCalls+=1;throw new Error('query must not run');}},clock:()=>new Date(Number.NaN),authorizeRetry:async()=>{authorizationCalls+=1;return true;},authorizeReconciliation:async()=>{authorizationCalls+=1;return true;}});await assert.rejects(()=>store.register({scope,idempotencyKey:'publish-1',adapterId:'official-v1',assetRef:'asset-1'}),error=>error.code==='DELIVERY_CLOCK_INVALID');await assert.rejects(()=>store.register({scope,idempotencyKey:123,adapterId:'official-v1',assetRef:'asset-1'}),error=>error.code==='DELIVERY_IDEMPOTENCY_KEY_REFERENCE_INVALID');await assert.rejects(()=>store.requestRetry({scope,id:'bad operation',expectedVersion:1,actorId:'operator'}),error=>error.code==='DELIVERY_OPERATION_REFERENCE_INVALID');await assert.rejects(()=>store.requestRetry({scope,id:'delivery-1',expectedVersion:'1',actorId:'operator'}),error=>error.code==='DELIVERY_VERSION_INVALID');await assert.rejects(()=>store.reconcile({scope,id:'delivery-1',expectedVersion:1,observedExternalId:123,actorId:'reviewer'}),error=>error.code==='DELIVERY_OBSERVED_EXTERNAL_ID_REQUIRED');await assert.rejects(()=>store.reconcile({scope,id:'delivery-1',expectedVersion:1,observedExternalId:'token=secret',actorId:'reviewer'}),error=>error.code==='DELIVERY_OBSERVED_EXTERNAL_ID_REFERENCE_INVALID');await assert.rejects(()=>store.auditTrail(scope,'delivery-1',{limit:'5'}),error=>error.code==='DELIVERY_READ_LIMIT_INVALID');await assert.rejects(()=>store.dashboard(scope),error=>error.code==='DELIVERY_CLOCK_INVALID');assert.equal(authorizationCalls,0);assert.equal(queryCalls,0);});
+
+test('delivery ledger is idempotent, retryable, CAS-protected and reconcilable', async () => {
+  await ensurePostgresFixture();
+  const pool=createTestPool(),suffix=randomUUID(),scope={organizationId:`delivery-${suffix}`,workspaceId:'growth',tenantId:'tenant-a'},other={...scope,tenantId:'tenant-b'};
+  try{
+    await migrateGrowthPlatform(pool);
+    const store=new PostgresGrowthDeliveryStore({pool,clock:()=>new Date('2026-08-26T04:00:00Z'),authorizeRetry:async input=>input.actorId==='growth-operator',authorizeReconciliation:async input=>['growth-reviewer','SYSTEM'].includes(input.actorId)});
+    const input={scope,idempotencyKey:`publish-${suffix}`,adapterId:'official-v1',assetRef:'asset/ref-1',approvalRef:'approval/ref-1',maxAttempts:3};
+    await assert.rejects(()=>store.register({...input,idempotencyKey:`bad-attempts-${suffix}`,maxAttempts:'3'}),error=>error.code==='DELIVERY_MAX_ATTEMPTS_INVALID');
+    await assert.rejects(()=>store.register({...input,idempotencyKey:`bad-capability-${suffix}`,capability:'publish content'}),error=>error.code==='DELIVERY_CAPABILITY_INVALID');
+    await assert.rejects(()=>store.register({...input,idempotencyKey:`bad-operation-${suffix}`,operationType:'DELETE'}),error=>error.code==='DELIVERY_OPERATION_TYPE_INVALID');
+    for(const [field,value,code] of [['approvalRef','sk-production-secret','DELIVERY_APPROVAL_REFERENCE_INVALID'],['assetRef','eyJheader.payload.signature','DELIVERY_ASSET_REFERENCE_INVALID']])await assert.rejects(()=>store.register({...input,[field]:value,idempotencyKey:`malicious-${field}-${suffix}`}),error=>error.code===code);
+    await assert.rejects(()=>pool.query(`INSERT INTO growth_delivery_operation(id,organization_id,workspace_id,tenant_id,idempotency_key,operation_type,adapter_id,capability,asset_ref,approval_ref,request_fingerprint,status,max_attempts) VALUES($1,$2,$3,$4,$5,'PUBLISH','official-v1','PUBLISH_CONTENT','sk-direct-secret','approval/ref-1','fingerprint','READY',3)`,[`delivery_direct_${suffix}`,scope.organizationId,scope.workspaceId,scope.tenantId,`direct-${suffix}`]),error=>error.code==='23514');
+    await assert.rejects(()=>pool.query(`INSERT INTO growth_delivery_operation(id,organization_id,workspace_id,tenant_id,idempotency_key,operation_type,adapter_id,capability,asset_ref,approval_ref,request_fingerprint,status,max_attempts) VALUES($1,$2,$3,$4,$5,'DELETE','official-v1','unsafe capability','asset/ref-1','approval/ref-1','fingerprint','READY',3)`,[`delivery_direct_operation_${suffix}`,scope.organizationId,scope.workspaceId,scope.tenantId,`direct-operation-${suffix}`]),error=>error.code==='23514');
+    const registered=await store.register(input),duplicate=await store.register(input);
+    assert.equal(registered.duplicate,false);assert.equal(duplicate.duplicate,true);assert.equal(duplicate.operation.id,registered.operation.id);
+    await assert.rejects(()=>pool.query("UPDATE growth_delivery_operation SET external_id='sk-direct-response' WHERE id=$1",[registered.operation.id]),error=>error.code==='23514');
+    await assert.rejects(()=>store.register({...input,assetRef:'asset/ref-2'}),error=>error.code==='DELIVERY_IDEMPOTENCY_PAYLOAD_MISMATCH');
+    assert.equal(await store.get(other,registered.operation.id),null);
+
+    let calls=0;
+    const adapter={async publish(){calls+=1;if(calls===1)throw Object.assign(new Error('rate limited: secret-not-stored'),{code:'OFFICIAL_API_HTTP_429',retryable:true,status:429});return{externalId:'post-1',status:'PUBLISHED'};}};
+    const retryable=await executeGrowthDelivery({store,scope,operation:registered.operation,adapter,retryAt:new Date('2026-08-26T05:00:00Z')});
+    assert.equal(retryable.status,'RETRYABLE');assert.equal(retryable.attempts,1);assert.equal(retryable.last_error.code,'OFFICIAL_API_HTTP_429');assert.doesNotMatch(JSON.stringify(retryable),/secret-not-stored|message/);
+    await assert.rejects(()=>new PostgresGrowthDeliveryStore({pool,clock:()=>new Date('2026-08-26T04:00:00Z')}).requestRetry({scope,id:retryable.id,expectedVersion:retryable.version,actorId:'growth-operator'}),error=>error.code==='DELIVERY_RETRY_NOT_AUTHORIZED');
+    const requested=await store.requestRetry({scope,id:retryable.id,expectedVersion:retryable.version,actorId:'growth-operator'});assert.equal(requested.next_attempt_at.toISOString(),'2026-08-26T04:00:00.000Z');
+    const completed=await executeGrowthDelivery({store,scope,operation:requested,adapter});
+    assert.equal(completed.status,'COMPLETED');assert.equal(completed.attempts,2);assert.equal(completed.external_id,'post-1');
+    await assert.rejects(()=>new PostgresGrowthDeliveryStore({pool}).reconcile({scope,id:completed.id,expectedVersion:completed.version,observedExternalId:'post-1',actorId:'growth-reviewer'}),error=>error.code==='DELIVERY_RECONCILIATION_NOT_AUTHORIZED');
+    await assert.rejects(()=>store.beginAttempt({scope,id:completed.id,expectedVersion:completed.version}),error=>error.code==='DELIVERY_NOT_EXECUTABLE_OR_VERSION_CONFLICT');
+    await assert.rejects(()=>store.reconcile({scope,id:completed.id,expectedVersion:completed.version,observedExternalId:'',actorId:'growth-reviewer'}),error=>error.code==='DELIVERY_OBSERVED_EXTERNAL_ID_REQUIRED');
+    const mismatch=await store.reconcile({scope,id:completed.id,expectedVersion:completed.version,observedExternalId:'different',observedStatus:'PUBLISHED',actorId:'growth-reviewer'});
+    assert.equal(mismatch.reconciliation_status,'MISMATCH');
+    const matched=await store.reconcile({scope,id:completed.id,expectedVersion:mismatch.version,observedExternalId:'post-1',observedStatus:'PUBLISHED'});
+    assert.equal(matched.reconciliation_status,'MATCHED');
+    const dashboard=await store.dashboard(scope);assert.equal(dashboard.summary.completed,1);assert.equal(dashboard.summary.actionRequired,0);assert.deepEqual(dashboard.items,[]);assert.doesNotMatch(JSON.stringify(dashboard),/approval\/ref-1|asset\/ref-1|request_fingerprint/);const readiness=await store.readinessOperations(scope);assert.deepEqual(readiness,{identityReviewBacklog:0,failedDeliveries:0,reconciliationMismatches:0,source:'POSTGRESQL_GROWTH_OPERATIONS',identityReviewSource:'POSTGRESQL_IDENTITY_REVIEW'});
+    const audit=await store.auditTrail(scope,completed.id);assert.deepEqual(audit.map(item=>item.eventType),['DELIVERY_REGISTERED','DELIVERY_ATTEMPT_STARTED','DELIVERY_RETRYABLE','DELIVERY_RETRY_REQUESTED','DELIVERY_ATTEMPT_STARTED','DELIVERY_COMPLETED','DELIVERY_RECONCILED','DELIVERY_RECONCILED']);assert.equal(audit.find(item=>item.eventType==='DELIVERY_RETRY_REQUESTED').actorId,'growth-operator');assert.equal(audit.filter(item=>item.eventType==='DELIVERY_RECONCILED')[0].actorId,'growth-reviewer');assert.doesNotMatch(JSON.stringify(audit),/asset\/ref-1|approval\/ref-1|secret-not-stored/);
+    assert.doesNotMatch(JSON.stringify(matched),/secret-not-stored|Bearer|accessToken/);
+  }finally{await pool.query('DELETE FROM growth_delivery_operation WHERE organization_id=$1',[scope.organizationId]).catch(()=>{});await pool.end();}
+});
+
+test('non-retryable delivery failure becomes terminal without another external call', async () => {
+  await ensurePostgresFixture();
+  const pool=createTestPool(),suffix=randomUUID(),scope={organizationId:`delivery-terminal-${suffix}`,workspaceId:'growth',tenantId:'tenant-a'};
+  try{
+    await migrateGrowthPlatform(pool);const store=new PostgresGrowthDeliveryStore({pool});const operation=(await store.register({scope,idempotencyKey:`publish-${suffix}`,adapterId:'official-v1',assetRef:'asset/ref-1',approvalRef:'approval/ref-1'})).operation;
+    const failed=await executeGrowthDelivery({store,scope,operation,adapter:{async publish(){throw Object.assign(new Error('approval rejected'),{code:'OFFICIAL_API_APPROVAL_REQUIRED',retryable:false});}}});
+    assert.equal(failed.status,'FAILED');assert.equal(failed.next_attempt_at,null);
+    await assert.rejects(()=>executeGrowthDelivery({store,scope,operation:failed,adapter:{async publish(){throw new Error('must not run');}}}),error=>error.code==='DELIVERY_NOT_EXECUTABLE_OR_VERSION_CONFLICT');
+    const unsafe=(await store.register({scope,idempotencyKey:`unsafe-${suffix}`,adapterId:'official-v1',assetRef:'asset/ref-2',approvalRef:'approval/ref-2'})).operation,blocked=await executeGrowthDelivery({store,scope,operation:unsafe,adapter:{async publish(){return{externalId:'sk-response-secret',status:'PUBLISHED'};}}});
+    assert.equal(blocked.status,'FAILED');assert.equal(blocked.external_id,null);assert.equal(blocked.last_error.code,'DELIVERY_EXTERNAL_ID_REFERENCE_INVALID');assert.doesNotMatch(JSON.stringify(blocked),/sk-response-secret/);
+    const falseString=(await store.register({scope,idempotencyKey:`false-retry-${suffix}`,adapterId:'official-v1',assetRef:'asset/ref-3'})).operation,falseRunning=await store.beginAttempt({scope,id:falseString.id,expectedVersion:falseString.version}),falseFailed=await store.fail({scope,id:falseRunning.id,expectedVersion:falseRunning.version,error:{code:'BAD_RETRY_TYPE',retryable:'false'},retryAt:new Date(Date.now()+60000)});assert.equal(falseFailed.status,'FAILED');assert.equal(falseFailed.last_error.retryable,false);
+    const missingSchedule=(await store.register({scope,idempotencyKey:`missing-schedule-${suffix}`,adapterId:'official-v1',assetRef:'asset/ref-4'})).operation,scheduleRunning=await store.beginAttempt({scope,id:missingSchedule.id,expectedVersion:missingSchedule.version}),scheduleFailed=await store.fail({scope,id:scheduleRunning.id,expectedVersion:scheduleRunning.version,error:{code:'NO_SCHEDULE',retryable:true}});assert.equal(scheduleFailed.status,'FAILED');assert.equal(scheduleFailed.next_attempt_at,null);assert.equal(scheduleFailed.last_error.retryable,false);
+  }finally{await pool.query('DELETE FROM growth_delivery_operation WHERE organization_id=$1',[scope.organizationId]).catch(()=>{});await pool.end();}
+});
+
+test('GA-013 business handoff reuses delivery ledger with source references only',async()=>{
+  await ensurePostgresFixture();const pool=createTestPool(),suffix=randomUUID(),scope={organizationId:`handoff-${suffix}`,workspaceId:'growth',tenantId:'tenant-a'};
+  try{await migrateGrowthPlatform(pool);const store=new PostgresGrowthDeliveryStore({pool}),operation=(await store.register({scope,idempotencyKey:`handoff-${suffix}`,operationType:'BUSINESS_HANDOFF',adapterId:'crm-v1',capability:'RFQ',assetRef:`lead-${suffix}`,approvalRef:`approval-${suffix}`})).operation;
+    const adapter={async execute(request){assert.deepEqual(request.payload,{sourceRef:`lead-${suffix}`});assert.equal(request.approvalRef,`approval-${suffix}`);return{externalId:`RFQ-${suffix}`,status:'OPEN'};}};
+    const completed=await executeBusinessHandoffDelivery({store,scope,operation,adapter});assert.equal(completed.status,'COMPLETED');assert.equal(completed.external_id,`RFQ-${suffix}`);assert.equal(completed.operation_type,'BUSINESS_HANDOFF');assert.equal(completed.asset_ref,`lead-${suffix}`);assert.equal('payload' in completed,false);
+  }finally{await pool.query('DELETE FROM growth_delivery_operation WHERE organization_id=$1',[scope.organizationId]).catch(()=>{});await pool.end();}
+});

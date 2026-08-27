@@ -1,0 +1,404 @@
+import { createHash, randomUUID } from "node:crypto";
+import { assertTenantScope } from "../../growth-core/lib/domain-model.mjs";
+
+const fail = (code, details = {}) =>
+    Object.assign(new Error(code), { code, ...details }),
+  secretLike = (value) =>
+    /(?:^sk-|^gh[pousr]_|bearer\s|password\s*=|token\s*=|api[_-]?key\s*=|-----BEGIN|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.)/i.test(
+      String(value ?? ""),
+    ),
+  safeRef = (value) =>
+    typeof value === "string" &&
+    /^[A-Za-z0-9][A-Za-z0-9._:/-]{2,159}$/.test(value) &&
+    !secretLike(value);
+const hash = (value) =>
+  createHash("sha256").update(String(value)).digest("hex");
+const assertRef=(value,label)=>{if(typeof value!=='string')throw fail(`GROWTH_CONNECTOR_${label}_INVALID`);const ref=value.trim();if(!safeRef(ref))throw fail(`GROWTH_CONNECTOR_${label}_INVALID`);return ref;};
+const assertVersion=(value,label)=>{if(!Number.isInteger(value)||value<1)throw fail(`GROWTH_CONNECTOR_${label}_VERSION_INVALID`);return value;};
+const assertClock=value=>{if(!(value instanceof Date)||!Number.isFinite(value.getTime()))throw fail("GROWTH_CONNECTOR_ACTIVATION_CLOCK_INVALID");return value;};
+const assertLimit=(value)=>{if(typeof value!=="number"||!Number.isInteger(value)||value<1)throw fail("GROWTH_CONNECTOR_ACTIVATION_LIMIT_INVALID");return Math.min(100,value);};
+
+export const summarizeGrowthActivationPreflights = (items = []) => {
+  const requiredKinds = ["WEBSITE_INBOUND", "PUBLISHING", "BUSINESS_HANDOFF"],
+    readyKinds = [
+      ...new Set(
+        items
+          .filter((item) => item.status === "READY")
+          .map((item) => item.binding?.kind)
+          .filter(Boolean),
+      ),
+    ].sort();
+  return Object.freeze({
+    total: items.length,
+    ready: items.filter((item) => item.status === "READY").length,
+    blocked: items.filter((item) => item.status === "BLOCKED").length,
+    readyKinds: Object.freeze(readyKinds),
+    requiredKinds: Object.freeze(requiredKinds),
+    productionAuthorizationCovered: requiredKinds.every((kind) =>
+      readyKinds.includes(kind),
+    ),
+  });
+};
+
+export class GrowthConnectorActivationGate {
+  constructor({
+    pool,
+    clock = () => new Date(),
+    maxHealthAgeSeconds = 900,
+    maxAuthorizationAgeSeconds = 366 * 24 * 60 * 60,
+    authorize = async () => false,
+    authorizeProductionOperation = async () => false,
+  } = {}) {
+    if (!pool?.connect)
+      throw new TypeError("transaction-capable pool is required");
+    if (
+      typeof maxHealthAgeSeconds!=="number" || !Number.isInteger(maxHealthAgeSeconds) ||
+      maxHealthAgeSeconds <= 0 ||
+      maxHealthAgeSeconds > 24 * 60 * 60
+    )
+      throw new TypeError("positive maxHealthAgeSeconds is required");
+    if (
+      typeof maxAuthorizationAgeSeconds!=="number" || !Number.isInteger(maxAuthorizationAgeSeconds) ||
+      maxAuthorizationAgeSeconds <= 0 ||
+      maxAuthorizationAgeSeconds > 366 * 24 * 60 * 60
+    )
+      throw new TypeError("positive maxAuthorizationAgeSeconds is required");
+    this.pool = pool;
+    this.clock = clock;
+    this.maxHealthAgeSeconds = maxHealthAgeSeconds;
+    this.maxAuthorizationAgeSeconds = maxAuthorizationAgeSeconds;
+    this.authorize = authorize;
+    this.authorizeProductionOperation = authorizeProductionOperation;
+  }
+  async load(client, scope, activationId, { lock = false } = {}) {
+    const suffix = lock ? " FOR UPDATE" : "",
+      [activation, binding] = await Promise.all([
+        client.query(
+          `SELECT r.*,EXISTS(SELECT 1 FROM business_approval a WHERE a.business_record_id=r.id AND a.organization_id=r.organization_id AND a.workspace_id=r.workspace_id AND a.application_id=r.application_id AND a.object_version+1=r.version AND a.status='APPROVED' AND a.requested_status='APPROVED' AND a.reviewed_by IS NOT NULL) approval_proven FROM business_application_record r WHERE r.id=$1 AND r.organization_id=$2 AND r.workspace_id=$3 AND r.application_id='ai-growth-sales-platform' AND r.object_type='connector_activation'${suffix}`,
+          [activationId, scope.organizationId, scope.workspaceId],
+        ),
+        client.query(
+          `SELECT * FROM growth_connector_binding WHERE organization_id=$1 AND workspace_id=$2 AND tenant_id=$3 AND id=(SELECT fields->>'bindingId' FROM business_application_record WHERE id=$4 AND organization_id=$1 AND workspace_id=$2)${suffix}`,
+          [
+            scope.organizationId,
+            scope.workspaceId,
+            scope.tenantId,
+            activationId,
+          ],
+        ),
+      ]);
+    return { activation: activation.rows[0], binding: binding.rows[0] };
+  }
+  evaluate(scope, { activation, binding }, expectedActivationVersion) {
+    const now = this.clock(),
+      fields = activation?.fields ?? {},
+      reasons = [];
+    if (!(now instanceof Date) || !Number.isFinite(now.getTime()))
+      throw fail("GROWTH_CONNECTOR_ACTIVATION_CLOCK_INVALID");
+    if (!activation) reasons.push("ACTIVATION_REQUEST_NOT_FOUND");
+    else {
+      if (activation.status !== "APPROVED")
+        reasons.push("ACTIVATION_REQUEST_NOT_APPROVED");
+      if (!activation.approval_proven)
+        reasons.push("ACTIVATION_APPROVAL_NOT_PROVEN");
+      if (Number(activation.version) !== Number(expectedActivationVersion))
+        reasons.push("ACTIVATION_REQUEST_VERSION_CONFLICT");
+      if (fields.tenantId !== scope.tenantId)
+        reasons.push("ACTIVATION_TENANT_MISMATCH");
+      if (!safeRef(fields.explicitAuthorizationRef))
+        reasons.push("EXPLICIT_PRODUCTION_AUTHORIZATION_INVALID");
+      const expires = new Date(fields.expiresAt);
+      if (
+        !Number.isFinite(expires.getTime()) ||
+        expires.getTime() <= now.getTime()
+      )
+        reasons.push("ACTIVATION_AUTHORIZATION_EXPIRED");
+      else if (
+        expires.getTime() - now.getTime() >
+        this.maxAuthorizationAgeSeconds * 1000
+      )
+        reasons.push("ACTIVATION_AUTHORIZATION_WINDOW_EXCEEDED");
+    }
+    if (!binding) reasons.push("CONNECTOR_BINDING_NOT_FOUND");
+    else {
+      if (binding.enabled) reasons.push("CONNECTOR_BINDING_ALREADY_ENABLED");
+      if (binding.kind !== fields.connectorKind)
+        reasons.push("CONNECTOR_KIND_MISMATCH");
+      if (Number(binding.version) !== Number(fields.bindingVersion))
+        reasons.push("CONNECTOR_BINDING_VERSION_CONFLICT");
+      const observed = binding.health_observed_at
+        ? new Date(binding.health_observed_at)
+        : null;
+      if (
+        binding.health_status !== "HEALTHY" ||
+        !observed ||
+        observed.getTime() > now.getTime() ||
+        now.getTime() - observed.getTime() > this.maxHealthAgeSeconds * 1000
+      )
+        reasons.push("CONNECTOR_HEALTH_NOT_FRESH");
+    }
+    return {
+      status: reasons.length ? "BLOCKED" : "READY",
+      reasons,
+      activationRequest: {
+        id: activation?.id ?? null,
+        version: activation ? Number(activation.version) : null,
+        status: activation?.status ?? null,
+      },
+      binding: {
+        id: binding?.id ?? null,
+        kind: binding?.kind ?? null,
+        version: binding ? Number(binding.version) : null,
+        enabled: Boolean(binding?.enabled),
+        healthStatus: binding?.health_status ?? null,
+        healthObservedAt:
+          binding?.health_observed_at?.toISOString?.() ??
+          binding?.health_observed_at ??
+          null,
+      },
+      safety: {
+        credentialValuesRead: false,
+        externalCallsPerformed: false,
+        connectorEnabled: false,
+      },
+    };
+  }
+  async preflight({
+    scope: rawScope,
+    activationId,
+    expectedActivationVersion,
+  }) {
+    const scope = assertTenantScope(rawScope),safeActivationId=assertRef(activationId,"ACTIVATION_REQUEST"),version=assertVersion(expectedActivationVersion,"ACTIVATION_REQUEST");
+    assertClock(this.clock());
+    const state = await this.load(this.pool, scope, safeActivationId);
+    return this.evaluate(scope, state, version);
+  }
+  async listPreflights({ scope: rawScope, limit = 50 } = {}) {
+    const scope = assertTenantScope(rawScope),boundedLimit=assertLimit(limit),now=assertClock(this.clock()),
+      rows = (
+        await this.pool.query(
+          `SELECT id,version FROM business_application_record WHERE organization_id=$1 AND workspace_id=$2 AND application_id='ai-growth-sales-platform' AND object_type='connector_activation' AND fields->>'tenantId'=$3 AND status IN ('WAITING_APPROVAL','APPROVED') ORDER BY updated_at DESC,id LIMIT $4`,
+          [
+            scope.organizationId,
+            scope.workspaceId,
+            scope.tenantId,
+            boundedLimit,
+          ],
+        )
+      ).rows,
+      items = [];
+    for (const row of rows)
+      items.push(
+        await this.preflight({
+          scope,
+          activationId: row.id,
+          expectedActivationVersion: Number(row.version),
+        }),
+      );
+    return {
+      items,
+      summary: summarizeGrowthActivationPreflights(items),
+      generatedAt: now.toISOString(),
+      safety: {
+        credentialValuesRead: false,
+        externalCallsPerformed: false,
+        connectorEnabled: false,
+      },
+    };
+  }
+  async activate({
+    scope: rawScope,
+    activationId,
+    expectedActivationVersion,
+    actorId,
+  }) {
+    const scope = assertTenantScope(rawScope),safeActivationId=assertRef(activationId,"ACTIVATION_REQUEST"),version=assertVersion(expectedActivationVersion,"ACTIVATION_REQUEST"),safeActorId=assertRef(actorId,"ACTOR");
+    assertClock(this.clock());
+    if (
+      (await this.authorize({
+        scope,
+        actorId:safeActorId,
+        actionId: "growth-connector-activate",
+      })) !== true
+    )
+      throw fail("GROWTH_CONNECTOR_ACTIVATION_ACCESS_DENIED");
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const state = await this.load(client, scope, safeActivationId, {
+          lock: true,
+        }),
+        preflight = this.evaluate(scope, state, version);
+      if (preflight.status !== "READY")
+        throw fail("GROWTH_CONNECTOR_ACTIVATION_BLOCKED", { preflight });
+      if (
+        (await this.authorizeProductionOperation({
+          scope,
+          actorId:safeActorId,
+          operation: "GROWTH_CONNECTOR_ACTIVATE",
+          authorizationRef: state.activation.fields.explicitAuthorizationRef,
+          activationId: state.activation.id,
+          bindingId: state.binding.id,
+        })) !== true
+      )
+        throw fail("GROWTH_CONNECTOR_PRODUCTION_OPERATION_NOT_AUTHORIZED");
+      const now = assertClock(this.clock()),
+        binding = (
+          await client.query(
+            `UPDATE growth_connector_binding SET enabled=true,version=version+1,last_actor_id=$1,updated_at=$2 WHERE id=$3 AND organization_id=$4 AND workspace_id=$5 AND tenant_id=$6 AND version=$7 AND enabled=false RETURNING id,kind,enabled,version`,
+            [
+              safeActorId,
+              now,
+              state.binding.id,
+              scope.organizationId,
+              scope.workspaceId,
+              scope.tenantId,
+              state.binding.version,
+            ],
+          )
+        ).rows[0];
+      if (!binding) throw fail("CONNECTOR_BINDING_VERSION_CONFLICT");
+      const activation = (
+        await client.query(
+          `UPDATE business_application_record SET status='CONSUMED',version=version+1,updated_at=$1 WHERE id=$2 AND organization_id=$3 AND workspace_id=$4 AND version=$5 AND status='APPROVED' RETURNING id,status,version`,
+          [
+            now,
+            state.activation.id,
+            scope.organizationId,
+            scope.workspaceId,
+            state.activation.version,
+          ],
+        )
+      ).rows[0];
+      if (!activation) throw fail("ACTIVATION_REQUEST_VERSION_CONFLICT");
+      await client.query(
+        `INSERT INTO business_application_event(id,organization_id,workspace_id,event_type,application_id,object_type,object_id,object_version,actor_id,payload,created_at) VALUES($1,$2,$3,'growth.connector.activation.consumed','ai-growth-sales-platform','connector_activation',$4,$5,$6,$7,$8)`,
+        [
+          randomUUID(),
+          scope.organizationId,
+          scope.workspaceId,
+          activation.id,
+          activation.version,
+          safeActorId,
+          {
+            bindingId: binding.id,
+            kind: binding.kind,
+            bindingVersion: binding.version,
+          },
+          now,
+        ],
+      );
+      await client.query("COMMIT");
+      return {
+        status: "ACTIVATED",
+        activationRequest: {
+          id: activation.id,
+          status: activation.status,
+          version: Number(activation.version),
+        },
+        binding: {
+          id: binding.id,
+          kind: binding.kind,
+          enabled: binding.enabled,
+          version: Number(binding.version),
+        },
+        safety: { credentialValuesRead: false, externalCallsPerformed: false },
+      };
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  async disable({
+    scope: rawScope,
+    bindingId,
+    expectedBindingVersion,
+    incidentRef,
+    reason,
+    actorId,
+  }) {
+    const scope = assertTenantScope(rawScope),safeBindingId=assertRef(bindingId,"BINDING"),version=assertVersion(expectedBindingVersion,"BINDING"),safeIncidentRef=assertRef(incidentRef,"DISABLE_INCIDENT_REFERENCE"),safeActorId=assertRef(actorId,"ACTOR"),safeReason = String(reason ?? "").trim();
+    assertClock(this.clock());
+    if (
+      safeReason.length < 12 ||
+      safeReason.length > 500 ||
+      /[\u0000-\u001f\u007f]/.test(safeReason) || secretLike(safeReason)
+    )
+      throw fail("GROWTH_CONNECTOR_DISABLE_REASON_INVALID");
+    if (
+      (await this.authorize({
+        scope,
+        actorId:safeActorId,
+        actionId: "growth-connector-disable",
+      })) !== true
+    )
+      throw fail("GROWTH_CONNECTOR_DISABLE_ACCESS_DENIED");
+    if (
+      (await this.authorizeProductionOperation({
+        scope,
+        actorId:safeActorId,
+        operation: "GROWTH_CONNECTOR_DISABLE",
+        incidentRef: safeIncidentRef,
+        bindingId: safeBindingId,
+      })) !== true
+    )
+      throw fail("GROWTH_CONNECTOR_PRODUCTION_OPERATION_NOT_AUTHORIZED");
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const now = assertClock(this.clock()),
+        binding = (
+          await client.query(
+            `UPDATE growth_connector_binding SET enabled=false,version=version+1,last_actor_id=$1,updated_at=$2 WHERE id=$3 AND organization_id=$4 AND workspace_id=$5 AND tenant_id=$6 AND version=$7 AND enabled=true RETURNING id,kind,enabled,version`,
+            [
+              safeActorId,
+              now,
+              safeBindingId,
+              scope.organizationId,
+              scope.workspaceId,
+              scope.tenantId,
+              version,
+            ],
+          )
+        ).rows[0];
+      if (!binding)
+        throw fail("GROWTH_CONNECTOR_DISABLE_VERSION_OR_STATE_CONFLICT");
+      await client.query(
+        `INSERT INTO growth_connector_binding_event(binding_id,organization_id,workspace_id,tenant_id,event_type,binding_version,actor_id,payload,created_at) VALUES($1,$2,$3,$4,'CONNECTOR_BINDING_EMERGENCY_DISABLED',$5,$6,$7,$8)`,
+        [
+          binding.id,
+          scope.organizationId,
+          scope.workspaceId,
+          scope.tenantId,
+          binding.version,
+          safeActorId,
+          {
+            kind: binding.kind,
+            incidentRef: safeIncidentRef,
+            reasonHash: hash(safeReason),
+          },
+          now,
+        ],
+      );
+      await client.query("COMMIT");
+      return {
+        status: "DISABLED",
+        binding: {
+          id: binding.id,
+          kind: binding.kind,
+          enabled: false,
+          version: Number(binding.version),
+        },
+        incidentRef: safeIncidentRef,
+        safety: { credentialValuesRead: false, externalCallsPerformed: false },
+      };
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+}

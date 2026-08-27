@@ -235,6 +235,14 @@
       "can_manage_access": false
     },
     {
+      "role_id": "growth_production_operator",
+      "display_name": "增长连接器生产运维",
+      "description": "仅执行已经业务审批、版本绑定且通过健康预检的连接器激活或紧急停用；不能创建、修改或审批业务单据。",
+      "capabilities": ["console.access", "work.read", "sales.read", "business.manage", "production.request"],
+      "direct_execute_max_risk": "CRITICAL",
+      "can_manage_access": false
+    },
+    {
       "role_id": "manufacturing_operator",
       "display_name": "制造业务用户",
       "description": "使用物料、BOM、工单、库存和质量业务功能。",

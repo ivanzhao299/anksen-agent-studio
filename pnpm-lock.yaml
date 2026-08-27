@@ -55,6 +55,10 @@ importers:
 
   packages/governance-center: {}
 
+  packages/growth-connectors: {}
+
+  packages/growth-core: {}
+
   packages/managed-capability-apps: {}
 
   packages/mobile-stack-pack: {}
