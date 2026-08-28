@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { validateGovernedCodexConfig } from "./governed-codex-config.mjs";
@@ -38,7 +38,7 @@ export class AutonomousDevelopmentJobs {
   jobPath(id) { return join(this.storeDir, "jobs", `${safeId(id)}.json`); }
   artifactDir(id) { return join(this.storeDir, "artifacts", safeId(id)); }
   heartbeatPath() { return join(this.storeDir, "worker-heartbeat.json"); }
-  async save(job) { await mkdir(resolve(this.jobPath(job.id), ".."), { recursive: true }); job.updatedAt = this.clock().toISOString(); await writeFile(this.jobPath(job.id), `${JSON.stringify(job, null, 2)}\n`, "utf8"); return job; }
+  async save(job) { const path=this.jobPath(job.id);await mkdir(resolve(path, ".."), { recursive: true }); job.updatedAt = this.clock().toISOString(); const temporary=`${path}.${process.pid}.${randomUUID()}.tmp`;await writeFile(temporary, `${JSON.stringify(job, null, 2)}\n`, "utf8");await rename(temporary,path);return job; }
   async get(id) { return existsSync(this.jobPath(id)) ? JSON.parse(await readFile(this.jobPath(id), "utf8")) : null; }
   async list() { const dir = resolve(this.storeDir, "jobs"); if (!existsSync(dir)) return []; const files = (await readdir(dir)).filter(name => name.endsWith(".json")); const rows = await Promise.all(files.map(name => readFile(join(dir, name), "utf8").then(JSON.parse))); return rows.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))); }
   async event(job, type, payload = {}) { job.events.push({ sequence: job.events.length + 1, type, at: this.clock().toISOString(), ...payload }); return this.save(job); }
