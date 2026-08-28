@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -15,10 +15,17 @@ const parseWorktrees = value => String(value).split("\n\n").filter(Boolean).map(
 })));
 
 export class ProjectLifecycleCapability {
-  constructor({ registryPath, maxManagedWorktreesPerProject = 3, clock = () => new Date() }) {
+  constructor({ registryPath, ownershipStateDir = null, maxManagedWorktreesPerProject = 3, clock = () => new Date() }) {
     this.registryPath = resolve(registryPath);
+    this.ownershipStateDir = resolve(ownershipStateDir ?? dirname(this.registryPath), ownershipStateDir ? "" : "../autonomous-development/workspace-ownership");
     this.maxManagedWorktreesPerProject = maxManagedWorktreesPerProject;
     this.clock = clock;
+  }
+  async managedWorkspaces(projectId) {
+    const ownershipPath = resolve(this.ownershipStateDir, `${projectId.replace(/[^a-z0-9._-]+/gi, "-")}.json`);
+    if (!existsSync(ownershipPath)) return [];
+    const ownership = JSON.parse(await readFile(ownershipPath, "utf8"));
+    return Object.values(ownership.workspaces ?? {}).filter(workspace => workspace.status === "ACTIVE");
   }
   async inspect() {
     const registry = JSON.parse(await readFile(this.registryPath, "utf8"));
@@ -32,13 +39,33 @@ export class ProjectLifecycleCapability {
         if (root !== top) throw Object.assign(new Error("PROJECT_ROOT_NOT_TOPLEVEL"), { code: "PROJECT_ROOT_NOT_TOPLEVEL" });
         const commonDir = realpathSync(resolve(root, git(root, ["rev-parse", "--git-common-dir"])));
         const worktrees = parseWorktrees(git(root, ["worktree", "list", "--porcelain"]));
-        const managedWorktrees = worktrees.filter(item => item.worktree && realpathSync(item.worktree) !== root);
+        const externalWorktrees = worktrees.filter(item => item.worktree && realpathSync(item.worktree) !== root);
+        const managedWorkspaces = await this.managedWorkspaces(projectId);
+        const managedWorktrees = [];
+        for (const workspace of managedWorkspaces) {
+          const configuredWorktree = resolve(String(workspace.worktreePath ?? ""));
+          if (!workspace.worktreePath || !existsSync(configuredWorktree)) {
+            violations.push({ code: "MANAGED_WORKTREE_MISSING", projectId, taskId: workspace.taskId ?? null, path: configuredWorktree });
+            continue;
+          }
+          const worktreePath = realpathSync(configuredWorktree);
+          const registered = externalWorktrees.some(item => item.worktree && realpathSync(item.worktree) === worktreePath);
+          if (!registered) {
+            violations.push({ code: "MANAGED_WORKTREE_NOT_REGISTERED", projectId, taskId: workspace.taskId ?? null, path: worktreePath });
+            continue;
+          }
+          const workspaceCommonDir = realpathSync(resolve(worktreePath, git(worktreePath, ["rev-parse", "--git-common-dir"])));
+          if (workspaceCommonDir !== commonDir) violations.push({ code: "MANAGED_WORKTREE_REPOSITORY_MISMATCH", projectId, taskId: workspace.taskId ?? null, path: worktreePath });
+          const actualBranch = git(worktreePath, ["branch", "--show-current"]) || null;
+          if (workspace.branch && actualBranch !== workspace.branch) violations.push({ code: "MANAGED_WORKTREE_BRANCH_MISMATCH", projectId, taskId: workspace.taskId ?? null, path: worktreePath, expectedBranch: workspace.branch, actualBranch });
+          managedWorktrees.push(worktreePath);
+        }
         const duplicateRoot = seenRoots.get(root), duplicateRepository = seenCommonDirs.get(commonDir);
         if (duplicateRoot) violations.push({ code: "DUPLICATE_PROJECT_ROOT", projectId, conflictsWith: duplicateRoot, root });
         if (duplicateRepository && duplicateRepository !== projectId) violations.push({ code: "DUPLICATE_REPOSITORY_BINDING", projectId, conflictsWith: duplicateRepository, commonDir });
         if (managedWorktrees.length > this.maxManagedWorktreesPerProject) violations.push({ code: "WORKTREE_LIMIT_EXCEEDED", projectId, count: managedWorktrees.length, limit: this.maxManagedWorktreesPerProject });
         seenRoots.set(root, projectId); seenCommonDirs.set(commonDir, projectId);
-        projects.push({ projectId, path: root, pathRef: `local://${projectId}`, commonDirHash: hash(commonDir), branch: git(root, ["branch", "--show-current"]) || null, head: git(root, ["rev-parse", "HEAD"]), clean: git(root, ["status", "--porcelain=v1", "--untracked-files=all"]) === "", managedWorktreeCount: managedWorktrees.length });
+        projects.push({ projectId, path: root, pathRef: `local://${projectId}`, commonDirHash: hash(commonDir), branch: git(root, ["branch", "--show-current"]) || null, head: git(root, ["rev-parse", "HEAD"]), clean: git(root, ["status", "--porcelain=v1", "--untracked-files=all"]) === "", managedWorktreeCount: managedWorktrees.length, externalWorktreeCount: externalWorktrees.length });
       } catch (error) { violations.push({ code: error?.code ?? "PROJECT_INSPECTION_FAILED", projectId, configuredPath, reason: error instanceof Error ? error.message : String(error) }); }
     }
     const report = { schemaVersion: 1, capability: "project-lifecycle-governance", inspectedAt: this.clock().toISOString(), registryPath: this.registryPath, projectCount: projects.length, projects, violations };

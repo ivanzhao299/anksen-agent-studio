@@ -48,7 +48,7 @@ export class ResidentWorkerBroker {
       const projects = Array.isArray(input.projects) ? input.projects.map(item => ({ projectId: cleanId(item.projectId), pathRef: String(item.pathRef ?? "").trim() })).filter(item => item.projectId && item.pathRef) : [];
       if (!projects.length) throw Object.assign(new Error("WORKER_PROJECTS_REQUIRED"), { code: "WORKER_PROJECTS_REQUIRED" });
       const store = await this.load(), at = nowIso(this.clock);
-      store.workers[workerId] = { workerId, status: "ONLINE", registeredAt: store.workers[workerId]?.registeredAt ?? at, lastHeartbeatAt: at, projects, capabilities: [...new Set((input.capabilities ?? []).map(String))], credentialReferenceId: String(input.credentialReferenceId ?? "codex-local-session-ref"), lifecycle: input.lifecycle && typeof input.lifecycle === "object" ? { status: String(input.lifecycle.status ?? "UNKNOWN"), fingerprint: String(input.lifecycle.fingerprint ?? ""), inspectedAt: String(input.lifecycle.inspectedAt ?? at), projectCount: Number(input.lifecycle.projectCount ?? projects.length) } : null, autoExecute: input.autoExecute === true, activeTaskId: null };
+      store.workers[workerId] = { workerId, status: "ONLINE", registeredAt: store.workers[workerId]?.registeredAt ?? at, lastHeartbeatAt: at, projects, capabilities: [...new Set((input.capabilities ?? []).map(String))], credentialReferenceId: String(input.credentialReferenceId ?? "codex-local-session-ref"), lifecycle: input.lifecycle && typeof input.lifecycle === "object" ? { status: String(input.lifecycle.status ?? "UNKNOWN"), fingerprint: String(input.lifecycle.fingerprint ?? ""), inspectedAt: String(input.lifecycle.inspectedAt ?? at), projectCount: Number(input.lifecycle.projectCount ?? projects.length), violations: Array.isArray(input.lifecycle.violations) ? input.lifecycle.violations.map(item => ({ code: cleanId(item.code), projectId: cleanId(item.projectId), count: Number(item.count ?? 0), limit: Number(item.limit ?? 0) })) : [] } : null, autoExecute: input.autoExecute === true, activeTaskId: null };
       await this.save(store);
       return copy(store.workers[workerId]);
     });
@@ -110,6 +110,16 @@ export class ResidentWorkerBroker {
   }
   async dashboard() {
     const store = await this.load();
-    return { workers: Object.values(store.workers).map(copy), tasks: Object.values(store.tasks).map(task => ({ ...copy(task), lease: task.lease ? { ...copy(task.lease), token: undefined } : null })) };
+    const now = this.clock();
+    const workers = Object.values(store.workers).map(worker => {
+      const heartbeatAgeMs = Math.max(0, now.getTime() - new Date(worker.lastHeartbeatAt).getTime());
+      const capabilities = new Set(worker.capabilities ?? []);
+      const runtimeState = heartbeatAgeMs > this.leaseMs * 2 ? "OFFLINE"
+        : worker.lifecycle?.status === "BLOCKED" ? "BLOCKED"
+          : worker.activeTaskId ? "EXECUTING"
+            : capabilities.has("codex.exec.governed-write") ? "ONLINE" : "READ_ONLY";
+      return { ...copy(worker), heartbeatAgeMs, runtimeState, blockingReasons: worker.lifecycle?.violations ?? [] };
+    });
+    return { workers, tasks: Object.values(store.tasks).map(task => ({ ...copy(task), lease: task.lease ? { ...copy(task.lease), token: undefined } : null })) };
   }
 }

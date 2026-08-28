@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -73,4 +74,14 @@ test("fails closed before creating an unbounded number of active worktrees", asy
     error => error.code === "WORKTREE_ACTIVE_LIMIT_EXCEEDED" && error.activeCount === 1 && error.limit === 1,
   );
   assert.equal(run(repo, ["branch", "--list", "codex/task-over-limit"]), "");
+});
+
+test("releases a clean completed task worktree while preserving its branch", async () => {
+  const { root, repo, manager } = await fixture();
+  try {
+    const { workspace } = await manager.createTaskWorkspace({ projectId: "one", taskId: "release-me", projectRoot: repo });
+    const released = await manager.releaseTaskWorkspace({ projectId: "one", taskId: "release-me", reason: "TEST_COMPLETE" });
+    assert.equal(released.status, "RELEASED"); assert.equal(existsSync(workspace.worktreePath), false);
+    assert.match(run(repo, ["branch", "--list", workspace.branch]), new RegExp(workspace.branch.replaceAll("/", "\\/")));
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
