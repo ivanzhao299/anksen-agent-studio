@@ -14,7 +14,8 @@ Studio 的正式仓库、项目身份门禁、8 项目注册表、Resident Worke
 - GitHub：`https://github.com/ivanzhao299/anksen-agent-studio.git`
 - 项目标识：`anksen-agent-studio`
 - 主分支：`main`
-- 当前本地、远端、生产 SHA：`e4da5e9dac78937d14bb913fedb313105a94b910`
+- 交接文档发布前的已验证基线 SHA：`e4da5e9dac78937d14bb913fedb313105a94b910`
+- 当前 SHA：不得依赖本文中的静态值；用第 3 节命令读取，并在发布日志中核对生产 SHA
 - 生产入口：`https://studio.cnjinhu.com/login`
 - Office 204 服务器：`123.57.220.65`（只能通过仓库内受控发布流程部署，不在文档中记录密钥）
 
@@ -48,9 +49,8 @@ pnpm mac-resident-worker:service:status
 ### 仓库与生产
 
 - 主工作区干净：`main...origin/main`
-- 本地 `HEAD`：`e4da5e9dac78937d14bb913fedb313105a94b910`
-- `origin/main`：`e4da5e9dac78937d14bb913fedb313105a94b910`
-- 204 部署日志确认 SHA：`e4da5e9dac78937d14bb913fedb313105a94b910`
+- 本次交接检查开始时，本地 `HEAD`、`origin/main` 与 204 生产均为 `e4da5e9dac78937d14bb913fedb313105a94b910`。
+- 交接文档合并后会生成新的主干提交，因此新窗口必须重新读取本地、远端与部署日志中的生产 SHA，不得把上述基线当成永久当前值。
 - 公网登录页返回 HTTP 200。
 
 ### 运行进程
@@ -169,4 +169,3 @@ lsof -nP -iTCP -sTCP:LISTEN | rg '4317|anksen|node'
 可将下面内容原样发给新工作窗口：
 
 > 请先进入 `/Users/mac/Documents/anksen-agent-studio`，完整阅读 `AGENTS.md` 和 `docs/handoff/CURRENT_WORK_WINDOW_HANDOFF.md`。先只读执行仓库身份、主干同步、8 项目生命周期、Console/Worker/Resident Worker、launchd、监听端口和真实 heartbeat 核验。不要修改业务代码，不要清理任何 worktree。确认事实后，优先审查并继续 `codex/studio-conversational-agent`，用 Studio 自身对 Jinhu Smart Park 执行一个低风险任务，验证自然语言反馈、项目路由、独立 worktree、测试、提交和结果回传的完整闭环。通过全部门禁后再提交、合并并使用受控 Office 204 Workflow 发布，最后报告本地、远端、生产三端 SHA 和用户可见验收结果。
-
