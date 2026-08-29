@@ -9,4 +9,5 @@ test("Console service verifies a listener before reporting launchd readiness", a
   assert.match(source, /launchd_listener:/);
   assert.match(source, /if \(!launchdReady\) await runOptional\("launchctl", \["bootout"/);
   assert.match(source, /const manualFallback = !launchdReady/);
+  assert.match(source, /await waitForConsoleListener\(paths\.port, 20\)/);
 });
