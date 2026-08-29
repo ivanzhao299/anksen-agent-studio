@@ -31,16 +31,16 @@ jobs:
           --health-cmd="pg_isready -U kingturf -d kingturf_ci"
           --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: ivanzhao299/kingturf-bessiness-os
           ref: ${{ inputs.erp_sha }}
           path: kingturf-erp
           token: ${{ secrets.KINGTURF_REPO_READ_TOKEN }}
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.33.4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: ivanzhao299/kingturf-bessiness-os
           ref: ${{ inputs.erp_sha }}
