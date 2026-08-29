@@ -9196,8 +9196,7 @@ async function startManualConsoleService(paths) {
   });
   child.unref();
   await writeFile(paths.pidPath, `${child.pid ?? ""}\n`, "utf8");
-  await new Promise((resolve) => setTimeout(resolve, 800));
-  const pids = await listeningPids(paths.port);
+  const pids = await waitForConsoleListener(paths.port, 20);
   return {
     ok: Boolean(child.pid) && pids.includes(String(child.pid)),
     pid: child.pid ? String(child.pid) : "",
