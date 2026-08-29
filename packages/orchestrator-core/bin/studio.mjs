@@ -9136,6 +9136,15 @@ async function listeningPids(port) {
   return result.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
 }
 
+async function waitForConsoleListener(port, attempts = 10) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const pids = await listeningPids(port);
+    if (pids.length > 0) return pids;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return [];
+}
+
 async function stopManualConsoleProcesses(port) {
   const pids = await listeningPids(port);
   const stopped = [];
@@ -9278,23 +9287,27 @@ async function consoleService(args) {
     await runOptional("launchctl", ["bootout", paths.domain, paths.plistPath], { timeout: 10000 });
     const bootstrap = await runOptional("launchctl", ["bootstrap", paths.domain, paths.plistPath], { timeout: 30000 });
     const kickstart = await runOptional("launchctl", ["kickstart", "-k", `${paths.domain}/${paths.label}`], { timeout: 30000 });
-    const manualFallback = !bootstrap.ok && !kickstart.ok
+    const launchdPids = bootstrap.ok || kickstart.ok ? await waitForConsoleListener(paths.port) : [];
+    const launchdReady = launchdPids.length > 0;
+    if (!launchdReady) await runOptional("launchctl", ["bootout", paths.domain, paths.plistPath], { timeout: 10000 });
+    const manualFallback = !launchdReady
       ? await startManualConsoleService(paths)
       : { ok: false, pid: "", pids: [] };
     console.log("# Console Local Service Install apply");
     console.log("");
-    console.log(`status: ${bootstrap.ok || kickstart.ok || manualFallback.ok ? "PASS" : "FAIL"}`);
+    console.log(`status: ${launchdReady || manualFallback.ok ? "PASS" : "FAIL"}`);
     console.log(`plist: ${paths.plistPath}`);
     console.log(`url: http://127.0.0.1:${paths.port}`);
     console.log(`stopped_manual_pids: ${stopped.map((item) => item.pid).join(", ") || "none"}`);
     console.log(`bootstrap: ${bootstrap.ok ? "PASS" : "FAIL"}`);
     if (!bootstrap.ok) console.log(`bootstrap_error: ${bootstrap.stderr.trim()}`);
     console.log(`kickstart: ${kickstart.ok ? "PASS" : "FAIL"}`);
+    console.log(`launchd_listener: ${launchdReady ? "PASS" : "FAIL"}`);
     if (!kickstart.ok) console.log(`kickstart_error: ${kickstart.stderr.trim()}`);
     if (manualFallback.ok) {
       console.log("manual_fallback: PASS");
       console.log(`manual_fallback_pid: ${manualFallback.pid}`);
-    } else if (!bootstrap.ok && !kickstart.ok) {
+    } else if (!launchdReady) {
       console.log("manual_fallback: FAIL");
       process.exitCode = 1;
     }
@@ -9311,15 +9324,19 @@ async function consoleService(args) {
     const stopped = await stopManualConsoleProcesses(paths.port);
     await clearManualConsolePid(paths);
     const result = await runOptional("launchctl", ["kickstart", "-k", `${paths.domain}/${paths.label}`], { timeout: 30000 });
-    const manualFallback = !result.ok
+    const launchdPids = result.ok ? await waitForConsoleListener(paths.port) : [];
+    const launchdReady = launchdPids.length > 0;
+    if (!launchdReady) await runOptional("launchctl", ["bootout", paths.domain, paths.plistPath], { timeout: 10000 });
+    const manualFallback = !launchdReady
       ? await startManualConsoleService(paths)
       : { ok: false, pid: "", pids: [] };
     console.log("# Console Local Service Start apply");
     console.log("");
-    console.log(`status: ${result.ok || manualFallback.ok ? "PASS" : "FAIL"}`);
+    console.log(`status: ${launchdReady || manualFallback.ok ? "PASS" : "FAIL"}`);
     console.log(`stopped_manual_pids: ${stopped.map((item) => item.pid).join(", ") || "none"}`);
     console.log(`url: http://127.0.0.1:${paths.port}`);
-    if (!result.ok) {
+    console.log(`launchd_listener: ${launchdReady ? "PASS" : "FAIL"}`);
+    if (!launchdReady) {
       console.log(`error: ${result.stderr.trim()}`);
       if (manualFallback.ok) {
         console.log("fallback: manual_process");
