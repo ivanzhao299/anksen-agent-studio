@@ -34,6 +34,12 @@ function dockerFixture() {
   let state = spawnSync("docker", ["inspect", "-f", "{{.State.Running}}", fixture.container], { encoding: "utf8" });
   if (state.status !== 0) {
     state = spawnSync("docker", ["run", "-d", "--name", fixture.container, "-e", "POSTGRES_PASSWORD=postgres", "-e", `POSTGRES_DB=${fixture.database}`, "-p", `127.0.0.1:${fixture.port}:5432`, "postgres:16-alpine"], { encoding: "utf8" });
+    if (state.status !== 0 && /container name .* is already in use/i.test(`${state.stdout}\n${state.stderr}`)) {
+      state = spawnSync("docker", ["inspect", "-f", "{{.State.Running}}", fixture.container], { encoding: "utf8" });
+      if (state.status === 0 && state.stdout.trim() !== "true") {
+        state = spawnSync("docker", ["start", fixture.container], { encoding: "utf8" });
+      }
+    }
   } else if (state.stdout.trim() !== "true") {
     state = spawnSync("docker", ["start", fixture.container], { encoding: "utf8" });
   }

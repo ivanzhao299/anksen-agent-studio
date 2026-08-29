@@ -409,7 +409,7 @@ function actionWorkbench(data, title = "ANKSEN 工作站") {
         </div>
         <div class="workspace-meta">
           <span class="workspace-project-name">${escapeHtml(activeProjectLabel)}</span>
-          <span class="workspace-live-state"><i></i> Agent 网络就绪</span>
+          <span id="workspace-live-state" class="workspace-live-state" data-state="UNKNOWN"><i></i><span>正在检查 Agent</span></span>
         </div>
       </div>
       ${accessEntitlementPanel(data.renderAuth ?? {})}
@@ -943,6 +943,7 @@ function interactiveScript() {
   const sideLogPathEl = document.getElementById("side-log-path");
   const runIdEl = document.getElementById("action-run-id");
   const runStateEl = document.getElementById("run-state");
+  const workerStateEl = document.getElementById("workspace-live-state");
   const conversationStream = document.getElementById("conversation-stream");
   const flowRail = document.getElementById("flow-rail");
   const attachmentInput = document.getElementById("action-attachments");
@@ -973,6 +974,32 @@ function interactiveScript() {
   const runAttachmentCache = new Map();
   const terminalStatuses = new Set(["PASS", "FAIL", "BLOCKED", "NEEDS_APPROVAL", "CANCELLED", "RECOVERY_REQUIRED"]);
   const defaultTimeline = ["已理解目标", "选择项目", "Agent/Runtime", "生成计划", "Governance", "执行/审批", "结果报告"];
+
+  async function refreshWorkerState() {
+    if (!workerStateEl) return;
+    try {
+      const response = await fetch("/api/resident-worker-control", { headers: { accept: "application/json" } });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.reason || body.status || "状态不可用");
+      const selectedProject = currentProjectValue();
+      const candidates = (body.workers || []).filter((worker) => (worker.projects || []).some((item) => item.projectId === selectedProject));
+      const priority = { EXECUTING: 0, ONLINE: 1, READ_ONLY: 2, BLOCKED: 3, OFFLINE: 4 };
+      const worker = candidates.sort((left, right) => (priority[left.runtimeState] ?? 9) - (priority[right.runtimeState] ?? 9))[0];
+      const state = worker?.runtimeState || "OFFLINE";
+      const labels = { ONLINE: "Agent 可执行", EXECUTING: "Agent 执行中", READ_ONLY: "Agent 只读", BLOCKED: "Agent 已阻断", OFFLINE: "Agent 离线" };
+      const reason = worker?.blockingReasons?.[0];
+      workerStateEl.dataset.state = state;
+      workerStateEl.title = reason ? [reason.code, reason.projectId].filter(Boolean).join(" · ") : "";
+      workerStateEl.querySelector("span").textContent = labels[state] || "Agent 状态未知";
+    } catch (error) {
+      workerStateEl.dataset.state = "OFFLINE";
+      workerStateEl.title = error.message;
+      workerStateEl.querySelector("span").textContent = "Agent 状态不可用";
+    }
+  }
+  refreshWorkerState();
+  setInterval(refreshWorkerState, 15000);
+  project?.addEventListener("change", refreshWorkerState);
 
   function setAuthStatus(message, tone = "neutral") {
     if (!authStatus) return;
@@ -2400,6 +2427,9 @@ function shell(content, activeId, model, data, auth = {}) {
     .workspace-project-name { color:#4c4c55; font-size:11px; font-weight:650; }
     .workspace-live-state { display:inline-flex; align-items:center; gap:7px; color:#72727c; font-size:11px; }
     .workspace-live-state i { width:6px; height:6px; border-radius:50%; background:#34a66f; box-shadow:0 0 0 4px rgba(52,166,111,.1); }
+    .workspace-live-state[data-state="BLOCKED"] i,.workspace-live-state[data-state="OFFLINE"] i { background:#d45656; box-shadow:0 0 0 4px rgba(212,86,86,.1); }
+    .workspace-live-state[data-state="READ_ONLY"] i { background:#d39a35; box-shadow:0 0 0 4px rgba(211,154,53,.1); }
+    .workspace-live-state[data-state="EXECUTING"] i { background:#5b5ce2; box-shadow:0 0 0 4px rgba(91,92,226,.12); }
     .page-dashboard .quick-row { gap:0; margin:14px 0 0; padding-bottom:14px; overflow-x:auto; border-bottom:1px solid #f0f0f3; }
     .quick-row-label { flex:0 0 auto; align-self:center; margin-right:12px; color:#9a9aa3; font-size:10px; letter-spacing:.08em; }
     .page-dashboard .quick-chip { min-height:30px; padding:5px 10px; border:0; border-right:1px solid #e8e8ec; border-radius:0; background:transparent; color:#666670; box-shadow:none; }

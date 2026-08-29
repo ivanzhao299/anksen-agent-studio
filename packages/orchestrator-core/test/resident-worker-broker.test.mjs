@@ -37,3 +37,15 @@ test("a read-only worker never claims an approved write task", async () => {
     assert.equal(await broker.claim("read-only"), null);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test("dashboard reports live execution capability instead of optimistic connectivity", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "resident-worker-")); let now = new Date("2026-08-24T00:00:00Z");
+  const broker = new ResidentWorkerBroker({ storePath: join(dir, "store.json"), clock: () => now, leaseMs: 1000 });
+  try {
+    await broker.register({ workerId: "blocked", projects: [{ projectId: "studio", pathRef: "local://studio" }], capabilities: ["codex.exec.read-only"], lifecycle: { status: "BLOCKED", violations: [{ code: "MANAGED_WORKTREE_MISSING", projectId: "studio" }] } });
+    let dashboard = await broker.dashboard(); assert.equal(dashboard.workers[0].runtimeState, "BLOCKED"); assert.equal(dashboard.workers[0].blockingReasons[0].code, "MANAGED_WORKTREE_MISSING");
+    await broker.register({ workerId: "blocked", projects: [{ projectId: "studio", pathRef: "local://studio" }], capabilities: ["codex.exec.read-only"], lifecycle: { status: "READY" } });
+    dashboard = await broker.dashboard(); assert.equal(dashboard.workers[0].runtimeState, "READ_ONLY");
+    now = new Date("2026-08-24T00:00:03Z"); dashboard = await broker.dashboard(); assert.equal(dashboard.workers[0].runtimeState, "OFFLINE");
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});

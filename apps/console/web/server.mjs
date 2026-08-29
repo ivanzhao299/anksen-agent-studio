@@ -63,6 +63,7 @@ import { GatewayAuthenticator, SlidingWindowRateLimiter, StudioGateway, gatewayE
 import { AvernetProviderGateway, AvernetGatewayError, FileAvernetBridgeStore } from "../../../packages/orchestrator-core/lib/avernet-provider-gateway.mjs";
 import { checkAuthorizationServerMetadata, StudioOAuthVerifier } from "../../../packages/orchestrator-core/lib/studio-mcp-oauth.mjs";
 import { createStudioMcpRequestHandler } from "../../../packages/orchestrator-core/lib/studio-mcp-server.mjs";
+import { assertRepositoryIdentity } from "../../../packages/orchestrator-core/lib/repository-identity.mjs";
 import { loadIdentityRuntimeConfig, proxyIdentityRequest } from "./identity-service.mjs";
 import { IdentityOwnerBootstrap, renderIdentityOwnerBootstrapPage } from "./identity-owner-bootstrap.mjs";
 import { renderConsolePage } from "./render.mjs";
@@ -85,6 +86,7 @@ const port = Number(process.env.PORT ?? 4317);
 const allowedPaths = new Set([...consoleWebRoutes.map((route) => route.path), "/login", "/register", "/identity-bootstrap"]);
 const webDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(webDir, "../../..");
+assertRepositoryIdentity(repoRoot);
 const assetsDir = join(webDir, "assets");
 const staticAssets = new Map([
   ["/assets/anksen-logo.svg", { path: join(assetsDir, "anksen-logo.svg"), type: "image/svg+xml; charset=utf-8" }],

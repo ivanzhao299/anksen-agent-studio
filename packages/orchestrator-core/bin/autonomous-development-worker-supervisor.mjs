@@ -4,8 +4,10 @@ import { constants } from "node:fs";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { ensurePostgresFixture } from "../lib/postgres-fixture.mjs";
+import { assertRepositoryIdentity } from "../lib/repository-identity.mjs";
 
 const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
+assertRepositoryIdentity(repoRoot);
 const runtimeDir = resolve(repoRoot, "runtime/autonomous-development");
 const workerPath = resolve(repoRoot, "packages/orchestrator-core/bin/autonomous-development-worker.mjs");
 const statePath = resolve(runtimeDir, "supervisor-state.json");

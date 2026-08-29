@@ -15,6 +15,8 @@ test("PostgreSQL fixture retains a loopback-only local fallback", async () => {
   assert.match(source, /if \(!dockerFixture\(\)\) localFixture\(\)/);
   assert.match(source, /-h 127\.0\.0\.1 -p/);
   assert.match(source, /POSTGRES_FIXTURE_UNAVAILABLE/);
+  assert.match(source, /container name .* is already in use/);
+  assert.match(source, /docker", \["inspect"/);
 });
 test("persistent migration is reversible and covers every session fact",async()=>{const up=await readFile(new URL("../migrations/002_persistent_night_shift.up.sql",import.meta.url),"utf8"),down=await readFile(new URL("../migrations/002_persistent_night_shift.down.sql",import.meta.url),"utf8");for(const table of ["ad_night_shift_session","ad_scheduler_tick","ad_worker_claim","ad_session_error"])assert.match(up,new RegExp(`CREATE TABLE ${table}`));assert.match(up,/report jsonb/);assert.match(down,/DROP TABLE IF EXISTS ad_night_shift_session/);});
 test("activation migration enforces replay and dangerous-operation boundaries",async()=>{const up=await readFile(new URL("../migrations/003_codex_activation_gate.up.sql",import.meta.url),"utf8"),down=await readFile(new URL("../migrations/003_codex_activation_gate.down.sql",import.meta.url),"utf8");for(const table of ["ad_project_runtime_policy","ad_runtime_approval","ad_credential_reference_binding","ad_outbox_consumption","ad_session_projection"])assert.match(up,new RegExp(`CREATE TABLE ${table}`));assert.match(up,/CHECK\(allow_push=false\)/);assert.match(up,/CHECK\(used_count<=max_uses\)/);assert.match(down,/DROP TABLE IF EXISTS ad_project_runtime_policy/);assert.notEqual(process.env.AUTONOMOUS_RUNTIME_CODEX_ENABLED,"true");});

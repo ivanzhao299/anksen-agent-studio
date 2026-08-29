@@ -26,3 +26,27 @@ test("fails closed when two project ids bind the same repository", async () => {
     assert.equal(report.status, "BLOCKED"); assert.ok(report.violations.some(item => item.code === "DUPLICATE_PROJECT_ROOT"));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("counts only Studio-owned active worktrees and reports external worktrees as telemetry", async () => {
+  const root = await mkdtemp(join(tmpdir(), "project-capability-")), repo = join(root, "repo"), external = join(root, "external"), registry = join(root, "runtime", "global", "registry.json");
+  try {
+    const { mkdir } = await import("node:fs/promises"); await mkdir(repo, { recursive: true }); await mkdir(join(root, "runtime", "global"), { recursive: true });
+    git(repo, "init", "-b", "main"); git(repo, "config", "user.email", "test@example.com"); git(repo, "config", "user.name", "Test"); await writeFile(join(repo, "README.md"), "ok\n"); git(repo, "add", "."); git(repo, "commit", "-m", "init");
+    git(repo, "worktree", "add", "-b", "human/parallel", external, "HEAD");
+    await writeFile(registry, JSON.stringify({ projects: [{ project_id: "one", binding_status: "attached", connection_status: "CONNECTED", repo_path_display: repo }] }));
+    const report = await new ProjectLifecycleCapability({ registryPath: registry, maxManagedWorktreesPerProject: 0 }).inspect();
+    assert.equal(report.status, "READY"); assert.equal(report.projects[0].managedWorktreeCount, 0); assert.equal(report.projects[0].externalWorktreeCount, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("fails closed for stale Studio-owned worktree records", async () => {
+  const root = await mkdtemp(join(tmpdir(), "project-capability-")), repo = join(root, "repo"), registryDir = join(root, "runtime", "global"), registry = join(registryDir, "registry.json"), ownershipDir = join(root, "runtime", "autonomous-development", "workspace-ownership");
+  try {
+    const { mkdir } = await import("node:fs/promises"); await mkdir(repo, { recursive: true }); await mkdir(registryDir, { recursive: true }); await mkdir(ownershipDir, { recursive: true });
+    git(repo, "init", "-b", "main"); git(repo, "config", "user.email", "test@example.com"); git(repo, "config", "user.name", "Test"); await writeFile(join(repo, "README.md"), "ok\n"); git(repo, "add", "."); git(repo, "commit", "-m", "init");
+    await writeFile(registry, JSON.stringify({ projects: [{ project_id: "one", binding_status: "attached", connection_status: "CONNECTED", repo_path_display: repo }] }));
+    await writeFile(join(ownershipDir, "one.json"), JSON.stringify({ workspaces: { task: { taskId: "task", status: "ACTIVE", branch: "codex/task", worktreePath: join(root, "missing") } } }));
+    const report = await new ProjectLifecycleCapability({ registryPath: registry }).inspect();
+    assert.equal(report.status, "BLOCKED"); assert.ok(report.violations.some(item => item.code === "MANAGED_WORKTREE_MISSING"));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

@@ -44,6 +44,16 @@ async function jobsById() {
   return rows;
 }
 
+async function managedProjects() {
+  const legacyPath = resolve(root, 'runtime/global/project-independence.json');
+  if (existsSync(legacyPath)) return (await json(legacyPath)).projects;
+  const registryPath = resolve(root, 'runtime/global/attached-project-workspace.json');
+  const registry = await json(registryPath);
+  return (registry.projects || [])
+    .filter(project => project.connection_status === 'CONNECTED' && project.repo_path_display)
+    .map(project => ({ projectId: project.project_id, repoPath: project.repo_path_display }));
+}
+
 function classify(repo, taskId, workspace, job) {
   const path = resolve(workspace.worktreePath || '');
   if (workspace.status !== 'ACTIVE') return { action: 'IGNORE_RELEASED', reason: workspace.status };
@@ -59,10 +69,10 @@ function classify(repo, taskId, workspace, job) {
 }
 
 async function main() {
-  const manifest = await json(resolve(root, 'runtime/global/project-independence.json'));
+  const projects = await managedProjects();
   const jobs = await jobsById();
   const report = { schemaVersion: 1, generatedAt: new Date().toISOString(), apply, archiveDirty, projects: [] };
-  for (const project of manifest.projects) {
+  for (const project of projects) {
     if (onlyProject && project.projectId !== onlyProject) continue;
     const repo = resolve(project.repoPath);
     const ownershipPath = resolve(store, 'workspace-ownership', `${project.projectId}.json`);

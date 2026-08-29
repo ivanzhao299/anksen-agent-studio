@@ -10,7 +10,7 @@ test('canonical growth relations and event idempotency fail closed across tenant
   await ensurePostgresFixture();
   const pool=createTestPool(),suffix=randomUUID(),scope={organizationId:`scope-integrity-${suffix}`,workspaceId:'growth',tenantId:'tenant-a'},other={...scope,tenantId:'tenant-b'},leadId=`lead-${suffix}`,store=new PostgresGrowthStore({pool,clock:()=>new Date('2026-08-27T01:00:00Z')});
   await migrateGrowthPlatform(pool);
-  await store.upsertLead({scope,lead:createLead({...scope,leadId,source:'WEBSITE'})});
+  await store.upsertLead({scope,lead:createLead({...scope,leadId,source:'WEBSITE',createdAt:'2026-08-27T00:00:00Z'})});
   await assert.rejects(()=>store.resolveIdentity({scope:other,identityType:'EMAIL',value:`${suffix}@example.com`,leadId}),error=>error.code==='GROWTH_IDENTITY_TENANT_LEAD_REQUIRED_OR_CONFLICT');
   await assert.rejects(()=>store.recordEngagement({scope:other,engagement:{id:`eng-${suffix}`,leadId,kind:'RFQ',channel:'WEBSITE',payload:{},occurredAt:'2026-08-27T00:00:00Z'}}),error=>error.code==='GROWTH_ENGAGEMENT_TENANT_LEAD_REQUIRED');
   await assert.rejects(()=>store.recordScore({scope:other,leadId,score:{scoreId:`score-${suffix}`,scoreType:'LEAD_QUALITY',value:80,confidence:1,factors:[],dimensions:{},modelVersion:'v1',calculatedAt:'2026-08-27T00:00:00Z'}}),error=>error.code==='GROWTH_SCORE_TENANT_LEAD_REQUIRED_OR_CONFLICT');

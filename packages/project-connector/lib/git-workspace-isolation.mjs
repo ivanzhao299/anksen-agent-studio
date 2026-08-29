@@ -96,6 +96,8 @@ export class GitWorkspaceIsolationManager {
   async createTaskWorkspace({ projectId, taskId, projectRoot, defaultBranch = "main", actorId = "unknown", allowedPaths = [], baseHead = null }) {
     const registry = await this.ownership(projectId);
     const activeWorkspaces = Object.values(registry.workspaces ?? {}).filter(workspace => workspace.status === "ACTIVE");
+    const missingActive = activeWorkspaces.filter(workspace => !workspace.worktreePath || !existsSync(workspace.worktreePath));
+    if (missingActive.length) throw new GitWorkspaceIsolationError("WORKTREE_REGISTRY_RECONCILIATION_REQUIRED", `Project ${projectId} has ${missingActive.length} missing active workspace record(s)`, { projectId, taskIds: missingActive.map(item => item.taskId) });
     if (activeWorkspaces.length >= this.maxActiveWorkspacesPerProject) {
       throw new GitWorkspaceIsolationError(
         "WORKTREE_ACTIVE_LIMIT_EXCEEDED",
@@ -154,6 +156,21 @@ export class GitWorkspaceIsolationManager {
     const remote = await this.syncRemote({ projectRoot: workspace.sourceProjectRoot, defaultBranch: workspace.defaultBranch, expectedRemoteHead: workspace.remoteHead });
     if (remote.remoteHead !== workspace.remoteHead) throw new GitWorkspaceIsolationError("REMOTE_BASELINE_CHANGED", "Remote branch advanced after task isolation");
     return { workspace, source, remote };
+  }
+  async releaseTaskWorkspace({ projectId, taskId, reason = "TASK_COMPLETE", preserveBranch = true }) {
+    const registry = await this.ownership(projectId), workspace = registry.workspaces?.[taskId];
+    if (!workspace || workspace.status !== "ACTIVE") return workspace ?? null;
+    if (existsSync(workspace.worktreePath)) {
+      const status = parseStatus(mustGit(workspace.worktreePath, ["status", "--porcelain=v1", "--untracked-files=all"], "GIT_STATUS_FAILED"));
+      if (status.length) throw new GitWorkspaceIsolationError("TASK_WORKTREE_DIRTY", "A task worktree with uncommitted changes cannot be released", { projectId, taskId, paths: status.map(item => item.path) });
+      mustGit(workspace.sourceProjectRoot, ["worktree", "remove", workspace.worktreePath], "WORKTREE_RELEASE_FAILED");
+    }
+    if (!preserveBranch && git(workspace.sourceProjectRoot, ["show-ref", "--verify", "--quiet", `refs/heads/${workspace.branch}`]).status === 0) {
+      mustGit(workspace.sourceProjectRoot, ["branch", "-d", workspace.branch], "WORKTREE_BRANCH_RELEASE_FAILED");
+    }
+    workspace.status = "RELEASED"; workspace.releasedAt = this.clock().toISOString(); workspace.releaseReason = reason;
+    for (const [path, claim] of Object.entries(registry.claims ?? {})) if (claim.taskId === taskId || claim.workspacePath === workspace.worktreePath) delete registry.claims[path];
+    await this.saveOwnership(registry); return workspace;
   }
 }
 

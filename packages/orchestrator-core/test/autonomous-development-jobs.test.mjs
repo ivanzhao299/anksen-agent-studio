@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -82,6 +82,19 @@ test("dirty projects fail preflight instead of absorbing existing user changes",
   const job = await manager.create({ projectId: "fixture", projectRoot: project, goal: "Implement a bounded and verifiable fixture change", allowedPaths: ["src"], acceptanceCriteria: ["tests pass"],acceptanceCommands:["git diff --check"],acceptanceEvidence:[{criterion:"tests pass",type:"TEST",reference:"git diff --check"}] });
   assert.equal(job.status, "PREFLIGHT_BLOCKED");
   assert.deepEqual(job.preflight.existingChangedPaths, ["user-change.txt"]);
+});
+
+test("job persistence stays readable during concurrent status polling", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "studio-development-atomic-")), project = resolve(root, "project");
+  await mkdir(project); git(project, ["init"]); git(project, ["config", "user.email", "studio@test.local"]); git(project, ["config", "user.name", "Studio Test"]); await writeFile(resolve(project, "README.md"), "fixture\n"); git(project, ["add", "."]); git(project, ["commit", "-m", "fixture"]);
+  const jobs = new AutonomousDevelopmentJobs({ repoRoot: root, storeDir: resolve(root, "runtime") });
+  try {
+    const job = await jobs.create({ projectId: "atomic-job", projectRoot: project, goal: "Keep persisted development job state atomically readable during concurrent polling", acceptanceCriteria: ["job JSON remains readable"], acceptanceCommands: ["git diff --check"], acceptanceEvidence: [{ criterion: "job JSON remains readable", type: "TEST", reference: "git diff --check" }], allowedPaths: ["result.txt"] }, { userId: "owner" });
+    await Promise.all(Array.from({ length: 40 }, async (_, index) => {
+      job.stage = `POLL_${index}`; await Promise.all([jobs.save(job), jobs.get(job.id), jobs.list()]);
+    }));
+    assert.equal((await jobs.get(job.id)).id, job.id);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("worker routes implementation through the governed runtime and four real roles", async () => {
