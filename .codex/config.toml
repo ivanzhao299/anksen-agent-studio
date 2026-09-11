@@ -1,3 +1,8 @@
+# Agent model: DeepSeek. The deepseek_v4 provider is defined at user level
+# (~/.codex/config.toml), which is the only level Codex accepts for
+# model_provider / model_providers.
+model = "deepseek-flash"
+
 [mcp_servers.anksen_studio]
 url = "http://127.0.0.1:4330/mcp"
 bearer_token_env_var = "STUDIO_MCP_BEARER_TOKEN"
