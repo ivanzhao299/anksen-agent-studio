@@ -42,6 +42,9 @@ jobs:
       - name: Lint
         run: pnpm lint:check
 
+      - name: Media isolation and existing Console regression
+        run: node --test packages/managed-capability-apps/test/media-workbench.test.mjs packages/managed-capability-apps/test/capability-upload-store.test.mjs packages/orchestrator-core/test/resident-worker-broker.test.mjs apps/console/web/business-application-surfaces.test.mjs apps/console/web/account-security.test.mjs
+
       - name: Console smoke
         run: node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run
 
@@ -52,6 +55,7 @@ jobs:
         run: git diff --check
 
   deploy:
+    if: github.event_name == 'workflow_dispatch'
     name: Deploy through Aliyun jump host
     needs: validate
     runs-on: ubuntu-latest

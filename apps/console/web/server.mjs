@@ -1,3 +1,6 @@
+import { handleMediaWorkbenchPublic, handleMediaWorkbenchWorker } from "./media-workbench-http.mjs";
+import { execFileSync } from "node:child_process";
+import { MediaWorkbench } from "../../../packages/managed-capability-apps/lib/media-workbench.mjs";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
@@ -87,9 +90,11 @@ const allowedPaths = new Set([...consoleWebRoutes.map((route) => route.path), "/
 const webDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(webDir, "../../..");
 assertRepositoryIdentity(repoRoot);
+const runningRelease = { sha: execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).trim(), startedAt: new Date().toISOString(), pid: process.pid };
 const assetsDir = join(webDir, "assets");
 const staticAssets = new Map([
   ["/assets/anksen-logo.svg", { path: join(assetsDir, "anksen-logo.svg"), type: "image/svg+xml; charset=utf-8" }],
+  ["/assets/media-workbench.js", { path: join(assetsDir, "media-workbench.js"), type: "text/javascript; charset=utf-8" }],
   ["/assets/business-work-execution.js", { path: join(assetsDir, "business-work-execution.js"), type: "text/javascript; charset=utf-8" }]
 ]);
 const autonomousExecutionCenter = new AutonomousExecutionCenter();
@@ -99,7 +104,7 @@ const agentAdminService = new AgentAdminService({ repoRoot });
 const managedCapabilityAppCenter = createManagedCapabilityAppCenter({ repoRoot });
 const capabilityUploadStore = createCapabilityUploadStore({ repoRoot, center: managedCapabilityAppCenter });
 const portfolioRegistry = await loadDomainRuntimeRegistry();
-const businessRuntime = await createBusinessApplicationRuntime({ repoRoot });
+const businessRuntime = await createBusinessApplicationRuntime({ repoRoot, initializeSchema: process.env.STUDIO_BUSINESS_SCHEMA_INIT !== "false" });
 const businessApplicationStore = businessRuntime.store;
 const businessDataConnectorStore = businessRuntime.connectorStore;
 const businessSourceGovernance = businessRuntime.sourceGovernance;
@@ -160,6 +165,7 @@ const residentWorkerBroker = new ResidentWorkerBroker({
   leaseMs: Number(process.env.STUDIO_RESIDENT_WORKER_LEASE_MS ?? 45_000)
 });
 const capabilityResourceRegistry=new CapabilityResourceRegistry({repoRoot});
+const mediaWorkbench = new MediaWorkbench({ repoRoot, broker: residentWorkerBroker, enabled: process.env.STUDIO_MEDIA_WORKBENCH_ENABLED === "true", workerId: process.env.STUDIO_MEDIA_WORKER_ID ?? "mac-media-1", projectIds: String(process.env.STUDIO_MEDIA_PROJECT_IDS ?? "").split(",").filter(Boolean) });
 setInterval(() => autonomousPortfolio.tick().catch((error) => console.error("portfolio tick failed", error?.code ?? error?.message ?? error)), 30000).unref();
 const identityRuntime = await loadIdentityRuntimeConfig();
 const identityOwnerBootstrap = identityRuntime ? new IdentityOwnerBootstrap({ upstreamOrigin: identityRuntime.upstreamOrigin }) : null;
@@ -286,10 +292,12 @@ const server = createServer(async (request, response) => {
     }
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
     const pathname = url.pathname === "/dashboard" ? "/" : url.pathname;
+    if(request.method === "GET" && pathname === "/health/version") {sendJson(response,200,runningRelease);return;}
     if (pathname.startsWith("/api/resident-workers/")) {
       const configuredToken = String(process.env.STUDIO_RESIDENT_WORKER_TOKEN ?? "");
       if (configuredToken.length < 32 || !tokenMatches(bearerToken(request), configuredToken)) { sendJson(response, 401, { status: "RESIDENT_WORKER_UNAUTHORIZED" }, { "www-authenticate": "Bearer" }); return; }
       try {
+        if(/^\/api\/resident-workers\/[^/]+\/media(?:\/|$)/.test(pathname)){await handleMediaWorkbenchWorker({request,response,pathname,mediaWorkbench,sendJson,sendCapabilityArtifact,readJsonBody,readRawBody});return;}
         const register = pathname === "/api/resident-workers/register";
         const heartbeat = pathname.match(/^\/api\/resident-workers\/([^/]+)\/heartbeat$/);
         const claim = pathname.match(/^\/api\/resident-workers\/([^/]+)\/claim$/);
@@ -299,7 +307,7 @@ const server = createServer(async (request, response) => {
         if (request.method === "POST" && heartbeat) { sendJson(response, 200, await residentWorkerBroker.heartbeat(decodeURIComponent(heartbeat[1]), await readJsonBody(request))); return; }
         if (request.method === "POST" && claim) { sendJson(response, 200, { task: await residentWorkerBroker.claim(decodeURIComponent(claim[1])) }); return; }
         if (request.method === "POST" && lease) { sendJson(response, 200, await residentWorkerBroker.renew(decodeURIComponent(lease[1]), decodeURIComponent(lease[2]), await readJsonBody(request))); return; }
-        if (request.method === "POST" && result) { sendJson(response, 200, await residentWorkerBroker.complete(decodeURIComponent(result[1]), decodeURIComponent(result[2]), await readJsonBody(request))); return; }
+        if (request.method === "POST" && result) { const body=await readJsonBody(request); if((await residentWorkerBroker.dashboard()).tasks.find(t=>t.taskId===decodeURIComponent(result[2]))?.kind==="MEDIA")await mediaWorkbench.validateResult(decodeURIComponent(result[1]),decodeURIComponent(result[2]),body);sendJson(response, 200, await residentWorkerBroker.complete(decodeURIComponent(result[1]), decodeURIComponent(result[2]), body)); return; }
         sendJson(response, 404, { status: "RESIDENT_WORKER_ROUTE_NOT_FOUND" }); return;
       } catch (error) { sendJson(response, error?.code === "LEASE_LOST" ? 409 : 400, { status: error?.code ?? "RESIDENT_WORKER_REQUEST_FAILED", reason: error instanceof Error ? error.message : String(error) }); return; }
     }
@@ -428,6 +436,7 @@ const server = createServer(async (request, response) => {
       });
       return;
     }
+    if(pathname.startsWith("/api/media-workbench/")){await handleMediaWorkbenchPublic({request,response,pathname,accessContext,mediaWorkbench,sendJson,sendCapabilityArtifact,requireSameOrigin,readJsonBody,readRawBody,evaluateConsoleRouteAccess});return;}
     const capabilityProjectMatch = pathname.match(/^\/api\/capability-apps\/([^/]+)\/projects\/([^/]+)$/);
     const capabilityMediaMatch = pathname.match(/^\/api\/capability-apps\/([^/]+)\/projects\/([^/]+)\/media\/(.+)$/);
     const capabilityHandoffMatch = pathname.match(/^\/api\/capability-apps\/([^/]+)\/handoffs$/);
@@ -805,6 +814,7 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === "POST" && pathname === "/api/resident-worker-control/tasks") {
       const body = await readJsonBody(request);
+      if(body.kind==="MEDIA"){sendJson(response,403,{status:"USE_SCOPED_MEDIA_WORKBENCH"});return;}
       const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "agent-real-plan", project_id: String(body.projectId ?? ""), risk: body.mode === "GOVERNED_WRITE" ? "HIGH" : "LOW" }, { user_context: accessContext });
       if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
       try { sendJson(response, 201, await residentWorkerBroker.enqueue(body, { userId: accessContext.user?.user_id })); }
@@ -1034,18 +1044,21 @@ const server = createServer(async (request, response) => {
       response.end(request.method === "HEAD" ? undefined : await readFile(asset.path));
       return;
     }
-    if (!allowedPaths.has(pathname)) {
+    if (pathname === "/video/workbench" && !mediaWorkbench.enabled) {sendJson(response,404,{status:"MEDIA_WORKBENCH_DISABLED"});return;}
+    if (!allowedPaths.has(pathname) && pathname !== "/video/workbench") {
       response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
       response.end("Console route not found.");
       return;
     }
     const sessionSummary = await currentSessionSummary(accessBundle, sessionToken, { allow_default_user: false });
-    const html = await renderConsolePage(pathname, {
+    const html = await renderConsolePage(pathname === "/video/workbench" ? "/video" : pathname, {
       ...accessContext,
       entitlement: sessionSummary.entitlement ?? accessContext.entitlement ?? null,
       session: sessionSummary.session ?? null,
       membership: sessionSummary.membership ?? accessContext.membership ?? null
     }, {
+      mediaWorkbench: pathname === "/video/workbench",
+      mediaProjectIds: mediaWorkbench.projectIds.filter(p => (accessContext.project_allowlist ?? []).some(x => x === "*" || x === p)),
       activeProjectId: url.searchParams.get("project") || undefined
     });
     response.writeHead(200, {

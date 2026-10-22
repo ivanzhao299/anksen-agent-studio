@@ -65,11 +65,13 @@ export class ResidentWorkerBroker {
     return this.locked(async () => {
       const projectId = cleanId(input.projectId), goal = String(input.goal ?? "").trim();
       if (!projectId || !goal) throw Object.assign(new Error("TASK_PROJECT_AND_GOAL_REQUIRED"), { code: "TASK_PROJECT_AND_GOAL_REQUIRED" });
+      const kind = input.kind === "MEDIA" ? "MEDIA" : "CODEX";
+      if (kind === "MEDIA" && (!input.media || !cleanId(input.requiredWorkerId))) throw Object.assign(new Error("MEDIA_WORKER_BINDING_REQUIRED"), { code: "MEDIA_WORKER_BINDING_REQUIRED" });
       const mode = input.mode === "GOVERNED_WRITE" ? "GOVERNED_WRITE" : "READ_ONLY";
       if (mode === "GOVERNED_WRITE" && input.approved !== true) throw Object.assign(new Error("WRITE_TASK_APPROVAL_REQUIRED"), { code: "WRITE_TASK_APPROVAL_REQUIRED" });
       const store = await this.load(), taskId = cleanId(input.taskId) || randomUUID(), at = nowIso(this.clock);
       if (store.tasks[taskId]) return copy(store.tasks[taskId]);
-      store.tasks[taskId] = { taskId, projectId, goal, instruction: String(input.instruction ?? goal), mode, status: "QUEUED", allowedPaths: Array.isArray(input.allowedPaths) ? input.allowedPaths.map(String) : [], acceptanceCommands: Array.isArray(input.acceptanceCommands) ? input.acceptanceCommands.map(String) : [], createdAt: at, createdBy: actor.userId ?? "studio", approvedAt: mode === "GOVERNED_WRITE" ? at : null, lease: null, result: null };
+      store.tasks[taskId] = { taskId, projectId, goal, ...(kind === "MEDIA" ? { kind, media: copy(input.media), requiredWorkerId: cleanId(input.requiredWorkerId) } : {}), instruction: String(input.instruction ?? goal), mode, status: "QUEUED", allowedPaths: Array.isArray(input.allowedPaths) ? input.allowedPaths.map(String) : [], acceptanceCommands: Array.isArray(input.acceptanceCommands) ? input.acceptanceCommands.map(String) : [], createdAt: at, createdBy: actor.userId ?? "studio", approvedAt: mode === "GOVERNED_WRITE" ? at : null, lease: null, result: null };
       await this.save(store); return copy(store.tasks[taskId]);
     });
   }
@@ -80,7 +82,7 @@ export class ResidentWorkerBroker {
       const now = this.clock(), projectIds = new Set(worker.projects.map(item => item.projectId));
       for (const task of Object.values(store.tasks)) if (task.status === "LEASED" && new Date(task.lease.expiresAt) <= now) { task.status = "QUEUED"; task.lease = null; }
       const capabilities = new Set(worker.capabilities);
-      const task = Object.values(store.tasks).filter(item => item.status === "QUEUED" && projectIds.has(item.projectId) && (item.mode === "READ_ONLY" || capabilities.has("codex.exec.governed-write"))).sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+      const task = Object.values(store.tasks).filter(item => item.status === "QUEUED" && projectIds.has(item.projectId) && (item.kind === "MEDIA" ? item.requiredWorkerId === id && capabilities.has("media.execute.v1") : !capabilities.has("media.execute.v1") && (item.mode === "READ_ONLY" || capabilities.has("codex.exec.governed-write")))).sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
       worker.lastHeartbeatAt = now.toISOString();
       if (!task) { await this.save(store); return null; }
       const leaseToken = randomBytes(32).toString("base64url"), fencingToken = ++store.fencing;
@@ -92,7 +94,8 @@ export class ResidentWorkerBroker {
   async renew(workerId, taskId, input) {
     return this.locked(async () => {
       const store = await this.load(), task = store.tasks[cleanId(taskId)], lease = task?.lease;
-      if (!task || task.status !== "LEASED" || lease.workerId !== cleanId(workerId) || lease.fencingToken !== Number(input.fencingToken) || !tokenMatches(input.leaseToken, lease.token)) throw Object.assign(new Error("LEASE_LOST"), { code: "LEASE_LOST" });
+      if (!task || task.status !== "LEASED" || lease.workerId !== cleanId(workerId) || new Date(lease.expiresAt) <= this.clock() || lease.fencingToken !== Number(input.fencingToken) || !tokenMatches(input.leaseToken, lease.token)) throw Object.assign(new Error("LEASE_LOST"), { code: "LEASE_LOST" });
+      if (task.kind === "MEDIA" && ["等待共享生成资源","模型正在生成","校验并回传产物"].includes(input.stage)) task.progressStage = input.stage;
       lease.expiresAt = new Date(this.clock().getTime() + this.leaseMs).toISOString();
       store.workers[lease.workerId].lastHeartbeatAt = nowIso(this.clock); await this.save(store);
       return { taskId: task.taskId, fencingToken: lease.fencingToken, expiresAt: lease.expiresAt };
@@ -101,7 +104,7 @@ export class ResidentWorkerBroker {
   async complete(workerId, taskId, input) {
     return this.locked(async () => {
       const store = await this.load(), task = store.tasks[cleanId(taskId)], lease = task?.lease;
-      if (!task || task.status !== "LEASED" || lease.workerId !== cleanId(workerId) || lease.fencingToken !== Number(input.fencingToken) || !tokenMatches(input.leaseToken, lease.token)) throw Object.assign(new Error("LEASE_LOST"), { code: "LEASE_LOST" });
+      if (!task || task.status !== "LEASED" || lease.workerId !== cleanId(workerId) || new Date(lease.expiresAt) <= this.clock() || lease.fencingToken !== Number(input.fencingToken) || !tokenMatches(input.leaseToken, lease.token)) throw Object.assign(new Error("LEASE_LOST"), { code: "LEASE_LOST" });
       task.status = input.status === "SUCCEEDED" ? "SUCCEEDED" : "FAILED";
       task.result = { status: task.status, summary: String(input.summary ?? "").slice(0, 100_000), evidence: input.evidence ?? {}, completedAt: nowIso(this.clock), workerId: lease.workerId, fencingToken: lease.fencingToken };
       task.lease = { workerId: lease.workerId, fencingToken: lease.fencingToken, claimedAt: lease.claimedAt, expiresAt: lease.expiresAt };

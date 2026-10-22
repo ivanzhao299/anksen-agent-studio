@@ -1,3 +1,4 @@
+import { renderMediaWorkbench } from "./media-workbench.mjs";
 import { consoleWebRoutes } from "./routes.mjs";
 import { buildConsoleDashboardModel, loadConsoleLocalData } from "./data.mjs";
 import { getConsoleMessages } from "./i18n/index.mjs";
@@ -3923,7 +3924,7 @@ export async function renderConsolePage(pathname = "/", auth = null, options = {
     growthSales: () => pageBusinessApplication(getEnterpriseApplication("ai-growth-sales-platform"),data),
     manufacturing: () => pageBusinessApplication(getEnterpriseApplication("intelligent-manufacturing-erp"),data),
     smartPark: () => pageBusinessApplication(getEnterpriseApplication("smart-park-platform"),data),
-    video: () => pageBusinessApplication(getEnterpriseApplication("video-factory"),data),
+    video: () => options.mediaWorkbench ? renderMediaWorkbench(options.mediaProjectIds ?? []) : `${process.env.STUDIO_MEDIA_WORKBENCH_ENABLED === "true" ? '<p><a class="primary-link" href="/video/workbench">打开影音工作台 →</a></p>' : ""}${pageBusinessApplication(getEnterpriseApplication("video-factory"),data)}`,
     capabilityApps: () => pageCapabilityApps(data),
     graphicDesign: () => pageGraphicDesign(data),
     cad: () => pageCadCenter(),

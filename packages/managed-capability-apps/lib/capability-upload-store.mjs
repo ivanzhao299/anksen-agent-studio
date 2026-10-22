@@ -6,9 +6,11 @@ import { basename, resolve, sep } from "node:path";
 const MAX_SIZE = 250 * 1024 * 1024;
 const CHUNK_SIZE = 512 * 1024;
 
-function safeName(value) {
+const DEFAULT_EXTENSIONS = ["mp4","mov","webm","mp3","wav","jpg","jpeg","png","webp"];
+
+function safeName(value, allowedExtensions = DEFAULT_EXTENSIONS) {
   const name = basename(String(value ?? ""));
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) || !/\.(mp4|mov|webm|mp3|wav|jpg|jpeg|png|webp)$/i.test(name)) throw Object.assign(new Error("Unsupported asset name or type"), { code: "CAPABILITY_UPLOAD_NAME_INVALID" });
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) || !allowedExtensions.includes(name.split(".").at(-1).toLowerCase())) throw Object.assign(new Error("Unsupported asset name or type"), { code: "CAPABILITY_UPLOAD_NAME_INVALID" });
   return name;
 }
 
@@ -18,7 +20,7 @@ function safeUploadId(value) {
   return id;
 }
 
-export function createCapabilityUploadStore({ repoRoot, center }) {
+export function createCapabilityUploadStore({ repoRoot, center, allowedExtensions = DEFAULT_EXTENSIONS }) {
   const root = resolve(repoRoot, "runtime/workspaces/capability-app-uploads");
   const uploadDir = (id) => { const dir = resolve(root, safeUploadId(id)); if (!dir.startsWith(`${root}${sep}`)) throw new Error("Upload escapes root"); return dir; };
   return {
@@ -27,7 +29,7 @@ export function createCapabilityUploadStore({ repoRoot, center }) {
       if (!Number.isSafeInteger(size) || size < 1 || size > MAX_SIZE) throw Object.assign(new Error("Asset size must be between 1 byte and 250 MiB"), { code: "CAPABILITY_UPLOAD_SIZE_INVALID" });
       const sha256 = String(input.sha256 ?? "").toLowerCase();
       if (!/^[a-f0-9]{64}$/.test(sha256)) throw Object.assign(new Error("A SHA-256 digest is required"), { code: "CAPABILITY_UPLOAD_DIGEST_INVALID" });
-      const record = { version: "1.0", upload_id: `upload-${randomUUID()}`, app_id: String(input.appId), project_id: String(input.projectId), name: safeName(input.name), size, sha256, chunk_size: CHUNK_SIZE, chunk_count: Math.ceil(size / CHUNK_SIZE), created_at: new Date().toISOString(), actor_user_id: actor.userId ?? null, status: "UPLOADING" };
+      const record = { version: "1.0", upload_id: `upload-${randomUUID()}`, app_id: String(input.appId), project_id: String(input.projectId), name: safeName(input.name, allowedExtensions), size, sha256, chunk_size: CHUNK_SIZE, chunk_count: Math.ceil(size / CHUNK_SIZE), created_at: new Date().toISOString(), actor_user_id: actor.userId ?? null, status: "UPLOADING" };
       const dir = uploadDir(record.upload_id); await mkdir(resolve(dir, "chunks"), { recursive: true }); await writeFile(resolve(dir, "upload.json"), `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
       return record;
     },
