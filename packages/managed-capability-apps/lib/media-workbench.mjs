@@ -51,7 +51,7 @@ export class MediaWorkbench {
   }
   async dashboard(actor) {
     const s=await this.load(),d=await this.broker.dashboard(),runs=Object.values(s.runs).filter(x=>x.owner===this.key(actor));
-    const items=runs.map(row=>{const task=d.tasks.find(t=>t.taskId===row.taskId);return {...row,status:task?.status??'QUEUED',stage:task?.status==='LEASED'?task.progressStage:null,result:task?.result?.evidence?.media??null,error:task?.status==='FAILED'?task.result?.summary:null};});
+    const items=runs.map(row=>{const task=d.tasks.find(t=>t.taskId===row.taskId),rawResult=task?.result?.evidence?.media??null,result=rawResult?.variants?{...rawResult,variants:rawResult.variants.filter(v=>v.status!=='FAILED'),failedVariants:rawResult.variants.filter(v=>v.status==='FAILED')}:rawResult;return {...row,status:task?.status??'QUEUED',stage:task?.status==='LEASED'?task.progressStage:null,result,error:task?.status==='FAILED'?task.result?.summary:null};});
     return {device:await this.device(),catalog:s.catalog,items,preference:s.preferences[this.key(actor)]??null};
   }
   async submit(actor,input) {
@@ -89,7 +89,7 @@ export class MediaWorkbench {
     });
   }
   async selected(actor,taskId,variant) {
-    return this.mutate(async s=>{const row=this.own(s.runs[id(taskId)],actor),d=await this.broker.dashboard(),t=d.tasks.find(x=>x.taskId===taskId);if(row.operation!=='voice'||t?.status!=='SUCCEEDED')fail('MEDIA_SELECTION_NOT_READY',409);const result=t.result.evidence.media,choice=result.variants?.find(x=>x.variant===variant);if(!choice?.blobId||!choice.parameters)fail('MEDIA_VARIANT_INVALID');this.own(s.blobs[choice.blobId],actor);const saved={taskId,variant,profileId:result.profileId,style:result.style,parameters:choice.parameters,selectedAt:this.clock().toISOString()};s.preferences[this.key(actor)]=saved;return clone(saved);});
+    return this.mutate(async s=>{const row=this.own(s.runs[id(taskId)],actor),d=await this.broker.dashboard(),t=d.tasks.find(x=>x.taskId===taskId);if(row.operation!=='voice'||t?.status!=='SUCCEEDED')fail('MEDIA_SELECTION_NOT_READY',409);const result=t.result.evidence.media,choice=result.variants?.find(x=>x.variant===variant);if(choice?.status==='FAILED'||!choice?.blobId||!choice.parameters)fail('MEDIA_VARIANT_INVALID');this.own(s.blobs[choice.blobId],actor);const saved={taskId,variant,profileId:result.profileId,style:result.style,parameters:choice.parameters,selectedAt:this.clock().toISOString()};s.preferences[this.key(actor)]=saved;return clone(saved);});
   }
   async validateResult(workerId,taskId,input) {
     const t=await this.workerTask(workerId,taskId,input);if(input.status!=="SUCCEEDED")return;
@@ -98,7 +98,7 @@ export class MediaWorkbench {
     if(t.media.operation==='profile'){artifact(r.previewBlobId);if(r.referenceSeconds!==t.media.end-t.media.start)fail('MEDIA_REFERENCE_RESULT_INVALID');}
     else if(t.media.operation==='voice'){
       if(r.profileId!==t.media.profileTaskId||r.style!==t.media.style||!Array.isArray(r.variants)||r.variants.length!==(t.media.pair?2:1))fail('MEDIA_VARIANTS_INVALID');
-      for(const [i,v]of r.variants.entries()){if(v.variant!==(i?'B':'A')||!Number.isInteger(v.parameters?.seed)||!Number.isFinite(v.duration)||v.duration<=0)fail('MEDIA_VARIANT_INVALID');artifact(v.blobId);}
+      let success=0;for(const [i,v]of r.variants.entries()){if(v.variant!==(i?'B':'A'))fail('MEDIA_VARIANT_INVALID');if(v.status==='FAILED'){if(typeof v.error!=='string'||v.blobId)fail('MEDIA_VARIANT_INVALID');continue;}if(v.status&&v.status!=='SUCCEEDED'||!Number.isInteger(v.parameters?.seed)||!Number.isFinite(v.duration)||v.duration<=0)fail('MEDIA_VARIANT_INVALID');artifact(v.blobId);success++;}if(!success||Boolean(r.partial)!==r.variants.some(v=>v.status==='FAILED'))fail('MEDIA_VARIANTS_INVALID');
     }else{artifact(r.blobId);if(!Number.isFinite(r.duration)||r.duration<=0)fail('MEDIA_DURATION_INVALID');if(t.media.operation==='video'&&(!r.hasAudio||`${r.width}x${r.height}`!==t.media.size||!Number.isFinite(r.fps)||Math.abs(r.fps-24)>.01))fail('MEDIA_VIDEO_RESULT_INVALID');}
   }
   async workerTask(workerId,taskId,input) {
