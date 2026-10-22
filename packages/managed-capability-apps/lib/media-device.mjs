@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -18,7 +18,15 @@ export class MediaDevice {
   async state(){try{return JSON.parse(await readFile(resolve(this.root,'journal.json'),'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;return {tasks:{}};}}
   async save(s){await mkdir(this.root,{recursive:true,mode:0o700});const p=resolve(this.root,'journal.tmp');await writeFile(p,JSON.stringify(s),{mode:0o600});await rename(p,resolve(this.root,'journal.json'));}
   prefix(taskId){return `/api/resident-workers/${this.workerId}/media/tasks/${taskId}`;}
-  async input(t,assetId){const a=t.media.assets.find(x=>x.id===assetId);if(!a)throw new Error('MEDIA_INPUT_MISSING');const raw=await this.api(this.prefix(t.taskId)+'/assets/'+assetId,undefined,{binary:true});if(raw.length!==a.size||sha(raw)!==a.sha256)throw new Error('MEDIA_INPUT_HASH_MISMATCH');return raw;}
+  async input(t,assetId){const a=t.media.assets.find(x=>x.id===assetId);if(!a)throw new Error('MEDIA_INPUT_MISSING');const raw=await this.api(this.prefix(t.taskId)+'/assets/'+assetId,undefined,{binary:true});if(raw.length!==a.size||sha(raw)!==a.sha256)throw new Error('MEDIA_INPUT_HASH_MISMATCH');await this.validateInput(raw,a.extension);return raw;}
+  async validateInput(raw,extension) {
+    const imageSignatures={'.png':b=>b.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),'.jpg':b=>b[0]===255&&b[1]===216&&b[2]===255,'.jpeg':b=>b[0]===255&&b[1]===216&&b[2]===255,'.webp':b=>b.toString('ascii',0,4)==='RIFF'&&b.toString('ascii',8,12)==='WEBP'};
+    if(imageSignatures[extension]){if(!imageSignatures[extension](raw))throw new Error('MEDIA_IMAGE_SIGNATURE_INVALID');return;}
+    const formats={'.wav':'wav','.mp3':'mp3','.m4a':'mov','.mp4':'mov','.mov':'mov','.m4v':'mov','.mkv':'matroska','.webm':'matroska','.flac':'flac','.ogg':'ogg','.aac':'aac','.aiff':'aiff','.aif':'aiff'},format=formats[extension];if(!format)throw new Error('MEDIA_INPUT_FORMAT_UNSUPPORTED');
+    await mkdir(this.root,{recursive:true,mode:0o700});const path=resolve(this.root,'input-'+sha(raw).slice(0,24)+extension);await writeFile(path,raw,{mode:0o600});
+    try{const {stdout}=await exec(this.ffprobe,['-v','error','-protocol_whitelist','file,pipe','-f',format,...(format==='mov'?['-enable_drefs','0','-use_absolute_path','0']:[]),'-show_entries','stream=codec_type','-of','json',path],{timeout:20000,maxBuffer:256000});const d=JSON.parse(stdout);if(!d.streams?.some(s=>['audio','video'].includes(s.codec_type)))throw new Error('INVALID');}
+    catch{throw new Error('请上传原始音视频文件，不支持播放列表或无效媒体。');}finally{await unlink(path).catch(()=>{});}
+  }
   async output(t,raw,name){this.checkLease();const u=await this.api(this.prefix(t.taskId)+'/outputs',{name,size:raw.length,sha256:sha(raw)});for(let i=0;i<u.chunk_count;i++){this.checkLease();await this.api(this.prefix(t.taskId)+`/outputs/${u.upload_id}/chunks/${i}`,raw.subarray(i*u.chunk_size,(i+1)*u.chunk_size),{method:'PUT'});}return this.api(this.prefix(t.taskId)+`/outputs/${u.upload_id}/complete`,{});}
   checkLease(){if(this.lost)throw new Error('MEDIA_LEASE_LOST');}
   async wait(get){const deadline=Date.now()+6*3600000;while(Date.now()<deadline){this.checkLease();const result=await get();const stage=result.status==='queued'?'等待共享生成资源':'模型正在生成';if(this.active&&stage!==this.lastStage){await this.api(`/api/resident-workers/${this.workerId}/tasks/${this.active.taskId}/lease`,{leaseToken:this.active.lease.token,fencingToken:this.active.lease.fencingToken,stage});this.lastStage=stage;}if(result.status==='success')return result;if(['failed','unknown'].includes(result.status))throw new Error(result.error??'MEDIA_GENERATION_FAILED');await sleep(3000);}throw new Error('MEDIA_EXECUTION_TIMEOUT');}

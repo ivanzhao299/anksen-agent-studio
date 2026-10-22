@@ -1,3 +1,5 @@
+import {existsSync} from "node:fs";
+import {spawnSync} from "node:child_process";
 import { execFile as childExec } from "node:child_process";
 import {promisify} from "node:util";
 import {readFile} from "node:fs/promises";
@@ -10,8 +12,11 @@ import { createHash } from 'node:crypto';
 import { MediaWorkbench } from '../lib/media-workbench.mjs';
 import { MediaDevice } from '../lib/media-device.mjs';
 import { ResidentWorkerBroker } from '../../orchestrator-core/lib/resident-worker-broker.mjs';
+const TEST_FFPROBE=existsSync('/opt/homebrew/opt/ffmpeg-full/bin/ffprobe')?'/opt/homebrew/opt/ffmpeg-full/bin/ffprobe':'ffprobe';
+const TEST_FFMPEG=existsSync('/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg')?'/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg':'ffmpeg';
+const HAS_NATIVE_TOOLS=spawnSync(TEST_FFPROBE,['-version']).status===0&&spawnSync(TEST_FFMPEG,['-version']).status===0;
 function wav(){const n=48000,raw=Buffer.alloc(44+n*2);raw.write('RIFF');raw.writeUInt32LE(raw.length-8,4);raw.write('WAVEfmt ',8);raw.writeUInt32LE(16,16);raw.writeUInt16LE(1,20);raw.writeUInt16LE(1,22);raw.writeUInt32LE(48000,24);raw.writeUInt32LE(96000,28);raw.writeUInt16LE(2,32);raw.writeUInt16LE(16,34);raw.write('data',36);raw.writeUInt32LE(n*2,40);for(let i=0;i<n;i++)raw.writeInt16LE(Math.round(Math.sin(i*440*Math.PI/24000)*1000),44+i*2);return raw;}
-test('outbound adapter executes separated reference and A/B through broker, verifies audio and survives replay without regenerating',async t=>{
+test('outbound adapter executes separated reference and A/B through broker, verifies audio and survives replay without regenerating', {skip: !HAS_NATIVE_TOOLS},async t=>{
  const root=await mkdtemp(join(tmpdir(),'media-device-'));t.after(()=>rm(root,{recursive:true,force:true}));const broker=new ResidentWorkerBroker({storePath:join(root,'broker.json')}),m=new MediaWorkbench({repoRoot:root,broker,enabled:true,projectIds:['studio']}),actor=m.actor({authenticated:true,user:{user_id:'alice'},project_allowlist:['studio']},'studio'),audio=wav(),calls={},jobs={};let localProfile=null;
  const response=data=>new Response(Buffer.isBuffer(data)?data:JSON.stringify(data),{headers:{'content-type':Buffer.isBuffer(data)?'audio/wav':'application/json'}});
  const fake=async(url,options={})=>{
@@ -41,7 +46,7 @@ test('outbound adapter executes separated reference and A/B through broker, veri
   if((x=tail.match(/^media\/tasks\/([^/]+)\/outputs\/([^/]+)\/complete$/)))return response(await m.workerCompleteUpload(worker,x[1],li,x[2]));
   throw new Error('Unexpected remote path '+path);
  };
- const device=new MediaDevice({baseUrl:'http://127.0.0.1:9999',token:'fixture',projectIds:['studio'],root:join(root,'device'),fetchImpl:fake});await device.cycle();
+ const device=new MediaDevice({baseUrl:'http://127.0.0.1:9999',token:'fixture',projectIds:['studio'],root:join(root,'device'),fetchImpl:fake,ffprobe:TEST_FFPROBE});await device.cycle();
  const upload=await m.initialize(actor,{name:'测试.wav',size:audio.length,sha256:createHash('sha256').update(audio).digest('hex')});await m.chunk(actor,upload.upload_id,0,audio);const blob=await m.complete(actor,upload.upload_id);
  const sep=await m.submit(actor,{operation:'separate',requestId:'sep',blobId:blob.id});await device.cycle();let state=await m.dashboard(actor);assert.equal(state.items[0].status,'SUCCEEDED');const separated=state.items[0].result.blobId;
  const profile=await m.submit(actor,{operation:'profile',requestId:'profile',blobId:separated,name:'验证音色',start:0,end:3});await device.cycle();
@@ -49,11 +54,13 @@ test('outbound adapter executes separated reference and A/B through broker, veri
  assert.equal(calls['/api/v1/voice/pairs'],1);await m.submit(actor,{operation:'voice',requestId:'pair',profileId:profile.taskId,text:'验证文字',pair:true,parameters:{seed:3}});await device.cycle();assert.equal(calls['/api/v1/voice/pairs'],1);assert.equal((await m.dashboard(actor)).items.find(x=>x.taskId===sep.taskId).status,'SUCCEEDED');
 });
 
-test('video adapter checks real dimensions, 24fps and sound without generating new AI content',async t=>{
+test('video adapter checks real dimensions, 24fps and sound without generating new AI content', {skip: !HAS_NATIVE_TOOLS},async t=>{
  const root=await mkdtemp(join(tmpdir(),'media-video-format-'));t.after(()=>rm(root,{recursive:true,force:true}));const file=join(root,'fixture.mp4');
- await promisify(childExec)('/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg',['-v','error','-f','lavfi','-i','color=c=navy:s=1024x576:r=24','-f','lavfi','-i','sine=frequency=220:sample_rate=48000','-t','0.5','-c:v','mpeg4','-c:a','aac',file],{timeout:20000});const video=await readFile(file);let calls=0;
- const device=new MediaDevice({baseUrl:'http://127.0.0.1:9999',token:'fixture',projectIds:['studio'],root:join(root,'device')});
+ await promisify(childExec)(TEST_FFMPEG,['-v','error','-f','lavfi','-i','color=c=navy:s=1024x576:r=24','-f','lavfi','-i','sine=frequency=220:sample_rate=48000','-t','0.5','-c:v','mpeg4','-c:a','aac',file],{timeout:20000});const video=await readFile(file);let calls=0;
+ const device=new MediaDevice({baseUrl:'http://127.0.0.1:9999',token:'fixture',projectIds:['studio'],root:join(root,'device'),ffprobe:TEST_FFPROBE});
  device.local=async(path,body)=>{if(path==='/api/generate'){calls++;return {id:'video-1'};}if(path==='/api/status')return {jobs:[{id:'video-1',status:'success',videos:['/media/video.mp4'],elapsed:.3,seed:7}]};if(path==='/media/video.mp4')return video;throw new Error('Unexpected fixture path');};device.api=async()=>({});device.output=async(_task,raw)=>{assert.equal(raw.length,video.length);return {id:'blob-fixture'};};
  const task={taskId:'media-format-fixture',lease:{token:'fixture',fencingToken:1},media:{operation:'video',mode:'text',size:'1024x576',frames:56,seed:7,prompt:'format fixture',assets:[]}};
  const result=await device.execute(task);assert.equal(result.width,1024);assert.equal(result.height,576);assert.equal(result.fps,24);assert.equal(result.hasAudio,true);assert.equal(calls,1);await device.execute(task);assert.equal(calls,1);
 });
+
+test('device rejects playlist payloads before passing untrusted uploads to the local managed app', {skip: !HAS_NATIVE_TOOLS},async t=>{const root=await mkdtemp(join(tmpdir(),'media-input-'));t.after(()=>rm(root,{recursive:true,force:true}));const d=new MediaDevice({baseUrl:'http://127.0.0.1:9999',token:'fixture',projectIds:['studio'],root,ffprobe:TEST_FFPROBE});await assert.rejects(d.validateInput(Buffer.from('#EXTM3U\nfile:///private/reference.wav\n'),'.mp4'),/不支持播放列表/);await assert.rejects(d.validateInput(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'),'.png'),/SIGNATURE_INVALID/);await d.validateInput(wav(),'.wav');});
