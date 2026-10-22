@@ -36,3 +36,6 @@ export async function handleMediaWorkbenchWorker({request,response,pathname,medi
           sendJson(response,404,{status:"MEDIA_WORKER_ROUTE_NOT_FOUND"});return;
         }
 }
+
+// The legacy Codex control surface must never become an alternate reader for private media inputs/results.
+export function projectResidentControlWithoutMedia(dashboard) { return { ...dashboard, tasks: dashboard.tasks.filter(task => task.kind !== "MEDIA") }; }

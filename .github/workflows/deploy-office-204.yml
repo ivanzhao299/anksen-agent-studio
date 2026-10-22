@@ -43,7 +43,7 @@ jobs:
         run: pnpm lint:check
 
       - name: Media isolation and existing Console regression
-        run: node --test packages/managed-capability-apps/test/media-workbench.test.mjs packages/managed-capability-apps/test/capability-upload-store.test.mjs packages/orchestrator-core/test/resident-worker-broker.test.mjs apps/console/web/business-application-surfaces.test.mjs apps/console/web/account-security.test.mjs
+        run: node --test packages/managed-capability-apps/test/media-workbench.test.mjs packages/managed-capability-apps/test/capability-upload-store.test.mjs packages/orchestrator-core/test/resident-worker-broker.test.mjs apps/console/web/business-application-surfaces.test.mjs apps/console/web/account-security.test.mjs apps/console/web/media-workbench.test.mjs apps/console/web/media-workbench-http.test.mjs packages/managed-capability-apps/test/media-device.test.mjs packages/domain-center/test/business-database-config.test.mjs
 
       - name: Console smoke
         run: node packages/orchestrator-core/bin/studio.mjs console smoke --dry-run

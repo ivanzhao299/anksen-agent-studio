@@ -70,7 +70,7 @@ export class ResidentWorkerBroker {
       const mode = input.mode === "GOVERNED_WRITE" ? "GOVERNED_WRITE" : "READ_ONLY";
       if (mode === "GOVERNED_WRITE" && input.approved !== true) throw Object.assign(new Error("WRITE_TASK_APPROVAL_REQUIRED"), { code: "WRITE_TASK_APPROVAL_REQUIRED" });
       const store = await this.load(), taskId = cleanId(input.taskId) || randomUUID(), at = nowIso(this.clock);
-      if (store.tasks[taskId]) return copy(store.tasks[taskId]);
+      if (store.tasks[taskId]) { if ((store.tasks[taskId].kind ?? "CODEX") !== kind) throw Object.assign(new Error("TASK_KIND_COLLISION"), { code: "TASK_KIND_COLLISION" }); return copy(store.tasks[taskId]); }
       store.tasks[taskId] = { taskId, projectId, goal, ...(kind === "MEDIA" ? { kind, media: copy(input.media), requiredWorkerId: cleanId(input.requiredWorkerId) } : {}), instruction: String(input.instruction ?? goal), mode, status: "QUEUED", allowedPaths: Array.isArray(input.allowedPaths) ? input.allowedPaths.map(String) : [], acceptanceCommands: Array.isArray(input.acceptanceCommands) ? input.acceptanceCommands.map(String) : [], createdAt: at, createdBy: actor.userId ?? "studio", approvedAt: mode === "GOVERNED_WRITE" ? at : null, lease: null, result: null };
       await this.save(store); return copy(store.tasks[taskId]);
     });

@@ -5,7 +5,7 @@ import {mkdtemp,rm,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
-import {handleMediaWorkbenchPublic,handleMediaWorkbenchWorker} from './media-workbench-http.mjs';
+import {handleMediaWorkbenchPublic,handleMediaWorkbenchWorker,projectResidentControlWithoutMedia} from './media-workbench-http.mjs';
 import {MediaWorkbench} from '../../../packages/managed-capability-apps/lib/media-workbench.mjs';
 import {ResidentWorkerBroker} from '../../../packages/orchestrator-core/lib/resident-worker-broker.mjs';
 import {evaluateConsoleRouteAccess} from '../../../packages/access-center/lib/access-center-utils.mjs';
@@ -18,3 +18,5 @@ test('actual HTTP handlers enforce route permissions, same origin, project and b
  const raw=Buffer.from('media-http-fixture'),sha256=createHash('sha256').update(raw).digest('hex'),u=await(await call(prefix+'/uploads',{name:'中文.wav',size:raw.length,sha256})).json();assert.equal((await call(prefix+`/uploads/${u.upload_id}/chunks/0`,raw,{'x-fixture-user':'bob'},'PUT')).status,404);assert.equal((await call(prefix+`/uploads/${u.upload_id}/chunks/0`,raw,{},'PUT')).status,200);const blob=await(await call(prefix+`/uploads/${u.upload_id}/complete`,{})).json();assert.equal((await call(prefix+'/artifacts/'+blob.id,undefined,{'x-fixture-user':'bob'})).status,404);assert.equal(await(await call(prefix+'/artifacts/'+blob.id)).text(),raw.toString());
  const row=await(await call(prefix+'/runs',{operation:'separate',requestId:'http-task',blobId:blob.id})).json(),task=await broker.claim('mac-media-1'),workerPrefix=`/api/resident-workers/mac-media-1/media/tasks/${row.taskId}`;assert.equal((await call(workerPrefix+'/assets/'+blob.id)).status,400);const headers={'x-media-lease':task.lease.token,'x-media-fencing':String(task.lease.fencingToken)};assert.equal(await(await call(workerPrefix+'/assets/'+blob.id,undefined,headers)).text(),raw.toString());assert.equal((await call('/api/resident-workers/other/media/catalog',{fields:[]})).status,403);
 });
+
+test('legacy resident control projection excludes private media task text and parameters',()=>{const view=projectResidentControlWithoutMedia({workers:[{workerId:'mac-media-1'}],tasks:[{taskId:'old-task',goal:'old Codex task'},{taskId:'media-private',kind:'MEDIA',media:{text:'private voice text'},result:{evidence:{media:{parameters:{prompt_text:'private prompt'}}}}}]});assert.equal(view.tasks.length,1);assert.equal(view.tasks[0].taskId,'old-task');assert.doesNotMatch(JSON.stringify(view),/private voice|private prompt/);});

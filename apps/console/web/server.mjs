@@ -1,4 +1,4 @@
-import { handleMediaWorkbenchPublic, handleMediaWorkbenchWorker } from "./media-workbench-http.mjs";
+import { handleMediaWorkbenchPublic, handleMediaWorkbenchWorker, projectResidentControlWithoutMedia } from "./media-workbench-http.mjs";
 import { execFileSync } from "node:child_process";
 import { MediaWorkbench } from "../../../packages/managed-capability-apps/lib/media-workbench.mjs";
 import { createServer } from "node:http";
@@ -810,7 +810,7 @@ const server = createServer(async (request, response) => {
     if (request.method === "GET" && pathname === "/api/resident-worker-control") {
       const access = await evaluateConsoleActionAccess(accessBundle, { action_id: "agent-real-plan", project_id: "anksen-agent-studio", risk: "LOW" }, { user_context: accessContext });
       if (access.status !== "ALLOW") { sendJson(response, 403, access); return; }
-      sendJson(response, 200, await residentWorkerBroker.dashboard()); return;
+      sendJson(response, 200, projectResidentControlWithoutMedia(await residentWorkerBroker.dashboard())); return;
     }
     if (request.method === "POST" && pathname === "/api/resident-worker-control/tasks") {
       const body = await readJsonBody(request);
