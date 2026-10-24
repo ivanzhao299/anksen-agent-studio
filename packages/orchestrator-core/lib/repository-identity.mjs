@@ -10,11 +10,16 @@ const git = (repoRoot, args) => execFileSync("git", args, {
 
 const canonicalRemote = value => String(value ?? "")
   .trim()
-  .replace(/^git@github\.com:/, "https://github.com/")
-  .replace(/^ssh:\/\/git@github\.com\//, "https://github.com/")
+  .replace(/^git@([^:]+):/, "https://$1/")
+  .replace(/^ssh:\/\/git@([^/]+)\//, "https://$1/")
   .replace(/\/$/, "")
   .replace(/\.git$/, "")
   .toLowerCase();
+
+const trustedRemotes = manifest => [
+  manifest.canonical_remote,
+  ...(Array.isArray(manifest.trusted_remotes) ? manifest.trusted_remotes : [])
+].filter(value => typeof value === "string" && value.trim().length > 0);
 
 export function inspectRepositoryIdentity(repoRoot) {
   const expectedRoot = realpathSync(resolve(repoRoot));
@@ -22,9 +27,10 @@ export function inspectRepositoryIdentity(repoRoot) {
   const packageManifest = JSON.parse(readFileSync(resolve(expectedRoot, "package.json"), "utf8"));
   const gitRoot = realpathSync(git(expectedRoot, ["rev-parse", "--show-toplevel"]));
   const origin = git(expectedRoot, ["remote", "get-url", "origin"]);
+  const allowedRemotes = trustedRemotes(manifest);
   const checks = {
     git_root: gitRoot === expectedRoot,
-    remote: canonicalRemote(origin) === canonicalRemote(manifest.canonical_remote),
+    remote: allowedRemotes.some(remote => canonicalRemote(origin) === canonicalRemote(remote)),
     project_id: manifest.project_id === "anksen-agent-studio"
       && packageManifest.name === manifest.package_name
       && manifest.package_name === manifest.project_id
@@ -37,7 +43,8 @@ export function inspectRepositoryIdentity(repoRoot) {
     origin,
     project_id: manifest.project_id,
     package_name: packageManifest.name,
-    canonical_remote: manifest.canonical_remote
+    canonical_remote: manifest.canonical_remote,
+    trusted_remotes: allowedRemotes
   };
 }
 
