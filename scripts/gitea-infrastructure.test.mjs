@@ -5,6 +5,8 @@ import { test } from "node:test";
 const composePath = new URL("../infrastructure/gitea/docker-compose.yml", import.meta.url);
 const runnerPath = new URL("../infrastructure/gitea/runner-config.yaml", import.meta.url);
 const deployPath = new URL("./deploy-gitea.sh", import.meta.url);
+const backupPath = new URL("./backup-gitea.sh", import.meta.url);
+const apparmorPath = new URL("../infrastructure/gitea/rootlesskit.apparmor", import.meta.url);
 const jumpPath = new URL("../infrastructure/deployment/aliyun-studio-jump-deploy.sh", import.meta.url);
 
 test("Gitea production images are explicit and digest pinned", async () => {
@@ -49,6 +51,24 @@ test("Deployment is exact-SHA, immutable-release and fail-closed", async () => {
     "flock -n"
   ]) assert.ok(source.includes(expected), `missing deployment gate: ${expected}`);
   assert.doesNotMatch(source, /reset\s+--hard|clean\s+-[a-z]*f/i);
+});
+
+test("Rootless runner restart remains scoped under Ubuntu AppArmor", async () => {
+  const [deploy, profile] = await Promise.all([
+    readFile(deployPath, "utf8"),
+    readFile(apparmorPath, "utf8")
+  ]);
+  assert.match(profile, /\/usr\/\{,local\/\}bin\/rootlesskit/);
+  assert.match(profile, /^\s*userns,/m);
+  assert.match(deploy, /apparmor_parser -r \/etc\/apparmor\.d\/rootlesskit/);
+  assert.doesNotMatch(deploy, /restrict_unprivileged_userns/);
+});
+
+test("Backup archives are created by the deployment user", async () => {
+  const source = await readFile(backupPath, "utf8");
+  assert.match(source, /> "\$target\/gitea-data\.tar\.gz"/);
+  assert.match(source, /> "\$target\/gitea-config\.tar\.gz"/);
+  assert.doesNotMatch(source, /\/backup\/gitea-(?:data|config)\.tar\.gz/);
 });
 
 test("Jump boundary exposes only bounded Gitea operations", async () => {

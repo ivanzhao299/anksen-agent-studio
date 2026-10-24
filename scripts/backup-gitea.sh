@@ -33,12 +33,12 @@ docker compose --env-file "$env_file" -f "$compose_file" exec -T database \
   pg_dump --format=custom --username=gitea --dbname=gitea > "$target/database.dump"
 docker run --rm \
   -v anksen-gitea_gitea-data:/source:ro \
-  -v "$target:/backup" \
-  alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f tar -C /source -czf /backup/gitea-data.tar.gz .
+  alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f tar -C /source -czf - . \
+  > "$target/gitea-data.tar.gz"
 docker run --rm \
   -v anksen-gitea_gitea-config:/source:ro \
-  -v "$target:/backup" \
-  alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f tar -C /source -czf /backup/gitea-config.tar.gz .
+  alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f tar -C /source -czf - . \
+  > "$target/gitea-config.tar.gz"
 
 (cd "$target" && sha256sum database.dump gitea-data.tar.gz gitea-config.tar.gz > SHA256SUMS)
 chmod 600 "$target"/*
