@@ -82,6 +82,16 @@ Git checkout is never used as persistent service storage.
 - Outbound access: server and runner may reach GitHub and package registries;
   inbound runner access is not published.
 
+## Session policy
+
+Interactive sessions use the database-backed session provider so controlled
+service restarts do not discard valid sessions. Ordinary sessions default to
+30 days and the explicit "remember this device" flow defaults to 365 days.
+Both limits are bounded configuration (`GITEA_SESSION_LIFE_TIME_SECONDS` and
+`GITEA_LOGIN_REMEMBER_DAYS`), not credentials. Cookies remain HTTPS-only with
+`SameSite=Lax`; logout, password changes, account revocation and administrator
+session invalidation still terminate access before the configured limit.
+
 ## GitHub Actions compatibility
 
 Workflows move to `.gitea/workflows`. Most common syntax is compatible, but

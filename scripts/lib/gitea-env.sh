@@ -10,7 +10,7 @@ load_gitea_env() {
     key="${line%%=*}"
     value="${line#*=}"
     case "$key" in
-      GITEA_DOMAIN|GITEA_HTTP_PORT|GITEA_SSH_DOMAIN|GITEA_SSH_BIND_ADDRESS|GITEA_SSH_PORT|GITEA_RUNNER_NAME|GITEA_RUNNER_LABELS|GITEA_RUNNER_INSTANCE_URL|GITEA_STATE_DIR) ;;
+      GITEA_DOMAIN|GITEA_HTTP_PORT|GITEA_SSH_DOMAIN|GITEA_SSH_BIND_ADDRESS|GITEA_SSH_PORT|GITEA_RUNNER_NAME|GITEA_RUNNER_LABELS|GITEA_RUNNER_INSTANCE_URL|GITEA_STATE_DIR|GITEA_LOGIN_REMEMBER_DAYS|GITEA_SESSION_LIFE_TIME_SECONDS) ;;
       *) printf 'Unsupported Gitea environment key on line %s: %s\n' "$line_number" "$key" >&2; return 1 ;;
     esac
     [[ "$value" =~ ^[A-Za-z0-9_./:,@+-]+$ ]] || {
@@ -22,4 +22,12 @@ load_gitea_env() {
   done < "$env_file"
   [[ "${GITEA_DOMAIN:-}" =~ ^[A-Za-z0-9.-]+$ ]] || { printf 'GITEA_DOMAIN is invalid.\n' >&2; return 1; }
   [[ "${GITEA_STATE_DIR:-}" == /* ]] || { printf 'GITEA_STATE_DIR must be absolute.\n' >&2; return 1; }
+  [[ "${GITEA_LOGIN_REMEMBER_DAYS:-365}" =~ ^[0-9]+$ ]] && (( ${GITEA_LOGIN_REMEMBER_DAYS:-365} >= 1 && ${GITEA_LOGIN_REMEMBER_DAYS:-365} <= 365 )) || {
+    printf 'GITEA_LOGIN_REMEMBER_DAYS must be between 1 and 365.\n' >&2
+    return 1
+  }
+  [[ "${GITEA_SESSION_LIFE_TIME_SECONDS:-2592000}" =~ ^[0-9]+$ ]] && (( ${GITEA_SESSION_LIFE_TIME_SECONDS:-2592000} >= 86400 && ${GITEA_SESSION_LIFE_TIME_SECONDS:-2592000} <= 31536000 )) || {
+    printf 'GITEA_SESSION_LIFE_TIME_SECONDS must be between 86400 and 31536000.\n' >&2
+    return 1
+  }
 }
