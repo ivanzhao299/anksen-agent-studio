@@ -85,3 +85,49 @@ test("releases a clean completed task worktree while preserving its branch", asy
     assert.match(run(repo, ["branch", "--list", workspace.branch]), new RegExp(workspace.branch.replaceAll("/", "\\/")));
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("resume realigns a clean task branch to an advanced remote baseline", async () => {
+  const { root, repo, manager } = await fixture();
+  try {
+    const { workspace } = await manager.createTaskWorkspace({ projectId: "one", taskId: "resume-me", projectRoot: repo });
+    await writeFile(resolve(workspace.worktreePath, "task.txt"), "task\n"); run(workspace.worktreePath, ["add", "."]); run(workspace.worktreePath, ["commit", "-m", "task"]);
+    const peer = resolve(root, "peer"); run(root, ["clone", resolve(root, "remote.git"), peer]); run(peer, ["config", "user.email", "peer@example.test"]); run(peer, ["config", "user.name", "Peer"]);
+    await writeFile(resolve(peer, "remote.txt"), "advance\n"); run(peer, ["add", "."]); run(peer, ["commit", "-m", "advance"]); run(peer, ["push", "origin", "main"]);
+    const result = await manager.resumeTaskWorkspace({ projectId: "one", taskId: "resume-me" });
+    assert.equal(result.status, "REALIGNED");
+    assert.equal(run(workspace.worktreePath, ["merge-base", "--is-ancestor", "origin/main", "HEAD"]), "");
+    assert.equal((await manager.ownership("one")).workspaces["resume-me"].alignmentCount, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("resume refuses to realign a dirty task worktree", async () => {
+  const { root, repo, manager } = await fixture();
+  try {
+    const { workspace } = await manager.createTaskWorkspace({ projectId: "one", taskId: "dirty-resume", projectRoot: repo });
+    await writeFile(resolve(workspace.worktreePath, "dirty.txt"), "dirty\n");
+    await assert.rejects(() => manager.resumeTaskWorkspace({ projectId: "one", taskId: "dirty-resume" }), error => error.code === "TASK_WORKTREE_DIRTY");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("workspace lifecycle reports expiry without deleting work", async () => {
+  const { root, repo } = await fixture();
+  try {
+    const manager = new GitWorkspaceIsolationManager({ stateDir: resolve(root, "state"), worktreeRoot: resolve(root, "worktrees"), workspaceRetentionDays: 1, clock: () => new Date("2026-01-01T00:00:00Z") });
+    await manager.createTaskWorkspace({ projectId: "one", taskId: "expires", projectRoot: repo });
+    manager.clock = () => new Date("2026-01-03T00:00:00Z");
+    const report = await manager.inspectTaskLifecycle({ projectId: "one", taskId: "expires" });
+    assert.equal(report.status, "EXPIRED"); assert.equal(report.action, "REVIEW_RELEASE");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("post-merge finalization verifies ancestry and can atomically remove the remote branch", async () => {
+  const { root, repo, manager } = await fixture();
+  try {
+    const { workspace } = await manager.createTaskWorkspace({ projectId: "one", taskId: "merged-task", projectRoot: repo });
+    await writeFile(resolve(workspace.worktreePath, "task.txt"), "task\n"); run(workspace.worktreePath, ["add", "."]); run(workspace.worktreePath, ["commit", "-m", "task"]); run(workspace.worktreePath, ["push", "-u", "origin", workspace.branch]);
+    run(repo, ["merge", "--ff-only", workspace.branch]); run(repo, ["push", "origin", "main"]);
+    const result = await manager.finalizeMergedTaskWorkspace({ projectId: "one", taskId: "merged-task", deleteRemote: true });
+    assert.equal(result.status, "RELEASED"); assert.equal(result.mergeEvidence.mode, "ANCESTRY"); assert.equal(result.mergeEvidence.remoteDeleted, true);
+    assert.equal(run(repo, ["ls-remote", "--heads", "origin", workspace.branch]), "");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
