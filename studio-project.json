@@ -2,5 +2,8 @@
   "schema_version": "1.0",
   "project_id": "anksen-agent-studio",
   "package_name": "anksen-agent-studio",
-  "canonical_remote": "https://github.com/ivanzhao299/anksen-agent-studio.git"
+  "canonical_remote": "https://github.com/ivanzhao299/anksen-agent-studio.git",
+  "trusted_remotes": [
+    "https://git.cnjinhu.com/owner/anksen-agent-studio.git"
+  ]
 }

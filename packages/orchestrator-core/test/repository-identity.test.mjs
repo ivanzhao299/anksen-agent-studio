@@ -8,7 +8,11 @@ import { assertRepositoryIdentity, inspectRepositoryIdentity } from "../lib/repo
 
 const realRepoRoot = resolve(new URL("../../..", import.meta.url).pathname);
 
-function fixture({ remote = "https://github.com/ivanzhao299/anksen-agent-studio.git", packageName = "anksen-agent-studio" } = {}) {
+function fixture({
+  remote = "https://github.com/ivanzhao299/anksen-agent-studio.git",
+  packageName = "anksen-agent-studio",
+  trustedRemotes = []
+} = {}) {
   const root = mkdtempSync(join(tmpdir(), "studio-identity-"));
   execFileSync("git", ["init", "-q"], { cwd: root });
   execFileSync("git", ["remote", "add", "origin", remote], { cwd: root });
@@ -17,7 +21,8 @@ function fixture({ remote = "https://github.com/ivanzhao299/anksen-agent-studio.
     schema_version: "1.0",
     project_id: "anksen-agent-studio",
     package_name: "anksen-agent-studio",
-    canonical_remote: "https://github.com/ivanzhao299/anksen-agent-studio.git"
+    canonical_remote: "https://github.com/ivanzhao299/anksen-agent-studio.git",
+    trusted_remotes: trustedRemotes
   }));
   return root;
 }
@@ -45,4 +50,23 @@ test("rejects a Studio-shaped directory nested inside another repository", () =>
 test("rejects a remote or project identifier mismatch", () => {
   assert.equal(inspectRepositoryIdentity(fixture({ remote: "https://github.com/ivanzhao299/jinhu-smart-park.git" })).checks.remote, false);
   assert.equal(inspectRepositoryIdentity(fixture({ packageName: "jinhu-smart-park" })).checks.project_id, false);
+});
+
+test("accepts the explicitly trusted Gitea mirror over HTTPS or SSH", () => {
+  const trustedRemotes = ["https://git.cnjinhu.com/owner/anksen-agent-studio.git"];
+  assert.equal(inspectRepositoryIdentity(fixture({
+    remote: "https://git.cnjinhu.com/owner/anksen-agent-studio.git",
+    trustedRemotes
+  })).checks.remote, true);
+  assert.equal(inspectRepositoryIdentity(fixture({
+    remote: "ssh://git@git.cnjinhu.com/owner/anksen-agent-studio.git",
+    trustedRemotes
+  })).checks.remote, true);
+});
+
+test("does not trust a different repository on the same Gitea host", () => {
+  assert.equal(inspectRepositoryIdentity(fixture({
+    remote: "https://git.cnjinhu.com/owner/jinhu-smart-park.git",
+    trustedRemotes: ["https://git.cnjinhu.com/owner/anksen-agent-studio.git"]
+  })).checks.remote, false);
 });
