@@ -33,13 +33,13 @@ elif [[ "$action" == "gitea" && "$argument" == "deploy" && "$commit_sha" =~ ^[0-
     "$commit_sha" "$gitea_bootstrap_script" "$commit_sha"
 elif [[ "$action" == "gitea" && "$argument" == "probe" && -z "${commit_sha:-}" ]]; then
   printf -v remote_command \
-    'release=/opt/anksen/gitea-control/current; test -d "$release" && exec env GITEA_RELEASE_DIR="$release" GITEA_STATE_DIR=/opt/anksen/gitea bash "$release/scripts/gitea-doctor.sh"'
+    'release=$(readlink -f /opt/anksen/gitea-control/current); test -n "$release" && test -d "$release" && exec env GITEA_RELEASE_DIR="$release" GITEA_STATE_DIR=/opt/anksen/gitea bash "$release/scripts/gitea-doctor.sh"'
 elif [[ "$action" == "gitea" && "$argument" == "create-admin" && -z "${commit_sha:-}" ]]; then
   printf -v remote_command \
-    'release=/opt/anksen/gitea-control/current; test -d "$release" && exec env GITEA_RELEASE_DIR="$release" GITEA_STATE_DIR=/opt/anksen/gitea bash "$release/scripts/gitea-create-admin.sh"'
+    'release=$(readlink -f /opt/anksen/gitea-control/current); test -n "$release" && test -d "$release" && exec env GITEA_RELEASE_DIR="$release" GITEA_STATE_DIR=/opt/anksen/gitea bash "$release/scripts/gitea-create-admin.sh"'
 elif [[ "$action" == "gitea" && "$argument" == "backup" && -z "${commit_sha:-}" ]]; then
   printf -v remote_command \
-    'release=/opt/anksen/gitea-control/current; test -d "$release" && exec env GITEA_RELEASE_DIR="$release" GITEA_STATE_DIR=/opt/anksen/gitea bash "$release/scripts/backup-gitea.sh"'
+    'release=$(readlink -f /opt/anksen/gitea-control/current); test -n "$release" && test -d "$release" && exec env GITEA_RELEASE_DIR="$release" GITEA_STATE_DIR=/opt/anksen/gitea bash "$release/scripts/backup-gitea.sh"'
 else
   printf 'Rejected: allowed commands are deploy SHA, phoenix-runner probe/deploy SHA, kingturf-erp deploy SHA, or gitea deploy SHA/probe/create-admin/backup.\n' >&2
   exit 64
