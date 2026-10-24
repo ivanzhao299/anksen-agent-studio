@@ -42,6 +42,7 @@ test("Deployment is exact-SHA, immutable-release and fail-closed", async () => {
   for (const expected of [
     "expected_commit",
     "origin/main",
+    "+refs/heads/main:refs/remotes/origin/main",
     "worktree add --detach",
     "status --porcelain",
     "gitea-doctor.sh",
