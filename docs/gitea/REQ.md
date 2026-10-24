@@ -24,7 +24,7 @@ experience while preserving Studio's existing production gates.
 ## Security requirements
 
 - No workflow receives the Office 204 host Docker socket.
-- CI jobs run in an isolated rootless Docker-in-Docker daemon with capacity 1
+- CI jobs run in an isolated Docker-in-Docker daemon with capacity 1
   initially.
 - Registration, database and application secrets live below
   `/opt/anksen/gitea/secrets`, mode `0600`, outside Git.

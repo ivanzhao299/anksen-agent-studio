@@ -23,7 +23,7 @@ git.cnjinhu.com (nginx TLS on Office 204)
                                   +--> PostgreSQL (internal network only)
                                   +--> named repository/data volumes
 
-Gitea Actions --> rootless DinD Runner (capacity=1)
+Gitea Actions --> isolated DinD Runner (capacity=1)
                          |
                          +--> disposable job containers
                          +--> no host Docker socket
@@ -45,10 +45,12 @@ fresh backup plus rollback record.
 ## Isolation decisions
 
 The Gitea server uses the official rootless image. The Actions runner uses the
-official rootless DinD image. Although rootless DinD still needs a privileged
-outer container on current Docker, jobs only control the nested daemon and do
-not receive `/var/run/docker.sock` from Office 204. Runner capacity starts at
-one to limit CPU, memory and duplicate work.
+official isolated DinD image. Office 204's AppArmor policy blocks the user
+namespace transition needed by the rootless DinD flavour after container
+restart, so the pinned rootful DinD flavour is used instead. It remains isolated
+from the host daemon: jobs only control the nested daemon and never receive
+`/var/run/docker.sock` from Office 204. Runner capacity starts at one to limit
+CPU, memory and duplicate work.
 
 The CI trust boundary is repository allowlisting. Fork pull requests never
 receive deployment secrets. Production deployment remains an independent

@@ -76,7 +76,7 @@ services:
       - no-new-privileges:true
 
   runner:
-    image: docker.io/gitea/runner:2-dind-rootless@sha256:0ba6851043b9fe7a12b3bb3c57a581f59a09337d954256aa5a80cbe47a921242
+    image: docker.io/gitea/runner:2-dind@sha256:841ef554d61cbdde39ea578cd3ca82f1536d70d5cb08fe3065c700b6daf9d3ad
     restart: unless-stopped
     privileged: true
     depends_on:
@@ -89,18 +89,13 @@ services:
       GITEA_RUNNER_REGISTRATION_TOKEN_FILE: /run/secrets/runner-registration-token
       GITEA_RUNNER_NAME: ${GITEA_RUNNER_NAME:-office-204-ci-1}
       GITEA_RUNNER_LABELS: ${GITEA_RUNNER_LABELS:-ubuntu-22.04:docker://node:22-bookworm}
-      DOCKER_HOST: unix:///run/user/1000/docker.sock
-      DOCKERD_ROOTLESS_ROOTLESSKIT_NET: slirp4netns
-      DOCKERD_ROOTLESS_ROOTLESSKIT_MTU: "65520"
     secrets:
       - runner-registration-token
     volumes:
       - ./runner-config.yaml:/config.yaml:ro
       - gitea-runner-data:/data
-      - gitea-runner-docker:/home/rootless/.local/share/docker
+      - gitea-runner-docker:/var/lib/docker
     networks: [gitea-egress]
-    security_opt:
-      - apparmor=rootlesskit
 
 networks:
   gitea-backend:

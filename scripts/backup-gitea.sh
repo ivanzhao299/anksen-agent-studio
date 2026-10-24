@@ -44,4 +44,5 @@ docker run --rm \
 chmod 600 "$target"/*
 docker compose --env-file "$env_file" -f "$compose_file" up -d server runner
 restart_required=false
+GITEA_RELEASE_DIR="$release_dir" GITEA_STATE_DIR="$state_dir" bash "$release_dir/scripts/gitea-doctor.sh"
 printf 'Gitea backup complete: %s\n' "$target"
