@@ -30,6 +30,13 @@ service-account, read-only and rollback gates pass; the resulting Runner adds
 push-after-success, CI wait, deploy-after-CI and production route smoke, while
 task approval and release-evidence gates continue to fail closed.
 
+The reviewed boundary may additionally permit `gitea deploy <40-character
+SHA>`, `gitea probe`, `gitea create-admin` and `gitea backup`. Gitea uses a separate immutable release
+worktree and `/opt/anksen/gitea` state directory; it never stores repository,
+database, runner or secret state inside the Studio checkout. This command is
+inactive until an administrator installs the reviewed forced-command script and
+bootstrap deploy script on the Aliyun jump host and Office 204 respectively.
+
 The guarded `phoenix-runner probe` is the production qualification check. It
 fails unless systemd is enabled and active, the state and executable worktrees
 match `origin/main`, and the live process contains every governed execution,
@@ -54,6 +61,7 @@ unmanaged project deployment remain disabled.
 - `STUDIO_DEPLOY_JUMP_SSH_KEY`: dedicated private key for GitHub Actions to access the Aliyun jump host.
 - `STUDIO_DEPLOY_JUMP_KNOWN_HOSTS`: pinned SSH host-key entry for `123.57.220.65`.
 - `PHOENIX_ERP_RUNNER_ENV_B64`: base64-encoded Linux runner environment.
+- `GITEA_OFFICE_ENV_B64`: base64-encoded non-secret Gitea deployment settings.
 
 Neither secret is stored in the repository or deployment logs.
 
