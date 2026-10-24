@@ -68,6 +68,11 @@ test("Deployment is exact-SHA, immutable-release and fail-closed", async () => {
     "gitea-doctor.sh",
     "flock -n"
   ]) assert.ok(source.includes(expected), `missing deployment gate: ${expected}`);
+  assert.equal(
+    (source.match(/pull --policy missing/g) ?? []).length,
+    2,
+    "deployment should reuse present digest-pinned images and pull only missing images"
+  );
   assert.doesNotMatch(source, /reset\s+--hard|clean\s+-[a-z]*f/i);
 });
 
