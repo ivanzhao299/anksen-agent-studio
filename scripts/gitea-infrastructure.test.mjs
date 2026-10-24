@@ -6,7 +6,6 @@ const composePath = new URL("../infrastructure/gitea/docker-compose.yml", import
 const runnerPath = new URL("../infrastructure/gitea/runner-config.yaml", import.meta.url);
 const deployPath = new URL("./deploy-gitea.sh", import.meta.url);
 const backupPath = new URL("./backup-gitea.sh", import.meta.url);
-const apparmorPath = new URL("../infrastructure/gitea/rootlesskit.apparmor", import.meta.url);
 const jumpPath = new URL("../infrastructure/deployment/aliyun-studio-jump-deploy.sh", import.meta.url);
 
 test("Gitea production images are explicit and digest pinned", async () => {
@@ -24,8 +23,9 @@ test("Runner uses isolated DinD and never mounts the host Docker socket", async 
     readFile(composePath, "utf8"),
     readFile(runnerPath, "utf8")
   ]);
-  assert.match(compose, /runner:2-dind-rootless@sha256:/);
+  assert.match(compose, /runner:2-dind@sha256:/);
   assert.doesNotMatch(compose, /\/var\/run\/docker\.sock/);
+  assert.match(compose, /gitea-runner-docker:\/var\/lib\/docker/);
   assert.match(runner, /valid_volumes:\s*\[\]/);
   assert.match(runner, /privileged:\s*false/);
   assert.match(runner, /capacity:\s*1/);
@@ -53,15 +53,11 @@ test("Deployment is exact-SHA, immutable-release and fail-closed", async () => {
   assert.doesNotMatch(source, /reset\s+--hard|clean\s+-[a-z]*f/i);
 });
 
-test("Rootless runner restart remains scoped under Ubuntu AppArmor", async () => {
-  const [deploy, profile] = await Promise.all([
-    readFile(deployPath, "utf8"),
-    readFile(apparmorPath, "utf8")
-  ]);
-  assert.match(profile, /\/usr\/\{,local\/\}bin\/rootlesskit/);
-  assert.match(profile, /^\s*userns,/m);
-  assert.match(deploy, /apparmor_parser -r \/etc\/apparmor\.d\/rootlesskit/);
-  assert.doesNotMatch(deploy, /restrict_unprivileged_userns/);
+test("Doctor rejects a runner that only appears healthy briefly", async () => {
+  const source = await readFile(new URL("./gitea-doctor.sh", import.meta.url), "utf8");
+  assert.match(source, /GITEA_RUNNER_STABILITY_SECONDS/);
+  assert.match(source, /RestartCount/);
+  assert.match(source, /runner_stable=pass/);
 });
 
 test("Backup archives are created by the deployment user", async () => {

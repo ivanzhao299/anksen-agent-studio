@@ -28,10 +28,22 @@ for service in database server runner; do
   [[ -n "$container_id" ]] || { printf 'Gitea service is not running: %s\n' "$service" >&2; exit 1; }
 done
 
+runner_id="$(docker compose --env-file "$env_file" -f "$compose_file" ps --status running -q runner)"
+runner_restarts="$(docker inspect --format '{{.RestartCount}}' "$runner_id")"
+sleep "${GITEA_RUNNER_STABILITY_SECONDS:-8}"
+[[ "$(docker compose --env-file "$env_file" -f "$compose_file" ps --status running -q runner)" == "$runner_id" ]] || {
+  printf 'Gitea Actions runner did not remain running during the stability window.\n' >&2
+  exit 1
+}
+[[ "$(docker inspect --format '{{.RestartCount}}' "$runner_id")" == "$runner_restarts" ]] || {
+  printf 'Gitea Actions runner restarted during the stability window.\n' >&2
+  exit 1
+}
+
 health="$(curl --fail --silent --show-error --max-time 5 "http://127.0.0.1:${GITEA_HTTP_PORT:-4340}/api/healthz")"
 node -e 'const body=JSON.parse(process.argv[1]); if (body.status!=="pass") process.exit(1)' "$health"
 
 docker compose --env-file "$env_file" -f "$compose_file" exec -T runner \
   test -s /data/.runner || { printf 'Gitea Actions runner has no persisted registration.\n' >&2; exit 1; }
 
-printf 'GITEA_DOCTOR=PASS release=%s services=3 runner_registration=present health=pass\n' "$(basename "$release_dir")"
+printf 'GITEA_DOCTOR=PASS release=%s services=3 runner_registration=present runner_stable=pass health=pass\n' "$(basename "$release_dir")"
