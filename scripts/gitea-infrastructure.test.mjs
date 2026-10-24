@@ -57,5 +57,10 @@ test("Jump boundary exposes only bounded Gitea operations", async () => {
   assert.match(source, /"gitea" && "\$argument" == "probe"/);
   assert.match(source, /"gitea" && "\$argument" == "create-admin"/);
   assert.match(source, /"gitea" && "\$argument" == "backup"/);
+  assert.equal(
+    (source.match(/readlink -f \/opt\/anksen\/gitea-control\/current/g) ?? []).length,
+    3,
+    "probe, create-admin and backup must resolve the immutable release path"
+  );
   assert.match(source, /\[0-9a-f\]\{40\}/);
 });
