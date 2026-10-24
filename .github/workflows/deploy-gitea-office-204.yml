@@ -1,0 +1,99 @@
+name: Deploy Gitea to Office 204
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type DEPLOY-GITEA-OFFICE-204
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: anksen-gitea-office-204
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate Gitea release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check confirmation
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: test "$CONFIRM" = "DEPLOY-GITEA-OFFICE-204"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Shell syntax
+        run: bash -n scripts/lib/gitea-env.sh scripts/deploy-gitea.sh scripts/gitea-doctor.sh scripts/backup-gitea.sh scripts/gitea-create-admin.sh infrastructure/deployment/aliyun-studio-jump-deploy.sh
+
+      - name: Infrastructure policy tests
+        run: node --test scripts/gitea-infrastructure.test.mjs
+
+      - name: Validate Compose model
+        run: |
+          state_dir="$(mktemp -d)"
+          trap 'find "$state_dir" -type f -delete; find "$state_dir" -depth -type d -delete' EXIT
+          install -d -m 700 "$state_dir/secrets"
+          for name in database-password secret-key internal-token jwt-secret runner-registration-token; do
+            printf 'validation-only\n' > "$state_dir/secrets/$name"
+          done
+          GITEA_DOMAIN=git.example.invalid \
+          GITEA_SSH_DOMAIN=192.0.2.10 \
+          GITEA_SSH_BIND_ADDRESS=127.0.0.1 \
+          GITEA_STATE_DIR="$state_dir" \
+          docker compose -f infrastructure/gitea/docker-compose.yml config --quiet
+
+      - name: Check patch whitespace
+        run: git diff --check
+
+  deploy:
+    name: Deploy through guarded jump host
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: production
+    steps:
+      - name: Configure jump-host identity
+        env:
+          JUMP_SSH_KEY: ${{ secrets.STUDIO_DEPLOY_JUMP_SSH_KEY }}
+          JUMP_KNOWN_HOSTS: ${{ secrets.STUDIO_DEPLOY_JUMP_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$JUMP_SSH_KEY" > "$HOME/.ssh/gitea-deploy-jump"
+          printf '%s\n' "$JUMP_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/gitea-deploy-jump" "$HOME/.ssh/known_hosts"
+
+      - name: Deploy exact commit
+        env:
+          GITEA_ENV_B64: ${{ secrets.GITEA_OFFICE_ENV_B64 }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          test -n "$GITEA_ENV_B64"
+          printf '%s' "$GITEA_ENV_B64" | ssh \
+            -i "$HOME/.ssh/gitea-deploy-jump" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=4 \
+            root@123.57.220.65 \
+            "gitea deploy ${COMMIT_SHA}"
+
+      - name: Guarded qualification probe
+        run: |
+          ssh \
+            -i "$HOME/.ssh/gitea-deploy-jump" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            root@123.57.220.65 \
+            "gitea probe"
+
+      - name: Verify public HTTPS health
+        run: curl --fail --silent --show-error --retry 12 --retry-delay 5 --max-time 20 https://git.cnjinhu.com/api/healthz
