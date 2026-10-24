@@ -29,8 +29,8 @@ elif [[ "$action" == "kingturf-erp" && "$argument" == "deploy" && "$commit_sha" 
   printf -v remote_command 'cd %q && exec bash scripts/deploy-kingturf-erp.sh --commit %q --archive-stdin' "$office_repo" "$commit_sha"
 elif [[ "$action" == "gitea" && "$argument" == "deploy" && "$commit_sha" =~ ^[0-9a-f]{40}$ && -z "${unexpected:-}" ]]; then
   printf -v remote_command \
-    'if [ -x /opt/anksen/gitea-control/current/scripts/deploy-gitea.sh ]; then exec bash /opt/anksen/gitea-control/current/scripts/deploy-gitea.sh --commit %q --env-stdin; else exec bash %q --commit %q --env-stdin; fi' \
-    "$commit_sha" "$gitea_bootstrap_script" "$commit_sha"
+    'test -x %q && exec bash %q --commit %q --env-stdin' \
+    "$gitea_bootstrap_script" "$gitea_bootstrap_script" "$commit_sha"
 elif [[ "$action" == "gitea" && "$argument" == "probe" && -z "${commit_sha:-}" ]]; then
   printf -v remote_command \
     'release=$(readlink -f /opt/anksen/gitea-control/current); test -n "$release" && test -d "$release" && exec env GITEA_RELEASE_DIR="$release" GITEA_STATE_DIR=/opt/anksen/gitea bash "$release/scripts/gitea-doctor.sh"'

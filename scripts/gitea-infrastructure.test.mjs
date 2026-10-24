@@ -29,6 +29,8 @@ test("Runner uses isolated DinD and never mounts the host Docker socket", async 
   assert.match(runner, /valid_volumes:\s*\[\]/);
   assert.match(runner, /privileged:\s*false/);
   assert.match(runner, /capacity:\s*1/);
+  assert.match(runner, /docker_host:\s*unix:\/\/\/var\/run\/docker\.sock/);
+  assert.doesNotMatch(runner, /run\/user\/1000/);
 });
 
 test("Database is internal and only Gitea loopback HTTP plus LAN SSH are published", async () => {
@@ -73,6 +75,8 @@ test("Jump boundary exposes only bounded Gitea operations", async () => {
   assert.match(source, /"gitea" && "\$argument" == "probe"/);
   assert.match(source, /"gitea" && "\$argument" == "create-admin"/);
   assert.match(source, /"gitea" && "\$argument" == "backup"/);
+  assert.match(source, /ANKSEN_GITEA_BOOTSTRAP_SCRIPT/);
+  assert.doesNotMatch(source, /current\/scripts\/deploy-gitea\.sh/);
   assert.equal(
     (source.match(/readlink -f \/opt\/anksen\/gitea-control\/current/g) ?? []).length,
     3,
