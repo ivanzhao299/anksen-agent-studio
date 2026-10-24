@@ -51,6 +51,8 @@
     "mac-resident-worker:service:status": "node packages/orchestrator-core/bin/mac-resident-worker-service.mjs status",
     "project-lifecycle:check": "node packages/project-connector/bin/project-lifecycle-capability.mjs",
     "project-lifecycle:reconcile": "node scripts/reconcile-worktree-lifecycle.mjs",
+    "branch-lifecycle:audit": "node packages/project-connector/bin/branch-lifecycle-governor.mjs audit",
+    "branch-lifecycle:apply": "node packages/project-connector/bin/branch-lifecycle-governor.mjs apply",
     "autonomous-development:readiness": "node packages/orchestrator-core/bin/autonomous-development-readiness.mjs",
     "autonomous-development:v3-pilot": "node packages/orchestrator-core/bin/autonomous-development-v3-pilot.mjs",
     "lint:check": "node packages/orchestrator-core/bin/studio.mjs lint-check",

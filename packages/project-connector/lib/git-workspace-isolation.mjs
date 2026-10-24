@@ -3,6 +3,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { isBranchContentEquivalent } from "./branch-lifecycle-governor.mjs";
 
 const hash = value => createHash("sha256").update(String(value)).digest("hex");
 const safe = value => String(value ?? "").replace(/[^a-z0-9._-]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 80);
@@ -48,12 +49,13 @@ function assertSafeWorktreePath(worktreeRoot, worktreePath) {
 }
 
 export class GitWorkspaceIsolationManager {
-  constructor({ stateDir, worktreeRoot, remote = "origin", clock = () => new Date(), maxActiveWorkspacesPerProject = 3 }) {
+  constructor({ stateDir, worktreeRoot, remote = "origin", clock = () => new Date(), maxActiveWorkspacesPerProject = 3, workspaceRetentionDays = 30 }) {
     this.stateDir = resolve(stateDir);
     this.worktreeRoot = resolve(worktreeRoot);
     this.remote = remote;
     this.clock = clock;
     this.maxActiveWorkspacesPerProject = maxActiveWorkspacesPerProject;
+    this.workspaceRetentionDays = workspaceRetentionDays;
   }
   ownershipPath(projectId) { return resolve(this.stateDir, `${safe(projectId)}.json`); }
   async ownership(projectId) {
@@ -115,7 +117,8 @@ export class GitWorkspaceIsolationManager {
     mustGit(source.projectRoot, ["worktree", "add", "-b", branch, worktreePath, requestedBase], "WORKTREE_CREATE_FAILED");
     const sourceCommonDir = commonDir(source.projectRoot), worktreeCommonDir = commonDir(worktreePath);
     if (worktreeCommonDir !== sourceCommonDir) throw new GitWorkspaceIsolationError("WORKTREE_COMMON_DIR_MISMATCH", "Created worktree does not belong to source repository", { sourceCommonDir, worktreeCommonDir });
-    const record = { schemaVersion: 1, projectId, taskId, actorId, sourceProjectRoot: source.projectRoot, sourceGitCommonDir: sourceCommonDir, sourceDigest: source.digest, sourceHead: source.head, remoteHead: requestedBase, observedRemoteHead: remote.remoteHead, defaultBranch, branch, worktreePath, allowedPaths: [...allowedPaths], createdAt: this.clock().toISOString(), status: "ACTIVE" };
+    const createdAt = this.clock();
+    const record = { schemaVersion: 2, projectId, taskId, actorId, sourceProjectRoot: source.projectRoot, sourceGitCommonDir: sourceCommonDir, sourceDigest: source.digest, sourceHead: source.head, remoteHead: requestedBase, observedRemoteHead: remote.remoteHead, defaultBranch, branch, worktreePath, allowedPaths: [...allowedPaths], createdAt: createdAt.toISOString(), expiresAt: new Date(createdAt.getTime() + this.workspaceRetentionDays * 86400000).toISOString(), status: "ACTIVE" };
     registry.workspaces ??= {};
     registry.workspaces[taskId] = record;
     await this.saveOwnership(registry);
@@ -156,6 +159,63 @@ export class GitWorkspaceIsolationManager {
     const remote = await this.syncRemote({ projectRoot: workspace.sourceProjectRoot, defaultBranch: workspace.defaultBranch, expectedRemoteHead: workspace.remoteHead });
     if (remote.remoteHead !== workspace.remoteHead) throw new GitWorkspaceIsolationError("REMOTE_BASELINE_CHANGED", "Remote branch advanced after task isolation");
     return { workspace, source, remote };
+  }
+  async resumeTaskWorkspace({ projectId, taskId }) {
+    const registry = await this.ownership(projectId), workspace = registry.workspaces?.[taskId];
+    if (!workspace || workspace.status !== "ACTIVE") throw new GitWorkspaceIsolationError("TASK_WORKSPACE_NOT_ACTIVE");
+    if (!existsSync(workspace.worktreePath)) throw new GitWorkspaceIsolationError("TASK_WORKTREE_MISSING");
+    const status = parseStatus(mustGit(workspace.worktreePath, ["status", "--porcelain=v1", "--untracked-files=all"], "GIT_STATUS_FAILED"));
+    if (status.length) throw new GitWorkspaceIsolationError("TASK_WORKTREE_DIRTY", "A dirty task cannot be realigned automatically", { paths: status.map(item => item.path) });
+    const branch = mustGit(workspace.worktreePath, ["branch", "--show-current"], "BRANCH_READ_FAILED");
+    if (branch !== workspace.branch) throw new GitWorkspaceIsolationError("TASK_BRANCH_CHANGED");
+    const source = await this.inspect({ projectId, projectRoot: workspace.sourceProjectRoot });
+    const remote = await this.syncRemote({ projectRoot: workspace.sourceProjectRoot, defaultBranch: workspace.defaultBranch, expectedRemoteHead: workspace.remoteHead });
+    if (remote.remoteHead === workspace.remoteHead) return { status: "ALIGNED", workspace, source, remote, previousRemoteHead: workspace.remoteHead };
+    if (git(workspace.sourceProjectRoot, ["merge-base", "--is-ancestor", workspace.remoteHead, remote.remoteHead]).status !== 0) {
+      throw new GitWorkspaceIsolationError("REMOTE_HISTORY_REWRITTEN");
+    }
+    const previousRemoteHead = workspace.remoteHead;
+    const rebase = git(workspace.worktreePath, ["rebase", remote.remoteHead]);
+    if (rebase.status !== 0) {
+      git(workspace.worktreePath, ["rebase", "--abort"]);
+      throw new GitWorkspaceIsolationError("TASK_REBASE_CONFLICT", String(rebase.stderr || rebase.stdout).trim());
+    }
+    workspace.remoteHead = remote.remoteHead;
+    workspace.observedRemoteHead = remote.remoteHead;
+    workspace.sourceDigest = source.digest;
+    workspace.alignedAt = this.clock().toISOString();
+    workspace.alignmentCount = Number(workspace.alignmentCount ?? 0) + 1;
+    await this.saveOwnership(registry);
+    return { status: "REALIGNED", workspace, source, remote, previousRemoteHead };
+  }
+  async inspectTaskLifecycle({ projectId, taskId }) {
+    const registry = await this.ownership(projectId), workspace = registry.workspaces?.[taskId];
+    if (!workspace) throw new GitWorkspaceIsolationError("TASK_WORKSPACE_NOT_FOUND");
+    const now = this.clock();
+    const expired = workspace.status === "ACTIVE" && Number.isFinite(new Date(workspace.expiresAt).getTime()) && new Date(workspace.expiresAt).getTime() <= now.getTime();
+    if (!existsSync(workspace.worktreePath)) return { status: expired ? "EXPIRED_MISSING" : "MISSING", workspace, expired, action: "RECONCILE_REQUIRED" };
+    const dirty = parseStatus(mustGit(workspace.worktreePath, ["status", "--porcelain=v1", "--untracked-files=all"], "GIT_STATUS_FAILED"));
+    return { status: expired ? "EXPIRED" : workspace.status, workspace, expired, dirtyPaths: dirty.map(item => item.path), action: expired ? (dirty.length ? "QUARANTINE" : "REVIEW_RELEASE") : "KEEP" };
+  }
+  async finalizeMergedTaskWorkspace({ projectId, taskId, deleteRemote = false }) {
+    const registry = await this.ownership(projectId), workspace = registry.workspaces?.[taskId];
+    if (!workspace) throw new GitWorkspaceIsolationError("TASK_WORKSPACE_NOT_FOUND");
+    const remote = await this.syncRemote({ projectRoot: workspace.sourceProjectRoot, defaultBranch: workspace.defaultBranch });
+    const branchRef = `${this.remote}/${workspace.branch}`;
+    const remoteTipResult = git(workspace.sourceProjectRoot, ["rev-parse", "--verify", branchRef]);
+    if (remoteTipResult.status !== 0) throw new GitWorkspaceIsolationError("REMOTE_TASK_BRANCH_MISSING");
+    const remoteTip = remoteTipResult.stdout.trim();
+    const mergedByAncestry = git(workspace.sourceProjectRoot, ["merge-base", "--is-ancestor", remoteTip, remote.remoteHead]).status === 0;
+    const contentEquivalent = mergedByAncestry ? true : isBranchContentEquivalent(workspace.sourceProjectRoot, branchRef, `${this.remote}/${workspace.defaultBranch}`);
+    if (!contentEquivalent) throw new GitWorkspaceIsolationError("TASK_BRANCH_NOT_MERGED_OR_EQUIVALENT");
+    if (workspace.status === "ACTIVE") await this.releaseTaskWorkspace({ projectId, taskId, reason: "TASK_MERGED", preserveBranch: false });
+    if (deleteRemote) mustGit(workspace.sourceProjectRoot, ["push", "--atomic", this.remote, "--delete", "--", workspace.branch], "REMOTE_BRANCH_DELETE_FAILED");
+    const updated = await this.ownership(projectId);
+    const record = updated.workspaces?.[taskId] ?? workspace;
+    record.mergeVerifiedAt = this.clock().toISOString();
+    record.mergeEvidence = { defaultHead: remote.remoteHead, branchTip: remoteTip, mode: mergedByAncestry ? "ANCESTRY" : "CONTENT_EQUIVALENT", remoteDeleted: deleteRemote };
+    await this.saveOwnership(updated);
+    return record;
   }
   async releaseTaskWorkspace({ projectId, taskId, reason = "TASK_COMPLETE", preserveBranch = true }) {
     const registry = await this.ownership(projectId), workspace = registry.workspaces?.[taskId];

@@ -106,3 +106,46 @@ test("worker routes implementation through the governed runtime and four real ro
   assert.match(source, /expectedBaselineDigest/);
   assert.match(source, /NON_IMPROVING_VALIDATION|REPAIR_DECISION/);
 });
+
+test("resuming an isolated job realigns its clean task branch to the latest remote main", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "studio-development-resume-"));
+  const remote = resolve(root, "remote.git"), project = resolve(root, "project");
+  git(root, ["init", "--bare", remote]); await mkdir(project); git(project, ["init", "-b", "main"]);
+  git(project, ["config", "user.email", "studio@test.local"]); git(project, ["config", "user.name", "Studio Test"]);
+  await writeFile(resolve(project, "README.md"), "fixture\n"); git(project, ["add", "."]); git(project, ["commit", "-m", "fixture"]); git(project, ["remote", "add", "origin", remote]); git(project, ["push", "-u", "origin", "main"]);
+  const jobs = new AutonomousDevelopmentJobs({ repoRoot: root, storeDir: resolve(root, "runtime") });
+  try {
+    const job = await jobs.create({ projectId: "resume-project", projectRoot: project, workspaceIsolation: true, goal: "Resume this isolated task only after aligning it with the latest remote baseline", acceptanceCriteria: ["alignment is recorded"], acceptanceCommands: ["git diff --check"], acceptanceEvidence: [{ criterion: "alignment is recorded", type: "TEST", reference: "git diff --check" }], allowedPaths: ["result.txt"] }, { userId: "owner" });
+    const approved = await jobs.approve(job.id, { userId: "owner" });
+    await jobs.pause(approved.id, { userId: "owner" });
+    const peer = resolve(root, "peer"); git(root, ["clone", remote, peer]); git(peer, ["config", "user.email", "peer@test.local"]); git(peer, ["config", "user.name", "Peer"]); await writeFile(resolve(peer, "remote.txt"), "advance\n"); git(peer, ["add", "."]); git(peer, ["commit", "-m", "advance"]); git(peer, ["push", "origin", "main"]);
+    const resumed = await jobs.approve(job.id, { userId: "owner" });
+    assert.equal(resumed.status, "QUEUED");
+    assert.equal(resumed.events.at(-1).type, "JOB_RESUMED_REALIGNED");
+    assert.equal(resumed.events.at(-1).alignmentStatus, "REALIGNED");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("a merged isolated job is recycled only after merge evidence is verified", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "studio-development-recycle-"));
+  const remote = resolve(root, "remote.git"), project = resolve(root, "project");
+  git(root, ["init", "--bare", remote]); await mkdir(project); git(project, ["init", "-b", "main"]);
+  git(project, ["config", "user.email", "studio@test.local"]); git(project, ["config", "user.name", "Studio Test"]);
+  await writeFile(resolve(project, "README.md"), "fixture\n"); git(project, ["add", "."]); git(project, ["commit", "-m", "fixture"]); git(project, ["remote", "add", "origin", remote]); git(project, ["push", "-u", "origin", "main"]);
+  const jobs = new AutonomousDevelopmentJobs({ repoRoot: root, storeDir: resolve(root, "runtime") });
+  try {
+    const job = await jobs.create({ projectId: "recycle-project", projectRoot: project, workspaceIsolation: true, goal: "Recycle this isolated task only after its committed result is merged", acceptanceCriteria: ["merge evidence is recorded"], acceptanceCommands: ["git diff --check"], acceptanceEvidence: [{ criterion: "merge evidence is recorded", type: "TEST", reference: "git diff --check" }], allowedPaths: ["result.txt"] }, { userId: "owner" });
+    const approved = await jobs.approve(job.id, { userId: "owner" });
+    await writeFile(resolve(approved.projectRoot, "result.txt"), "accepted\n");
+    approved.status = "AWAITING_DIFF_APPROVAL"; await jobs.save(approved);
+    const committed = await jobs.approveCommit(job.id, { userId: "owner" });
+    assert.equal(committed.workspaceRelease.status, "AWAITING_MERGE");
+    git(committed.projectRoot, ["push", "-u", "origin", committed.isolatedWorkspace.branch]);
+    git(project, ["fetch", "origin"]); git(project, ["merge", "--ff-only", committed.commit.hash]); git(project, ["push", "origin", "main"]);
+    const recycled = await jobs.finalizeMergedWorkspace(job.id, { deleteRemote: true, actor: { userId: "owner" } });
+    assert.equal(recycled.workspaceRelease.status, "RECYCLED");
+    assert.equal(recycled.events.at(-1).type, "WORKSPACE_POST_MERGE_RECYCLED");
+    assert.equal(recycled.workspaceRelease.mergeEvidence.mode, "ANCESTRY");
+    assert.equal(git(project, ["ls-remote", "--heads", "origin", committed.isolatedWorkspace.branch]).stdout.trim(), "");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
