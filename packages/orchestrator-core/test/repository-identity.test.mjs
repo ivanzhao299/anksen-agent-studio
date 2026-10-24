@@ -53,13 +53,20 @@ test("rejects a remote or project identifier mismatch", () => {
 });
 
 test("accepts the explicitly trusted Gitea mirror over HTTPS or SSH", () => {
-  const trustedRemotes = ["https://git.cnjinhu.com/owner/anksen-agent-studio.git"];
+  const trustedRemotes = [
+    "https://git.cnjinhu.com/owner/anksen-agent-studio.git",
+    "ssh://git@192.168.2.204:2222/owner/anksen-agent-studio.git"
+  ];
   assert.equal(inspectRepositoryIdentity(fixture({
     remote: "https://git.cnjinhu.com/owner/anksen-agent-studio.git",
     trustedRemotes
   })).checks.remote, true);
   assert.equal(inspectRepositoryIdentity(fixture({
     remote: "ssh://git@git.cnjinhu.com/owner/anksen-agent-studio.git",
+    trustedRemotes
+  })).checks.remote, true);
+  assert.equal(inspectRepositoryIdentity(fixture({
+    remote: "ssh://git@192.168.2.204:2222/owner/anksen-agent-studio.git",
     trustedRemotes
   })).checks.remote, true);
 });
