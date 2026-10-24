@@ -89,7 +89,7 @@ if [[ ! -d "$release_dir" ]]; then git --git-dir="$mirror" worktree add --detach
 
 compose_file="$release_dir/infrastructure/gitea/docker-compose.yml"
 docker compose --env-file "$env_file" -f "$compose_file" config --quiet
-docker compose --env-file "$env_file" -f "$compose_file" pull database server
+docker compose --env-file "$env_file" -f "$compose_file" pull --policy missing database server
 docker compose --env-file "$env_file" -f "$compose_file" up -d database server
 
 for attempt in $(seq 1 60); do
@@ -98,7 +98,7 @@ for attempt in $(seq 1 60); do
   sleep 3
 done
 
-docker compose --env-file "$env_file" -f "$compose_file" pull runner
+docker compose --env-file "$env_file" -f "$compose_file" pull --policy missing runner
 docker compose --env-file "$env_file" -f "$compose_file" up -d runner
 GITEA_RELEASE_DIR="$release_dir" GITEA_STATE_DIR="$state_dir" bash "$release_dir/scripts/gitea-doctor.sh"
 ln -sfn "$release_dir" "$control_dir/current.next"
