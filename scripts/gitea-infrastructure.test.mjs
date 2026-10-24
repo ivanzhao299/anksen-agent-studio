@@ -41,6 +41,22 @@ test("Database is internal and only Gitea loopback HTTP plus LAN SSH are publish
   assert.match(source, /\$\{GITEA_SSH_BIND_ADDRESS/);
 });
 
+test("Gitea login sessions are durable, secure and explicitly bounded", async () => {
+  const [compose, envLoader] = await Promise.all([
+    readFile(composePath, "utf8"),
+    readFile(new URL("./lib/gitea-env.sh", import.meta.url), "utf8")
+  ]);
+  assert.match(compose, /GITEA__session__PROVIDER: db/);
+  assert.match(compose, /GITEA__session__SESSION_LIFE_TIME: \$\{GITEA_SESSION_LIFE_TIME_SECONDS:-2592000\}/);
+  assert.match(compose, /GITEA__server__LOGIN_REMEMBER_DAYS: \$\{GITEA_LOGIN_REMEMBER_DAYS:-365\}/);
+  assert.match(compose, /GITEA__session__COOKIE_SECURE: "true"/);
+  assert.match(compose, /GITEA__session__SAME_SITE: lax/);
+  assert.match(envLoader, /GITEA_LOGIN_REMEMBER_DAYS/);
+  assert.match(envLoader, /GITEA_SESSION_LIFE_TIME_SECONDS/);
+  assert.match(envLoader, /between 1 and 365/);
+  assert.match(envLoader, /between 86400 and 31536000/);
+});
+
 test("Deployment is exact-SHA, immutable-release and fail-closed", async () => {
   const source = await readFile(deployPath, "utf8");
   for (const expected of [
