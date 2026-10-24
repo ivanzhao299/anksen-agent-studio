@@ -1,0 +1,15 @@
+# The official Gitea rootless DinD runner executes rootlesskit from
+# /usr/local/bin inside the container. Ubuntu's packaged profile only attaches
+# to /usr/bin/rootlesskit, so include both locations while keeping the rule
+# scoped to this executable instead of disabling user-namespace restrictions
+# globally.
+
+abi <abi/5.0>,
+include <tunables/global>
+
+profile rootlesskit /usr/{,local/}bin/rootlesskit flags=(unconfined) {
+  userns,
+  @{exec_path} mr,
+
+  include if exists <local/rootlesskit>
+}

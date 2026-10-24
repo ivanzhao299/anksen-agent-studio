@@ -25,7 +25,7 @@ done
   printf 'A full 40-character commit SHA is required.\n' >&2
   exit 2
 }
-for command_name in docker git curl flock install openssl node awk; do
+for command_name in docker git curl flock install openssl node awk sudo; do
   command -v "$command_name" >/dev/null || { printf 'Gitea deployment requires %s.\n' "$command_name" >&2; exit 1; }
 done
 docker compose version >/dev/null
@@ -88,6 +88,10 @@ if [[ ! -d "$release_dir" ]]; then git --git-dir="$mirror" worktree add --detach
 }
 
 compose_file="$release_dir/infrastructure/gitea/docker-compose.yml"
+apparmor_profile="$release_dir/infrastructure/gitea/rootlesskit.apparmor"
+[[ -f "$apparmor_profile" ]] || { printf 'Missing managed rootlesskit AppArmor profile.\n' >&2; exit 1; }
+sudo install -o root -g root -m 644 "$apparmor_profile" /etc/apparmor.d/rootlesskit
+sudo apparmor_parser -r /etc/apparmor.d/rootlesskit
 docker compose --env-file "$env_file" -f "$compose_file" config --quiet
 docker compose --env-file "$env_file" -f "$compose_file" pull database server
 docker compose --env-file "$env_file" -f "$compose_file" up -d database server

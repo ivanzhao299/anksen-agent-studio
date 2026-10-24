@@ -30,6 +30,10 @@ Required outcomes:
 - ports `127.0.0.1:4340` and `192.168.2.204:2222` are unused;
 - Docker Compose v2 is available;
 - the `rootlesskit` AppArmor profile required by rootless DinD is available;
+- the managed profile covers both `/usr/bin/rootlesskit` and the runner
+  container's `/usr/local/bin/rootlesskit` attachment path; deployment reloads
+  this narrowly scoped profile without disabling Ubuntu's global user-namespace
+  restriction;
 - `/opt` has capacity for repositories, packages, database and CI images;
 - `git.cnjinhu.com` resolves to the approved ingress and has a valid TLS
   certificate before the Runner uses the public URL.
