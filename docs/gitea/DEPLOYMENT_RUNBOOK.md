@@ -40,6 +40,10 @@ Required outcomes:
 The server administrator installs reviewed files from the exact candidate SHA.
 Do not copy from an uncommitted working tree.
 
+The jump boundary always invokes the separately installed, reviewed Gitea
+bootstrap script. It must not execute the previous release's deploy script to
+interpret a newer release layout.
+
 On Office 204:
 
 ```bash
