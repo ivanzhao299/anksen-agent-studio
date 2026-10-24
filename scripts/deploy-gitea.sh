@@ -68,7 +68,8 @@ if [[ ! -d "$mirror" ]]; then git clone --bare "$repository_url" "$mirror"; fi
   printf 'Gitea control mirror origin mismatch.\n' >&2
   exit 1
 }
-git --git-dir="$mirror" fetch --prune origin main
+git --git-dir="$mirror" fetch --prune origin \
+  '+refs/heads/main:refs/remotes/origin/main'
 remote_commit="$(git --git-dir="$mirror" rev-parse refs/remotes/origin/main)"
 [[ "$remote_commit" == "$expected_commit" ]] || {
   printf 'Gitea deployment stopped: origin/main does not match requested commit.\n' >&2
